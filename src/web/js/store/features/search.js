@@ -1,4 +1,5 @@
 import { priceOf } from '../cart-model.js';
+import { scrollToSection } from '../scroll.js';
 import { GAME_INFO } from '../config.js';
 import { $, esc } from '../dom.js';
 import { money } from '../format.js';
@@ -47,7 +48,7 @@ export function search(e) {
           action: () => {
             state.game = game;
             renderAll();
-            $('catalogo').scrollIntoView({ behavior: 'smooth' });
+            scrollToSection('catalogo');
           },
         });
     }),
@@ -56,13 +57,13 @@ export function search(e) {
     name: 'Verificar jugador',
     info: 'Abrir Player ID',
     action: () => {
-      $('verificacion').scrollIntoView({ behavior: 'smooth' });
+      scrollToSection('verificacion');
     },
   });
   found.push({
     name: 'Factura viva',
     info: 'Revisar pedido',
-    action: () => $('factura').scrollIntoView({ behavior: 'smooth' }),
+    action: () => scrollToSection('factura'),
   });
   found.slice(0, MAX_RESULTS).forEach((r) => {
     const b = document.createElement('button');

@@ -1,4 +1,5 @@
 import { $ } from './dom.js';
+import { scrollToSection } from './scroll.js';
 import { cleanUid } from './format.js';
 import { renderAll } from './render.js';
 import { errorMessage } from './api.js';
@@ -22,8 +23,6 @@ import { exportInvoice } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
-
-const scrollToSection = (id) => $(id).scrollIntoView({ behavior: 'smooth' });
 
 const onEnter = (action) => (e) => {
   if (e.key === 'Enter') {

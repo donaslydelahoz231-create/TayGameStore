@@ -1,4 +1,5 @@
 import { $, setText } from './dom.js';
+import { scrollToSection } from './scroll.js';
 import { registerRenderers, renderAll } from './render.js';
 import { state } from './state.js';
 import { lastOrderReference, loadLocal, saveLocal, watchOtherTabs } from './storage.js';
@@ -68,7 +69,7 @@ async function resumeOrder() {
           : 'Estamos confirmando tu pago con Mercado Pago. Este estado se actualiza solo.',
         order.status === 'PAID' ? 'good' : '',
       );
-      $('seguimiento')?.scrollIntoView({ behavior: 'smooth' });
+      scrollToSection('seguimiento');
     }
   } catch {
     toast(

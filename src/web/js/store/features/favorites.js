@@ -1,4 +1,5 @@
 import { priceOf, productById } from '../cart-model.js';
+import { scrollToSection } from '../scroll.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { renderAll } from '../render.js';
@@ -19,7 +20,7 @@ export function renderFavorites() {
       '<div class="favorite-empty">Todavía no tienes paquetes favoritos. Pulsa ★ en cualquier paquete para guardarlo.<br><button class="btn glass favorite-browse" type="button">Ver catálogo</button></div>';
     box.querySelector('.favorite-browse').onclick = () => {
       modal('favoritesModal', false);
-      $('catalogo').scrollIntoView({ behavior: 'smooth' });
+      scrollToSection('catalogo');
     };
     return;
   }

@@ -1,9 +1,11 @@
 import { $ } from '../dom.js';
+import { bindSectionLinks } from '../scroll.js';
 
 const SECTION_IDS = ['inicio', 'catalogo', 'verificacion', 'factura', 'seguimiento', 'soporte'];
 
 /** Resalta en la navegación la sección visible. */
 export function navObserver() {
+  bindSectionLinks(SECTION_IDS);
   if (!('IntersectionObserver' in window)) return;
   const links = [...document.querySelectorAll('.nav a')],
     sections = SECTION_IDS.map((id) => $(id)).filter(Boolean);

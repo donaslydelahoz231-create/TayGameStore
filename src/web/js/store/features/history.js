@@ -1,4 +1,5 @@
 import { api, errorMessage } from '../api.js';
+import { scrollToSection } from '../scroll.js';
 import { $, esc } from '../dom.js';
 import { money } from '../format.js';
 import { state } from '../state.js';
@@ -42,7 +43,7 @@ export function renderHistory() {
       setCurrentOrder(o);
       startPolling();
       modal('historyModal', false);
-      $('factura').scrollIntoView({ behavior: 'smooth' });
+      scrollToSection('factura');
     };
     el.querySelector('.history-copy').onclick = async () => {
       try {

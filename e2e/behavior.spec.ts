@@ -296,6 +296,12 @@ test.describe('compra completa (invitado)', () => {
     await page.waitForURL(/\/#seguimiento$/);
     await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
     await expect(page.locator('#trackPayment')).toHaveClass(/done/);
+    // Al volver se ve la ruta de seguimiento completa, justo bajo la cabecera.
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.getElementById('seguimiento')?.getBoundingClientRect().top),
+      )
+      .toBeCloseTo(82, -1);
 
     expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
     await page.locator('#refreshOrderBtn').click();

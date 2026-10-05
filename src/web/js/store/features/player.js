@@ -1,4 +1,5 @@
 import { api, ApiError, errorMessage } from '../api.js';
+import { scrollToSection } from '../scroll.js';
 import { $, esc, setHtml, setText } from '../dom.js';
 import { cleanUid, validUid } from '../format.js';
 import { renderAll } from '../render.js';
@@ -133,7 +134,7 @@ async function confirmPlayer(confirm) {
       confirm ? 'Cuenta confirmada. Ya puedes pagar.' : 'Pedido cancelado: no era tu cuenta.',
       confirm ? 'good' : '',
     );
-    if (confirm) $('factura').scrollIntoView({ behavior: 'smooth' });
+    if (confirm) scrollToSection('factura');
   } catch (err) {
     toast(errorMessage(err), 'bad');
   } finally {
@@ -277,7 +278,7 @@ function useFinderId(id, found) {
   modal('playerFinderModal', false);
   if (found) applyLookupResult(id, { found });
   else verifyPlayer();
-  $('verificacion').scrollIntoView({ behavior: 'smooth' });
+  scrollToSection('verificacion');
 }
 
 /** Modal "Buscar jugador por ID": consulta instantánea si está disponible; si no, valida el ID. */

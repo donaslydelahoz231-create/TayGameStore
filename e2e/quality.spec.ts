@@ -148,6 +148,25 @@ test('el menú de escritorio se ve completo con una sesión iniciada', async ({ 
   expect(clipped).toEqual([]);
 });
 
+test('los enlaces del menú dejan cada sección justo bajo la cabecera', async ({ page }) => {
+  // Con animaciones: el desplazamiento suave es el que se quedaba corto o se pasaba.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  await enterAsGuest(page);
+  // `soporte` queda al final de la página y no puede subir hasta la cabecera.
+  for (const id of ['verificacion', 'factura', 'seguimiento', 'catalogo']) {
+    await page.locator(`.nav a[href="#${id}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`#${id}$`));
+    // scroll-padding-top de la página: 82 px (cabecera fija + aire).
+    await expect
+      .poll(
+        () => page.evaluate((i) => document.getElementById(i)?.getBoundingClientRect().top, id),
+        { message: `#${id}` },
+      )
+      .toBeCloseTo(82, -1);
+  }
+});
+
 test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x)', async ({
   browser,
 }) => {

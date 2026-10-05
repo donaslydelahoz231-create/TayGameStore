@@ -1,4 +1,5 @@
 import { api, ApiError, errorMessage } from '../api.js';
+import { scrollToSection } from '../scroll.js';
 import { uuid } from '../compat.js';
 import { cartItems, total } from '../cart-model.js';
 import { $, setText } from '../dom.js';
@@ -18,10 +19,6 @@ import { setCurrentOrder, startPolling } from './orders.js';
 // El navegador nunca decide que algo está pagado: lo confirma el servidor con Mercado Pago.
 
 const METHOD = 'mercadopago';
-
-function scrollTo(id) {
-  $(id)?.scrollIntoView({ behavior: 'smooth' });
-}
 
 function newCheckoutKey() {
   runtime.checkoutKey = uuid();
@@ -82,7 +79,7 @@ async function createOrder() {
   const missing = missingRequirement();
   if (missing) {
     toast(missing[0], 'bad');
-    if (missing[1]) scrollTo(missing[1]);
+    if (missing[1]) scrollToSection(missing[1]);
     return;
   }
   if (runtime.orderBusy) return;
@@ -110,10 +107,10 @@ async function createOrder() {
     startPolling();
     if (j.order.status === 'AWAITING_PAYMENT') {
       toast('Pedido creado. Ya puedes pagar con Mercado Pago.', 'good');
-      scrollTo('factura');
+      scrollToSection('factura');
     } else {
       toast('Pedido creado. Estamos verificando el jugador.', 'good');
-      scrollTo('verificacion');
+      scrollToSection('verificacion');
     }
   } catch (err) {
     if (
@@ -125,7 +122,7 @@ async function createOrder() {
     if (err instanceof ApiError && err.code === 'IDEMPOTENCY_CONFLICT') resetCheckoutKey();
     if (err instanceof ApiError && err.code === 'PLAYER_LOOKUP_EXPIRED') {
       lookupExpired();
-      scrollTo('verificacion');
+      scrollToSection('verificacion');
     }
     toast(errorMessage(err, 'No se pudo crear el pedido.'), 'bad');
   } finally {
@@ -171,7 +168,7 @@ function openConfirmation(order) {
 export function goToNextStep() {
   const order = state.currentOrder;
   if (order && !['REJECTED', 'EXPIRED', 'REFUNDED'].includes(order.status)) {
-    scrollTo(order.status === 'AWAITING_VERIFICATION' ? 'verificacion' : 'factura');
+    scrollToSection(order.status === 'AWAITING_VERIFICATION' ? 'verificacion' : 'factura');
     return;
   }
   const steps = [
@@ -183,7 +180,7 @@ export function goToNextStep() {
   ];
   const missing = steps.find(([, , done]) => !done());
   const [section, field] = missing ?? ['factura', 'payBtn'];
-  scrollTo(section);
+  scrollToSection(section);
   setTimeout(() => $(field)?.focus({ preventScroll: true }), 450);
 }
 
@@ -200,7 +197,7 @@ export async function preparePayment() {
         ? 'Confirma que es tu cuenta para continuar.'
         : 'Estamos verificando el jugador. Te avisaremos aquí.',
     );
-    scrollTo('verificacion');
+    scrollToSection('verificacion');
     return;
   }
   if (order.status === 'AWAITING_PAYMENT') {
@@ -211,7 +208,7 @@ export async function preparePayment() {
     openConfirmation(order);
     return;
   }
-  scrollTo('seguimiento');
+  scrollToSection('seguimiento');
 }
 
 /** "Confirmar y pagar": el servidor crea (o reutiliza) la preferencia y se redirige. */
