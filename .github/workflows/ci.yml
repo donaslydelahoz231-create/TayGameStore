@@ -60,8 +60,25 @@ jobs:
       - run: npm run test:integration
 
   e2e:
-    name: Comportamiento del frontend (Playwright)
+    name: End-to-end (Playwright + PostgreSQL)
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        # Credenciales desechables, solo para este contenedor de CI.
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: taygamestore_e2e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d taygamestore_e2e_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgres://ci:ci@localhost:5432/taygamestore_e2e_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -74,3 +91,14 @@ jobs:
       # Las referencias visuales (test:visual) no se ejecutan aquí: dependen del motor de
       # render y de las fuentes del sistema con que se generaron.
       - run: npm run test:e2e
+
+  secrets:
+    name: Secretos en el historial (gitleaks)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

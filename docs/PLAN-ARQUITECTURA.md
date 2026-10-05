@@ -1,11 +1,22 @@
 # TayGameStore — Plan de arquitectura
 
-- **Versión:** 3
+- **Versión:** 4
 - **Fecha:** 2026-10-05
-- **Cambios respecto a versiones anteriores:** documento regenerado desde cero (no es un parche);
-  pasarela anterior eliminada de la arquitectura vigente; contenido alineado con el estado real
-  del repositorio; Mercado Pago como única pasarela; estados de la orden y del intento de pago
-  separados en dos máquinas de estado distintas.
+- **Cambios en v4 (implementación):** el dominio diseñado en v3 está **implementado y probado**
+  (§2). Diferencias respecto al diseño v3, ya reflejadas en el código y en los specs:
+  - Mercado Pago integrado con el SDK oficial 3.6.1 (`MercadoPagoPaymentGateway`): contratos
+    verificados en el SDK y en la documentación oficial; **sin prueba en sandbox real**.
+  - Estados internos del pago: `PENDING`, `APPROVED`, `DECLINED`, `REFUNDED`, `DISPUTED`,
+    `NEEDS_REFUND`, `UNKNOWN` (mapeo en [`specs/pagos.md`](specs/pagos.md)); el vencimiento se
+    gestiona en el intento (`payment_attempts`: `CREATING`, `OPEN`, `CLOSED`, `EXPIRED`, `FAILED`).
+  - Entrega con máquina propia (`fulfillments`): `READY_FOR_FULFILLMENT → CLAIMED → DELIVERING →
+    DELIVERED`, más `FAILED` y `CANCELLED`.
+  - Pago tardío de una orden vencida ⇒ `NEEDS_REVIEW` (decisión del admin); `NEEDS_REVIEW`
+    puede cerrarse como `REFUNDED` o `EXPIRED` solo sin cobros vigentes.
+  - Al vencer la confirmación de pago la orden pasa a `EXPIRED` (no vuelve a verificación).
+  - En producción `CHECKOUT_ENABLED=true` exige `PAYMENTS_ENABLED=true` con credenciales.
+  - Documentos operativos: `deployment.md`, `runbook.md`, `incident-response.md`.
+- **v3:** documento regenerado; pasarela anterior eliminada; estados de orden y pago separados.
 
 **Marcas usadas en todo el documento**
 
@@ -45,35 +56,24 @@ contradicción se documenta en §4.2):
 
 ## 2. Estado actual
 
-El repositorio **no está vacío**: contiene un servidor Fastify con base de datos, migraciones,
-pruebas, CI y el frontend modularizado. **No hay ventas reales** ni pueden habilitarse: el
-servidor rechaza en producción `CHECKOUT_ENABLED=true` y rechaza `PAYMENTS_ENABLED=true` en
-cualquier entorno.
+Tienda funcional de punta a punta. Las ventas reales dependen de configurar Mercado Pago
+(credenciales + prueba en sandbox) y de que el propietario confirme la fuente de verificación.
 
 | Área | Estado | Evidencia |
 |---|---|---|
-| Servidor Fastify: configuración validada con Zod, logs JSON con `requestId` y redacción, formato de error estable, cierre ordenado | `IMPLEMENTADO` | `src/server/{app,index}.ts`, `config/env.ts`, `plugins/*`; `tests/unit`, `tests/api` |
-| `GET /api/health`, `GET /api/ready`, `GET /api/config` | `IMPLEMENTADO` | `src/server/modules/{health,config}`; `tests/api/health.test.ts` |
-| Interruptores `MAINTENANCE_MODE`, `CHECKOUT_ENABLED`, `PAYMENTS_ENABLED` | `IMPLEMENTADO` | `env.ts`, `plugins/maintenance.ts`; `tests/api/maintenance.test.ts`, `tests/unit/env.test.ts` |
-| PostgreSQL + Drizzle ORM + migraciones; tabla `audit_events` | `IMPLEMENTADO` | `src/server/db/*`, `migrations/0000_init.sql`; `tests/integration/database.test.ts` |
-| Frontend modular (Vite, 28 capas CSS, módulos ES) con referencias visuales y pruebas de comportamiento | `IMPLEMENTADO` | `src/web/`; `e2e/` |
-| CI en GitHub Actions (3 jobs) | `IMPLEMENTADO`; **último run en rojo** (§20) | `.github/workflows/ci.yml` |
-| Resto de tablas, catálogo, checkout, órdenes, autenticación, admin, verificación y entrega manuales, scheduler, cabeceras de seguridad, CSRF, rate limiting | `DISEÑADO` | Este documento |
-| `FULFILLMENT_ENABLED`, Dockerfile, gitleaks, runbooks, guía de despliegue | `PENDIENTE` | — |
-| Mercado Pago | `BLOCKED` | Dominios bloqueados por la política de red del entorno (403 del proxy, comprobado el 2026-10-05) |
-| Fuente legítima de verificación de jugador (C1) | `BLOCKED` | Sin fuente confirmada por el propietario |
-| Proveedor automático de recargas | `BLOCKED` | Sin proveedor legítimo definido |
-
-**Herencia del HTML original todavía presente en el frontend** (no es de producción; se retira
-en las fases B–D): modo demo `?demo=1` con pago y entrega **simulados**, catálogo de respaldo
-con precios fijos, órdenes/historial/datos del cliente en `localStorage`, numeración del
-comprobante en el navegador, formulario de contraseña, consulta de jugador desde el navegador,
-código y textos de la pasarela retirada (ver Anexo, `HISTÓRICO`) y CSP en `<meta>` con
-`'unsafe-inline'`. El frontend llama a rutas que el servidor **no implementa**
-(`/api/auth/*`, `/api/catalog`, `/api/checkout`, `/api/orders`, `/api/player/lookup`,
-`/api/nickname`); al no existir, muestra estados de "servicio no disponible".
-
----
+| Servidor base, configuración validada, errores, logs con redacción, health/ready | `IMPLEMENTADO` | `tests/unit`, `tests/api` |
+| Esquema completo (13 tablas, CHECK/UNIQUE/índices parciales) + auditoría append-only (trigger) | `IMPLEMENTADO` | `migrations/0001_commerce.sql`, `0002_audit_append_only.sql`; `tests/integration` |
+| Catálogo, checkout idempotente, límites antifraude, blocklist, órdenes de invitado y cliente | `IMPLEMENTADO` | `tests/integration/commerce.test.ts` |
+| Verificación manual del jugador + confirmación explícita del cliente | `IMPLEMENTADO` | ídem; `e2e/behavior.spec.ts` |
+| Pagos Mercado Pago (preferencia, webhook firmado, consulta, conciliación, duplicados, tardíos, reembolsos) | `IMPLEMENTADO` · `NO VERIFICADO` en sandbox | `services/payments.ts`; pruebas con doble de Mercado Pago |
+| Entrega manual (reclamo atómico, evidencia, liberación, fallo → revisión) | `IMPLEMENTADO` | integración + e2e del panel |
+| Google OIDC + PKCE/state/nonce, sesiones opacas, admin con allowlist + TOTP + códigos de recuperación | `IMPLEMENTADO` · login real `NO VERIFICADO` (sin cliente OAuth) | `tests/integration/auth.test.ts` |
+| CSP/HSTS/anti-clickjacking, CSRF, rate limiting (una instancia), llaveros rotables | `IMPLEMENTADO` | `tests/api/errors.test.ts`, `tests/unit` |
+| Scheduler con advisory locks (expiración, conciliación, reintentos, reclamos, limpieza) | `IMPLEMENTADO` | integración |
+| Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 20 e2e; CSS de la tienda idéntico byte a byte |
+| CI: calidad, integración, e2e con PostgreSQL, audit, gitleaks | `IMPLEMENTADO` | `.github/workflows/ci.yml` |
+| Accesibilidad (axe-core), responsive 390/430/1024/1440/1920, métricas externas | `PENDIENTE` | — |
+| Fuente legítima de verificación (C1), proveedor de recargas automático | `BLOCKED` (externo) | — |
 
 ## 3. Principios
 
@@ -309,8 +309,9 @@ Estados: `AWAITING_VERIFICATION`, `REJECTED`, `AWAITING_PAYMENT`, `PAID`, `DELIV
 
 ## 11. Pagos — Mercado Pago
 
-**Estado: `BLOCKED`.** Documentación oficial y sandbox inaccesibles desde el entorno. Detalle
-del proveedor: [`specs/pagos.md`](specs/pagos.md) (prevalece en todo lo específico de Mercado Pago).
+**Estado: `IMPLEMENTADO` con el SDK oficial; `NO VERIFICADO` en sandbox** (dominios de Mercado
+Pago bloqueados en el entorno de desarrollo). Detalle y checklist de salida:
+[`specs/pagos.md`](specs/pagos.md) (prevalece en todo lo específico de Mercado Pago).
 
 ### 11.1 Arquitectura
 
@@ -359,9 +360,8 @@ sigue `AWAITING_PAYMENT` y puede abrirse un nuevo intento; discrepancia ⇒ orde
 
 ## 12. Verificación de jugador
 
-**Estado:** flujo manual `DISEÑADO`; uso real `BLOCKED` (C1: falta una fuente legítima con la
-que el operador verifique). Spec: [`specs/verificacion-jugador.md`](specs/verificacion-jugador.md)
-(pendiente de alinear, §4.2 #2).
+**Estado:** flujo manual `IMPLEMENTADO`; la fuente legítima que usa el operador la define el
+propietario (C1). Spec: [`specs/verificacion-jugador.md`](specs/verificacion-jugador.md).
 
 - Flujo: `ORDER_CREATED` → `AWAITING_VERIFICATION` → el operador verifica y registra nickname,
   región y resultado → el cliente ve "Vas a recargar a: [nickname] — ID: [UID] — Región:
@@ -379,9 +379,10 @@ que el operador verifique). Spec: [`specs/verificacion-jugador.md`](specs/verifi
 
 ## 13. Fulfillment / recargas
 
-- **Manual** (`FULFILLMENT_MODE=manual`, `DISEÑADO`): reclamo atómico (`claimed_by`,
-  `claimed_at` con CAS), evidencia por ítem, liberación del reclamo, protección contra doble
-  entrega, auditoría. Interruptor `FULFILLMENT_ENABLED`: `PENDIENTE` (no existe en `env.ts`).
+- **Manual** (`FULFILLMENT_MODE=manual`, `IMPLEMENTADO`): `READY_FOR_FULFILLMENT → CLAIMED →
+  DELIVERING → DELIVERED` (o `FAILED` → revisión), reclamo atómico con CAS, evidencia por
+  orden, liberación manual o por tiempo, nunca sin pago aprobado y correcto, auditoría.
+  Interruptor `FULFILLMENT_ENABLED` (`IMPLEMENTADO`).
 - **Proveedor automático** (`TopUpProvider`, `BLOCKED`): solo con documentación oficial; clave
   de idempotencia por ítem, creación, consulta de estado, timeout. Respuesta ambigua ⇒ consulta
   de estado → si sigue sin resolverse, `NEEDS_REVIEW`. **Nunca reintento ciego.** No se inventa proveedor.
@@ -663,8 +664,6 @@ No se avanza a una fase que dependa de un bloqueo externo.
 
 ## Anexo — Historial (`HISTÓRICO`, no es arquitectura vigente)
 
-- v1 y v2 de este plan usaban otra pasarela (Wompi). El propietario la eliminó el
-  2026-10-05 sin alternativa ni fallback. Restos que se eliminan en la Fase B: CSP `<meta>` y
-  textos de `src/web/index.html`, `src/web/js/store/features/{checkout,invoice,service}.js`,
-  `src/web/js/store/bindings.js`, comentarios de `src/server/config/env.ts`,
-  `e2e/behavior.spec.ts`, `README.md` y `.env.example`.
+- v1 y v2 de este plan usaban otra pasarela (Wompi). El propietario la eliminó el 2026-10-05
+  sin alternativa ni fallback. Todos sus restos (código, CSP, textos, pruebas, configuración)
+  se eliminaron del repositorio en la implementación v4.

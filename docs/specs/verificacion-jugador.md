@@ -1,75 +1,40 @@
 # Especificación — Verificación de jugador (UID / nickname / región)
 
-> Requisito del propietario (2026-10-05). Rige para todo producto ligado a un jugador.
-> Estado de implementación: **no implementado**. Proveedor de verificación: **BLOCKED**
-> (no existe todavía una API oficial o legítima confirmada).
+> Estado: **IMPLEMENTADO como verificación manual por el operador** dentro del ciclo de vida
+> de la orden. No existe una API oficial pública para consultar nicknames de Free Fire:
+> **no se hace scraping, no se usan fuentes no oficiales ni endpoints inventados.**
+> La fuente que use el operador debe ser legítima (decisión del propietario, C1).
 
 ## Regla crítica
 
 ```
-UID + región → validación → consulta al proveedor → jugador real → confirmación explícita
-→ checkout → recálculo y validación en servidor → pago → fulfillment
+UID válido → pedido creado → operador verifica (fuente legítima) → cliente confirma
+"Sí, es mi cuenta" → pago → entrega al UID guardado en la orden
 ```
 
-Nunca: `UID escrito → asumir nickname → cobrar → descubrir después que era incorrecto`.
-La identidad del jugador es un **dato crítico de destino**, igual que el importe y el producto.
+Nunca: asumir un nickname, aceptar el nickname que envía el navegador o cobrar antes de la
+confirmación explícita.
 
-## Diseño
+## Flujo implementado
 
-### Entidad propia: `player_verifications`
-La verificación es una entidad separada que **precede** a la orden (no es un estado de la orden).
+1. El cliente escribe el UID (6–12 dígitos). El servidor lo valida al crear el pedido.
+2. Orden en `AWAITING_VERIFICATION` con `verification_status = PENDING`.
+3. Operador (panel `/admin.html`, Google + TOTP): registra `VERIFIED` con nickname y región,
+   o `NOT_FOUND` / `AMBIGUOUS` / `BLOCKED_ACCOUNT` (la orden pasa a `REJECTED`).
+4. El cliente ve **"Vas a recargar a: [nickname] — ID: [UID] — Región: [región]"** y elige
+   "Sí, es mi cuenta" (→ `AWAITING_PAYMENT`) o "No es mi cuenta" (→ `REJECTED`).
+   Debe reenviar el nickname que vio: si el operador lo cambió, recibe `409` y lo vuelve a ver.
+5. Si nadie verifica antes de `VERIFICATION_TTL_MINUTES`, la orden expira.
 
-| Campo | Notas |
-|---|---|
-| `id` (uuid) | Referencia **opaca** que recibe el navegador (`verificationRef`) |
-| `owner_kind`, `owner_hash` | Sesión de usuario o cookie de invitado (`HttpOnly`); la verificación solo la usa quien la creó |
-| `game`, `uid`, `region` | Entrada normalizada y validada en servidor |
-| `provider`, `provider_ref` | Proveedor y su identificador de consulta (`verificationId`) |
-| `status` | `VERIFIED` · `NOT_FOUND` · `AMBIGUOUS` · `BLOCKED_ACCOUNT` · `INCONSISTENT` · `UNAVAILABLE` |
-| `nickname`, `region_resolved`, `account_status` | **Solo** lo devuelto por el proveedor |
-| `confirmed_at` | Confirmación explícita del cliente |
-| `expires_at` | Caducidad corta (configurable); caducada ⇒ se repite la consulta |
-| `request_id`, `created_at` | Trazabilidad (sin secretos) |
+## Garantías
 
-### Interfaz
+- La base de datos impide `AWAITING_PAYMENT`/`PAID`/entregas sin `confirmed_at`
+  (`orders_payment_requires_confirmation_check`).
+- La entrega usa solo el UID guardado en la orden.
+- Mensajes genéricos al cliente; rate limiting en todas las rutas de órdenes.
+- Auditoría de verificación, confirmación y rechazo (operador, fecha, región).
 
-```ts
-interface PlayerVerificationProvider {
-  readonly name: string;
-  verify(
-    input: { game: GameSlug; uid: string; region?: string; nickname?: string },
-    ctx: { requestId: string; signal: AbortSignal },
-  ): Promise<
-    | { status: 'VERIFIED'; providerRef: string; nickname: string; uid: string; region: string; accountStatus?: string }
-    | { status: 'NOT_FOUND' | 'AMBIGUOUS' | 'BLOCKED_ACCOUNT' | 'INCONSISTENT'; providerRef?: string }
-    | { status: 'UNAVAILABLE'; reason: 'timeout' | 'upstream_error' | 'not_configured' }
-  >;
-}
-```
+## Proveedor automático futuro
 
-Implementación inicial: `UnavailablePlayerVerificationProvider` → siempre `UNAVAILABLE / not_configured`.
-**No** se crea ningún proveedor simulado para producción; un doble de pruebas solo existe en los tests.
-
-### Endpoints (propuestos)
-
-| Método y ruta | Comportamiento |
-|---|---|
-| `POST /api/player-verifications` | `{ game, uid, region?, nickname? }` → valida formato/longitud/caracteres/región por juego → rate limit (IP, sesión/invitado, UID) → consulta con timeout → guarda el resultado. Responde `verificationRef`, `nickname`, `uid`, `region`, `accountStatus?`, `expiresAt` **solo si `VERIFIED`** |
-| `POST /api/player-verifications/:ref/confirm` | Confirmación explícita ("Vas a recargar a: [nickname] — ID: [UID] — Región: [región]"). Solo el dueño, solo si `VERIFIED` y vigente |
-| `POST /api/checkout` | Recibe `verificationRef` (nunca UID/nickname/región). El servidor exige `VERIFIED` + confirmada + vigente + mismo dueño + juego coherente con los productos, y copia el resultado a la orden |
-
-### Reglas
-- Resultado `NOT_FOUND`, `AMBIGUOUS`, `BLOCKED_ACCOUNT` o `INCONSISTENT` ⇒ **no se permite pagar**. Respuesta genérica ("No pudimos verificar ese jugador") para no facilitar la enumeración.
-- Proveedor caído o sin respuesta ⇒ `UNAVAILABLE`: no se inventa identidad, no se marca verificado, no se cobra; `503 PLAYER_VERIFICATION_UNAVAILABLE` con reintento permitido.
-- Caducada antes del pago ⇒ `409 VERIFICATION_EXPIRED`: se repite la verificación y la confirmación.
-- Antes de crear el pago se revalida que la verificación de la orden sigue siendo la del destino; si el proveedor lo permite, se vuelve a consultar.
-- El fulfillment usa **solo** el UID/región guardados en la orden.
-- Cambiar el DOM, DevTools o las peticiones no altera el destino: el navegador solo maneja `verificationRef`.
-- Búsqueda por nickname: solo si el proveedor la ofrece oficialmente; desactivada por defecto (mayor riesgo de enumeración).
-- Logs: `requestId`, dueño (hash), juego, UID, región, proveedor, `verificationId`, estado. Nunca credenciales del proveedor.
-- Sin API oficial: **ni scraping, ni endpoints inventados, ni validación falsa**.
-
-## Consecuencias
-- Mientras no exista proveedor legítimo, `POST /api/player-verifications` responde `UNAVAILABLE` y **no se puede crear ningún checkout**: no hay ventas.
-- La orden ya no necesita estados de verificación: se crea solo con una verificación confirmada.
-- Requiere una cookie de invitado `HttpOnly` (identificador aleatorio, hash en BD) para atar la verificación al navegador que la hizo.
+Si aparece una API oficial: implementar la interfaz `PlayerVerifier` y que el resultado se
+registre igual que el del operador. La máquina de estados no cambia.
