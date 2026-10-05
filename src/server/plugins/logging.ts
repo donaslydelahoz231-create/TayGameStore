@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
-import type { FastifyServerOptions } from 'fastify';
+import type { FastifyRequest, FastifyServerOptions } from 'fastify';
 import type { AppConfig } from '../config/env.js';
 
 /** Cabeceras y campos que nunca deben aparecer en los logs. */
@@ -23,10 +23,25 @@ export function generateRequestId(request: IncomingMessage): string {
   return randomUUID();
 }
 
+/** Quita la query de las rutas de autenticación (code y state de OAuth no van a los logs). */
+export function sanitizeLoggedUrl(url: string): string {
+  return url.startsWith('/auth/')
+    ? url.split('?')[0] + (url.includes('?') ? '?[REDACTED]' : '')
+    : url;
+}
+
 export function buildLoggerOptions(config: AppConfig): FastifyServerOptions['logger'] {
   const base = {
     level: config.logLevel,
     redact: { paths: REDACTED_PATHS, censor: '[REDACTED]' },
+    serializers: {
+      req: (request: FastifyRequest) => ({
+        method: request.method,
+        url: sanitizeLoggedUrl(request.url),
+        host: request.host,
+        remoteAddress: request.ip,
+      }),
+    },
   };
   if (config.logPretty) {
     // pino-pretty es dependencia de desarrollo: solo se usa en desarrollo local.

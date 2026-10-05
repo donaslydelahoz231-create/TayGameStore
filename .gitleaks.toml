@@ -1,0 +1,12 @@
+# Reglas por defecto de gitleaks. Solo se excluyen archivos con credenciales FICTICIAS de
+# pruebas (p. ej. postgres://user:supersecret@db.example) que nunca son secretos reales.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Credenciales ficticias de pruebas y ejemplos"
+paths = [
+  '''^tests/''',
+  '''^e2e/''',
+  '''^\.env\.example$''',
+]

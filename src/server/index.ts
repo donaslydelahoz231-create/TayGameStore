@@ -1,7 +1,10 @@
 import type { FastifyBaseLogger } from 'fastify';
-import { buildApp } from './app.js';
+import { buildAppWithDeps } from './app.js';
 import { ConfigError, loadConfig, type AppConfig } from './config/env.js';
 import { createDatabase } from './db/client.js';
+import { HttpGoogleClient } from './integrations/google/oidc.js';
+import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
+import { startScheduler, type Scheduler } from './services/jobs.js';
 
 let config: AppConfig;
 try {
@@ -21,9 +24,25 @@ const database = config.databaseUrl
     })
   : undefined;
 
-const app = await buildApp({ config, database });
+const { app, deps } = await buildAppWithDeps({
+  config,
+  database,
+  db: database?.db,
+  paymentGateway: config.mercadoPago
+    ? new MercadoPagoPaymentGateway(config.mercadoPago)
+    : undefined,
+  googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
+});
 logRef.current = app.log;
-if (!database) app.log.warn('DATABASE_URL no configurada: /api/ready responderá 503.');
+if (!database) app.log.warn('DATABASE_URL no configurada: /api/ready y la tienda responderán 503.');
+if (config.secrets.ephemeral) {
+  app.log.warn(
+    'Claves efímeras (ORDER_TOKEN_KEYS/MFA_ENCRYPTION_KEYS/IP_HASH_PEPPER): solo para desarrollo.',
+  );
+}
+
+let scheduler: Scheduler | undefined;
+if (deps && config.jobsEnabled) scheduler = startScheduler(deps);
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 let shuttingDown = false;
@@ -35,6 +54,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   const forceExit = setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS);
   forceExit.unref();
   try {
+    scheduler?.stop();
     await app.close();
     await database?.close();
     process.exit(0);

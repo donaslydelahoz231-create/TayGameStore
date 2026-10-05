@@ -8,6 +8,20 @@
       "when": 1791209670515,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791219738199,
+      "tag": "0001_commerce",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791219748031,
+      "tag": "0002_audit_append_only",
+      "breakpoints": true
     }
   ]
 }

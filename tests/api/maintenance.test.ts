@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { ApiErrorBody } from '../../src/shared/errors.js';
 import { requireCheckoutEnabled } from '../../src/server/plugins/maintenance.js';
-import { buildTestApp, testConfig } from '../helpers.js';
+import { buildTestApp, CSRF, testConfig } from '../helpers.js';
 
 let app: FastifyInstance | undefined;
 afterEach(async () => {
@@ -24,7 +24,7 @@ async function appWithTestRoutes(env: Record<string, string>): Promise<FastifyIn
 describe('modo mantenimiento', () => {
   it('bloquea escrituras con 503 MAINTENANCE_MODE', async () => {
     app = await appWithTestRoutes({ MAINTENANCE_MODE: 'true' });
-    const res = await app.inject({ method: 'POST', url: '/test/write' });
+    const res = await app.inject({ method: 'POST', url: '/test/write', headers: CSRF });
     expect(res.statusCode).toBe(503);
     expect(res.json<ApiErrorBody>().error.code).toBe('MAINTENANCE_MODE');
   });
@@ -49,7 +49,7 @@ describe('modo mantenimiento', () => {
 
   it('no interfiere cuando está desactivado', async () => {
     app = await appWithTestRoutes({});
-    const res = await app.inject({ method: 'POST', url: '/test/write' });
+    const res = await app.inject({ method: 'POST', url: '/test/write', headers: CSRF });
     expect(res.statusCode).toBe(200);
   });
 });
@@ -57,14 +57,14 @@ describe('modo mantenimiento', () => {
 describe('CHECKOUT_ENABLED', () => {
   it('rechaza compras con 503 CHECKOUT_DISABLED por defecto', async () => {
     app = await appWithTestRoutes({});
-    const res = await app.inject({ method: 'POST', url: '/test/checkout' });
+    const res = await app.inject({ method: 'POST', url: '/test/checkout', headers: CSRF });
     expect(res.statusCode).toBe(503);
     expect(res.json<ApiErrorBody>().error.code).toBe('CHECKOUT_DISABLED');
   });
 
   it('permite la ruta cuando está habilitado (solo fuera de producción)', async () => {
     app = await appWithTestRoutes({ CHECKOUT_ENABLED: 'true' });
-    const res = await app.inject({ method: 'POST', url: '/test/checkout' });
+    const res = await app.inject({ method: 'POST', url: '/test/checkout', headers: CSRF });
     expect(res.statusCode).toBe(200);
   });
 });
@@ -80,6 +80,11 @@ describe('GET /api/config', () => {
       maintenanceMode: true,
       checkoutEnabled: false,
       paymentsEnabled: false,
+      paymentMethod: 'mercadopago',
+      auth: { google: false },
+      support: { whatsapp: null, email: null },
+      termsVersion: '2026-10-05',
+      limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },
     });
     expect(res.body).not.toContain('secreto');
   });

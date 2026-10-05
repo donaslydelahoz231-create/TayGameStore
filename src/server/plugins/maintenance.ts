@@ -30,16 +30,19 @@ export function registerMaintenanceGuard(app: FastifyInstance, flags: FeatureFla
   });
 }
 
+/** Exige CHECKOUT_ENABLED y que no haya mantenimiento. */
+export function assertCheckoutEnabled(flags: FeatureFlags): void {
+  if (flags.maintenanceMode) throw maintenanceError();
+  if (!flags.checkoutEnabled) {
+    throw new AppError(
+      'CHECKOUT_DISABLED',
+      503,
+      'Las compras no están habilitadas en este momento.',
+    );
+  }
+}
+
 /** preHandler para las rutas de compra: exige CHECKOUT_ENABLED y que no haya mantenimiento. */
 export function requireCheckoutEnabled(flags: FeatureFlags): preHandlerAsyncHookHandler {
-  return async () => {
-    if (flags.maintenanceMode) throw maintenanceError();
-    if (!flags.checkoutEnabled) {
-      throw new AppError(
-        'CHECKOUT_DISABLED',
-        503,
-        'Las compras no están habilitadas en este momento.',
-      );
-    }
-  };
+  return async () => assertCheckoutEnabled(flags);
 }

@@ -12,3 +12,6 @@ export async function buildTestApp(
   const { env, ...deps } = options;
   return buildApp({ config: testConfig(env), ...deps });
 }
+
+/** Cabecera anti-CSRF que el frontend envía en toda petición que modifica estado. */
+export const CSRF = { 'x-tgs-csrf': '1' } as const;

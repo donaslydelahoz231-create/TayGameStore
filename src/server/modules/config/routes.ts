@@ -1,18 +1,29 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { FeatureFlags } from '../../config/env.js';
+import type { AppConfig } from '../../config/env.js';
 
 export interface ConfigRoutesOptions {
-  flags: FeatureFlags;
+  config: AppConfig;
+  paymentsAvailable: boolean;
+  googleAvailable: boolean;
 }
 
 /** Configuración pública para el frontend. Nunca incluye secretos. */
 export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app, options) => {
+  const { config } = options;
   app.get('/api/config', async (_request, reply) => {
     reply.header('cache-control', 'no-store');
     return {
-      maintenanceMode: options.flags.maintenanceMode,
-      checkoutEnabled: options.flags.checkoutEnabled,
-      paymentsEnabled: options.flags.paymentsEnabled,
+      maintenanceMode: config.flags.maintenanceMode,
+      checkoutEnabled: config.flags.checkoutEnabled,
+      paymentsEnabled: config.flags.paymentsEnabled && options.paymentsAvailable,
+      paymentMethod: 'mercadopago',
+      auth: { google: options.googleAvailable },
+      support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
+      termsVersion: config.orders.termsVersion,
+      limits: {
+        maxUnitsPerProduct: config.orders.maxUnitsPerProduct,
+        maxOrderTotalCop: config.orders.maxOrderTotalCop,
+      },
     };
   });
 };

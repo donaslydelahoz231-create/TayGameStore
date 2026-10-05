@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -21,6 +22,56 @@ const trustProxySchema = z
     return z.NEVER;
   });
 
+/** Llavero versionado: "2:secretoNuevo,1:secretoAnterior". La primera entrada es la activa. */
+export interface Keyring {
+  activeVersion: number;
+  keys: ReadonlyMap<number, Buffer>;
+}
+
+function keyringSchema(minBytes: number) {
+  return z
+    .string()
+    .optional()
+    .transform((value, ctx): Keyring | undefined => {
+      if (value === undefined) return undefined;
+      const keys = new Map<number, Buffer>();
+      let activeVersion: number | undefined;
+      for (const entry of value.split(',')) {
+        const match = /^(\d{1,4}):([A-Za-z0-9+/=_-]+)$/.exec(entry.trim());
+        const version = match ? Number(match[1]) : NaN;
+        const key = match?.[2] ? Buffer.from(match[2], 'base64') : undefined;
+        if (!key || key.length < minBytes || keys.has(version)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `formato "versión:claveBase64" (mín. ${minBytes} bytes, versiones únicas)`,
+          });
+          return z.NEVER;
+        }
+        keys.set(version, key);
+        activeVersion ??= version;
+      }
+      if (activeVersion === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'no contiene claves' });
+        return z.NEVER;
+      }
+      return { activeVersion, keys };
+    });
+}
+
+const emailList = z
+  .string()
+  .optional()
+  .transform((value) =>
+    (value ?? '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  )
+  .pipe(z.array(z.email()));
+
+const minutes = (fallback: number, max = 60 * 24 * 30) =>
+  z.coerce.number().int().min(1).max(max).default(fallback);
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -34,47 +85,85 @@ const envSchema = z
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
     SERVE_WEB: z.stringbool().optional(),
     WEB_DIST_DIR: z.string().min(1).default('dist/web'),
+
     MAINTENANCE_MODE: z.stringbool().default(false),
     CHECKOUT_ENABLED: z.stringbool().default(false),
     PAYMENTS_ENABLED: z.stringbool().default(false),
+    FULFILLMENT_ENABLED: z.stringbool().default(true),
+    FULFILLMENT_MODE: z.enum(['manual']).default('manual'),
+    JOBS_ENABLED: z.stringbool().optional(),
+
+    ORDER_TOKEN_KEYS: keyringSchema(32),
+    MFA_ENCRYPTION_KEYS: keyringSchema(32),
+    IP_HASH_PEPPER: z.string().min(32).optional(),
+
+    SESSION_TTL_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .default(24 * 7),
+    SESSION_IDLE_MINUTES: minutes(60 * 24),
+    ADMIN_SESSION_TTL_MINUTES: minutes(120, 60 * 12),
+
+    GOOGLE_CLIENT_ID: z.string().min(10).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
+    ADMIN_EMAILS: emailList,
+
+    MP_ACCESS_TOKEN: z.string().min(10).optional(),
+    MP_WEBHOOK_SECRET: z.string().min(10).optional(),
+    MP_STATEMENT_DESCRIPTOR: z
+      .string()
+      .regex(/^[A-Za-z0-9 ]{1,22}$/)
+      .optional(),
+    MP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+
+    VERIFICATION_TTL_MINUTES: minutes(60 * 12),
+    PAYMENT_TTL_MINUTES: minutes(60, 60 * 24),
+    CLAIM_TIMEOUT_MINUTES: minutes(30, 60 * 24),
+    LIMIT_MAX_UNITS_PER_PRODUCT: z.coerce.number().int().min(1).max(5).default(5),
+    LIMIT_MAX_ORDER_TOTAL_COP: z.coerce.number().int().min(1).max(1_000_000).default(1_000_000),
+    LIMIT_MAX_OPEN_ORDERS_PER_EMAIL: z.coerce.number().int().min(1).max(50).default(3),
+    LIMIT_MAX_OPEN_ORDERS_PER_UID: z.coerce.number().int().min(1).max(50).default(3),
+
+    TERMS_VERSION: z.string().min(1).max(40).default('2026-10-05'),
+    SUPPORT_WHATSAPP: z
+      .string()
+      .regex(/^\+?\d{8,15}$/)
+      .optional(),
+    SUPPORT_EMAIL: z.email().optional(),
   })
   .superRefine((env, ctx) => {
-    // Los pagos no están implementados (Wompi BLOQUEADO hasta verificar documentación oficial).
-    if (env.PAYMENTS_ENABLED) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PAYMENTS_ENABLED'],
-        message: 'los pagos no están implementados; debe ser false',
-      });
+    const issue = (path: string, message: string) =>
+      ctx.addIssue({ code: 'custom', path: [path], message });
+
+    if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
+      issue('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET van juntos');
     }
+    if (env.ADMIN_EMAILS.length && !env.GOOGLE_CLIENT_ID) {
+      issue('ADMIN_EMAILS', 'el acceso de administración requiere Google OAuth configurado');
+    }
+    if (env.PAYMENTS_ENABLED) {
+      if (!env.MP_ACCESS_TOKEN) issue('MP_ACCESS_TOKEN', 'obligatoria con PAYMENTS_ENABLED');
+      if (!env.MP_WEBHOOK_SECRET) issue('MP_WEBHOOK_SECRET', 'obligatoria con PAYMENTS_ENABLED');
+      if (!env.PUBLIC_BASE_URL) issue('PUBLIC_BASE_URL', 'obligatoria con PAYMENTS_ENABLED');
+    }
+
     if (env.NODE_ENV !== 'production') return;
     if (!env.PUBLIC_BASE_URL) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PUBLIC_BASE_URL'],
-        message: 'obligatoria en producción',
-      });
+      issue('PUBLIC_BASE_URL', 'obligatoria en producción');
     } else if (!env.PUBLIC_BASE_URL.startsWith('https://')) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PUBLIC_BASE_URL'],
-        message: 'debe usar https en producción',
-      });
+      issue('PUBLIC_BASE_URL', 'debe usar https en producción');
     }
-    if (!env.DATABASE_URL) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['DATABASE_URL'],
-        message: 'obligatoria en producción',
-      });
+    if (!env.DATABASE_URL) issue('DATABASE_URL', 'obligatoria en producción');
+    if (!env.ORDER_TOKEN_KEYS) issue('ORDER_TOKEN_KEYS', 'obligatoria en producción');
+    if (!env.IP_HASH_PEPPER) issue('IP_HASH_PEPPER', 'obligatoria en producción');
+    if (env.GOOGLE_CLIENT_ID && !env.MFA_ENCRYPTION_KEYS) {
+      issue('MFA_ENCRYPTION_KEYS', 'obligatoria en producción cuando hay acceso con Google');
     }
-    // Ventas reales bloqueadas mientras C1 (verificación de jugador) y Wompi sigan bloqueados.
-    if (env.CHECKOUT_ENABLED) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['CHECKOUT_ENABLED'],
-        message: 'las ventas reales están bloqueadas (verificación de jugador y pagos pendientes)',
-      });
+    // No se aceptan órdenes que no se puedan pagar.
+    if (env.CHECKOUT_ENABLED && !env.PAYMENTS_ENABLED) {
+      issue('CHECKOUT_ENABLED', 'en producción requiere PAYMENTS_ENABLED=true (Mercado Pago)');
     }
   });
 
@@ -84,6 +173,7 @@ export interface FeatureFlags {
   maintenanceMode: boolean;
   checkoutEnabled: boolean;
   paymentsEnabled: boolean;
+  fulfillmentEnabled: boolean;
 }
 
 export interface AppConfig {
@@ -93,12 +183,45 @@ export interface AppConfig {
   logLevel: LogLevel;
   logPretty: boolean;
   publicBaseUrl: string | undefined;
+  /** Las cookies llevan prefijo `__Host-` y `Secure` solo con un origen https. */
+  secureCookies: boolean;
   trustProxy: boolean | number;
   databaseUrl: string | undefined;
   databasePoolMax: number;
   serveWeb: boolean;
   webDistDir: string;
+  jobsEnabled: boolean;
   flags: FeatureFlags;
+  fulfillmentMode: 'manual';
+  secrets: {
+    orderTokenKeys: Keyring;
+    mfaKeys: Keyring;
+    ipHashPepper: string;
+    /** true si alguna clave se generó al arrancar (solo fuera de producción). */
+    ephemeral: boolean;
+  };
+  sessions: { ttlHours: number; idleMinutes: number; adminTtlMinutes: number };
+  google: { clientId: string; clientSecret: string } | undefined;
+  adminEmails: readonly string[];
+  mercadoPago:
+    | {
+        accessToken: string;
+        webhookSecret: string;
+        statementDescriptor: string | undefined;
+        timeoutMs: number;
+      }
+    | undefined;
+  orders: {
+    verificationTtlMinutes: number;
+    paymentTtlMinutes: number;
+    claimTimeoutMinutes: number;
+    maxUnitsPerProduct: number;
+    maxOrderTotalCop: number;
+    maxOpenOrdersPerEmail: number;
+    maxOpenOrdersPerUid: number;
+    termsVersion: string;
+  };
+  support: { whatsapp: string | undefined; email: string | undefined };
 }
 
 export class ConfigError extends Error {
@@ -117,6 +240,10 @@ function withoutEmptyValues(source: NodeJS.ProcessEnv): Record<string, string> {
   return result;
 }
 
+function ephemeralKeyring(): Keyring {
+  return { activeVersion: 1, keys: new Map([[1, randomBytes(32)]]) };
+}
+
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.safeParse(withoutEmptyValues(source));
   if (!parsed.success) {
@@ -127,22 +254,64 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const env = parsed.data;
   const isProduction = env.NODE_ENV === 'production';
+  const ephemeral = !env.ORDER_TOKEN_KEYS || !env.MFA_ENCRYPTION_KEYS || !env.IP_HASH_PEPPER;
   return {
     env: env.NODE_ENV,
     host: env.HOST ?? (isProduction ? '0.0.0.0' : '127.0.0.1'),
     port: env.PORT,
     logLevel: env.LOG_LEVEL,
     logPretty: env.LOG_PRETTY ?? env.NODE_ENV === 'development',
-    publicBaseUrl: env.PUBLIC_BASE_URL,
+    publicBaseUrl: env.PUBLIC_BASE_URL?.replace(/\/+$/, ''),
+    secureCookies: env.PUBLIC_BASE_URL?.startsWith('https://') ?? false,
     trustProxy: env.TRUST_PROXY,
     databaseUrl: env.DATABASE_URL,
     databasePoolMax: env.DATABASE_POOL_MAX,
     serveWeb: env.SERVE_WEB ?? isProduction,
     webDistDir: env.WEB_DIST_DIR,
+    jobsEnabled: env.JOBS_ENABLED ?? env.NODE_ENV !== 'test',
     flags: {
       maintenanceMode: env.MAINTENANCE_MODE,
       checkoutEnabled: env.CHECKOUT_ENABLED,
       paymentsEnabled: env.PAYMENTS_ENABLED,
+      fulfillmentEnabled: env.FULFILLMENT_ENABLED,
     },
+    fulfillmentMode: env.FULFILLMENT_MODE,
+    secrets: {
+      // Fuera de producción se generan claves efímeras: los tokens dejan de valer al reiniciar.
+      orderTokenKeys: env.ORDER_TOKEN_KEYS ?? ephemeralKeyring(),
+      mfaKeys: env.MFA_ENCRYPTION_KEYS ?? ephemeralKeyring(),
+      ipHashPepper: env.IP_HASH_PEPPER ?? randomBytes(32).toString('base64'),
+      ephemeral,
+    },
+    sessions: {
+      ttlHours: env.SESSION_TTL_HOURS,
+      idleMinutes: env.SESSION_IDLE_MINUTES,
+      adminTtlMinutes: env.ADMIN_SESSION_TTL_MINUTES,
+    },
+    google:
+      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+        ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET }
+        : undefined,
+    adminEmails: env.ADMIN_EMAILS,
+    mercadoPago:
+      env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET
+        ? {
+            accessToken: env.MP_ACCESS_TOKEN,
+            webhookSecret: env.MP_WEBHOOK_SECRET,
+            statementDescriptor: env.MP_STATEMENT_DESCRIPTOR,
+            timeoutMs: env.MP_TIMEOUT_MS,
+          }
+        : undefined,
+    orders: {
+      verificationTtlMinutes: env.VERIFICATION_TTL_MINUTES,
+      paymentTtlMinutes: env.PAYMENT_TTL_MINUTES,
+      claimTimeoutMinutes: env.CLAIM_TIMEOUT_MINUTES,
+      maxUnitsPerProduct: env.LIMIT_MAX_UNITS_PER_PRODUCT,
+      maxOrderTotalCop: env.LIMIT_MAX_ORDER_TOTAL_COP,
+      maxOpenOrdersPerEmail: env.LIMIT_MAX_OPEN_ORDERS_PER_EMAIL,
+      maxOpenOrdersPerUid: env.LIMIT_MAX_OPEN_ORDERS_PER_UID,
+      termsVersion: env.TERMS_VERSION,
+    },
+    support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
   };
 }

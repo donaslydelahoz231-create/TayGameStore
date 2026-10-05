@@ -40,3 +40,8 @@ export function createDatabase(options: CreateDatabaseOptions): Database {
     },
   };
 }
+
+export type Db = NodePgDatabase<typeof schema>;
+/** Transacción de Drizzle (mismo API que `Db`). */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type DbOrTx = Db | Tx;
