@@ -50,7 +50,7 @@ Producción: [`docs/deployment.md`](docs/deployment.md) (Render + PostgreSQL ges
 | `npm run lint` / `format:check` / `typecheck` | ESLint (tipado), Prettier, TypeScript |
 | `npm test` | Unitarias + API (sin base de datos) |
 | `npm run test:integration` | PostgreSQL real (`TEST_DATABASE_URL`, base terminada en `_test`: **se borra su esquema**) |
-| `npm run test:e2e` | Playwright contra el servidor real + PostgreSQL (`E2E_DATABASE_URL`) con Mercado Pago simulado |
+| `npm run test:e2e` | Playwright contra el servidor real + PostgreSQL (`E2E_DATABASE_URL`) con Mercado Pago simulado; incluye accesibilidad (axe-core, WCAG 2.1 AA) y responsive sin desbordes en 360–1920 px |
 | `npm run test:visual` | Referencias visuales (360/768/1280 px) |
 | `npm run build` | Build de frontend (tienda + admin) y servidor |
 | `npm run db:generate` | Genera una migración desde `src/server/db/schema.ts` (revísala) |
@@ -94,7 +94,7 @@ Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md).
 - Fuente legítima para que el operador verifique UID/nickname (decisión del propietario).
 - Proveedor de recargas automático (hoy entrega manual).
 - Cliente OAuth de Google, dominio, cuenta de Render, catálogo y precios reales, textos legales.
-- Accesibilidad (axe-core) y responsive en 390/430/1024/1440/1920 px; desborde de `.trust`
-  en ≤ 430 px (heredado del diseño original).
+- Revisión manual con lector de pantalla y contraste de los textos decorativos (la suite
+  automática de axe-core ya pasa sin violaciones críticas ni graves).
 
 `legacy/index-cinematic-v4.html` es el HTML original congelado (referencia visual).

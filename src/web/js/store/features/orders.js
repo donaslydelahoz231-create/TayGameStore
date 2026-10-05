@@ -15,7 +15,16 @@ function accessHeaders(reference) {
 }
 
 export function setCurrentOrder(order) {
+  const previous = state.currentOrder;
   state.currentOrder = order || null;
+  // Celebración visual solo al ver la transición a entregado (no al abrir un pedido antiguo).
+  if (
+    order?.status === 'DELIVERED' &&
+    previous?.reference === order.reference &&
+    previous.status !== 'DELIVERED'
+  ) {
+    dispatchEvent(new CustomEvent('tgs:order-delivered'));
+  }
   rememberOrder(order && !isFinal(order.status) ? order.reference : null);
   renderAll();
 }

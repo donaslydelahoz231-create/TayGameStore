@@ -72,7 +72,8 @@ Tienda funcional de punta a punta. Las ventas reales dependen de configurar Merc
 | Scheduler con advisory locks (expiración, conciliación, reintentos, reclamos, limpieza) | `IMPLEMENTADO` | integración |
 | Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 20 e2e; CSS de la tienda idéntico byte a byte |
 | CI: calidad, integración, e2e con PostgreSQL, audit, gitleaks | `IMPLEMENTADO` | `.github/workflows/ci.yml` |
-| Accesibilidad (axe-core), responsive 390/430/1024/1440/1920, métricas externas | `PENDIENTE` | — |
+| Accesibilidad (axe-core WCAG 2.1 AA sin violaciones críticas/graves), diálogos con foco, carrito `inert`, responsive sin desbordes en 360–1920 px (sin `overflow-x:hidden`) | `IMPLEMENTADO` | `e2e/quality.spec.ts` |
+| Revisión con lector de pantalla, métricas externas | `PENDIENTE` | — |
 | Fuente legítima de verificación (C1), proveedor de recargas automático | `BLOCKED` (externo) | — |
 
 ## 3. Principios

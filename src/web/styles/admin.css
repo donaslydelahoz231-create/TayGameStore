@@ -4,7 +4,7 @@
   --panel: #0d1433;
   --line: #26305f;
   --text: #eef2ff;
-  --muted: #8f9bc9;
+  --muted: #aab4dc;
   --violet: #8b3dff;
   --cyan: #37d6ff;
   --green: #2ee59d;
@@ -40,7 +40,7 @@ pre {
   background: var(--panel);
 }
 .adm-header span {
-  color: var(--violet);
+  color: #c3a6ff;
 }
 .adm-session {
   display: flex;

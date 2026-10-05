@@ -4,7 +4,7 @@ import { renderAll } from './render.js';
 import { errorMessage } from './api.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
-import { closeMenus, modal, toast } from './ui.js';
+import { closeAllModals, closeMenus, modal, toast } from './ui.js';
 import { login, logout, openAccountMenu, switchAuthMode } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
@@ -247,7 +247,7 @@ function bindGlobal() {
         !state.storeUnlocked && !!document.querySelector('#loginModal:not([hidden])');
       closeDrawer();
       closeSearch();
-      document.querySelectorAll('.modal').forEach((m) => (m.hidden = true));
+      closeAllModals();
       if (wasEntry) showEntryLanding();
       else document.body.classList.remove('lock');
     }

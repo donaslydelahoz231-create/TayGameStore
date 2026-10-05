@@ -1,71 +1,84 @@
 // Capa "Cinematic Motion V4": partículas, brillo, barra de movimiento, reveals,
-// inclinación de tarjetas, impactos y confeti. Código original sin cambios de lógica.
+// inclinación de tarjetas, impactos y confeti.
+// Correcciones: no duplica #tgsParticleCanvas/#tgsCursorGlow si la capa visual ya los creó
+// (evita dos bucles de animación), la inclinación usa delegación (las tarjetas se re-renderizan),
+// la "energía" al agregar apunta a .add-btn y el confeti escucha la entrega real del pedido.
 export function initCinematicEffects() {
   const reduced = matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const $ = (s, r = document) => r.querySelector(s),
     $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const canvas = document.createElement('canvas');
-  canvas.id = 'tgsParticleCanvas';
-  document.body.prepend(canvas);
-  const glow = document.createElement('div');
-  glow.id = 'tgsCursorGlow';
-  document.body.appendChild(glow);
+  // La capa visual (visual.js) ya pinta partículas y brillo en escritorio: se reutilizan sus
+  // elementos y no se arranca un segundo bucle de partículas.
+  const sharedCanvas = document.getElementById('tgsParticleCanvas');
+  const canvas = sharedCanvas ?? document.createElement('canvas');
+  if (!sharedCanvas) {
+    canvas.id = 'tgsParticleCanvas';
+    document.body.prepend(canvas);
+  }
+  let glow = document.getElementById('tgsCursorGlow');
+  if (!glow) {
+    glow = document.createElement('div');
+    glow.id = 'tgsCursorGlow';
+    document.body.appendChild(glow);
+  }
   const bar = document.createElement('div');
   bar.id = 'tgsMotionBar';
   document.body.appendChild(bar);
-  const resize = () => {
-    const d = Math.min(devicePixelRatio || 1, 1.5);
-    canvas.width = innerWidth * d;
-    canvas.height = innerHeight * d;
-    canvas.style.width = innerWidth + 'px';
-    canvas.style.height = innerHeight + 'px';
-  };
-  resize();
-  addEventListener('resize', resize, { passive: true });
-  if (!reduced) {
-    const c = canvas.getContext('2d');
-    const ps = Array.from({ length: Math.min(54, Math.max(28, (innerWidth / 25) | 0)) }, () => ({
-      x: Math.random() * innerWidth,
-      y: Math.random() * innerHeight,
-      r: 0.6 + Math.random() * 1.7,
-      vx: (Math.random() - 0.5) * 0.12,
-      vy: -0.08 - Math.random() * 0.16,
-      p: Math.random() * 6.28,
-    }));
-    let raf,
-      last = performance.now();
-    const draw = (t) => {
-      const dt = Math.min(32, t - last);
-      last = t;
+  if (!sharedCanvas) {
+    const resize = () => {
       const d = Math.min(devicePixelRatio || 1, 1.5);
-      c.setTransform(d, 0, 0, d, 0, 0);
-      c.clearRect(0, 0, innerWidth, innerHeight);
-      for (const p of ps) {
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.p += dt * 0.001;
-        if (p.y < -10) {
-          p.y = innerHeight + 10;
-          p.x = Math.random() * innerWidth;
-        }
-        if (p.x < -10) p.x = innerWidth;
-        if (p.x > innerWidth + 10) p.x = -10;
-        c.beginPath();
-        c.fillStyle = `rgba(130,190,255,${0.18 + 0.35 * (0.5 + 0.5 * Math.sin(p.p))})`;
-        c.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        c.fill();
-      }
-      if (!document.hidden) raf = requestAnimationFrame(draw);
+      canvas.width = innerWidth * d;
+      canvas.height = innerHeight * d;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
     };
-    raf = requestAnimationFrame(draw);
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) cancelAnimationFrame(raf);
-      else {
+    resize();
+    addEventListener('resize', resize, { passive: true });
+    if (!reduced) {
+      const c = canvas.getContext('2d');
+      const ps = Array.from({ length: Math.min(54, Math.max(28, (innerWidth / 25) | 0)) }, () => ({
+        x: Math.random() * innerWidth,
+        y: Math.random() * innerHeight,
+        r: 0.6 + Math.random() * 1.7,
+        vx: (Math.random() - 0.5) * 0.12,
+        vy: -0.08 - Math.random() * 0.16,
+        p: Math.random() * 6.28,
+      }));
+      let raf,
         last = performance.now();
-        raf = requestAnimationFrame(draw);
-      }
-    });
-  } else canvas.remove();
+      const draw = (t) => {
+        const dt = Math.min(32, t - last);
+        last = t;
+        const d = Math.min(devicePixelRatio || 1, 1.5);
+        c.setTransform(d, 0, 0, d, 0, 0);
+        c.clearRect(0, 0, innerWidth, innerHeight);
+        for (const p of ps) {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.p += dt * 0.001;
+          if (p.y < -10) {
+            p.y = innerHeight + 10;
+            p.x = Math.random() * innerWidth;
+          }
+          if (p.x < -10) p.x = innerWidth;
+          if (p.x > innerWidth + 10) p.x = -10;
+          c.beginPath();
+          c.fillStyle = `rgba(130,190,255,${0.18 + 0.35 * (0.5 + 0.5 * Math.sin(p.p))})`;
+          c.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          c.fill();
+        }
+        if (!document.hidden) raf = requestAnimationFrame(draw);
+      };
+      raf = requestAnimationFrame(draw);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) cancelAnimationFrame(raf);
+        else {
+          last = performance.now();
+          raf = requestAnimationFrame(draw);
+        }
+      });
+    } else canvas.remove();
+  }
   addEventListener(
     'pointermove',
     (e) => {
@@ -110,18 +123,30 @@ export function initCinematicEffects() {
     );
     targets.forEach((e) => io.observe(e));
   } else targets.forEach((e) => e.classList.add('tgs-visible'));
-  if (!reduced)
-    $$('.product').forEach((card) => {
-      card.addEventListener('pointermove', (e) => {
+  if (!reduced) {
+    // Delegación: las tarjetas se vuelven a crear en cada render del catálogo.
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        const card = e.target.closest?.('.product');
+        if (!card) return;
         const r = card.getBoundingClientRect();
         card.style.setProperty('--ry', ((e.clientX - r.left) / r.width - 0.5) * 5.5 + 'deg');
         card.style.setProperty('--rx', -((e.clientY - r.top) / r.height - 0.5) * 5.5 + 'deg');
-      });
-      card.addEventListener('pointerleave', () => {
+      },
+      { passive: true },
+    );
+    document.addEventListener(
+      'pointerout',
+      (e) => {
+        const card = e.target.closest?.('.product');
+        if (!card || card.contains(e.relatedTarget)) return;
         card.style.setProperty('--ry', '0deg');
         card.style.setProperty('--rx', '0deg');
-      });
-    });
+      },
+      { passive: true },
+    );
+  }
   document.addEventListener(
     'click',
     (e) => {
@@ -162,7 +187,7 @@ export function initCinematicEffects() {
     'click',
     (e) => {
       if (reduced) return;
-      const b = e.target.closest('.add');
+      const b = e.target.closest('.add-btn');
       if (!b) return;
       const cart = $('.cart-btn');
       if (!cart) return;
@@ -206,16 +231,8 @@ export function initCinematicEffects() {
       setTimeout(() => p.remove(), 1800);
     }
   };
-  let last = null;
-  setInterval(() => {
-    try {
-      const s = window.state?.currentOrder?.status;
-      if (s && s !== last && String(s).toUpperCase() === 'FULFILLED') celebrate();
-      if (s) last = s;
-    } catch {
-      // Efecto decorativo: un fallo nunca debe afectar a la tienda.
-    }
-  }, 900);
+  // Confeti cuando el servidor confirma la entrega (evento emitido por orders.js).
+  addEventListener('tgs:order-delivered', celebrate);
   const boot = $('.boot-screen');
   if (boot && !reduced) setTimeout(() => boot.classList.add('out'), 900);
   window.TGSCinematic = { celebrate };

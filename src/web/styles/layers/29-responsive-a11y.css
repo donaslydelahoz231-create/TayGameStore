@@ -1,0 +1,32 @@
+/* Correcciones de responsive y accesibilidad (sin cambiar la identidad visual).
+   - .trust: 4 columnas fijas cortaban la cuarta tarjeta en ≤ 430 px; en pantallas estrechas
+     pasan a 2 columnas y el texto puede partirse.
+   - El overflow horizontal ya no se oculta con overflow-x:hidden: no hay contenido que lo genere
+     (verificado en 360–1920 px por e2e/quality.spec.ts). */
+.trust article {
+  min-width: 0;
+}
+.trust b,
+.trust small {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .trust {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Carrito lateral cerrado: invisible para teclado y lectores de pantalla una vez termina la
+   animación de salida (0,25 s, ver 14-drawer.css). */
+.drawer:not(.open) {
+  visibility: hidden;
+  transition:
+    transform 0.25s,
+    visibility 0s linear 0.25s;
+}
+.drawer.open {
+  visibility: visible;
+  transition:
+    transform 0.25s,
+    visibility 0s;
+}

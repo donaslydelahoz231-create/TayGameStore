@@ -103,13 +103,18 @@ export function renderDrawer() {
 export function openDrawer() {
   closeMenus();
   $('drawerOverlay').hidden = false;
+  $('cartDrawer').inert = false;
   $('cartDrawer').classList.add('open');
   document.body.classList.add('lock');
   renderDrawer();
 }
 
 export function closeDrawer() {
-  $('cartDrawer').classList.remove('open');
+  const drawer = $('cartDrawer');
+  const hadFocus = drawer.contains(document.activeElement);
+  drawer.classList.remove('open');
+  drawer.inert = true;
+  if (hadFocus) $('cartBtn')?.focus({ preventScroll: true });
   $('drawerOverlay').hidden = true;
   if (!document.querySelector('.modal:not([hidden])')) document.body.classList.remove('lock');
 }
