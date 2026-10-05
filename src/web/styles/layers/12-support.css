@@ -1,0 +1,62 @@
+.support-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid #384782;
+  border-radius: 15px;
+  background: linear-gradient(90deg, rgba(139, 61, 255, 0.1), rgba(47, 139, 255, 0.06));
+}
+.support-panel h2 {
+  margin: 5px 0;
+  font-family: var(--display);
+  font-size: 1.28rem;
+}
+.support-panel h2 span {
+  color: var(--violet2);
+}
+.support-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.63rem;
+}
+.support-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.whatsapp {
+  background: linear-gradient(90deg, #1fa855, #25d366);
+  border-color: #25d366;
+  color: #062010;
+}
+.faq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.faq-grid details {
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(12, 18, 48, 0.65);
+}
+.faq-grid summary {
+  padding: 12px 0;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+.faq-grid summary::-webkit-details-marker {
+  display: none;
+}
+.faq-grid p {
+  margin: 0;
+  padding: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.59rem;
+}

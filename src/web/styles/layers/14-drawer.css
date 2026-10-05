@@ -1,0 +1,106 @@
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  background: rgba(2, 4, 14, 0.7);
+  backdrop-filter: blur(3px);
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 360;
+  width: min(400px, 94vw);
+  display: flex;
+  flex-direction: column;
+  padding: 17px;
+  background: linear-gradient(180deg, #10183d, #070c25);
+  border-left: 1px solid #394783;
+  box-shadow: -28px 0 85px rgba(0, 0, 0, 0.45);
+  transform: translateX(100%);
+  transition: transform 0.25s;
+}
+.drawer.open {
+  transform: none;
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 11px;
+}
+.drawer-head h3 {
+  margin: 3px 0 0;
+  font-family: var(--display);
+  font-size: 1.07rem;
+}
+.drawer-items {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px 0;
+}
+.drawer-entry {
+  display: grid;
+  grid-template-columns: 39px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #070c24;
+}
+.drawer-entry > span {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #0b1232;
+}
+.drawer-entry > span svg {
+  width: 19px;
+  color: var(--cyan);
+}
+.drawer-entry b {
+  display: block;
+  font-size: 0.65rem;
+}
+.drawer-entry small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.55rem;
+}
+.drawer-entry strong {
+  font-size: 0.65rem;
+  color: var(--cyan);
+}
+.drawer-empty {
+  padding: 28px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.63rem;
+  text-align: center;
+}
+.drawer-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.drawer-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 9px;
+}
+.drawer-total span {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+.drawer-total b {
+  font-family: var(--display);
+}

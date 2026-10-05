@@ -1,0 +1,30 @@
+.toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: 19px;
+  z-index: 850;
+  display: grid;
+  gap: 6px;
+  width: min(360px, calc(100vw - 22px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.toast {
+  padding: 9px 11px;
+  border: 1px solid #3b4778;
+  border-radius: 10px;
+  background: #11172b;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.36);
+  font-size: 0.63rem;
+  font-weight: 800;
+  animation: toastIn 0.18s ease;
+}
+.toast.good {
+  border-color: rgba(57, 224, 138, 0.38);
+}
+.toast.bad {
+  border-color: rgba(255, 90, 90, 0.38);
+}
+[hidden] {
+  display: none !important;
+}

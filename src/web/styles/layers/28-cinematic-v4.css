@@ -1,0 +1,359 @@
+/* TGS CINEMATIC MOTION V4 */
+:root {
+  --tgs-cx: 50vw;
+  --tgs-cy: 50vh;
+  --tgs-mx: 0;
+  --tgs-my: 0;
+}
+#tgsParticleCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.65;
+  mix-blend-mode: screen;
+}
+#tgsCursorGlow {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 420px;
+  height: 420px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(139, 61, 255, 0.15),
+    rgba(55, 214, 255, 0.06) 35%,
+    transparent 72%
+  );
+  transition: opacity 0.25s;
+}
+#tgsMotionBar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 2px;
+  z-index: 1000;
+  background: linear-gradient(90deg, var(--violet), var(--cyan), #fff);
+  box-shadow: 0 0 15px rgba(55, 214, 255, 0.65);
+  pointer-events: none;
+}
+.site-shell {
+  z-index: 3;
+}
+.tgs-cinematic {
+  opacity: 0;
+  transform: translateY(38px) scale(0.97);
+  filter: blur(8px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 1s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--tgs-delay, 0ms);
+}
+.tgs-cinematic.tgs-visible {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+.hero {
+  isolation: isolate;
+}
+.hero:after {
+  content: '';
+  position: absolute;
+  inset: -35%;
+  pointer-events: none;
+  z-index: 1;
+  background: conic-gradient(
+    from 180deg at 72% 44%,
+    transparent,
+    rgba(139, 61, 255, 0.09),
+    transparent 25%,
+    rgba(55, 214, 255, 0.055),
+    transparent 55%,
+    rgba(139, 61, 255, 0.06),
+    transparent
+  );
+  animation: tgsHeroSweep 18s linear infinite;
+}
+@keyframes tgsHeroSweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.hero-inner {
+  z-index: 4;
+}
+.hero-panel {
+  transform: translate3d(calc(var(--tgs-mx) * -8px), calc(var(--tgs-my) * -6px), 0);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hero-left h1 {
+  animation: tgsTitleGlow 5s ease-in-out infinite alternate;
+}
+@keyframes tgsTitleGlow {
+  to {
+    text-shadow: 0 0 38px rgba(139, 61, 255, 0.24);
+  }
+}
+.diamond-reactor {
+  animation: tgsReactorFloat 5.5s ease-in-out infinite;
+}
+@keyframes tgsReactorFloat {
+  50% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+}
+.product {
+  --rx: 0deg;
+  --ry: 0deg;
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition:
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.35s,
+    box-shadow 0.5s,
+    filter 0.5s;
+}
+.product:hover {
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-9px) scale(1.018);
+  border-color: #697ad0;
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.3),
+    0 0 34px rgba(139, 61, 255, 0.11);
+  filter: saturate(1.08);
+}
+.product:after {
+  content: '';
+  position: absolute;
+  inset: -80% -25%;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.13) 49%,
+    transparent 56%
+  );
+  transform: translateX(-45%) rotate(8deg);
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.product:hover:after {
+  transform: translateX(45%) rotate(8deg);
+}
+.product.selected {
+  animation: tgsSelectedPulse 2.4s ease-in-out infinite;
+}
+@keyframes tgsSelectedPulse {
+  50% {
+    box-shadow:
+      0 0 38px rgba(55, 214, 255, 0.19),
+      0 0 70px rgba(139, 61, 255, 0.08);
+  }
+}
+.product-visual:after {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 1px;
+  left: -25%;
+  top: 50%;
+  background: linear-gradient(90deg, transparent, rgba(55, 214, 255, 0.45), transparent);
+  transform: rotate(-18deg) translateX(-80%);
+  animation: tgsScan 4.5s ease-in-out infinite;
+}
+@keyframes tgsScan {
+  0%,
+  45% {
+    transform: rotate(-18deg) translateX(-80%);
+    opacity: 0;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-18deg) translateX(80%);
+    opacity: 0;
+  }
+}
+.btn,
+.header-icon,
+.cart-btn {
+  position: relative;
+  overflow: hidden;
+}
+.btn:before,
+.header-icon:before,
+.cart-btn:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 75%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.btn:hover:before,
+.header-icon:hover:before,
+.cart-btn:hover:before {
+  transform: translateX(120%);
+}
+.btn.primary {
+  animation: tgsButtonAura 3.5s ease-in-out infinite;
+}
+@keyframes tgsButtonAura {
+  50% {
+    box-shadow:
+      0 0 42px rgba(139, 61, 255, 0.34),
+      0 0 75px rgba(55, 214, 255, 0.06);
+  }
+}
+.tgs-impact {
+  animation: tgsImpact 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+@keyframes tgsImpact {
+  28% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.045);
+  }
+}
+.tgs-favorite-burst {
+  position: fixed;
+  z-index: 900;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--violet2);
+  box-shadow: 0 0 12px var(--violet2);
+  animation: tgsBurst 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes tgsBurst {
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0);
+  }
+}
+.tgs-energy-orb {
+  position: fixed;
+  z-index: 910;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff 0 15%, #37d6ff 30%, #8b3dff 60%, transparent 72%);
+  filter: drop-shadow(0 0 12px rgba(55, 214, 255, 0.8));
+}
+.tgs-cart-impact {
+  animation: tgsImpact 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal {
+  animation: tgsModalIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-box {
+  animation: tgsModalBox 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes tgsModalIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes tgsModalBox {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.91) rotateX(5deg);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.tgs-confetti {
+  position: fixed;
+  z-index: 950;
+  left: 50%;
+  top: 46%;
+  width: 7px;
+  height: 16px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: tgsConfetti 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes tgsConfetti {
+  to {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.55);
+  }
+}
+.tgs-focus-ring {
+  position: fixed;
+  z-index: 899;
+  pointer-events: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(55, 214, 255, 0.7);
+  box-shadow: 0 0 24px rgba(55, 214, 255, 0.28);
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0;
+  animation: tgsFocus 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes tgsFocus {
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
+}
+@media (max-width: 700px) {
+  #tgsCursorGlow {
+    display: none;
+  }
+  .hero-panel {
+    transform: none !important;
+  }
+  .product:hover {
+    transform: translateY(-5px) scale(1.01);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tgsParticleCanvas,
+  #tgsCursorGlow,
+  #tgsMotionBar {
+    display: none !important;
+  }
+  .tgs-cinematic {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  .hero:after,
+  .product.selected,
+  .btn.primary,
+  .diamond-reactor,
+  .hero-left h1 {
+    animation: none !important;
+  }
+}

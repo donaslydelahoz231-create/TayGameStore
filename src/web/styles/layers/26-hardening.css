@@ -1,0 +1,80 @@
+/* Performance + cross-browser hardening */
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+.header {
+  -webkit-backdrop-filter: blur(16px);
+  contain: paint;
+}
+.btn,
+.game-tab,
+.product,
+.header-icon,
+.account-btn,
+.cart-btn {
+  -webkit-tap-highlight-color: transparent;
+}
+.product,
+.card,
+.smart-band,
+.support-panel,
+.tracking-card,
+.faq-grid details {
+  contain: layout paint;
+}
+.section,
+.trust,
+.smart-band,
+.tracking-card,
+.support-section,
+.faq {
+  content-visibility: auto;
+  contain-intrinsic-size: 560px;
+}
+@supports not (content-visibility: auto) {
+  .section,
+  .trust,
+  .smart-band,
+  .tracking-card,
+  .support-section,
+  .faq {
+    content-visibility: visible;
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .header,
+  .btn.glass,
+  .support-float-btn {
+    background: #09102e;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .product:hover {
+    transform: none;
+  }
+  .product:hover:before {
+    transform: translateX(-65%);
+  }
+  .btn:hover,
+  .hero-panel:hover {
+    transform: none;
+  }
+}
+@media (max-width: 760px) {
+  .hero-rings {
+    animation-duration: 28s;
+  }
+  .hero-spark {
+    animation-duration: 8s;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .btn.glass,
+  .support-float-btn {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

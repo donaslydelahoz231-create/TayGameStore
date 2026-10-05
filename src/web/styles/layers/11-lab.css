@@ -1,0 +1,64 @@
+.lab-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 1fr 1fr;
+  gap: 9px;
+}
+.lab-card {
+  position: relative;
+  padding: 15px;
+  min-height: 175px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(18, 27, 65, 0.75), rgba(8, 13, 35, 0.72));
+  overflow: hidden;
+}
+.lab-card.big {
+  background: linear-gradient(145deg, rgba(44, 18, 106, 0.72), rgba(8, 15, 42, 0.76));
+}
+.lab-number {
+  position: absolute;
+  right: 10px;
+  top: 9px;
+  color: var(--muted2);
+  font-family: var(--display);
+  font-size: 0.53rem;
+}
+.lab-icon {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(139, 61, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(139, 61, 255, 0.08);
+  color: var(--violet2);
+}
+.lab-icon svg {
+  width: 17px;
+}
+.lab-card h3 {
+  margin: 13px 0 5px;
+  font-family: var(--display);
+  font-size: 0.82rem;
+}
+.lab-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.61rem;
+}
+.lab-card span:last-child {
+  position: absolute;
+  left: 15px;
+  bottom: 14px;
+  color: var(--cyan);
+  font-size: 0.54rem;
+  font-weight: 800;
+}
+.lab-card kbd {
+  font-family: var(--display);
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: #070c24;
+  color: var(--cyan);
+}

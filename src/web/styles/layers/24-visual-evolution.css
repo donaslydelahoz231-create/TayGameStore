@@ -1,0 +1,582 @@
+/* TayGameStore Visual Evolution */
+/* TayGameStore Visual Evolution — additive layer. Core DOM/classes are preserved. */
+:root {
+  --tgs-glow: rgba(139, 61, 255, 0.32);
+  --tgs-cyan-glow: rgba(55, 214, 255, 0.24);
+  --tgs-edge: rgba(177, 140, 255, 0.22);
+}
+html {
+  scroll-padding-top: 82px;
+}
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+body:before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  opacity: 0.13;
+  background-image:
+    linear-gradient(rgba(55, 214, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 61, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 72%);
+}
+#tgsParticleCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.55;
+}
+#tgsCursorGlow {
+  position: fixed;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(139, 61, 255, 0.1),
+    rgba(55, 214, 255, 0.035) 35%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.site-shell {
+  position: relative;
+  z-index: 1;
+}
+.site-shell:after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 380px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(139, 61, 255, 0.035), transparent);
+  z-index: -1;
+}
+.header {
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.24),
+    0 0 40px rgba(139, 61, 255, 0.045);
+}
+.brand-mark.mini {
+  box-shadow:
+    inset 0 0 18px rgba(139, 61, 255, 0.28),
+    0 0 18px rgba(139, 61, 255, 0.25);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.brand:hover .brand-mark.mini {
+  transform: translateY(-1px) scale(1.035);
+  box-shadow:
+    inset 0 0 18px rgba(139, 61, 255, 0.3),
+    0 0 24px rgba(139, 61, 255, 0.35);
+}
+.service-pill {
+  box-shadow: inset 0 0 15px rgba(55, 214, 255, 0.025);
+}
+.service-pill:after {
+  content: '';
+  position: absolute;
+}
+.hero {
+  box-shadow: inset 0 -1px rgba(177, 140, 255, 0.08);
+}
+.hero-inner {
+  min-height: 570px;
+}
+.hero-left h1 {
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.18));
+}
+.hero-panel {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition:
+    transform 0.18s ease-out,
+    box-shadow 0.2s ease;
+}
+.hero-panel:hover {
+  box-shadow:
+    0 34px 86px rgba(0, 0, 0, 0.42),
+    inset 0 0 55px rgba(139, 61, 255, 0.08);
+}
+.hero-panel:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.03) 45%,
+    transparent 58%
+  );
+  transform: translateX(-100%);
+  animation: tgsSheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+.hero-core {
+  transform-style: preserve-3d;
+}
+.diamond-reactor {
+  filter: drop-shadow(0 0 20px rgba(55, 214, 255, 0.2));
+  transition: transform 0.25s ease;
+}
+.hero-panel:hover .diamond-reactor {
+  transform: rotateX(6deg) rotateY(-8deg) translateZ(7px);
+}
+.hero-spark {
+  transition: transform 0.2s ease;
+}
+.game-switcher {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+}
+.game-tab {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.game-tab:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.045) 47%,
+    transparent 67%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.5s ease;
+}
+.game-tab:hover:before,
+.game-tab.active:before {
+  transform: translateX(120%);
+}
+.game-tab.active {
+  box-shadow:
+    0 0 28px rgba(139, 61, 255, 0.1),
+    inset 0 0 18px rgba(139, 61, 255, 0.04);
+}
+.product {
+  overflow: hidden;
+}
+.product:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 20%),
+    rgba(55, 214, 255, 0.11),
+    transparent 35%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.product:hover:after,
+.product.selected:after {
+  opacity: 1;
+}
+.product .product-visual {
+  transform: none;
+}
+.product .product-visual:before {
+  animation-duration: 11s;
+}
+.product.selected {
+  box-shadow:
+    0 0 24px rgba(55, 214, 255, 0.14),
+    inset 0 0 22px rgba(139, 61, 255, 0.06);
+}
+.card,
+.smart-band,
+.support-panel,
+.tracking-card,
+.faq-grid details,
+.invoice-paper,
+.drawer,
+.modal-box {
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.15);
+}
+.card {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+.card:hover {
+  border-color: #35437c;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.2);
+}
+.invoice-paper {
+  transform-style: preserve-3d;
+  position: relative;
+}
+.invoice-paper:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.035) 45%,
+    transparent 58%
+  );
+  transform: translateX(-110%);
+  animation: tgsSheen 8s 1.5s ease-in-out infinite;
+}
+.smart-band,
+.support-panel {
+  position: relative;
+  overflow: hidden;
+}
+.smart-band:before,
+.support-panel:before {
+  content: '';
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -130px;
+  top: -130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 61, 255, 0.13), transparent 68%);
+  pointer-events: none;
+}
+.tracking-card {
+  overflow: hidden;
+}
+.tracking-card:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 35%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  animation: tgsTrackSweep 4.6s linear infinite;
+}
+.track.done > span {
+  animation: tgsTrackPop 0.38s ease;
+}
+.drawer {
+  box-shadow: -30px 0 80px rgba(0, 0, 0, 0.43);
+}
+.drawer-overlay {
+  backdrop-filter: blur(4px);
+}
+.btn,
+.header-icon,
+.account-btn,
+.cart-btn,
+.filter-btn,
+.tariff-toggle button,
+.header-action {
+  will-change: transform;
+}
+.btn:active,
+.header-icon:active,
+.filter-btn:active,
+.tariff-toggle button:active {
+  transform: translateY(1px) scale(0.985);
+}
+.tgs-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+  animation: tgsRipple 0.52s ease-out;
+}
+.toast-stack .toast {
+  backdrop-filter: blur(10px);
+}
+#tgsScrollProgress {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  z-index: 999;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  box-shadow: 0 0 12px rgba(55, 214, 255, 0.42);
+  pointer-events: none;
+}
+.tgs-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+}
+.tgs-reveal.in {
+  opacity: 1;
+  transform: none;
+}
+.tgs-reveal.delay-1 {
+  transition-delay: 0.05s;
+}
+.tgs-reveal.delay-2 {
+  transition-delay: 0.1s;
+}
+.tgs-reveal.delay-3 {
+  transition-delay: 0.15s;
+}
+.tgs-demo-badge {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 110;
+  padding: 7px 9px;
+  border: 1px solid rgba(55, 214, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(7, 12, 36, 0.7);
+  backdrop-filter: blur(9px);
+  color: #8fa0ca;
+  font: 700 0.58rem var(--display);
+  letter-spacing: 0.09em;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+.tgs-demo-badge i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  margin-right: 5px;
+}
+@keyframes tgsSheen {
+  0%,
+  58% {
+    transform: translateX(-115%);
+  }
+  76%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+@keyframes tgsTrackSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+@keyframes tgsTrackPop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes tgsRipple {
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+@media (max-width: 760px) {
+  #tgsCursorGlow {
+    display: none;
+  }
+  .tgs-demo-badge {
+    display: none;
+  }
+  .hero-inner {
+    min-height: 520px;
+  }
+  .hero-panel:hover .diamond-reactor {
+    transform: none;
+  }
+  .product:hover {
+    transform: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tgsParticleCanvas,
+  #tgsCursorGlow,
+  .tgs-demo-badge {
+    display: none;
+  }
+  .hero-panel,
+  .product,
+  .card,
+  .btn {
+    transition: none !important;
+  }
+  .tgs-reveal {
+    opacity: 1;
+    transform: none !important;
+  }
+}
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+.consent input {
+  width: auto;
+  margin-top: 2px;
+  accent-color: var(--violet);
+}
+.product.unavailable {
+  opacity: 0.9;
+}
+.product.unavailable .add-btn {
+  cursor: pointer;
+}
+.fav-btn {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #080e29;
+  color: #6673a6;
+  font-size: 1.15rem;
+  line-height: 1;
+  transition:
+    transform 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.fav-btn:hover {
+  transform: translateY(-1px) scale(1.04);
+  color: #ffd45a;
+  border-color: rgba(255, 181, 46, 0.45);
+  background: rgba(255, 181, 46, 0.07);
+}
+.fav-btn.on {
+  color: #ffd45a;
+  border-color: rgba(255, 181, 46, 0.55);
+  background: linear-gradient(145deg, rgba(255, 181, 46, 0.16), rgba(255, 138, 42, 0.06));
+  box-shadow:
+    0 0 16px rgba(255, 181, 46, 0.18),
+    inset 0 0 12px rgba(255, 181, 46, 0.05);
+}
+.fav-btn.on:hover {
+  box-shadow: 0 0 22px rgba(255, 181, 46, 0.28);
+}
+.add-btn:not(:disabled) {
+  cursor: pointer;
+}
+.add-btn:disabled {
+  opacity: 0.72;
+}
+.product.unavailable .product-price small {
+  color: var(--gold);
+}
+.catalog-empty {
+  grid-column: 1/-1;
+  padding: 22px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: #080e29;
+  display: grid;
+  gap: 6px;
+}
+.catalog-empty b {
+  font-family: var(--display);
+  color: var(--ink);
+}
+.catalog-empty small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.favorite-empty {
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.favorite-entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #080e29;
+  margin-top: 8px;
+}
+.favorite-entry small {
+  display: block;
+  color: var(--muted);
+}
+.favorite-entry button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--grad);
+  color: #fff;
+  padding: 7px 10px;
+  font-weight: 800;
+}
+.product-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  min-height: 92px;
+}
+.product-visual svg {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 0 8px rgba(55, 214, 255, 0.38));
+}
+.visual-ring {
+  position: absolute;
+  width: 66px;
+  height: 66px;
+  border: 1px dashed rgba(55, 214, 255, 0.16);
+  border-radius: 50%;
+  animation: tgsSpin 10s linear infinite;
+}
+.finder-error {
+  padding: 14px;
+  border: 1px solid rgba(255, 91, 110, 0.4);
+  border-radius: 10px;
+  color: #ffc0c6;
+  background: rgba(255, 91, 110, 0.06);
+}
+@keyframes tgsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

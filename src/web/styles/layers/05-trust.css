@@ -1,0 +1,37 @@
+.trust {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  padding-top: 17px;
+}
+.trust article {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(12, 18, 48, 0.68);
+}
+.trust article > span {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(55, 214, 255, 0.13);
+  background: linear-gradient(145deg, rgba(139, 61, 255, 0.12), rgba(55, 214, 255, 0.07));
+  color: var(--cyan);
+}
+.trust article > span svg {
+  width: 16px;
+}
+.trust b {
+  display: block;
+  font-size: 0.69rem;
+}
+.trust small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.58rem;
+}

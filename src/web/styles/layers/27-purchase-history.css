@@ -1,0 +1,67 @@
+/* ===== TGS PURCHASE HISTORY ===== */
+.history-list {
+  display: grid;
+  gap: 12px;
+  max-height: 62vh;
+  overflow: auto;
+  padding-right: 3px;
+}
+.history-entry {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.history-entry b {
+  display: block;
+  font-size: 14px;
+}
+.history-entry small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+.history-entry .history-status {
+  display: inline-flex;
+  margin-top: 7px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+.history-entry .history-status.ok {
+  color: #7dffbf;
+  background: rgba(42, 210, 130, 0.08);
+}
+.history-entry .history-status.warn {
+  color: #ffd76b;
+  background: rgba(255, 195, 60, 0.08);
+}
+.history-entry .history-status.bad {
+  color: #ff8d9b;
+  background: rgba(255, 70, 100, 0.08);
+}
+.history-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.history-empty {
+  padding: 30px 16px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+.history-source {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+}

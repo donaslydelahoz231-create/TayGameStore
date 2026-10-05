@@ -1,0 +1,111 @@
+/* ===== PAYMENT RESULT ===== */
+.result-body {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(139, 61, 255, 0.18), transparent 34%), #050815;
+}
+.result-wrap {
+  width: min(680px, 92vw);
+}
+.result-card {
+  padding: 35px;
+  border: 1px solid #37447e;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #141c4a, #080d27);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.result-orb {
+  position: relative;
+  width: 85px;
+  height: 85px;
+  margin: 0 auto 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(55, 214, 255, 0.12), transparent 70%);
+  border: 1px dashed rgba(55, 214, 255, 0.22);
+}
+.result-orb span {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(139, 61, 255, 0.22);
+  border-radius: 50%;
+  animation: spin 5s linear infinite;
+}
+.result-orb span:nth-child(2) {
+  inset: 14px;
+  animation-direction: reverse;
+  animation-duration: 3s;
+}
+.result-orb svg {
+  width: 38px;
+  color: var(--violet2);
+}
+.result-card h1 {
+  font-family: var(--display);
+  font-size: 2rem;
+  margin: 8px 0;
+}
+.result-card p {
+  color: var(--muted);
+  font-size: 0.76rem;
+  max-width: 52ch;
+  margin: 0 auto 15px;
+}
+.result-ref {
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #070c24;
+  color: var(--cyan);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  margin-bottom: 13px;
+}
+.result-status {
+  justify-content: center;
+  margin: 0 0 16px;
+}
+.result-status.ok i {
+  background: var(--green);
+  box-shadow: 0 0 9px var(--green);
+}
+.result-status.bad i {
+  background: var(--danger);
+  box-shadow: 0 0 9px var(--danger);
+}
+.result-timeline {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px 1fr 32px 1fr;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 17px;
+}
+.result-timeline span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #070c24;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+.result-timeline span.on {
+  background: var(--grad);
+  color: #fff;
+  border-color: #6e7bff;
+  box-shadow: 0 0 13px rgba(139, 61, 255, 0.3);
+}
+.result-timeline b {
+  color: var(--muted);
+  font-size: 0.56rem;
+  font-weight: 700;
+}

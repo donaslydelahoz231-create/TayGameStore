@@ -1,0 +1,58 @@
+.cart-manage,
+.drawer-manage {
+  align-items: flex-start;
+}
+.cart-item-main,
+.drawer-item-main {
+  min-width: 0;
+}
+.cart-controls,
+.drawer-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+.cart-controls button,
+.drawer-controls button {
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #080e29;
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 0.68rem;
+}
+.cart-controls span,
+.drawer-controls span {
+  min-width: 22px;
+  text-align: center;
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+.cart-controls .cart-remove {
+  width: auto;
+  padding: 0 7px;
+  color: #ffb7c0;
+  border-color: rgba(255, 90, 90, 0.18);
+  font-size: 0.52rem;
+}
+.drawer-controls .drawer-remove {
+  margin-left: 2px;
+  color: #ffb7c0;
+  border-color: rgba(255, 90, 90, 0.18);
+}
+.cart-controls button:hover,
+.drawer-controls button:hover {
+  border-color: #5969b2;
+  background: #10183b;
+}
+.cart-item > strong,
+.drawer-item > strong {
+  padding-top: 2px;
+  white-space: nowrap;
+}

@@ -1,0 +1,33 @@
+/*
+ * Estilos de TayGameStore.
+ * El ORDEN de las capas es la cascada original del HTML: cada capa posterior puede
+ * sobrescribir a las anteriores. No reordenar sin revisar las pruebas visuales.
+ */
+@import './layers/01-tokens-base.css';
+@import './layers/02-boot-brand.css';
+@import './layers/03-header.css';
+@import './layers/04-hero.css';
+@import './layers/05-trust.css';
+@import './layers/06-sections-catalog.css';
+@import './layers/07-smart-band.css';
+@import './layers/08-player.css';
+@import './layers/09-invoice.css';
+@import './layers/10-tracking.css';
+@import './layers/11-lab.css';
+@import './layers/12-support.css';
+@import './layers/13-footer.css';
+@import './layers/14-drawer.css';
+@import './layers/15-modals.css';
+@import './layers/16-toast.css';
+@import './layers/17-cart-controls.css';
+@import './layers/18-keyframes.css';
+@import './layers/19-responsive.css';
+@import './layers/20-reduced-motion.css';
+@import './layers/21-auth.css';
+@import './layers/22-payment-result.css';
+@import './layers/23-player-finder.css';
+@import './layers/24-visual-evolution.css';
+@import './layers/25-entry-experience.css';
+@import './layers/26-hardening.css';
+@import './layers/27-purchase-history.css';
+@import './layers/28-cinematic-v4.css';

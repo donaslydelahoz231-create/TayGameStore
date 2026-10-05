@@ -1,0 +1,81 @@
+.tracking-ref {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.tracking-ref small {
+  color: var(--muted);
+  font-size: 0.56rem;
+}
+.tracking-ref strong {
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 0.78rem;
+}
+.tracking-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 19px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(12, 18, 48, 0.74);
+}
+.track-line {
+  position: absolute;
+  left: 11%;
+  right: 11%;
+  top: 37px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--green), #3b467b 68%, #2e385f);
+}
+.track {
+  text-align: center;
+  position: relative;
+}
+.track > span {
+  width: 37px;
+  height: 37px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #39477f;
+  border-radius: 50%;
+  background: #080e29;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 0.59rem;
+  font-weight: 900;
+}
+.track.active > span,
+.track.done > span {
+  background: var(--grad);
+  border-color: #7786dc;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(139, 61, 255, 0.28);
+}
+.track b {
+  display: block;
+  font-size: 0.63rem;
+}
+.track small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.54rem;
+  margin-top: 2px;
+}
+.tracking-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+}
+.tracking-message {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.6rem;
+}

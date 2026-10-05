@@ -1,0 +1,132 @@
+/* ===== REAL AUTH / OAUTH ===== */
+.auth-box {
+  max-width: 480px;
+}
+.auth-social-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2px 0 8px;
+  color: var(--muted);
+  font-family: var(--display);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+}
+.auth-social-title span {
+  color: var(--muted2);
+  letter-spacing: 0.04em;
+}
+.oauth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.oauth-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #070c24;
+  text-decoration: none;
+  transition: 0.18s;
+  min-width: 0;
+}
+.oauth-btn:hover {
+  transform: translateY(-1px);
+  border-color: #5a69b4;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+}
+.oauth-btn .oauth-brand {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #111936;
+  font-family: Arial, sans-serif;
+  font-weight: 900;
+  font-size: 0.8rem;
+}
+.oauth-btn.google .oauth-brand {
+  background: #fff;
+  color: #4285f4;
+}
+.oauth-btn.facebook .oauth-brand {
+  background: #1877f2;
+  color: #fff;
+}
+.oauth-btn.discord .oauth-brand {
+  background: #5865f2;
+  color: #fff;
+}
+.oauth-btn.vk .oauth-brand {
+  background: #0077ff;
+  color: #fff;
+  font-size: 0.58rem;
+}
+.oauth-btn b,
+.oauth-btn small {
+  display: block;
+}
+.oauth-btn b {
+  font-size: 0.67rem;
+  color: var(--ink);
+}
+.oauth-btn small {
+  font-size: 0.52rem;
+  color: var(--muted);
+}
+.oauth-btn.disabled {
+  opacity: 0.55;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted2);
+  font-size: 0.57rem;
+  margin: 13px 0;
+}
+.auth-divider:before,
+.auth-divider:after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+.auth-secondary {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+.text-btn.inline {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+}
+.text-btn.inline:last-child {
+  margin-left: auto;
+}
+.login-oauth-note {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.54rem;
+}
+@media (max-width: 520px) {
+  .oauth-grid {
+    grid-template-columns: 1fr;
+  }
+  .auth-secondary {
+    flex-direction: column;
+  }
+  .text-btn.inline:last-child {
+    margin-left: 0;
+  }
+  .oauth-btn small {
+    font-size: 0.49rem;
+  }
+}
