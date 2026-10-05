@@ -1,60 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { expectReducedMotion, preparePage, unexpectedErrors } from './support/page.js';
 
 /**
- * Línea base visual del HTML original (legacy/index-cinematic-v4.html).
+ * Línea base visual del frontend original (legacy/index-cinematic-v4.html).
  * Fija lo no determinista: reloj, Math.random, movimiento reducido, fuentes y backend
  * ausente. Con movimiento reducido el CSS original desactiva partículas y deja visibles
  * las secciones cinematográficas.
  */
-
-const FIXED_TIME = new Date('2026-01-15T10:30:00-05:00');
-
-/**
- * Google Fonts se sirve desde e2e/fixtures/google-fonts para que las capturas no dependan
- * de la red. Para regenerarlo: e2e/fixtures/fetch-google-fonts.sh
- */
-const FONTS_DIR = 'e2e/fixtures/google-fonts';
-const GOOGLE_FONTS_URL = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//;
-const fontsManifest = JSON.parse(readFileSync(`${FONTS_DIR}/manifest.json`, 'utf8')) as Record<
-  string,
-  { file: string; contentType: string }
->;
-
-async function preparePage(page: Page): Promise<string[]> {
-  const consoleErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
-
-  await page.clock.setFixedTime(FIXED_TIME);
-  await page.addInitScript(() => {
-    let seed = 42;
-    Math.random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return (seed - 1) / 2147483646;
-    };
-  });
-  await page.route(GOOGLE_FONTS_URL, (route) => {
-    const entry = fontsManifest[route.request().url()];
-    if (!entry) return route.abort();
-    return route.fulfill({
-      path: `${FONTS_DIR}/${entry.file}`,
-      contentType: entry.contentType,
-      headers: { 'access-control-allow-origin': '*' },
-    });
-  });
-  // Sin backend: todas las llamadas a la API fallan de forma determinista.
-  await page.route('**/api/**', (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'SERVER_UNAVAILABLE' }),
-    }),
-  );
-  return consoleErrors;
-}
 
 async function settle(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');
@@ -75,15 +27,12 @@ async function settle(page: Page): Promise<void> {
 }
 
 test('captura las vistas principales del frontend original', async ({ page }) => {
-  const consoleErrors = await preparePage(page);
+  const consoleErrors = await preparePage(page, { deterministic: true });
 
   await page.goto('/');
   // Sin movimiento reducido las partículas y los reveals cinematográficos hacen las
-  // capturas no deterministas: se verifica que la emulación esté activa.
-  const reducedMotion = await page.evaluate(
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
-  expect(reducedMotion, 'la emulación de movimiento reducido debe estar activa').toBe(true);
+  // capturas no deterministas.
+  await expectReducedMotion(page);
 
   await settle(page);
   await expect(page.locator('#entryExperience')).toBeVisible();
@@ -111,7 +60,5 @@ test('captura las vistas principales del frontend original', async ({ page }) =>
   await settle(page);
   await expect(page).toHaveScreenshot('03-tienda-pagina-completa.png', { fullPage: true });
 
-  // Las únicas fallas esperadas son las llamadas a la API ausente (503 simulado).
-  const unexpected = consoleErrors.filter((text) => !text.includes('503'));
-  expect(unexpected).toEqual([]);
+  expect(unexpectedErrors(consoleErrors)).toEqual([]);
 });
