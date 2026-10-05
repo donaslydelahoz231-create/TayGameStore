@@ -12,9 +12,6 @@ export default defineConfig(
       'legacy/',
       'test-results/',
       'playwright-report/',
-      // Fase 0: el frontend sigue siendo el HTML original con scripts inline.
-      // Se incorpora al lint cuando se modularice (Fase 1).
-      'src/web/',
     ],
   },
   js.configs.recommended,
@@ -40,7 +37,19 @@ export default defineConfig(
     rules: { 'no-console': 'off' },
   },
   {
-    files: ['**/*.js'],
+    files: ['*.js', 'e2e/**/*.js'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Frontend (módulos ES del navegador).
+    files: ['src/web/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'module' },
+    rules: {
+      'no-unused-vars': ['error', { caughtErrors: 'none' }],
+      eqeqeq: ['error', 'always'],
+      'no-implicit-globals': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
+    },
   },
 );
