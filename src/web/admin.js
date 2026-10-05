@@ -249,7 +249,7 @@ function renderDetail(d) {
       <dt>UID</dt><dd>${esc(o.playerUid)}</dd>
       <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}</dd>
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
-      <dt>Total</dt><dd>${money(o.totalCop)} ${esc(o.currency)}</dd>
+      <dt>Total</dt><dd>${money(o.totalCop)}</dd>
       <dt>Vence</dt><dd>${fmtDate(o.expiresAt)}</dd>
       <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.evidence ? ' · ' + esc(f.evidence) : '') : '—'}</dd>
     </dl>
