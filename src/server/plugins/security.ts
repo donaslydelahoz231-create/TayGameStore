@@ -104,8 +104,12 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
   });
   // En memoria del proceso: válido para UNA instancia. Con varias instancias hace falta un
   // almacén compartido (ver docs/PLAN-ARQUITECTURA.md).
+  // Límite global por IP para TODAS las rutas (estáticos y 404 incluidos); las rutas sensibles
+  // tienen además su propio límite, más estricto (RATE_LIMITS).
   await app.register(fastifyRateLimit, {
-    global: false,
+    global: true,
+    max: config.rateLimitGlobalPerMinute,
+    timeWindow: '1 minute',
     errorResponseBuilder: (_request, context) =>
       new AppError(
         'RATE_LIMITED',

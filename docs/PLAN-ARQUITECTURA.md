@@ -78,6 +78,7 @@ Tienda funcional de punta a punta. Las ventas reales dependen de configurar Merc
 | Rendimiento: listado de pedidos sin N+1 (151 → 4 consultas), estáticos precomprimidos (br/gzip) y caché inmutable de assets | `IMPLEMENTADO` | `tests/perf/*`, `tests/api/static.test.ts` |
 | Despliegue: Blueprint `render.yaml` validado contra la configuración; textos legales en borrador con bloqueo de ventas en producción si quedan `[COMPLETAR` | `IMPLEMENTADO` · aplicar en Render y revisión legal `PENDIENTE` (propietario) | `tests/unit/render-blueprint.test.ts`, `tests/unit/legal-pages.test.ts` |
 | Accesibilidad (axe-core WCAG 2.1 AA sin violaciones críticas/graves), diálogos con foco, carrito `inert`, responsive sin desbordes en 360–1920 px (sin `overflow-x:hidden`) | `IMPLEMENTADO` | `e2e/quality.spec.ts` |
+| Defensa ante usuarios maliciosos: escudo anti-abuso (sondeos, CSRF, ráfagas, enumeración, MFA) con bloqueo escalonado persistido y revisión en el panel; límite global por IP; `requestTimeout` 30 s; bloqueo MFA por cuenta; errores de proceso con registro fatal | `IMPLEMENTADO` | `tests/unit/shield.test.ts`, `tests/integration/security.test.ts`, `tests/integration/auth.test.ts` |
 | Revisión con lector de pantalla, métricas externas | `PENDIENTE` | — |
 | Fuente legítima de verificación (C1), proveedor de consulta instantánea, proveedor de recargas automático | `BLOCKED` (externo) | — |
 

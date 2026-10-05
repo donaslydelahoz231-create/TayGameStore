@@ -449,6 +449,9 @@ export async function alertSummary(deps: ServiceDeps) {
     [pendingLong],
     [awaitingVerification],
     [invalidWebhooks],
+    [autoBlocks],
+    [mfaLocks],
+    [activeIpBlocks],
   ] = await Promise.all([
     deps.db.select({ n: count() }).from(orders).where(eq(orders.status, 'NEEDS_REVIEW')),
     deps.db.select({ n: count() }).from(payments).where(eq(payments.status, 'NEEDS_REFUND')),
@@ -472,6 +475,33 @@ export async function alertSummary(deps: ServiceDeps) {
           sql`${auditEvents.createdAt} > now() - interval '24 hours'`,
         ),
       ),
+    deps.db
+      .select({ n: count() })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.action, 'security.auto_block'),
+          sql`${auditEvents.createdAt} > now() - interval '24 hours'`,
+        ),
+      ),
+    deps.db
+      .select({ n: count() })
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.action, 'admin.mfa_locked'),
+          sql`${auditEvents.createdAt} > now() - interval '24 hours'`,
+        ),
+      ),
+    deps.db
+      .select({ n: count() })
+      .from(blocklist)
+      .where(
+        and(
+          eq(blocklist.kind, 'ip_hash'),
+          sql`(${blocklist.expiresAt} is null or ${blocklist.expiresAt} > now())`,
+        ),
+      ),
   ]);
   return {
     needsReview: review?.n ?? 0,
@@ -480,6 +510,9 @@ export async function alertSummary(deps: ServiceDeps) {
     paymentsPendingTooLong: pendingLong?.n ?? 0,
     awaitingVerification: awaitingVerification?.n ?? 0,
     invalidWebhooks24h: invalidWebhooks?.n ?? 0,
+    autoBlocks24h: autoBlocks?.n ?? 0,
+    mfaLocks24h: mfaLocks?.n ?? 0,
+    activeIpBlocks: activeIpBlocks?.n ?? 0,
   };
 }
 

@@ -54,6 +54,8 @@ const config = loadConfig({
   CHECKOUT_ENABLED: 'true',
   PAYMENTS_ENABLED: 'true',
   MP_MODE: 'sandbox',
+  // Todas las pruebas salen de 127.0.0.1: el límite global por IP se mide en tests/integration.
+  RATE_LIMIT_GLOBAL_PER_MINUTE: '100000',
   MP_ACCESS_TOKEN: 'TEST-e2e-sin-uso',
   MP_WEBHOOK_SECRET: 'secreto-e2e-sin-uso',
   JOBS_ENABLED: 'false',

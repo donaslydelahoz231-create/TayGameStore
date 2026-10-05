@@ -83,6 +83,8 @@ const envSchema = z
     TRUST_PROXY: trustProxySchema,
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+    /** Peticiones por minuto y por IP en cualquier ruta (las sensibles tienen su propio límite). */
+    RATE_LIMIT_GLOBAL_PER_MINUTE: z.coerce.number().int().min(60).max(100_000).default(600),
     SERVE_WEB: z.stringbool().optional(),
     WEB_DIST_DIR: z.string().min(1).default('dist/web'),
 
@@ -198,6 +200,7 @@ export interface AppConfig {
   trustProxy: boolean | number;
   databaseUrl: string | undefined;
   databasePoolMax: number;
+  rateLimitGlobalPerMinute: number;
   serveWeb: boolean;
   webDistDir: string;
   jobsEnabled: boolean;
@@ -278,6 +281,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     trustProxy: env.TRUST_PROXY,
     databaseUrl: env.DATABASE_URL,
     databasePoolMax: env.DATABASE_POOL_MAX,
+    rateLimitGlobalPerMinute: env.RATE_LIMIT_GLOBAL_PER_MINUTE,
     serveWeb: env.SERVE_WEB ?? isProduction,
     webDistDir: env.WEB_DIST_DIR,
     jobsEnabled: env.JOBS_ENABLED ?? env.NODE_ENV !== 'test',

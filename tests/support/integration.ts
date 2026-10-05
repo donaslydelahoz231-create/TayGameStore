@@ -10,6 +10,7 @@ import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
+import type { AbuseShield } from '../../src/server/services/shield.js';
 
 export function testDatabaseUrl(): string {
   const url = process.env.TEST_DATABASE_URL;
@@ -61,6 +62,7 @@ export interface Harness {
   gateway: FakePaymentGateway;
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
+  shield: AbuseShield;
   clock: { now: Date };
   close(): Promise<void>;
 }
@@ -92,7 +94,7 @@ export async function createHarness(
     JOBS_ENABLED: 'false',
     ...env,
   });
-  const { app, deps } = await buildAppWithDeps({
+  const { app, deps, shield } = await buildAppWithDeps({
     config,
     database,
     db: database.db,
@@ -109,6 +111,7 @@ export async function createHarness(
     gateway,
     google,
     verifier,
+    shield,
     clock,
     close: async () => {
       await app.close();

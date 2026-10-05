@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm';
 import type { InjectOptions } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { users } from '../../src/server/db/schema.js';
+import { auditEvents, users } from '../../src/server/db/schema.js';
 import { decrypt } from '../../src/server/lib/crypto.js';
 import { totp } from '../../src/server/lib/totp.js';
+import { MFA_MAX_FAILURES } from '../../src/server/services/auth.js';
 import type { ApiErrorBody } from '../../src/shared/errors.js';
 import {
   ADMIN_EMAIL,
@@ -188,5 +189,45 @@ describe('MFA de administración (TOTP + códigos de recuperación)', () => {
       payload: { recoveryCode: code },
     });
     expect(reused.statusCode).toBe(400);
+  });
+
+  it('bloquea la verificación de la CUENTA tras 5 códigos erróneos, aunque cambie la IP', async () => {
+    const login = await googleLogin('admin');
+    if (!login.session) throw new Error('sin sesión');
+    const verify = (payload: object) =>
+      inject({
+        method: 'POST',
+        url: '/api/admin/mfa/verify',
+        headers: CSRF,
+        cookies: login.session,
+        payload,
+      });
+    const [adminUser] = await h.database.db
+      .select()
+      .from(users)
+      .where(eq(users.email, ADMIN_EMAIL));
+    // Fallos previos de esta cuenta desde el último acierto (la prueba anterior deja uno).
+    const events = await h.database.db
+      .select({ action: auditEvents.action })
+      .from(auditEvents)
+      .where(eq(auditEvents.entityId, adminUser?.id ?? ''))
+      .orderBy(auditEvents.id);
+    const lastOk = events.map((e) => e.action).lastIndexOf('admin.mfa_verified');
+    const prior = events.slice(lastOk + 1).filter((e) => e.action === 'admin.mfa_failed').length;
+    // Cada intento sale de una IP distinta (el rate limiting por IP no lo frenaría).
+    for (let i = prior; i < MFA_MAX_FAILURES; i += 1) {
+      expect((await verify({ code: '000000' })).statusCode).toBe(400);
+    }
+    const locked = await verify({ code: '000000' });
+    expect(locked.statusCode).toBe(429);
+    expect(locked.json<ApiErrorBody>().error.code).toBe('RATE_LIMITED');
+    // Ni siquiera el código correcto entra durante el bloqueo.
+    const secret = decrypt(h.deps.config.secrets.mfaKeys, adminUser?.mfaSecretEnc ?? '').plaintext;
+    expect((await verify({ code: totp(secret, Date.now()) })).statusCode).toBe(429);
+    const [event] = await h.database.db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.action, 'admin.mfa_locked'));
+    expect(event?.data).toMatchObject({ alert: true });
   });
 });

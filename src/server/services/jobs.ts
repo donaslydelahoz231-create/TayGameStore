@@ -4,6 +4,7 @@ import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
 import { purgeExpiredLookups } from './player.js';
+import { purgeExpiredBlocks } from './shield.js';
 import {
   failedPaymentEvents,
   ordersNeedingReconciliation,
@@ -137,7 +138,8 @@ export async function cleanup(deps: ServiceDeps): Promise<number> {
     .where(lt(oauthStates.expiresAt, now))
     .returning({ stateHash: oauthStates.stateHash });
   const removedLookups = await purgeExpiredLookups(deps);
-  return removedSessions.length + removedStates.length + removedLookups;
+  const removedBlocks = await purgeExpiredBlocks(deps);
+  return removedSessions.length + removedStates.length + removedLookups + removedBlocks;
 }
 
 const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {

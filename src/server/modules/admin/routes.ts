@@ -26,11 +26,14 @@ import {
   updateProduct,
 } from '../../services/catalog.js';
 import type { ServiceDeps } from '../../services/context.js';
+import type { AbuseShield } from '../../services/shield.js';
 import { reconcileOrder } from '../../services/payments.js';
 import { AppError } from '../../plugins/errors.js';
 
 export interface AdminRoutesOptions {
   deps: ServiceDeps | undefined;
+  /** Se recarga tras cada cambio para que el bloqueo o desbloqueo sea inmediato. */
+  shield?: AbuseShield | undefined;
 }
 
 const idParams = z.object({ id: z.uuid() });
@@ -122,12 +125,14 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
     return reply
       .code(201)
       .send({ entry: await addBlock(deps, blockSchema.parse(request.body), actor) });
+    await options.shield?.refresh(true);
   });
 
   app.delete('/api/admin/blocklist/:id', guarded, async (request) => {
     const { deps, actor } = ctx(request);
     const { id } = idParams.parse(request.params);
     await removeBlock(deps, id, actor);
+    await options.shield?.refresh(true);
     return { ok: true };
   });
 

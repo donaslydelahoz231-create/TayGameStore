@@ -179,6 +179,9 @@ async function loadAlerts() {
     ['needsRefund', 'Pagos por reembolsar', 'bad'],
     ['paymentsPendingTooLong', 'Pagos pendientes (+1 h)', 'warn'],
     ['invalidWebhooks24h', 'Webhooks inválidos (24 h)', 'bad'],
+    ['autoBlocks24h', 'Bloqueos automáticos (24 h)', 'warn'],
+    ['activeIpBlocks', 'IPs bloqueadas ahora', 'warn'],
+    ['mfaLocks24h', 'Cuentas admin con MFA bloqueado (24 h)', 'bad'],
   ];
   $('admAlerts').innerHTML = items
     .map(
@@ -415,7 +418,11 @@ async function loadBlocks() {
     body.replaceChildren();
     for (const b of j.entries) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${esc(b.kind)}</td><td>${esc(b.value)}</td><td>${esc(b.reason)}</td><td>${fmtDate(b.createdAt)}</td><td><button class="adm-btn ghost" type="button">Quitar</button></td>`;
+      const expired = b.expiresAt && new Date(b.expiresAt).getTime() <= Date.now();
+      const until = !b.expiresAt ? 'Permanente' : (expired ? 'Venció ' : '') + fmtDate(b.expiresAt);
+      // Huella de IP abreviada: es un hash irreversible, no la IP.
+      const value = b.kind === 'ip_hash' ? `${b.value.slice(0, 16)}…` : b.value;
+      tr.innerHTML = `<td>${esc(b.kind)}</td><td title="${esc(b.value)}">${esc(value)}</td><td>${esc(b.reason)}</td><td>${fmtDate(b.createdAt)}</td><td>${esc(until)}</td><td><button class="adm-btn ghost" type="button">Quitar</button></td>`;
       tr.querySelector('button').onclick = () => {
         if (!confirm('¿Quitar este bloqueo?')) return;
         run(async () => {

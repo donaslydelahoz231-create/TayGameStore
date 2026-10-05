@@ -18,7 +18,9 @@ import { registerErrorHandling } from './plugins/errors.js';
 import { buildLoggerOptions, generateRequestId } from './plugins/logging.js';
 import { registerMaintenanceGuard } from './plugins/maintenance.js';
 import { registerSecurity } from './plugins/security.js';
+import { registerShield } from './plugins/shield.js';
 import type { ServiceDeps } from './services/context.js';
+import { AbuseShield } from './services/shield.js';
 
 export interface AppDependencies {
   config: AppConfig;
@@ -35,6 +37,7 @@ export interface AppDependencies {
 }
 
 const BODY_LIMIT_BYTES = 64 * 1024;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** `TRUST_PROXY=<n>` confía en los n saltos más cercanos (semántica de proxy-addr). */
 function toTrustProxyOption(
@@ -69,6 +72,7 @@ export function assertLegalPagesReady(config: AppConfig, root: string): void {
 export interface BuiltApp {
   app: FastifyInstance;
   deps: ServiceDeps | undefined;
+  shield: AbuseShield;
 }
 
 export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp> {
@@ -85,6 +89,9 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     }),
     trustProxy: toTrustProxyOption(config.trustProxy),
     bodyLimit: BODY_LIMIT_BYTES,
+    // Por defecto Fastify no limita el tiempo para recibir una petición: una conexión que
+    // envía cabeceras o cuerpo muy despacio (slowloris) ocuparía el servidor sin fin.
+    requestTimeout: REQUEST_TIMEOUT_MS,
   });
 
   const deps: ServiceDeps | undefined = input.db
@@ -105,6 +112,12 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
   registerMaintenanceGuard(app, config.flags);
   await registerSecurity(app, config);
   registerRequestContext(app, config, deps);
+  const shield = new AbuseShield({
+    db: deps?.db,
+    now: input.now ?? (() => new Date()),
+    log: app.log,
+  });
+  registerShield(app, shield);
 
   await app.register(healthRoutes, {
     database: input.database,
@@ -119,7 +132,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
   await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });
   await app.register(authRoutes, { config, deps, google: input.googleClient });
-  await app.register(adminRoutes, { deps });
+  await app.register(adminRoutes, { deps, shield });
 
   if (config.serveWeb) {
     const root = path.resolve(config.webDistDir);
@@ -147,7 +160,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     });
   }
 
-  return { app, deps };
+  return { app, deps, shield };
 }
 
 export async function buildApp(input: AppDependencies): Promise<FastifyInstance> {

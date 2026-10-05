@@ -1,5 +1,12 @@
-import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
-import { blocklist, mfaRecoveryCodes, oauthStates, sessions, users } from '../db/schema.js';
+import { and, count, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import {
+  auditEvents,
+  blocklist,
+  mfaRecoveryCodes,
+  oauthStates,
+  sessions,
+  users,
+} from '../db/schema.js';
 import { decrypt, encrypt, randomToken, sha256 } from '../lib/crypto.js';
 import {
   generateRecoveryCodes,
@@ -269,6 +276,52 @@ export async function enableMfa(deps: ServiceDeps, user: AuthUser, code: string,
   return codes;
 }
 
+/** Fallos de MFA tolerados por cuenta (desde cualquier IP) antes del bloqueo temporal. */
+export const MFA_MAX_FAILURES = 5;
+const MFA_LOCK_MINUTES = 15;
+
+/**
+ * Bloqueo por CUENTA (el rate limiting es por IP): quien tenga una sesión robada no puede
+ * probar códigos desde muchas IPs. Cuenta los fallos de los últimos 15 minutos posteriores al
+ * último acierto, con la hora de la base de datos (la misma que registra la auditoría).
+ */
+async function assertMfaNotLocked(deps: ServiceDeps, user: AuthUser, actor: Actor) {
+  const ofUser = (action: string) =>
+    and(
+      eq(auditEvents.entityType, 'user'),
+      eq(auditEvents.entityId, user.id),
+      eq(auditEvents.action, action),
+    );
+  const [lastSuccess] = await deps.db
+    .select({ at: auditEvents.createdAt })
+    .from(auditEvents)
+    .where(ofUser('admin.mfa_verified'))
+    .orderBy(desc(auditEvents.createdAt))
+    .limit(1);
+  const [failures] = await deps.db
+    .select({ n: count() })
+    .from(auditEvents)
+    .where(
+      and(
+        ofUser('admin.mfa_failed'),
+        gt(auditEvents.createdAt, sql`now() - make_interval(mins => ${MFA_LOCK_MINUTES})`),
+        lastSuccess ? gt(auditEvents.createdAt, lastSuccess.at) : undefined,
+      ),
+    );
+  if ((failures?.n ?? 0) < MFA_MAX_FAILURES) return;
+  await audit(deps.db, actor, {
+    entityType: 'user',
+    entityId: user.id,
+    action: 'admin.mfa_locked',
+    data: { alert: true },
+  });
+  throw new AppError(
+    'RATE_LIMITED',
+    429,
+    `Demasiados códigos incorrectos. Espera ${MFA_LOCK_MINUTES} minutos.`,
+  );
+}
+
 export async function verifyMfa(
   deps: ServiceDeps,
   user: AuthUser,
@@ -277,6 +330,7 @@ export async function verifyMfa(
 ): Promise<void> {
   if (!user.mfaEnabled)
     throw new AppError('MFA_REQUIRED', 403, 'Configura la verificación en dos pasos.');
+  await assertMfaNotLocked(deps, user, actor);
   if (input.code) {
     const secret = await storedSecret(deps, user.id);
     if (verifyTotp(secret, input.code, deps.now().getTime())) {
