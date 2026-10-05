@@ -27,25 +27,9 @@ canvas {
 .faq-grid details {
   contain: layout paint;
 }
-.section,
-.trust,
-.smart-band,
-.tracking-card,
-.support-section,
-.faq {
-  content-visibility: auto;
-  contain-intrinsic-size: 560px;
-}
-@supports not (content-visibility: auto) {
-  .section,
-  .trust,
-  .smart-band,
-  .tracking-card,
-  .support-section,
-  .faq {
-    content-visibility: visible;
-  }
-}
+/* Sin `content-visibility: auto`: Firefox y Safari tratan el contenido aún no pintado como
+   invisible o con posiciones provisionales (botones del jugador que no respondían, destinos de
+   desplazamiento que se movían). En una página de ocho secciones el ahorro no lo compensa. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .header,
   .btn.glass,

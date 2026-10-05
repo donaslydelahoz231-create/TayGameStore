@@ -2,13 +2,11 @@ import { $ } from './dom.js';
 
 /**
  * Desplazamiento a una sección que termina donde debe, bajo la cabecera fija.
- * Dos cosas movían el destino durante un desplazamiento suave:
- * - las secciones usan `content-visibility: auto`: sin pintar miden lo estimado
- *   (`contain-intrinsic-size`) y cambian de alto al pintarse;
- * - la animación de entrada (28-cinematic-v4.css) desplaza y escala cada sección mientras
- *   aparece, y `scrollIntoView` apunta a esa posición transformada.
- * Por eso se usa la posición de maquetación (`offsetTop`, sin transformaciones) y, al terminar,
- * se mide de nuevo y se corrige sin animación. Si la persona toma el control (rueda, toque,
+ * La animación de entrada (28-cinematic-v4.css) desplaza y escala cada sección mientras
+ * aparece, y `scrollIntoView` apuntaba a esa posición transformada; además, imágenes y
+ * contenido que se completan durante el desplazamiento cambian alturas. Por eso se usa la
+ * posición de maquetación (`offsetTop`, sin transformaciones) y, al terminar, se mide de nuevo
+ * y se corrige sin animación. Si la persona toma el control (rueda, toque,
  * teclado) no se corrige.
  */
 const TOLERANCE_PX = 4;
