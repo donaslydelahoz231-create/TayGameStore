@@ -5,6 +5,11 @@
 > **Versión:** 2 — incorpora la revisión arquitectónica crítica (problemas P1–P30) y las decisiones C1–C12 confirmadas por el propietario.
 > **Fecha:** 2026-10-05
 
+> **Decisiones posteriores (prevalecen sobre este documento):**
+> - **Pagos:** Mercado Pago es la única pasarela; **Wompi queda eliminado**. Todo lo que este
+>   plan dice sobre Wompi está **sustituido** por [`docs/specs/pagos.md`](specs/pagos.md).
+> - **Verificación de jugador:** [`docs/specs/verificacion-jugador.md`](specs/verificacion-jugador.md).
+
 ## Convenciones
 
 | Marca | Significado |
