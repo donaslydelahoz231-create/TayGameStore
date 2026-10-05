@@ -1,21 +1,31 @@
-# Security Policy
+# Política de seguridad
 
-## Supported Versions
+## Versiones con soporte
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+TayGameStore se despliega de forma continua: solo recibe correcciones de seguridad la versión
+desplegada desde la rama principal. No hay versiones antiguas mantenidas.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Cómo reportar una vulnerabilidad
 
-## Reporting a Vulnerability
+- **No abras un issue público** con detalles de una vulnerabilidad.
+- Usa **"Report a vulnerability"** en la pestaña **Security** de este repositorio (reporte
+  privado de GitHub). Si no aparece, el propietario debe activarlo en _Settings → Code security
+  → Private vulnerability reporting_.
+- Incluye: qué componente (tienda, API, panel de administración, pagos, webhooks), pasos para
+  reproducirlo y el impacto que observaste.
+- **Nunca** pruebes con datos o pagos de otras personas ni contra la cuenta de producción de
+  Mercado Pago: usa tu propio entorno o el sandbox (`docs/sandbox-mercadopago.md`).
 
-Use this section to tell people how to report a vulnerability.
+## Qué esperar
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+- Acuse de recibo y evaluación inicial: `[COMPLETAR por el propietario: plazo, p. ej. 3 días hábiles]`.
+- Si se confirma, se corrige, se despliega y se te informa. Si no aplica, se explica el motivo.
+
+## Alcance
+
+Incluido: código de este repositorio (frontend, API Fastify, base de datos, integración con
+Mercado Pago y Google OAuth, CI).
+Fuera de alcance: servicios de terceros (Mercado Pago, Google, Render) — repórtalos a cada
+proveedor.
+
+Procedimiento interno de respuesta: [`docs/incident-response.md`](docs/incident-response.md).
