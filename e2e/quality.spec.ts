@@ -130,6 +130,24 @@ test('los modales son diálogos accesibles y devuelven el foco al cerrar', async
   await expect(opener).toBeFocused();
 });
 
+test('el menú de escritorio se ve completo con una sesión iniciada', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#enterStoreBtn').click();
+  await page.locator('[data-provider="discord"]').click();
+  await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
+  const clipped: string[] = [];
+  // Por encima de 1100 px conviven píldora de estado, menú y nombre de la cuenta.
+  for (const width of [1101, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const hidden = await page.evaluate(() => {
+      const nav = document.querySelector<HTMLElement>('.nav');
+      return nav ? nav.scrollWidth - nav.clientWidth : -1;
+    });
+    if (hidden !== 0) clipped.push(`${width}px: ${hidden}px del menú ocultos`);
+  }
+  expect(clipped).toEqual([]);
+});
+
 test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x)', async ({
   browser,
 }) => {
