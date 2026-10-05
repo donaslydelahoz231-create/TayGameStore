@@ -3,7 +3,14 @@ import { $, setText } from '../dom.js';
 import { state } from '../state.js';
 import { invoiceReference } from './invoice.js';
 
-const ALWAYS_HIDDEN_WHEN_OFF = new Set(['waBtn', 'invoiceWa', 'mailBtn', 'invoiceMail']);
+const ALWAYS_HIDDEN_WHEN_OFF = new Set([
+  'waBtn',
+  'invoiceWa',
+  'mailBtn',
+  'invoiceMail',
+  'floatWhatsApp',
+  'floatEmail',
+]);
 
 /** Canales oficiales de soporte (definidos por el backend; vacíos hasta configurarlos). */
 export function renderSupport() {
@@ -36,18 +43,15 @@ export function renderSupport() {
     el.classList.toggle('disabled', !ready);
     el.setAttribute('aria-disabled', ready ? 'false' : 'true');
   }
-  setText(
-    'supportWhatsappState',
-    wa ? 'Canal oficial disponible' : 'Pendiente de configuración del backend',
-  );
-  setText(
-    'supportEmailState',
-    mail ? 'Canal oficial disponible' : 'Pendiente de configuración del backend',
-  );
+  // Burbujas flotantes: solo los canales configurados; sin ninguno, no se muestran.
+  const float = $('supportFloat');
+  if (float) float.hidden = !(wa || mail);
+  setText('supportWhatsappState', wa ? 'Canal oficial disponible' : 'No disponible por ahora');
+  setText('supportEmailState', mail ? 'Canal oficial disponible' : 'No disponible por ahora');
   const st = $('supportBackendState');
   if (st) {
     st.classList.toggle('ok', !!(wa || mail));
     st.querySelector('i').style.background = wa || mail ? 'var(--green)' : 'var(--gold)';
-    st.lastChild.textContent = wa || mail ? ' Canales oficiales activos' : ' Canal pendiente';
+    st.lastChild.textContent = wa || mail ? ' Canales oficiales activos' : ' Sin canales activos';
   }
 }

@@ -106,6 +106,11 @@ function bindEntryAndAccount() {
     modal('historyModal', true);
     await syncPurchaseHistory();
   };
+  $('menuFavorites').onclick = () => {
+    closeMenus();
+    renderFavorites();
+    modal('favoritesModal', true);
+  };
   $('menuNew').onclick = () => {
     closeMenus();
     $('newInvoiceBtn').click();
@@ -130,7 +135,7 @@ function bindEntryAndAccount() {
     a.addEventListener('click', (e) => {
       if (a.getAttribute('aria-disabled') === 'true') {
         e.preventDefault();
-        toast('Este proveedor no está configurado en el backend.', 'bad');
+        toast('Este acceso no está disponible por ahora.', 'bad');
       }
     }),
   );

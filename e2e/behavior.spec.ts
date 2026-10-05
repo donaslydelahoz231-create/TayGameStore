@@ -233,6 +233,52 @@ test.describe('carrito y favoritos (mejoras)', () => {
   });
 });
 
+test.describe('estado de la tienda y soporte', () => {
+  test('el panel del inicio muestra el estado real del servidor, sin cifras fijas', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    // Servidor de pruebas: catálogo cargado, consulta de jugador disponible y pagos sandbox.
+    await expect(page.locator('#meterCatalog')).toHaveAttribute('data-state', 'ok');
+    await expect(page.locator('#meterCatalog b')).toHaveText('Activo');
+    await expect(page.locator('#meterPlayer b')).toHaveText('Al instante');
+    await expect(page.locator('#meterPayment')).toHaveAttribute('data-state', 'partial');
+    await expect(page.locator('#meterPayment b')).toHaveText('Prueba');
+    await expect(page.locator('.meter-list')).not.toContainText('%');
+  });
+
+  test('las burbujas de soporte solo muestran los canales configurados', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    // El servidor de pruebas solo define SUPPORT_EMAIL.
+    const email = page.locator('#floatEmail');
+    await expect(email).toBeVisible();
+    await expect(email).toHaveAttribute('href', /^mailto:soporte@example\.com\?subject=/);
+    await expect(page.locator('#floatWhatsApp')).toBeHidden();
+    await expect(page.locator('#supportWhatsappState')).toHaveText('No disponible por ahora');
+    const box = await email.boundingBox();
+    expect(box?.width).toBe(box?.height);
+  });
+
+  test('"Mis favoritos" en el menú de cuenta abre los favoritos guardados', async ({ page }) => {
+    await page.goto('/');
+    // El menú de cuenta es para clientes con sesión (al invitado el botón le abre el acceso).
+    await page.locator('#enterStoreBtn').click();
+    await page.locator('[data-provider="discord"]').click();
+    await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
+    await product(page, '520 + 52 Diamantes').locator('.fav-btn').click();
+    await page.locator('#accountBtn').click();
+    await page.locator('#menuFavorites').click();
+    await expect(page.locator('#favoritesModal')).toBeVisible();
+    await expect(page.locator('#favoritesList')).toContainText('520 + 52 Diamantes');
+    await expect(page.locator('#favoritesList [data-fav-op="remove"]')).toHaveCSS(
+      'color',
+      'rgb(255, 159, 176)',
+    );
+  });
+});
+
 test.describe('búsqueda y navegación', () => {
   test('la búsqueda encuentra paquetes y ofrece buscar un UID', async ({ page }) => {
     await page.goto('/');

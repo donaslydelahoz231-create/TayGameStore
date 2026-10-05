@@ -1,0 +1,132 @@
+/* Pulido de lanzamiento: botones de soporte en burbuja y favoritos legibles. */
+
+/* Soporte flotante: burbujas de chat (esquina inferior derecha recta = "cola" del globo). */
+.support-float {
+  gap: 12px;
+  justify-items: end;
+}
+.support-float-btn,
+.support-float-btn:hover {
+  position: relative;
+  width: 56px;
+  min-width: 56px;
+  height: 56px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 28px 28px 8px 28px;
+}
+.support-float-btn svg {
+  width: 26px;
+  height: 26px;
+}
+.support-float-btn.whatsapp {
+  background: radial-gradient(circle at 30% 25%, #4be38a, #1fae55 60%, #128c3e);
+  color: #fff;
+}
+.support-float-btn.email {
+  background: radial-gradient(circle at 30% 25%, #9a6bff, #6a3df0 60%, #3d27a8);
+  border-color: rgba(167, 123, 255, 0.55);
+  color: #fff;
+}
+/* Etiqueta: globo pequeño a la izquierda al pasar el ratón o con el teclado. */
+.support-float-btn span {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  display: block;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px 12px 4px 12px;
+  background: #0b1233;
+  color: var(--ink);
+  font: 800 0.66rem var(--display);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translate(6px, -50%);
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+.support-float-btn:hover span,
+.support-float-btn:focus-visible span {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+.support-float-btn:focus-visible {
+  outline: 2px solid #c3a6ff;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .support-float-btn.whatsapp::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    border: 2px solid rgba(75, 227, 138, 0.55);
+    animation: tgs-bubble-pulse 2.6s ease-out infinite;
+    pointer-events: none;
+  }
+}
+@keyframes tgs-bubble-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+@media (max-width: 650px) {
+  .support-float-btn,
+  .support-float-btn:hover {
+    width: 50px;
+    min-width: 50px;
+    height: 50px;
+    border-radius: 25px 25px 7px 25px;
+  }
+  .support-float-btn svg {
+    width: 23px;
+    height: 23px;
+  }
+  /* En pantallas táctiles no hay "hover": la etiqueta no se muestra y el nombre va en aria-label. */
+  .support-float-btn span {
+    display: none;
+  }
+}
+
+/* Favoritos: "Quitar" legible y distinto de "Agregar". */
+.favorite-actions [data-fav-op='remove'] {
+  background: transparent;
+  border-color: rgba(255, 107, 129, 0.45);
+  color: #ff9fb0;
+}
+.favorite-actions [data-fav-op='remove']:hover,
+.favorite-actions [data-fav-op='remove']:focus-visible {
+  background: rgba(255, 107, 129, 0.1);
+}
+
+/* Panel "Estado de operación": barras de estado (activo / limitado / no disponible). */
+.meter-list > div {
+  grid-template-columns: 82px 1fr minmax(64px, auto);
+}
+.meter-list em {
+  width: 100%;
+  transition: background 0.3s ease;
+}
+.meter-list [data-state='partial'] em {
+  background: linear-gradient(90deg, #b8862f, var(--gold, #ffc857));
+}
+.meter-list [data-state='partial'] b {
+  color: var(--gold, #ffc857);
+}
+.meter-list [data-state='off'] em {
+  background: #2a3360;
+}
+.meter-list [data-state='off'] b {
+  color: var(--muted);
+}

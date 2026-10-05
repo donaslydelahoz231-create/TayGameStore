@@ -28,6 +28,7 @@ export function renderService() {
     'serviceText',
     sandbox ? 'Modo prueba: sin cobros reales' : live ? 'Sistemas listos para operar' : label,
   );
+  renderOperationMeters(cfg, live, sandbox);
   setText(
     'operationText',
     state.previewOnly
@@ -37,6 +38,39 @@ export function renderService() {
         : live
           ? 'Catálogo, verificación y pagos con Mercado Pago'
           : label,
+  );
+}
+
+/** Fila del panel del inicio: `ok` activo, `partial` limitado o cargando, `off` no disponible. */
+function setMeter(id, stateName, text) {
+  const row = $(id);
+  if (!row) return;
+  row.dataset.state = stateName;
+  const value = row.querySelector('b');
+  if (value) value.textContent = text;
+}
+
+/** Panel "Estado de operación": refleja /api/config y el catálogo, nunca cifras inventadas. */
+function renderOperationMeters(cfg, live, sandbox) {
+  const catalog = {
+    ready: ['ok', 'Activo'],
+    loading: ['partial', 'Cargando'],
+    empty: ['off', 'Sin paquetes'],
+    error: ['off', 'No disponible'],
+  }[state.catalogStatus] || ['off', 'No disponible'];
+  setMeter('meterCatalog', ...catalog);
+  if (!cfg) {
+    const pending =
+      state.serverReachable === false ? ['off', 'Sin conexión'] : ['partial', 'Cargando'];
+    setMeter('meterPlayer', ...pending);
+    setMeter('meterPayment', ...pending);
+    return;
+  }
+  // Sin proveedor de consulta, el equipo verifica el jugador a mano tras crear el pedido.
+  setMeter('meterPlayer', ...(cfg.playerLookup ? ['ok', 'Al instante'] : ['partial', 'Manual']));
+  setMeter(
+    'meterPayment',
+    ...(sandbox ? ['partial', 'Prueba'] : live ? ['ok', 'Activo'] : ['off', 'Pausado']),
   );
 }
 
