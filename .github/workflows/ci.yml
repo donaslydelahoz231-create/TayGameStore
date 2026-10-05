@@ -104,6 +104,13 @@ jobs:
       # Las referencias visuales (test:visual) no se ejecutan aquí: dependen del motor de
       # render y de las fuentes del sistema con que se generaron.
       - run: npm run test:e2e
+      - name: Guardar trazas y capturas de las pruebas fallidas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
 
   secrets:
     name: Secretos en el historial (gitleaks)

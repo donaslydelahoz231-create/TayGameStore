@@ -31,7 +31,14 @@ export function renderHeader() {
   setText('accountName', name);
   setText('menuName', name);
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
-  setText('cartBadge', countItems());
+  const items = countItems();
+  setText('cartBadge', items);
+  // Nombre accesible explícito: Safari/WebKit no lo deriva de los <span> con iconos SVG.
+  $('accountBtn')?.setAttribute('aria-label', `Cuenta: ${name}`);
+  $('cartBtn')?.setAttribute(
+    'aria-label',
+    `Carrito, ${items} ${items === 1 ? 'producto' : 'productos'}`,
+  );
 }
 
 /** "Cuentas vinculadas": solo redes configuradas en el servidor; vincular exige la sesión. */

@@ -46,6 +46,8 @@ export default defineConfig({
     // Debe ir en contextOptions: como opción directa de `use` se ignora sin aviso.
     // El spec verifica que la emulación esté activa.
     contextOptions: { reducedMotion: 'reduce' },
+    // Si una prueba falla, guarda la traza para diagnosticarla (la CI la sube como artefacto).
+    trace: 'retain-on-failure',
   },
   projects: VIEWPORTS.map(({ name, width, height }) => ({
     name,
