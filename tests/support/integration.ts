@@ -64,6 +64,7 @@ export interface Harness {
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
+  routes: readonly string[];
   discord: FakeSocialClient;
   facebook: FakeSocialClient;
   clock: { now: Date };
@@ -99,7 +100,7 @@ export async function createHarness(
     JOBS_ENABLED: 'false',
     ...env,
   });
-  const { app, deps, shield } = await buildAppWithDeps({
+  const { app, deps, shield, routes } = await buildAppWithDeps({
     config,
     database,
     db: database.db,
@@ -118,6 +119,7 @@ export async function createHarness(
     google,
     verifier,
     shield,
+    routes,
     discord,
     facebook,
     clock,

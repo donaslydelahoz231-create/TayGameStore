@@ -36,6 +36,13 @@
       "when": 1791229985537,
       "tag": "0004_social_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791231300782,
+      "tag": "0005_fk_indexes",
+      "breakpoints": true
     }
   ]
 }

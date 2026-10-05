@@ -1,3 +1,4 @@
+import { hasOwn } from './compat.js';
 import { FAVORITES_KEY, GAME_INFO, LAST_ORDER_KEY, LEGACY_KEYS, STORAGE_KEY } from './config.js';
 import { state } from './state.js';
 
@@ -28,8 +29,7 @@ export function loadLocal() {
   safe(() => LEGACY_KEYS.forEach((key) => localStorage.removeItem(key)));
   const saved = safe(() => JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
   if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-    if (typeof saved.game === 'string' && Object.hasOwn(GAME_INFO, saved.game))
-      state.game = saved.game;
+    if (typeof saved.game === 'string' && hasOwn(GAME_INFO, saved.game)) state.game = saved.game;
     state.tariff = saved.tariff === 'promo' ? 'promo' : 'normal';
     const qty = {};
     if (saved.qty && typeof saved.qty === 'object' && !Array.isArray(saved.qty)) {

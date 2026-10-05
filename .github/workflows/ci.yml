@@ -25,6 +25,13 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      # El esquema (schema.ts) y las migraciones deben coincidir: si alguien cambia el esquema
+      # sin generar su migración, drizzle-kit crearía archivos nuevos y el paso falla.
+      - name: Esquema y migraciones sincronizados
+        run: |
+          npx drizzle-kit generate
+          git diff --exit-code -- src/server/db/migrations
+          test -z "$(git status --porcelain -- src/server/db/migrations)"
       - run: npm test
       - run: npm run build
       - name: Auditoría de dependencias de producción
@@ -60,8 +67,13 @@ jobs:
       - run: npm run test:integration
 
   e2e:
-    name: End-to-end (Playwright + PostgreSQL)
+    name: End-to-end ${{ matrix.browser }} (Playwright + PostgreSQL)
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Chromium = Chrome/Edge/Android; Firefox; WebKit = motor de Safari (iPhone/Mac).
+        browser: [chromium, firefox, webkit]
     services:
       postgres:
         image: postgres:16
@@ -79,6 +91,7 @@ jobs:
           --health-retries 10
     env:
       E2E_DATABASE_URL: postgres://ci:ci@localhost:5432/taygamestore_e2e_test
+      E2E_BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,8 +99,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Instalar Chromium de Playwright
-        run: npx playwright install --with-deps chromium
+      - name: Instalar el navegador de Playwright
+        run: npx playwright install --with-deps ${{ matrix.browser }}
       # Las referencias visuales (test:visual) no se ejecutan aquí: dependen del motor de
       # render y de las fuentes del sistema con que se generaron.
       - run: npm run test:e2e

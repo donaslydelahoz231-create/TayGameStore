@@ -1,4 +1,5 @@
 import { api, ApiError, errorMessage } from '../api.js';
+import { uuid } from '../compat.js';
 import { cartItems, total } from '../cart-model.js';
 import { $, setText } from '../dom.js';
 import { EMAIL_PATTERN, money, validUid } from '../format.js';
@@ -23,7 +24,7 @@ function scrollTo(id) {
 }
 
 function newCheckoutKey() {
-  runtime.checkoutKey = crypto.randomUUID();
+  runtime.checkoutKey = uuid();
   try {
     sessionStorage.setItem('tgs_checkout_key', runtime.checkoutKey);
   } catch {

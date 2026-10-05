@@ -73,6 +73,7 @@ Producción: [`docs/deployment.md`](docs/deployment.md) — Blueprint [`render.y
 | `POST /api/orders/:ref/confirm-player`, `/pay`, `/sync` | Dueño |
 | `POST /api/webhooks/mercadopago` | Mercado Pago (firma `x-signature`) |
 | `GET /auth/google`, `/auth/google/callback`, `GET /api/auth/me`, `POST /api/auth/logout` | Google OIDC + PKCE |
+| `GET /auth/discord`, `/auth/facebook` (+ `/callback`, `?vincular=1`) | Clientes: Discord (PKCE) y Facebook; vinculación explícita |
 | `/api/admin/*` | Admin (Google + `ADMIN_EMAILS` + TOTP) |
 
 Errores: `{ "error": { "code", "message", "requestId" } }`; cada respuesta lleva `x-request-id`.
@@ -93,6 +94,7 @@ se entrega en producción). Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQ
 - [`docs/specs/pagos.md`](docs/specs/pagos.md) — Mercado Pago
 - [`docs/specs/verificacion-jugador.md`](docs/specs/verificacion-jugador.md) — verificación
 - [`docs/sandbox-mercadopago.md`](docs/sandbox-mercadopago.md) — sandbox paso a paso
+- [`docs/dinero-y-acceso.md`](docs/dinero-y-acceso.md) — a dónde va el dinero y cómo solo tú administras
 - [`docs/deployment.md`](docs/deployment.md) · [`docs/runbook.md`](docs/runbook.md) ·
   [`docs/incident-response.md`](docs/incident-response.md)
 

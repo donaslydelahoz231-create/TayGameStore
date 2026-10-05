@@ -80,7 +80,11 @@ export function validateIdTokenClaims(
     sub: claims.sub,
     email: claims.email.toLowerCase(),
     emailVerified: claims.email_verified === true,
-    name: typeof claims.name === 'string' ? claims.name.slice(0, 80) : undefined,
+    name:
+      typeof claims.name === 'string'
+        ? // eslint-disable-next-line no-control-regex -- se eliminan los caracteres de control
+          claims.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 80) || undefined
+        : undefined,
   };
 }
 

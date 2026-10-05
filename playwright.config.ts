@@ -8,6 +8,12 @@ import { defineConfig } from '@playwright/test';
  * Las capturas visuales dependen del motor de render y de las fuentes: se generaron con el
  * Chromium de @playwright/test 1.56.1 en Linux y deben regenerarse en ese mismo entorno.
  */
+/** Motor: chromium (por defecto), firefox o webkit (Safari). Las referencias visuales son de Chromium. */
+const BROWSER = (process.env.E2E_BROWSER ?? 'chromium') as 'chromium' | 'firefox' | 'webkit';
+if (!['chromium', 'firefox', 'webkit'].includes(BROWSER)) {
+  throw new Error(`E2E_BROWSER inválido: ${BROWSER}`);
+}
+
 const VIEWPORTS = [
   { name: 'mobile-360', width: 360, height: 800 },
   { name: 'tablet-768', width: 768, height: 1024 },
@@ -33,7 +39,7 @@ export default defineConfig({
   },
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    browserName: 'chromium',
+    browserName: BROWSER,
     deviceScaleFactor: 1,
     locale: 'es-CO',
     timezoneId: 'America/Bogota',

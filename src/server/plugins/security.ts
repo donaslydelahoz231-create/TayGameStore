@@ -6,6 +6,27 @@ import type { AppConfig } from '../config/env.js';
 import { AppError } from './errors.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * ¿Hay un carácter nulo en algún texto? PostgreSQL no admite U+0000 en `text` ni `jsonb`: sin
+ * este filtro, un "\u0000" en cualquier campo provocaba un 500 (lo encontró el fuzzing).
+ * Recorrido iterativo: un JSON muy anidado no puede desbordar la pila.
+ */
+export function containsNullCharacter(value: unknown): boolean {
+  const pending: unknown[] = [value];
+  while (pending.length) {
+    const current = pending.pop();
+    if (typeof current === 'string') {
+      if (current.includes('\u0000')) return true;
+    } else if (current && typeof current === 'object') {
+      for (const [key, item] of Object.entries(current)) {
+        if (key.includes('\u0000')) return true;
+        pending.push(item);
+      }
+    }
+  }
+  return false;
+}
 /** Rutas autenticadas por firma del proveedor en lugar de CSRF. */
 const CSRF_EXEMPT_ROUTE_PREFIXES = ['/api/webhooks/'];
 export const CSRF_HEADER = 'x-tgs-csrf';
@@ -116,6 +137,19 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
         429,
         `Demasiadas solicitudes. Espera ${Math.ceil(context.ttl / 1000)} s.`,
       ),
+  });
+  app.addHook('preValidation', async (request) => {
+    if (
+      containsNullCharacter(request.body) ||
+      containsNullCharacter(request.query) ||
+      containsNullCharacter(request.params)
+    ) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        400,
+        'La solicitud contiene caracteres no permitidos.',
+      );
+    }
   });
   app.addHook('preHandler', async (request) => assertSameOriginWrite(config, request));
 }

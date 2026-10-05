@@ -269,6 +269,7 @@
 @keyframes tgsModalIn {
   from {
     opacity: 0;
+    -webkit-backdrop-filter: blur(0);
     backdrop-filter: blur(0);
   }
   to {

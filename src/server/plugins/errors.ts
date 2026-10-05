@@ -1,6 +1,8 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import type { ApiErrorBody, ErrorCode } from '../../shared/errors.js';
+import { generateRequestId } from './logging.js';
 
 /** Error de aplicación con código estable. `message` se muestra al cliente: no debe contener datos internos. */
 export class AppError extends Error {
@@ -58,7 +60,7 @@ const CLIENT_ERROR_CODES: Partial<Record<number, ErrorCode>> = {
   429: 'RATE_LIMITED',
 };
 
-function sendError(
+export function sendError(
   reply: FastifyReply,
   request: FastifyRequest,
   statusCode: number,
@@ -99,4 +101,41 @@ export function registerErrorHandling(app: FastifyInstance): void {
   });
 
   app.setNotFoundHandler((request, reply) => sendError(reply, request, 404, 'NOT_FOUND'));
+}
+
+/**
+ * Errores del enrutador que Fastify responde por su cuenta (formato propio, eco de la URL y
+ * códigos internos FST_ERR_*). Se responden con el formato estándar de la API.
+ */
+export function frameworkErrorHandler(
+  error: FastifyError,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): void {
+  request.log.info({ code: error.code }, 'petición rechazada por el enrutador');
+  void sendError(reply, request, 400, 'BAD_REQUEST');
+}
+
+/**
+ * Parámetro de ruta más largo que `maxParamLength`: el enrutador entrega los objetos crudos de
+ * Node (sin hooks). Se responde un 404 uniforme (una referencia absurda simplemente no existe)
+ * sin repetir la URL recibida.
+ */
+export function maxParamLengthHandler(
+  _path: string,
+  request: IncomingMessage,
+  response: ServerResponse,
+): void {
+  const requestId = generateRequestId(request);
+  const body: ApiErrorBody = {
+    error: { code: 'NOT_FOUND', message: GENERIC_MESSAGES.NOT_FOUND, requestId },
+  };
+  response.statusCode = 404;
+  response.setHeader('content-type', 'application/json; charset=utf-8');
+  response.setHeader('cache-control', 'no-store');
+  response.setHeader('x-content-type-options', 'nosniff');
+  response.setHeader('x-frame-options', 'DENY');
+  response.setHeader('content-security-policy', "default-src 'none'; frame-ancestors 'none'");
+  response.setHeader('x-request-id', requestId);
+  response.end(JSON.stringify(body));
 }

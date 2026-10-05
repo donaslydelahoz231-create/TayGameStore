@@ -16,7 +16,11 @@ import { configRoutes } from './modules/config/routes.js';
 import { healthRoutes, type DatabaseHealthCheck } from './modules/health/routes.js';
 import { shopRoutes } from './modules/shop/routes.js';
 import { webhookRoutes } from './modules/webhooks/routes.js';
-import { registerErrorHandling } from './plugins/errors.js';
+import {
+  frameworkErrorHandler,
+  maxParamLengthHandler,
+  registerErrorHandling,
+} from './plugins/errors.js';
 import { buildLoggerOptions, generateRequestId } from './plugins/logging.js';
 import { registerMaintenanceGuard } from './plugins/maintenance.js';
 import { registerSecurity } from './plugins/security.js';
@@ -77,6 +81,8 @@ export interface BuiltApp {
   app: FastifyInstance;
   deps: ServiceDeps | undefined;
   shield: AbuseShield;
+  /** Inventario de rutas registradas ("MÉTODO /ruta"), para auditoría y pruebas. */
+  routes: readonly string[];
 }
 
 export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp> {
@@ -96,6 +102,15 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     // Por defecto Fastify no limita el tiempo para recibir una petición: una conexión que
     // envía cabeceras o cuerpo muy despacio (slowloris) ocuparía el servidor sin fin.
     requestTimeout: REQUEST_TIMEOUT_MS,
+    // Errores del enrutador con el formato estándar (sin eco de la URL ni códigos FST_ERR_*).
+    frameworkErrors: frameworkErrorHandler,
+    routerOptions: { onMaxParamLength: maxParamLengthHandler },
+  });
+
+  const routes: string[] = [];
+  app.addHook('onRoute', (route) => {
+    const methods = Array.isArray(route.method) ? route.method : [route.method];
+    for (const method of methods) if (method !== 'HEAD') routes.push(`${method} ${route.url}`);
   });
 
   const deps: ServiceDeps | undefined = input.db
@@ -173,7 +188,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     });
   }
 
-  return { app, deps, shield };
+  return { app, deps, shield, routes };
 }
 
 export async function buildApp(input: AppDependencies): Promise<FastifyInstance> {

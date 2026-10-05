@@ -87,6 +87,27 @@ describe('manejo de errores', () => {
   });
 });
 
+describe('errores del enrutador (formato estándar, sin eco de la URL)', () => {
+  it('un parámetro de ruta enorme responde 404 uniforme sin repetir la URL', async () => {
+    const huge = 'x'.repeat(300);
+    const res = await app.inject({ method: 'GET', url: `/api/orders/${huge}` });
+    expect(res.statusCode).toBe(404);
+    const body = res.json<ApiErrorBody>();
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(body.error.requestId).toBe(res.headers['x-request-id']);
+    expect(res.body).not.toContain(huge);
+    expect(res.body).not.toContain('FST_ERR');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it('una URL mal codificada responde 400 con el formato estándar', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/orders/%E0%A4%A' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<ApiErrorBody>().error.code).toBe('BAD_REQUEST');
+    expect(res.body).not.toContain('FST_ERR');
+  });
+});
+
 describe('protección CSRF', () => {
   it('rechaza escrituras sin la cabecera anti-CSRF', async () => {
     const res = await app.inject({ method: 'POST', url: '/test/zod', payload: { uid: '1' } });
@@ -135,5 +156,39 @@ describe('cabeceras de seguridad', () => {
     await https.close();
     const plain = await app.inject({ method: 'GET', url: '/api/health' });
     expect(plain.headers['strict-transport-security']).toBeUndefined();
+  });
+});
+
+describe('caracteres nulos (PostgreSQL no los admite)', () => {
+  it('rechaza con 400 un U+0000 en el cuerpo, la consulta o una clave, sin llegar a la base', async () => {
+    const inBody = await app.inject({
+      method: 'POST',
+      url: '/test/echo',
+      headers: CSRF,
+      payload: { nested: [{ name: 'a\u0000b' }] },
+    });
+    expect(inBody.statusCode).toBe(400);
+    expect(inBody.json<ApiErrorBody>().error.code).toBe('VALIDATION_ERROR');
+    const inQuery = await app.inject({ method: 'GET', url: '/test/app-error?q=a%00b' });
+    expect(inQuery.statusCode).toBe(400);
+    const inKey = await app.inject({
+      method: 'POST',
+      url: '/test/echo',
+      headers: { ...CSRF, 'content-type': 'application/json' },
+      payload: '{"a\\u0000":1}',
+    });
+    expect(inKey.statusCode).toBe(400);
+  });
+
+  it('un JSON muy anidado no desborda la pila del filtro', async () => {
+    const deep = '['.repeat(20_000) + '"x"' + ']'.repeat(20_000);
+    // /test/zod valida y responde sin devolver el cuerpo: se mide solo el filtro.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/test/zod',
+      headers: { ...CSRF, 'content-type': 'application/json' },
+      payload: deep,
+    });
+    expect(res.statusCode).toBe(400);
   });
 });

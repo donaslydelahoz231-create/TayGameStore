@@ -156,7 +156,10 @@ export const oauthStates = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
-  () => [
+  (t) => [
+    index('oauth_states_link_user_idx')
+      .on(t.linkUserId)
+      .where(sql`${t.linkUserId} is not null`),
     check('oauth_states_purpose_check', inList('purpose', ['customer', 'admin', 'link'])),
     check('oauth_states_provider_check', inList('provider', ['google', ...SOCIAL_PROVIDERS])),
   ],
@@ -278,6 +281,9 @@ export const orders = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    index('orders_verified_by_idx')
+      .on(t.verifiedBy)
+      .where(sql`${t.verifiedBy} is not null`),
     uniqueIndex('orders_public_ref_key').on(t.publicRef),
     uniqueIndex('orders_checkout_key_key').on(t.checkoutKey),
     index('orders_status_expires_idx').on(t.status, t.expiresAt),
@@ -321,6 +327,7 @@ export const orderItems = pgTable(
     lineTotalCop: cop('line_total_cop').notNull(),
   },
   (t) => [
+    index('order_items_product_idx').on(t.productId),
     uniqueIndex('order_items_order_product_key').on(t.orderId, t.productId),
     check('order_items_quantity_check', sql`${t.quantity} between 1 and 5`),
     check(
@@ -386,6 +393,9 @@ export const payments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    index('payments_attempt_idx')
+      .on(t.attemptId)
+      .where(sql`${t.attemptId} is not null`),
     uniqueIndex('payments_provider_payment_key').on(t.provider, t.providerPaymentId),
     uniqueIndex('payments_one_order_payment')
       .on(t.orderId)
@@ -441,6 +451,12 @@ export const fulfillments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    index('fulfillments_claimed_by_idx')
+      .on(t.claimedBy)
+      .where(sql`${t.claimedBy} is not null`),
+    index('fulfillments_delivered_by_idx')
+      .on(t.deliveredBy)
+      .where(sql`${t.deliveredBy} is not null`),
     uniqueIndex('fulfillments_order_key').on(t.orderId),
     index('fulfillments_status_idx').on(t.status, t.claimedAt),
     check('fulfillments_status_check', inList('status', FULFILLMENT_STATUSES)),
@@ -468,6 +484,9 @@ export const blocklist = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
+    index('blocklist_created_by_idx')
+      .on(t.createdBy)
+      .where(sql`${t.createdBy} is not null`),
     uniqueIndex('blocklist_kind_value_key').on(t.kind, t.value),
     check(
       'blocklist_kind_check',

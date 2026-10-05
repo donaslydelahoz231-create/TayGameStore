@@ -51,8 +51,13 @@ async function readJson(response: Response, step: string): Promise<Record<string
   return body as Record<string, unknown>;
 }
 
-const text = (value: unknown, max = 80) =>
-  typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined;
+/** Texto de un proveedor externo: sin caracteres de control (U+0000 rompe PostgreSQL). */
+const text = (value: unknown, max = 80) => {
+  if (typeof value !== 'string') return undefined;
+  // eslint-disable-next-line no-control-regex -- se eliminan justamente los de control
+  const clean = value.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  return clean ? clean.slice(0, max) : undefined;
+};
 
 // ── Discord ──────────────────────────────────────────────────────────────────
 

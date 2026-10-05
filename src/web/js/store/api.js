@@ -4,6 +4,8 @@
  * - Toda escritura lleva la cabecera anti-CSRF `x-tgs-csrf`.
  * - Timeout por petición: nunca hay cargas infinitas.
  */
+import { timeoutSignal } from './compat.js';
+
 export class ApiError extends Error {
   constructor(code, message, status = 0) {
     super(message);
@@ -37,7 +39,7 @@ export async function api(path, options = {}) {
       credentials: 'same-origin',
       cache: 'no-store',
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: AbortSignal.timeout(options.timeoutMs || DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(options.timeoutMs || DEFAULT_TIMEOUT_MS),
     });
   } catch (err) {
     if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {

@@ -3,6 +3,7 @@
   inset: 0;
   z-index: 350;
   background: rgba(2, 4, 14, 0.7);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
 .drawer {

@@ -278,6 +278,7 @@ body:before {
   box-shadow: -30px 0 80px rgba(0, 0, 0, 0.43);
 }
 .drawer-overlay {
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 .btn,
@@ -304,6 +305,7 @@ body:before {
   animation: tgsRipple 0.52s ease-out;
 }
 .toast-stack .toast {
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 #tgsScrollProgress {
@@ -348,6 +350,7 @@ body:before {
   border: 1px solid rgba(55, 214, 255, 0.16);
   border-radius: 999px;
   background: rgba(7, 12, 36, 0.7);
+  -webkit-backdrop-filter: blur(9px);
   backdrop-filter: blur(9px);
   color: #8fa0ca;
   font: 700 0.58rem var(--display);

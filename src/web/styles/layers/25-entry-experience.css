@@ -266,6 +266,7 @@
   text-decoration: none;
   font: 800 0.62rem var(--display);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   transition:
     transform 0.18s ease,
