@@ -54,15 +54,25 @@ async function horizontalOverflow(page: Page): Promise<string[]> {
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
       );
       if (!interactive && !hasOwnText) continue;
+      // Parte visible: lo que sobresale de un ancestro con overflow distinto de visible
+      // (p. ej. la marca de agua de la factura dentro de .invoice) está recortado y no se ve.
       const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && (rect.right > width + 1 || rect.left < -1)) {
+      let left = rect.left;
+      let right = rect.right;
+      for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+        if (getComputedStyle(up).overflowX === 'visible') continue;
+        const box = up.getBoundingClientRect();
+        left = Math.max(left, box.left);
+        right = Math.min(right, box.right);
+      }
+      if (right - left > 0 && (right > width + 1 || left < -1)) {
         const id = el.id ? '#' + el.id : '';
         const cls =
           typeof el.className === 'string' && el.className
             ? '.' + el.className.trim().split(/\s+/).join('.')
             : '';
         offenders.push(
-          `${el.tagName.toLowerCase()}${id}${cls} [${Math.round(rect.left)}→${Math.round(rect.right)} > ${width}]`,
+          `${el.tagName.toLowerCase()}${id}${cls} [${Math.round(left)}→${Math.round(right)} > ${width}]`,
         );
       }
     }
