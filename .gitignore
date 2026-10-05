@@ -1,0 +1,32 @@
+# Dependencias y builds
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.cache/
+
+# Variables de entorno y secretos: nunca se versionan
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Resultados de Playwright (las capturas de referencia sí se versionan en e2e/__screenshots__/)
+test-results/
+playwright-report/
+blob-report/
+
+# Logs y sistema
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json

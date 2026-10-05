@@ -1,0 +1,9 @@
+{
+  "https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap": { "file": "fonts.css", "contentType": "text/css; charset=utf-8" },
+  "https://fonts.gstatic.com/s/oxanium/v21/RrQQboN_4yJ0JmiMe2LE0Q.woff2": { "file": "s_oxanium_v21_RrQQboN_4yJ0JmiMe2LE0Q.woff2", "contentType": "font/woff2" },
+  "https://fonts.gstatic.com/s/oxanium/v21/RrQQboN_4yJ0JmiMe2zE0YBB.woff2": { "file": "s_oxanium_v21_RrQQboN_4yJ0JmiMe2zE0YBB.woff2", "contentType": "font/woff2" },
+  "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yw.woff2": { "file": "s_plusjakartasans_v12_LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yw.woff2", "contentType": "font/woff2" },
+  "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko40yyygA.woff2": { "file": "s_plusjakartasans_v12_LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko40yyygA.woff2", "contentType": "font/woff2" },
+  "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko50yyygA.woff2": { "file": "s_plusjakartasans_v12_LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko50yyygA.woff2", "contentType": "font/woff2" },
+  "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko70yyygA.woff2": { "file": "s_plusjakartasans_v12_LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko70yyygA.woff2", "contentType": "font/woff2" }
+}

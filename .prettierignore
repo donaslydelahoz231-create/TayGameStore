@@ -1,0 +1,16 @@
+# Original congelado y su copia de trabajo: no se reformatean en la Fase 0
+legacy/
+src/web/index.html
+
+# Generados
+dist/
+coverage/
+package-lock.json
+src/server/db/migrations/
+e2e/__screenshots__/
+e2e/fixtures/google-fonts/
+test-results/
+playwright-report/
+
+# Documentación de planificación (tablas largas editadas a mano)
+*.md
