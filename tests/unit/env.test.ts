@@ -9,7 +9,11 @@ const PRODUCTION_BASE = {
   ORDER_TOKEN_KEYS: `1:${KEY}`,
   IP_HASH_PEPPER: 'p'.repeat(40),
 };
-const MP = { MP_ACCESS_TOKEN: 'TEST-token-de-prueba', MP_WEBHOOK_SECRET: 'secreto-de-prueba' };
+const MP = {
+  MP_ACCESS_TOKEN: 'TEST-token-de-prueba',
+  MP_WEBHOOK_SECRET: 'secreto-de-prueba',
+  MP_MODE: 'sandbox',
+};
 
 function configError(env: Record<string, string>): ConfigError {
   try {
@@ -79,6 +83,18 @@ describe('loadConfig', () => {
       ...MP,
     });
     expect(ok.mercadoPago?.timeoutMs).toBe(10000);
+    expect(ok.mercadoPago?.mode).toBe('sandbox');
+  });
+
+  it('PAYMENTS_ENABLED exige declarar MP_MODE (sandbox o production)', () => {
+    const base = { PAYMENTS_ENABLED: 'true', PUBLIC_BASE_URL: 'http://localhost:3000' };
+    const withoutMode = { ...base, ...MP } as Record<string, string>;
+    delete withoutMode.MP_MODE;
+    expect(configError(withoutMode).issues.join()).toContain('MP_MODE');
+    expect(configError({ ...base, ...MP, MP_MODE: 'live' }).issues.join()).toContain('MP_MODE');
+    expect(loadConfig({ ...base, ...MP, MP_MODE: 'production' }).mercadoPago?.mode).toBe(
+      'production',
+    );
   });
 
   it('no permite límites antifraude por encima de los fijados por el propietario', () => {

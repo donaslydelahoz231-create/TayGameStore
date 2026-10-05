@@ -7,6 +7,8 @@ import { updateOAuthUI } from './account.js';
 export function renderService() {
   const cfg = state.serverConfig;
   const live = !!cfg && cfg.checkoutEnabled && cfg.paymentsEnabled && !cfg.maintenanceMode;
+  // Cuenta de prueba de Mercado Pago: se dice en todas partes que no se cobra dinero real.
+  const sandbox = live && cfg.paymentsMode === 'sandbox';
   const e = $('serverState');
   let label;
   if (state.previewOnly) label = 'Vista previa visual';
@@ -14,6 +16,7 @@ export function renderService() {
     label =
       state.serverReachable === false ? 'Sin conexión con el servidor' : 'Comprobando servicio';
   else if (cfg.maintenanceMode) label = 'Mantenimiento · solo consulta';
+  else if (sandbox) label = 'Modo prueba · Mercado Pago sandbox';
   else if (live) label = 'Tienda operativa · Mercado Pago';
   else if (cfg.checkoutEnabled) label = 'Pedidos habilitados · pagos pendientes';
   else label = 'Compras pausadas temporalmente';
@@ -21,14 +24,19 @@ export function renderService() {
     e.className = 'service-state ' + (live ? ' ok' : '');
     e.querySelector('span').textContent = label;
   }
-  setText('serviceText', live ? 'Sistemas listos para operar' : label);
+  setText(
+    'serviceText',
+    sandbox ? 'Modo prueba: sin cobros reales' : live ? 'Sistemas listos para operar' : label,
+  );
   setText(
     'operationText',
     state.previewOnly
       ? 'Modo visual · las acciones reales requieren servidor'
-      : live
-        ? 'Catálogo, verificación y pagos con Mercado Pago'
-        : label,
+      : sandbox
+        ? 'Pagos de prueba con Mercado Pago sandbox: no se cobra dinero real'
+        : live
+          ? 'Catálogo, verificación y pagos con Mercado Pago'
+          : label,
   );
 }
 

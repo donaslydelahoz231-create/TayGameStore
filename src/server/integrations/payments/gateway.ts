@@ -35,6 +35,8 @@ export interface ProviderPayment {
   amount: number | undefined;
   currency: string | undefined;
   approvedAt: Date | undefined;
+  /** `live_mode` de Mercado Pago: true = pago real; false = pago de prueba (sandbox). */
+  liveMode: boolean | undefined;
 }
 
 export interface WebhookInput {

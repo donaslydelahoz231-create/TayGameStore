@@ -517,6 +517,39 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
     expect((await dbOrder(ready.id))?.status).toBe('NEEDS_REVIEW');
   });
 
+  it('pago real (live_mode) con la cuenta en sandbox → NEEDS_REVIEW, nunca PAID', async () => {
+    const ready = await readyToPay();
+    expect((await pay(ready.order.reference, ready.cookies)).statusCode).toBe(200);
+    const paymentId = String(Math.floor(Math.random() * 1e12));
+    h.gateway.setPayment({
+      id: paymentId,
+      externalReference: ready.order.reference,
+      amount: ready.order.totalCop,
+      liveMode: true,
+    });
+    expect((await webhook(paymentId)).statusCode).toBe(200);
+    expect((await dbOrder(ready.id))?.status).toBe('NEEDS_REVIEW');
+    const rows = await h.database.db
+      .select()
+      .from(fulfillments)
+      .where(eq(fulfillments.orderId, ready.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('pago sin live_mode → NEEDS_REVIEW (no se puede saber si es real o de prueba)', async () => {
+    const ready = await readyToPay();
+    expect((await pay(ready.order.reference, ready.cookies)).statusCode).toBe(200);
+    const paymentId = String(Math.floor(Math.random() * 1e12));
+    h.gateway.setPayment({
+      id: paymentId,
+      externalReference: ready.order.reference,
+      amount: ready.order.totalCop,
+      liveMode: undefined,
+    });
+    expect((await webhook(paymentId)).statusCode).toBe(200);
+    expect((await dbOrder(ready.id))?.status).toBe('NEEDS_REVIEW');
+  });
+
   it('segundo pago aprobado de la misma orden → NEEDS_REFUND y una sola entrega', async () => {
     const paid = await paidOrder();
     h.gateway.setPayment({

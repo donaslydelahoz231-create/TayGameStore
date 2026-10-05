@@ -135,7 +135,9 @@ async function createOrder() {
 
 function summaryText(order) {
   const lines = order.items.map((i) => `${i.quantity}× ${i.name} (${money(i.unitPriceCop)} c/u)`);
-  const parts = [...lines];
+  const parts =
+    state.serverConfig?.paymentsMode === 'sandbox' ? ['MODO PRUEBA (sin cobro real)'] : [];
+  parts.push(...lines);
   if (order.discountCop > 0) parts.push(`Descuento ${money(order.discountCop)}`);
   parts.push(`Subtotal ${money(order.subtotalCop)}`, `Total ${money(order.totalCop)}`);
   parts.push(

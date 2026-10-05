@@ -53,6 +53,7 @@ const config = loadConfig({
   WEB_DIST_DIR: 'dist/web',
   CHECKOUT_ENABLED: 'true',
   PAYMENTS_ENABLED: 'true',
+  MP_MODE: 'sandbox',
   MP_ACCESS_TOKEN: 'TEST-e2e-sin-uso',
   MP_WEBHOOK_SECRET: 'secreto-e2e-sin-uso',
   JOBS_ENABLED: 'false',

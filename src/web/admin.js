@@ -70,7 +70,23 @@ async function run(action, success) {
 
 // ── Sesión y MFA ──
 
+/** Modo de la cuenta de Mercado Pago, visible siempre para el operador. */
+async function showPaymentsMode() {
+  try {
+    const cfg = await api('/api/config');
+    const mode = $('admMode');
+    if (!cfg.paymentsMode) return;
+    mode.hidden = false;
+    mode.textContent =
+      cfg.paymentsMode === 'sandbox' ? 'Mercado Pago: MODO PRUEBA' : 'Mercado Pago: PRODUCCIÓN';
+    mode.classList.toggle('sandbox', cfg.paymentsMode === 'sandbox');
+  } catch {
+    // Informativo: si falla, el resto del panel sigue funcionando.
+  }
+}
+
 async function boot() {
+  void showPaymentsMode();
   let me;
   try {
     me = await api('/api/auth/me');

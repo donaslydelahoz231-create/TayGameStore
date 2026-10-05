@@ -83,6 +83,7 @@ export async function createHarness(
     PUBLIC_BASE_URL: 'http://localhost:3000',
     CHECKOUT_ENABLED: 'true',
     PAYMENTS_ENABLED: 'true',
+    MP_MODE: 'sandbox',
     MP_ACCESS_TOKEN: 'TEST-token-de-prueba',
     MP_WEBHOOK_SECRET: 'secreto-de-prueba',
     GOOGLE_CLIENT_ID: 'cliente.apps.googleusercontent.com',

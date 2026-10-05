@@ -70,6 +70,17 @@ pruebas vive solo en `tests/support/fake-gateway.ts`.
 - **Datos guardados**: solo id, estado, detalle de estado, importe, moneda y fechas. Nunca la
   respuesta completa (puede contener datos del pagador).
 
+## Sandbox seguro (`MP_MODE`)
+
+- `MP_MODE=sandbox|production` es obligatoria con `PAYMENTS_ENABLED=true`. Las credenciales de la
+  cuenta vendedora de prueba también empiezan por `APP_USR`, así que el modo se **declara**.
+- Cada pago se contrasta con su `live_mode` (dato de Mercado Pago, `true` = pago real): en
+  `production` un pago de prueba, y en `sandbox` uno real, envían el pedido a `NEEDS_REVIEW`.
+  Sin `live_mode` también. Nunca se entrega una recarga por un pago del modo equivocado.
+- Con `sandbox`, la tienda dice "Modo prueba · Mercado Pago sandbox", el resumen de pago dice
+  "MODO PRUEBA (sin cobro real)" y el panel muestra "Mercado Pago: MODO PRUEBA".
+- Guía paso a paso y comando `npm run mp:sandbox`: [`../sandbox-mercadopago.md`](../sandbox-mercadopago.md).
+
 ## Checklist antes de vender (NO VERIFICADO aún)
 
 1. Permitir los dominios de Mercado Pago en la red del entorno o probar desde una máquina
@@ -78,7 +89,8 @@ pruebas vive solo en `tests/support/fake-gateway.ts`.
    `https://<dominio>/api/webhooks/mercadopago` y copiar la clave secreta a `MP_WEBHOOK_SECRET`.
 3. Con **credenciales de prueba** y usuarios de prueba: pago aprobado, rechazado, pendiente
    (efectivo), reembolso desde el panel y webhook simulado desde "Tus integraciones".
-4. Confirmar en sandbox: `init_point` frente a `sandbox_init_point`, parámetros que Mercado
+4. Confirmar en sandbox: que `init_point` abre el entorno de prueba con la cuenta vendedora de
+   prueba (así lo indica la documentación de cuentas de prueba), parámetros que Mercado
    Pago añade a `back_urls` y la unidad de `ts` de la firma (el SDK la trata en segundos; la
    tolerancia de tiempo no se usa: la deduplicación y la consulta a la API protegen contra
    repeticiones).

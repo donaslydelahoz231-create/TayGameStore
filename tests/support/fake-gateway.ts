@@ -50,6 +50,8 @@ export class FakePaymentGateway implements PaymentGateway {
       amount: 0,
       currency: 'COP',
       approvedAt: new Date(),
+      // Los arneses de prueba declaran MP_MODE=sandbox.
+      liveMode: false,
       ...payment,
     });
   }

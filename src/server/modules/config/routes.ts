@@ -17,6 +17,11 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       maintenanceMode: config.flags.maintenanceMode,
       checkoutEnabled: config.flags.checkoutEnabled,
       paymentsEnabled: config.flags.paymentsEnabled && options.paymentsAvailable,
+      /** `sandbox`: la tienda avisa de que los pagos son de prueba (sin dinero real). */
+      paymentsMode:
+        config.flags.paymentsEnabled && options.paymentsAvailable
+          ? (config.mercadoPago?.mode ?? null)
+          : null,
       paymentMethod: 'mercadopago',
       auth: { google: options.googleAvailable },
       playerLookup: options.playerLookupAvailable,

@@ -201,6 +201,9 @@ export async function applyProviderPayment(
       payment.currency === 'COP' &&
       typeof payment.amount === 'number' &&
       payment.amount === order.totalCop;
+    // Un pago de prueba nunca cuenta en producción, ni uno real en sandbox. Sin `live_mode`
+    // no se puede saber: también va a revisión.
+    const modeMatches = payment.liveMode === (deps.config.mercadoPago?.mode === 'production');
     const [existing] = await tx
       .select()
       .from(payments)
@@ -263,10 +266,12 @@ export async function applyProviderPayment(
         providerPaymentId: payment.id,
         providerStatus: payment.status,
         amountMatches,
+        liveMode: payment.liveMode ?? null,
+        modeMatches,
       },
     });
 
-    await applyOrderEffects(deps, tx, actor, order, row, status, amountMatches);
+    await applyOrderEffects(deps, tx, actor, order, row, status, amountMatches, modeMatches);
     return { orderRef: ref, paymentStatus: status, ignored: false };
   });
 }
@@ -279,6 +284,7 @@ async function applyOrderEffects(
   payment: typeof payments.$inferSelect,
   status: PaymentStatus,
   amountMatches: boolean,
+  modeMatches: boolean,
 ): Promise<void> {
   const review = async (reason: string) => {
     if (order.status !== 'NEEDS_REVIEW' && order.status !== 'REFUNDED') {
@@ -295,6 +301,7 @@ async function applyOrderEffects(
 
   if (status === 'APPROVED') {
     if (!amountMatches) return review('amount_or_currency_mismatch');
+    if (!modeMatches) return review('live_mode_mismatch');
     if (payment.isOrderPayment) return;
     const [other] = await tx
       .select({ id: payments.id })

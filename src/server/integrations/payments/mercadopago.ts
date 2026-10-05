@@ -118,6 +118,7 @@ export class MercadoPagoPaymentGateway implements PaymentGateway {
         amount: payment.transaction_amount,
         currency: payment.currency_id,
         approvedAt: payment.date_approved ? new Date(payment.date_approved) : undefined,
+        liveMode: payment.live_mode,
       };
     } catch (error) {
       throw wrap('consultar pago', error);

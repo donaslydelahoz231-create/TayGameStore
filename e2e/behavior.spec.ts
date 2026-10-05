@@ -58,7 +58,8 @@ test.describe('entrada y acceso', () => {
     await enterAsGuest(page);
     await expect(page.locator('#products .product')).toHaveCount(6);
     await expect(page.locator('#catalogStatus')).toHaveText('Catálogo disponible');
-    await expect(page.locator('#serverState')).toContainText('Tienda operativa · Mercado Pago');
+    // El servidor de pruebas usa MP_MODE=sandbox: la tienda lo anuncia.
+    await expect(page.locator('#serverState')).toContainText('Modo prueba · Mercado Pago sandbox');
   });
 
   test('el acceso con contraseña no envía nada al servidor', async ({ page }) => {
@@ -276,6 +277,9 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#paymentModal')).toBeVisible();
     await expect(page.locator('#paymentPrep')).toContainText('1× 100 + 10 Diamantes');
     await expect(page.locator('#paymentPrep')).toContainText('Pago con Mercado Pago');
+    // El servidor de pruebas declara MP_MODE=sandbox: se avisa de que no hay cobro real.
+    await expect(page.locator('#paymentPrep')).toContainText('MODO PRUEBA (sin cobro real)');
+    await expect(page.locator('#serverState')).toContainText('Modo prueba');
     await expect(page.locator('#payAmount')).toHaveText('$ 3.800 COP');
     await page.locator('#startPayment').click();
 

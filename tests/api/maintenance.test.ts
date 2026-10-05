@@ -80,6 +80,7 @@ describe('GET /api/config', () => {
       maintenanceMode: true,
       checkoutEnabled: false,
       paymentsEnabled: false,
+      paymentsMode: null,
       paymentMethod: 'mercadopago',
       auth: { google: false },
       playerLookup: false,

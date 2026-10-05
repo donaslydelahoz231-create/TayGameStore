@@ -42,6 +42,18 @@ pre {
 .adm-header span {
   color: #c3a6ff;
 }
+.adm-header .adm-mode {
+  padding: 3px 9px;
+  border: 1px solid #3fbf8f;
+  border-radius: 999px;
+  color: #b9f5dc;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.adm-header .adm-mode.sandbox {
+  border-color: #f5b041;
+  color: #ffe2a8;
+}
 .adm-session {
   display: flex;
   gap: 10px;

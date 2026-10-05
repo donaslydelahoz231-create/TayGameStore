@@ -117,6 +117,12 @@ const envSchema = z
       .regex(/^[A-Za-z0-9 ]{1,22}$/)
       .optional(),
     MP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+    /**
+     * Cuenta de Mercado Pago declarada: `sandbox` (cuenta vendedora de prueba) o `production`.
+     * Las credenciales de prueba también empiezan por APP_USR, así que no se puede deducir del
+     * token: se declara y el servidor la contrasta con `live_mode` de cada pago.
+     */
+    MP_MODE: z.enum(['sandbox', 'production']).optional(),
 
     VERIFICATION_TTL_MINUTES: minutes(60 * 12),
     PAYMENT_TTL_MINUTES: minutes(60, 60 * 24),
@@ -147,6 +153,7 @@ const envSchema = z
       if (!env.MP_ACCESS_TOKEN) issue('MP_ACCESS_TOKEN', 'obligatoria con PAYMENTS_ENABLED');
       if (!env.MP_WEBHOOK_SECRET) issue('MP_WEBHOOK_SECRET', 'obligatoria con PAYMENTS_ENABLED');
       if (!env.PUBLIC_BASE_URL) issue('PUBLIC_BASE_URL', 'obligatoria con PAYMENTS_ENABLED');
+      if (!env.MP_MODE) issue('MP_MODE', 'obligatoria con PAYMENTS_ENABLED (sandbox o production)');
     }
 
     if (env.NODE_ENV !== 'production') return;
@@ -209,6 +216,8 @@ export interface AppConfig {
         webhookSecret: string;
         statementDescriptor: string | undefined;
         timeoutMs: number;
+        /** `production` solo acepta pagos reales (`live_mode: true`); `sandbox`, solo de prueba. */
+        mode: 'sandbox' | 'production';
       }
     | undefined;
   orders: {
@@ -300,6 +309,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
             webhookSecret: env.MP_WEBHOOK_SECRET,
             statementDescriptor: env.MP_STATEMENT_DESCRIPTOR,
             timeoutMs: env.MP_TIMEOUT_MS,
+            mode: env.MP_MODE ?? 'sandbox',
           }
         : undefined,
     orders: {
