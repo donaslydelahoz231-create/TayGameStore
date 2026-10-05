@@ -58,3 +58,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:integration
+
+  e2e:
+    name: Comportamiento del frontend (Playwright)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium de Playwright
+        run: npx playwright install --with-deps chromium
+      # Las referencias visuales (test:visual) no se ejecutan aquí: dependen del motor de
+      # render y de las fuentes del sistema con que se generaron.
+      - run: npm run test:e2e

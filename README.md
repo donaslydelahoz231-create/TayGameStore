@@ -2,7 +2,7 @@
 
 Tienda de recargas gamer: frontend cinematográfico + API Node/Fastify + PostgreSQL.
 
-> **Estado: Fase 0 (infraestructura).** No hay ventas reales: la verificación de jugadores
+> **Estado: Fase 1 (frontend modularizado).** No hay ventas reales: la verificación de jugadores
 > (C1) y los pagos con Wompi están **BLOQUEADOS** hasta contar con una fuente legítima de
 > verificación y con la documentación oficial y las credenciales de Wompi.
 > Plan completo: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md).
@@ -38,6 +38,7 @@ npm start                   # sirve API + frontend
 | `npm run lint` / `format:check` / `typecheck` | ESLint (tipado), Prettier, TypeScript |
 | `npm test` | Unitarias + API (sin base de datos) |
 | `npm run test:integration` | PostgreSQL real. Requiere `TEST_DATABASE_URL` con una base cuyo nombre termine en `_test` (**se borra su esquema**) |
+| `npm run test:e2e` | Pruebas de comportamiento del frontend (Playwright, sin backend) |
 | `npm run test:visual` | Referencias visuales del frontend original (Playwright) |
 | `npm run build` | Build de frontend y servidor |
 | `npm run db:generate` | Genera una migración a partir de `src/server/db/schema.ts` (revísala antes de aplicarla) |
@@ -69,20 +70,66 @@ completa en 360, 768 y 1280 px), capturada **antes** de modificar el frontend. S
 detectar regresiones en las fases de modularización.
 
 - Se generaron con Chromium de `@playwright/test` 1.56.1 en Linux; otro sistema o versión
-  produce diferencias de renderizado. Por eso no se ejecutan en la CI básica.
+  produce diferencias de renderizado. Por eso no se ejecutan en la CI (las de
+  comportamiento, `test:e2e`, sí).
+- Se generan desde el HTML **original**: para regenerarlas, copia temporalmente
+  `legacy/index-cinematic-v4.html` sobre `src/web/index.html`, ejecuta
+  `npm run test:visual:update` y restaura el frontend; después el código actual debe pasar
+  `npm run test:visual` sin cambios.
 - Las fuentes de Google se sirven desde `e2e/fixtures/google-fonts/` (SIL OFL), descargadas
   con `e2e/fixtures/fetch-google-fonts.sh`, para no depender de la red.
-- Regenerar solo si un cambio visual es intencionado: `npm run test:visual:update`.
+- Si un cambio visual es intencionado, la referencia se actualiza en ese mismo cambio y se
+  revisa la diferencia.
+
+## Frontend
+
+El HTML original (un solo archivo con CSS y JS inline) está separado en:
+
+```
+src/web/
+├─ index.html                 solo marcado (sin <style>, <script> ni onclick inline)
+├─ main.js                    entrada: compat → tienda → capa visual → capa cinematográfica
+├─ styles/main.css            importa las capas en el orden de cascada original
+├─ styles/layers/NN-*.css     28 capas; el prefijo numérico ES el orden de la cascada
+└─ js/
+   ├─ compat.js
+   ├─ store/                  config, state, dom, format, cart-model, api, ui, storage,
+   │                          render (registro), bindings (eventos), app (arranque)
+   ├─ store/features/         account, cart, catalog, checkout, entry, favorites, history,
+   │                          invoice, invoice-export, nav, order-status, orders, player,
+   │                          search, service, support, tracking
+   └─ effects/                visual.js y cinematic.js (decorativos)
+```
+
+- `renderAll()` es un registro que `app.js` llena en el orden original; así los módulos no
+  dependen unos de otros en ciclo.
+- Todo dato variable que se inserta con `innerHTML` pasa por `esc()` (`js/store/dom.js`).
+- Comportamiento heredado que se retira en la Fase 2 (no es de producción): modo demo
+  (`?demo=1`), catálogo de respaldo con precios fijos, órdenes e historial en `localStorage`,
+  código de comprobante calculado en el navegador.
+
+### Defectos conocidos del original (pendientes)
+
+| Defecto | Estado |
+|---|---|
+| La primera "Nueva factura" repite `TGS-0001` | Documentado con `test.fail`; la numeración pasa al servidor |
+| El confeti de recarga completada nunca se dispara (lee `window.state`, que no existe) | Decorativo; a decidir en la revisión visual |
+| La animación de "orbe" al agregar usa el selector `.add`, que ningún elemento tiene | Decorativo; a decidir en la revisión visual |
+| La inclinación/entrada cinematográfica de tarjetas se enlaza antes de que existan los productos | Decorativo; a decidir en la revisión visual |
+| Con movimiento activado, las capas visual y cinematográfica crean ambas `#tgsCursorGlow` y `#tgsParticleCanvas` (IDs duplicados) | A unificar en la revisión visual |
+
+Corregido en la Fase 1: `.header{contain:paint}` dejaba invisibles el panel de búsqueda y
+el menú de cuenta.
 
 ## Estructura
 
 ```
 legacy/                     HTML original congelado (no se edita)
-src/web/index.html          copia de trabajo del frontend (idéntica al original en la Fase 0)
+src/web/                    frontend modularizado (ver "Frontend")
 src/server/                 API Fastify: config, plugins, módulos, db (Drizzle + migraciones)
 src/shared/                 código compartido (códigos de error)
 tests/{unit,api,integration}/
-e2e/                        pruebas visuales (Playwright) y fixtures
+e2e/                        pruebas de comportamiento y visuales (Playwright) y fixtures
 docs/                       plan de arquitectura
 ```
 

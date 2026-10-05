@@ -66,7 +66,6 @@ export function renderGames() {
           ? 'Catálogo configurado · proveedor pendiente'
           : 'Catálogo pendiente de configuración',
   );
-  setText('tlabel', state.tariff === 'promo' ? 'Tarifa promo' : 'Tarifa normal');
   document
     .querySelectorAll('.tariff-toggle button')
     .forEach((b) => b.classList.toggle('active', b.dataset.tariff === state.tariff));
