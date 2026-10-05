@@ -90,6 +90,7 @@ se entrega en producción). Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQ
 
 ## Documentación
 
+- [`CHANGELOG.md`](CHANGELOG.md) — versión 1.0.0-rc.1 y pasos antes de la 1.0.0
 - [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md) — arquitectura y estado
 - [`docs/specs/pagos.md`](docs/specs/pagos.md) — Mercado Pago
 - [`docs/specs/verificacion-jugador.md`](docs/specs/verificacion-jugador.md) — verificación
