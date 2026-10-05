@@ -48,3 +48,43 @@
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* "Cuentas vinculadas" en el menú de cuenta. */
+.menu-links {
+  padding: 6px 10px 2px;
+}
+.menu-links small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.menu-links div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.menu-link {
+  padding: 5px 9px;
+  border: 1px solid rgba(167, 123, 255, 0.45);
+  border-radius: 999px;
+  color: #e8ecff;
+  font-size: 0.74rem;
+  text-decoration: none;
+}
+.menu-link:hover,
+.menu-link:focus-visible {
+  border-color: #c3a6ff;
+  outline: none;
+}
+.menu-link.linked {
+  border-color: rgba(63, 191, 143, 0.6);
+  color: #b9f5dc;
+}
+
+/* Tres accesos: Google ocupa la fila completa en el formato de dos columnas. */
+.oauth-grid .oauth-btn.google {
+  grid-column: 1 / -1;
+}

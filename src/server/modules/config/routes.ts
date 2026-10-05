@@ -5,6 +5,7 @@ export interface ConfigRoutesOptions {
   config: AppConfig;
   paymentsAvailable: boolean;
   googleAvailable: boolean;
+  socialAvailable: { discord: boolean; facebook: boolean };
   playerLookupAvailable: boolean;
 }
 
@@ -23,7 +24,7 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
           ? (config.mercadoPago?.mode ?? null)
           : null,
       paymentMethod: 'mercadopago',
-      auth: { google: options.googleAvailable },
+      auth: { google: options.googleAvailable, ...options.socialAvailable },
       playerLookup: options.playerLookupAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
       termsVersion: config.orders.termsVersion,

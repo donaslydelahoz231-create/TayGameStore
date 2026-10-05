@@ -9,16 +9,21 @@ import { revealStore } from './entry.js';
 // Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
 // habilitado (no hay recuperación segura sin proveedor de correo): el formulario no envía nada.
 
-const OAUTH_PROVIDERS = ['google', 'facebook', 'discord', 'vk'];
+const OAUTH_PROVIDERS = ['google', 'facebook', 'discord'];
+const PROVIDER_NAMES = { google: 'Google', facebook: 'Facebook', discord: 'Discord' };
 
 /** Motivos de error del login (códigos fijos del servidor; nunca se muestra texto de la URL). */
 const LOGIN_ERRORS = {
-  cancelado: 'Cancelaste el acceso con Google.',
+  cancelado: 'Cancelaste el acceso.',
   estado: 'La sesión de acceso caducó. Inténtalo de nuevo.',
   sin_permiso: 'Esta cuenta no tiene acceso de administración.',
   bloqueado: 'Esta cuenta no puede acceder. Contacta a soporte.',
   google: 'Google no respondió. Inténtalo de nuevo.',
-  no_configurado: 'El acceso con Google no está configurado.',
+  facebook: 'Facebook no respondió. Inténtalo de nuevo.',
+  discord: 'Discord no respondió. Inténtalo de nuevo.',
+  no_configurado: 'Ese acceso no está configurado.',
+  en_uso: 'Esa cuenta ya está vinculada a otro usuario de TayGameStore.',
+  sesion: 'Inicia sesión para vincular otra cuenta.',
 };
 
 export function renderHeader() {
@@ -29,7 +34,31 @@ export function renderHeader() {
   setText('cartBadge', countItems());
 }
 
+/** "Cuentas vinculadas": solo redes configuradas en el servidor; vincular exige la sesión. */
+function renderLinkedAccounts() {
+  const box = $('menuLinks'),
+    list = $('menuLinksList');
+  if (!box || !list) return;
+  const auth = state.serverConfig?.auth || {};
+  const available = OAUTH_PROVIDERS.filter((p) => auth[p]);
+  box.hidden = !state.session || !available.length;
+  if (box.hidden) return;
+  list.replaceChildren(
+    ...available.map((provider) => {
+      const linked = state.session.linked?.includes(provider);
+      const el = document.createElement(linked ? 'span' : 'a');
+      el.className = 'menu-link' + (linked ? ' linked' : '');
+      el.textContent = linked
+        ? `${PROVIDER_NAMES[provider]} ✓`
+        : `Vincular ${PROVIDER_NAMES[provider]}`;
+      if (!linked) el.href = `/auth/${provider}?vincular=1`;
+      return el;
+    }),
+  );
+}
+
 export function renderAccount() {
+  renderLinkedAccounts();
   const guest = !state.session;
   setText('accountName', state.session?.name || 'Invitado');
   setText('menuName', state.session?.name || 'Invitado');
@@ -67,20 +96,11 @@ export function updateOAuthUI() {
   }
 }
 
-export function login(e) {
-  e.preventDefault();
-  setText(
-    'loginError',
-    'El acceso con correo y contraseña no está disponible. Entra con Google o continúa como invitado.',
-  );
-  $('loginError').classList.add('show');
-  $('loginPassword').value = '';
-}
-
 export async function bootstrapSession() {
   const q = new URLSearchParams(location.search);
   if (q.has('acceso')) {
     if (q.get('acceso') === 'ok') toast('Acceso completado.', 'good');
+    else if (q.get('acceso') === 'vinculado') toast('Cuenta vinculada.', 'good');
     else toast(LOGIN_ERRORS[q.get('motivo')] || 'No se pudo completar el acceso.', 'bad');
     q.delete('acceso');
     q.delete('motivo');
@@ -89,7 +109,9 @@ export async function bootstrapSession() {
   if (state.previewOnly) return;
   try {
     const j = await api('/api/auth/me');
-    state.session = j.authenticated ? { name: j.user.name, email: j.user.email } : null;
+    state.session = j.authenticated
+      ? { name: j.user.name, email: j.user.email, linked: j.linked || [] }
+      : null;
     renderAccount();
     if (state.session) revealStore();
   } catch {
@@ -110,17 +132,4 @@ export async function logout() {
   closeMenus();
   renderAll();
   toast('Sesión cerrada.', 'good');
-}
-
-export function switchAuthMode() {
-  state.authMode = state.authMode === 'login' ? 'register' : 'login';
-  const r = state.authMode === 'register';
-  $('registerNameWrap').hidden = !r;
-  $('authTitle').textContent = r ? 'Crear cuenta' : 'Acceso cliente';
-  $('authSubtitle').textContent = r
-    ? 'Crea tu cuenta con Google para consultar tus pedidos.'
-    : 'Usa tu cuenta de Google para consultar tus pedidos y conservar el historial.';
-  $('switchAuthMode').textContent = r ? 'Iniciar sesión' : 'Crear cuenta';
-  $('loginSubmit').textContent = r ? 'Crear cuenta' : 'Entrar';
-  $('loginError').classList.remove('show');
 }

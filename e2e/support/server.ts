@@ -17,6 +17,7 @@ import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-exa
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
 import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
+import { FakeSocialClient } from '../../tests/support/fake-social.js';
 import { resetDatabase } from '../../tests/support/integration.js';
 
 const PORT = 4173;
@@ -44,6 +45,11 @@ const [operator] = await database.db
 if (!operator) throw new Error('sin operador');
 
 const gateway = new FakePaymentGateway(`${BASE}/__e2e__/mercadopago`);
+// Discord y Facebook simulados: la "página del proveedor" es /__e2e__/oauth/:provider.
+const social = {
+  discord: new FakeSocialClient('discord', `${BASE}/__e2e__/oauth/discord`),
+  facebook: new FakeSocialClient('facebook', `${BASE}/__e2e__/oauth/facebook`),
+};
 const config = loadConfig({
   NODE_ENV: 'test',
   LOG_LEVEL: process.env.E2E_LOG_LEVEL ?? 'warn',
@@ -72,6 +78,7 @@ const { app, deps } = await buildAppWithDeps({
   paymentGateway: gateway,
   // Doble del proveedor: UID 9… encontrado, 8… inexistente, otro → caído (flujo manual).
   playerVerifier: new FakePlayerVerifier(),
+  socialClients: social,
 });
 if (!deps) throw new Error('sin dependencias');
 
@@ -85,6 +92,24 @@ async function orderIdByRef(ref: string): Promise<string> {
 }
 
 /** Página que hace de checkout de Mercado Pago: aprueba el pago, envía el webhook y vuelve. */
+/** El "proveedor" autoriza a un usuario fijo por red y vuelve al callback real de la tienda. */
+app.get('/__e2e__/oauth/:provider', async (request, reply) => {
+  const { provider } = request.params as { provider: 'discord' | 'facebook' };
+  const { state, redirect_uri: redirectUri } = request.query as Record<string, string>;
+  const client = social[provider];
+  if (!client || !state || !redirectUri?.startsWith(BASE))
+    return reply.code(400).send('petición inválida');
+  const code = client.issueCode({
+    subject: provider === 'discord' ? '80351110224678912' : '10224678912345',
+    email: undefined,
+    name: provider === 'discord' ? 'Gamer Discord' : 'Gamer Facebook',
+  });
+  const back = new URL(redirectUri);
+  back.searchParams.set('code', code);
+  back.searchParams.set('state', state);
+  return reply.redirect(back.toString());
+});
+
 app.get('/__e2e__/mercadopago', async (request, reply) => {
   const { pref_id: preferenceId, status } = request.query as { pref_id?: string; status?: string };
   const preference = preferenceId ? gateway.findPreference(preferenceId) : undefined;

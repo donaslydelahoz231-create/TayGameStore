@@ -4,6 +4,7 @@ import { ConfigError, loadConfig, type AppConfig } from './config/env.js';
 import { createDatabase } from './db/client.js';
 import { HttpGoogleClient } from './integrations/google/oidc.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
+import { DiscordClient, FacebookClient } from './integrations/social/providers.js';
 import { startScheduler, type Scheduler } from './services/jobs.js';
 
 let config: AppConfig;
@@ -32,6 +33,10 @@ const { app, deps } = await buildAppWithDeps({
     ? new MercadoPagoPaymentGateway(config.mercadoPago)
     : undefined,
   googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
+  socialClients: {
+    ...(config.social.discord ? { discord: new DiscordClient(config.social.discord) } : {}),
+    ...(config.social.facebook ? { facebook: new FacebookClient(config.social.facebook) } : {}),
+  },
 });
 logRef.current = app.log;
 if (!database) app.log.warn('DATABASE_URL no configurada: /api/ready y la tienda responderán 503.');

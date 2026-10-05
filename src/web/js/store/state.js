@@ -27,7 +27,6 @@ export const state = {
   purchaseHistory: [],
   serverConfig: null,
   serverReachable: null,
-  authMode: 'login',
   previewOnly: PREVIEW_ONLY,
   storeUnlocked: false,
 };

@@ -10,6 +10,7 @@ import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
+import { FakeSocialClient } from './fake-social.js';
 import type { AbuseShield } from '../../src/server/services/shield.js';
 
 export function testDatabaseUrl(): string {
@@ -63,6 +64,8 @@ export interface Harness {
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
+  discord: FakeSocialClient;
+  facebook: FakeSocialClient;
   clock: { now: Date };
   close(): Promise<void>;
 }
@@ -78,6 +81,8 @@ export async function createHarness(
   const gateway = new FakePaymentGateway();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
+  const discord = new FakeSocialClient('discord');
+  const facebook = new FakeSocialClient('facebook');
   const clock = { now: new Date() };
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -100,6 +105,7 @@ export async function createHarness(
     db: database.db,
     paymentGateway: gateway,
     googleClient: google,
+    socialClients: { discord, facebook },
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
     now: () => clock.now,
   });
@@ -112,6 +118,8 @@ export async function createHarness(
     google,
     verifier,
     shield,
+    discord,
+    facebook,
     clock,
     close: async () => {
       await app.close();

@@ -82,7 +82,7 @@ describe('GET /api/config', () => {
       paymentsEnabled: false,
       paymentsMode: null,
       paymentMethod: 'mercadopago',
-      auth: { google: false },
+      auth: { google: false, discord: false, facebook: false },
       playerLookup: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',

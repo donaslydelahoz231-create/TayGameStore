@@ -29,6 +29,13 @@
       "when": 1791224483183,
       "tag": "0003_player_lookups",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791229985537,
+      "tag": "0004_social_identities",
+      "breakpoints": true
     }
   ]
 }

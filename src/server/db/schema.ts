@@ -71,6 +71,10 @@ export const FULFILLMENT_STATUSES = [
 ] as const;
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 
+/** Redes sociales de clientes además de Google (que vive en users.google_sub). */
+export const SOCIAL_PROVIDERS = ['discord', 'facebook'] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
 const inList = (column: string, values: readonly string[]) =>
   sql.raw(`${column} in (${values.map((value) => `'${value}'`).join(', ')})`);
 
@@ -78,8 +82,10 @@ export const users = pgTable(
   'users',
   {
     id: id(),
-    googleSub: text('google_sub').notNull(),
-    email: text('email').notNull(),
+    /** Nulo en cuentas creadas con Discord o Facebook (sin Google vinculado). */
+    googleSub: text('google_sub'),
+    /** Solo correos verificados por el proveedor; nulo si no lo hay. */
+    email: text('email'),
     emailVerified: boolean('email_verified').notNull(),
     name: text('name'),
     role: text('role').notNull().default('customer'),
@@ -144,10 +150,39 @@ export const oauthStates = pgTable(
     codeVerifier: text('code_verifier').notNull(),
     nonce: text('nonce').notNull(),
     purpose: text('purpose').notNull(),
+    provider: text('provider').notNull().default('google'),
+    /** Vinculación: usuario con sesión que inició el flujo (la identidad se añade a él). */
+    linkUserId: uuid('link_user_id').references(() => users.id, { onDelete: 'cascade' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: createdAt(),
   },
-  () => [check('oauth_states_purpose_check', inList('purpose', ['customer', 'admin']))],
+  () => [
+    check('oauth_states_purpose_check', inList('purpose', ['customer', 'admin', 'link'])),
+    check('oauth_states_provider_check', inList('provider', ['google', ...SOCIAL_PROVIDERS])),
+  ],
+);
+
+/**
+ * Identidades de Discord y Facebook vinculadas a un usuario. Una identidad pertenece a un solo
+ * usuario; nunca se vincula por coincidencia de correo (evita el secuestro de cuentas).
+ */
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: text('provider').$type<SocialProvider>().notNull(),
+    subject: text('subject').notNull(),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('user_identities_provider_subject_key').on(t.provider, t.subject),
+    uniqueIndex('user_identities_user_provider_key').on(t.userId, t.provider),
+    check('user_identities_provider_check', inList('provider', SOCIAL_PROVIDERS)),
+  ],
 );
 
 /**
@@ -434,7 +469,10 @@ export const blocklist = pgTable(
   },
   (t) => [
     uniqueIndex('blocklist_kind_value_key').on(t.kind, t.value),
-    check('blocklist_kind_check', inList('kind', ['email', 'uid', 'ip_hash', 'google_sub'])),
+    check(
+      'blocklist_kind_check',
+      inList('kind', ['email', 'uid', 'ip_hash', 'google_sub', 'discord_id', 'facebook_id']),
+    ),
   ],
 );
 

@@ -59,6 +59,15 @@ services:
         sync: false
       - key: ADMIN_EMAILS
         sync: false
+      # Login de clientes con Discord y Facebook (opcional: vacío = botón deshabilitado).
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: MP_WEBHOOK_SECRET

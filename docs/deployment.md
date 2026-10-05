@@ -51,6 +51,32 @@ El servidor **no arranca** si falta una variable obligatoria (muestra el nombre,
 5. Entra a `https://tudominio.com/admin.html`, configura el TOTP y **guarda los códigos de
    recuperación** fuera del computador.
 
+### Discord y Facebook (acceso de clientes, opcional)
+
+Cada red aparece como **Disponible** en la tienda solo cuando sus dos variables están puestas;
+si no, el botón queda deshabilitado (nunca hay un acceso de mentira). Nunca dan acceso de
+administración: el panel exige Google + `ADMIN_EMAILS` + TOTP.
+
+- **Discord** ([documentación](https://docs.discord.com/developers/topics/oauth2)):
+  [Developer Portal](https://discord.com/developers/applications) → New Application →
+  **OAuth2** → copia *Client ID* y *Client Secret* (`DISCORD_CLIENT_ID`,
+  `DISCORD_CLIENT_SECRET`) → *Redirects*: `https://tudominio.com/auth/discord/callback`.
+  Ámbitos que pide la tienda: `identify email`.
+- **Facebook** ([flujo manual](https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow/)):
+  [Meta for Developers](https://developers.facebook.com/apps) → crea una app de tipo
+  consumidor → producto **Inicio de sesión con Facebook** → *URI de redireccionamiento de
+  OAuth válidos*: `https://tudominio.com/auth/facebook/callback` → copia el *Identificador de
+  la app* y la *Clave secreta* (`FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`). Pon la app en modo
+  **Activo** (en desarrollo solo entran los evaluadores). Revisa la versión vigente de la Graph
+  API y ajusta `FACEBOOK_GRAPH_VERSION` si hace falta.
+
+**Vincular cuentas:** con la sesión abierta, "Mi cuenta → Cuentas vinculadas → Vincular …".
+Una cuenta de red social pertenece a un solo usuario y **nunca se une por correo** (evita que
+alguien se apodere de una cuenta ajena con un correo sin verificar).
+
+**VK ID** no está incluido: migró a un protocolo nuevo cuya documentación oficial no se pudo
+verificar; se puede añadir con esa documentación y una app registrada.
+
 ## 4. Catálogo y precios reales
 
 En `/admin.html` → **Catálogo**: crea cada paquete (SKU, nombre, unidades, precio en COP, promo

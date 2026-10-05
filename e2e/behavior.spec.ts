@@ -62,28 +62,37 @@ test.describe('entrada y acceso', () => {
     await expect(page.locator('#serverState')).toContainText('Modo prueba · Mercado Pago sandbox');
   });
 
-  test('el acceso con contraseña no envía nada al servidor', async ({ page }) => {
-    const sent: string[] = [];
-    page.on('request', (request) => {
-      if (request.method() !== 'GET') sent.push(request.postData() ?? '');
-    });
-    await page.goto('/');
-    await page.locator('#enterStoreBtn').click();
-    await page.locator('#loginEmail').fill('cliente@example.com');
-    await page.locator('#loginPassword').fill('contraseña-secreta');
-    await page.locator('#loginSubmit').click();
-    await expect(page.locator('#loginError')).toContainText('no está disponible');
-    await expect(page.locator('#loginPassword')).toHaveValue('');
-    expect(sent.join()).not.toContain('contraseña-secreta');
-  });
-
-  test('sin Google configurado, los proveedores aparecen como no configurados', async ({
+  test('el acceso solo ofrece métodos reales: sin formulario de contraseña ni redes sin soporte', async ({
     page,
   }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#loginModal input[type="password"]')).toHaveCount(0);
+    await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(3);
+    await expect(page.locator('[data-provider="vk"]')).toHaveCount(0);
+    // El servidor de pruebas configura Discord y Facebook (dobles), no Google.
+    await expect(page.locator('#discordState')).toHaveText('Disponible');
+    await expect(page.locator('#facebookState')).toHaveText('Disponible');
     await expect(page.locator('#googleState')).toHaveText('No configurado');
-    await expect(page.locator('#facebookState')).toHaveText('No configurado');
+    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega.
+    await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
+    await page.locator('[data-provider="google"]').click({ force: true });
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test('entrar con Discord y vincular Facebook desde Mi cuenta', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await page.locator('[data-provider="discord"]').click();
+    await page.waitForURL(/\/$/);
+    await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
+    await page.locator('#accountBtn').click();
+    await expect(page.locator('#menuLinksList')).toContainText('Discord ✓');
+    await page.locator('#menuLinksList a', { hasText: 'Vincular Facebook' }).click();
+    await page.waitForURL(/\/$/);
+    await page.locator('#accountBtn').click();
+    await expect(page.locator('#menuLinksList')).toContainText('Facebook ✓');
+    await expect(page.locator('#menuLinksList')).toContainText('Discord ✓');
   });
 });
 

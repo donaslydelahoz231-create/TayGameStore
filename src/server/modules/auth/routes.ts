@@ -1,9 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
 import { z } from 'zod';
 import { actorOf, requireAdmin, requireDeps, SESSION_COOKIE } from '../../http/context.js';
+import type { SocialProvider } from '../../db/schema.js';
 import type { GoogleClient } from '../../integrations/google/oidc.js';
 import { OidcError, pkceChallenge } from '../../integrations/google/oidc.js';
+import { SocialAuthError, type SocialClient } from '../../integrations/social/providers.js';
 import { AppError } from '../../plugins/errors.js';
 import { clearCookie, readCookie, RATE_LIMITS, setCookie } from '../../plugins/security.js';
 import {
@@ -18,18 +20,51 @@ import {
   verifyMfa,
 } from '../../services/auth.js';
 import type { ServiceDeps } from '../../services/context.js';
+import {
+  linkGoogleIdentity,
+  linkSocialIdentity,
+  listLinkedProviders,
+  loginWithSocial,
+} from '../../services/social.js';
 
 export interface AuthRoutesOptions {
   config: AppConfig;
   deps: ServiceDeps | undefined;
   google: GoogleClient | undefined;
+  social?: Partial<Record<SocialProvider, SocialClient>> | undefined;
 }
 
 const OAUTH_COOKIE = 'tgs_oauth';
 
 /** Destinos de redirección fijos: nunca se redirige a una URL aportada por el usuario. */
-const AFTER_LOGIN = { customer: '/?acceso=ok', admin: '/admin.html' } as const;
+const AFTER_LOGIN = {
+  customer: '/?acceso=ok',
+  admin: '/admin.html',
+  link: '/?acceso=vinculado',
+} as const;
 const loginError = (reason: string) => `/?acceso=error&motivo=${encodeURIComponent(reason)}`;
+
+const callbackQuery = z.object({
+  code: z.string().min(1).max(2048).optional(),
+  state: z.string().min(1).max(200).optional(),
+  error: z.string().max(100).optional(),
+});
+
+/** Motivo (fijo, sin datos) que la tienda traduce a un mensaje. */
+function failureReason(error: unknown, fallback: string): string {
+  if (error instanceof AppError) {
+    if (error.code === 'FORBIDDEN') return 'sin_permiso';
+    if (error.code === 'BLOCKED') return 'bloqueado';
+    if (error.code === 'CONFLICT') return 'en_uso';
+  }
+  return fallback;
+}
+
+/** Vincular exige una sesión de cliente abierta (nunca la de administración). */
+function linkingUser(request: FastifyRequest): string | undefined {
+  const { user, session } = request.auth;
+  return user && session && !session.isAdmin ? user.id : undefined;
+}
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
   const redirectUri = (deps: ServiceDeps) =>
@@ -39,11 +74,19 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     const deps = requireDeps(options.deps);
     if (!options.google)
       throw new AppError('AUTH_NOT_CONFIGURED', 503, 'El acceso con Google no está configurado.');
-    const { modo } = z
-      .object({ modo: z.enum(['cliente', 'admin']).default('cliente') })
+    const { modo, vincular } = z
+      .object({
+        modo: z.enum(['cliente', 'admin']).default('cliente'),
+        vincular: z.literal('1').optional(),
+      })
       .parse(request.query);
-    const purpose = modo === 'admin' ? 'admin' : 'customer';
-    const { state, nonce, codeVerifier } = await createOAuthState(deps, purpose);
+    const linkUserId = vincular ? linkingUser(request) : undefined;
+    if (vincular && !linkUserId) return reply.redirect(loginError('sesion'));
+    const purpose = linkUserId ? 'link' : modo === 'admin' ? 'admin' : 'customer';
+    const { state, nonce, codeVerifier } = await createOAuthState(deps, purpose, {
+      provider: 'google',
+      linkUserId,
+    });
     // El state viaja también en una cookie HttpOnly: liga el callback a este navegador.
     setCookie(deps.config, reply, OAUTH_COOKIE, state, 600);
     return reply.redirect(
@@ -63,20 +106,34 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       const deps = requireDeps(options.deps);
       const google = options.google;
       if (!google) return reply.redirect(loginError('no_configurado'));
-      const query = z
-        .object({
-          code: z.string().min(1).max(2048).optional(),
-          state: z.string().min(1).max(200).optional(),
-          error: z.string().max(100).optional(),
-        })
-        .parse(request.query);
+      const query = callbackQuery.parse(request.query);
       const cookieState = readCookie(deps.config, request, OAUTH_COOKIE);
       clearCookie(deps.config, reply, OAUTH_COOKIE);
       if (query.error || !query.code || !query.state)
         return reply.redirect(loginError('cancelado'));
       if (!cookieState || cookieState !== query.state) return reply.redirect(loginError('estado'));
       const stored = await consumeOAuthState(deps, query.state);
-      if (!stored) return reply.redirect(loginError('estado'));
+      if (!stored || stored.provider !== 'google') return reply.redirect(loginError('estado'));
+      if (stored.purpose === 'link') {
+        if (!stored.linkUserId || linkingUser(request) !== stored.linkUserId)
+          return reply.redirect(loginError('sesion'));
+        try {
+          const identity = await google.exchangeCode({
+            code: query.code,
+            codeVerifier: stored.codeVerifier,
+            redirectUri: redirectUri(deps),
+            nonce: stored.nonce,
+          });
+          await linkGoogleIdentity(deps, stored.linkUserId, identity, actorOf(request, 'customer'));
+          return reply.redirect(AFTER_LOGIN.link);
+        } catch (error) {
+          request.log.warn(
+            { err: error instanceof OidcError ? error.reason : error },
+            'google link failed',
+          );
+          return reply.redirect(loginError(failureReason(error, 'google')));
+        }
+      }
       const purpose = stored.purpose === 'admin' ? 'admin' : 'customer';
       try {
         const identity = await google.exchangeCode({
@@ -104,16 +161,95 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
           { err: error instanceof OidcError ? error.reason : error },
           'google login failed',
         );
-        const reason =
-          error instanceof AppError && error.code === 'FORBIDDEN'
-            ? 'sin_permiso'
-            : error instanceof AppError && error.code === 'BLOCKED'
-              ? 'bloqueado'
-              : 'google';
-        return reply.redirect(loginError(reason));
+        return reply.redirect(loginError(failureReason(error, 'google')));
       }
     },
   );
+
+  // ── Discord y Facebook (solo clientes) ──
+  for (const provider of ['discord', 'facebook'] as const) {
+    const callbackUrl = (deps: ServiceDeps) =>
+      `${deps.config.publicBaseUrl ?? `http://${deps.config.host}:${deps.config.port}`}/auth/${provider}/callback`;
+
+    app.get(
+      `/auth/${provider}`,
+      { config: { rateLimit: RATE_LIMITS.auth } },
+      async (request, reply) => {
+        const deps = requireDeps(options.deps);
+        const client = options.social?.[provider];
+        if (!client)
+          throw new AppError('AUTH_NOT_CONFIGURED', 503, 'Este acceso no está configurado.');
+        const { vincular } = z.object({ vincular: z.literal('1').optional() }).parse(request.query);
+        const linkUserId = vincular ? linkingUser(request) : undefined;
+        if (vincular && !linkUserId) return reply.redirect(loginError('sesion'));
+        const { state, codeVerifier } = await createOAuthState(
+          deps,
+          linkUserId ? 'link' : 'customer',
+          {
+            provider,
+            linkUserId,
+          },
+        );
+        setCookie(deps.config, reply, OAUTH_COOKIE, state, 600);
+        return reply.redirect(
+          client.authorizationUrl({
+            state,
+            codeChallenge: pkceChallenge(codeVerifier),
+            redirectUri: callbackUrl(deps),
+          }),
+        );
+      },
+    );
+
+    app.get(
+      `/auth/${provider}/callback`,
+      { config: { rateLimit: RATE_LIMITS.auth } },
+      async (request, reply) => {
+        const deps = requireDeps(options.deps);
+        const client = options.social?.[provider];
+        if (!client) return reply.redirect(loginError('no_configurado'));
+        const query = callbackQuery.parse(request.query);
+        const cookieState = readCookie(deps.config, request, OAUTH_COOKIE);
+        clearCookie(deps.config, reply, OAUTH_COOKIE);
+        if (query.error || !query.code || !query.state)
+          return reply.redirect(loginError('cancelado'));
+        if (!cookieState || cookieState !== query.state)
+          return reply.redirect(loginError('estado'));
+        const stored = await consumeOAuthState(deps, query.state);
+        // El state solo vale para el proveedor que lo emitió.
+        if (!stored || stored.provider !== provider) return reply.redirect(loginError('estado'));
+        try {
+          const identity = await client.exchangeCode({
+            code: query.code,
+            codeVerifier: stored.codeVerifier,
+            redirectUri: callbackUrl(deps),
+          });
+          const actor = actorOf(request, 'customer');
+          if (stored.purpose === 'link') {
+            if (!stored.linkUserId || linkingUser(request) !== stored.linkUserId)
+              return reply.redirect(loginError('sesion'));
+            await linkSocialIdentity(deps, stored.linkUserId, identity, actor);
+            return reply.redirect(AFTER_LOGIN.link);
+          }
+          const user = await loginWithSocial(deps, identity, actor);
+          if (request.auth.session) await revokeSession(deps, request.auth.session.id);
+          const session = await createSession(deps, user.id, {
+            isAdmin: false,
+            ipHash: request.auth.ipHash,
+            userAgent: request.headers['user-agent'],
+          });
+          setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+          return reply.redirect(AFTER_LOGIN.customer);
+        } catch (error) {
+          request.log.warn(
+            { err: error instanceof SocialAuthError ? error.reason : error, provider },
+            'social login failed',
+          );
+          return reply.redirect(loginError(failureReason(error, provider)));
+        }
+      },
+    );
+  }
 
   app.get('/api/auth/me', async (request, reply) => {
     reply.header('cache-control', 'no-store');
@@ -121,7 +257,8 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     if (!user || !session) return { authenticated: false };
     return {
       authenticated: true,
-      user: { name: user.name ?? user.email, email: user.email },
+      user: { name: user.name ?? user.email ?? 'Cliente', email: user.email },
+      linked: options.deps ? await listLinkedProviders(options.deps, user) : [],
       admin: session.isAdmin
         ? { mfaEnabled: user.mfaEnabled, mfaVerified: session.mfaVerified }
         : null,

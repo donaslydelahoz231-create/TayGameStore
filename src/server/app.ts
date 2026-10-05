@@ -5,7 +5,9 @@ import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import type { AppConfig } from './config/env.js';
 import type { Db } from './db/client.js';
 import { registerRequestContext } from './http/context.js';
+import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
+import type { SocialClient } from './integrations/social/providers.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
 import { adminRoutes } from './modules/admin/routes.js';
@@ -30,6 +32,8 @@ export interface AppDependencies {
   db?: Db | undefined;
   paymentGateway?: PaymentGateway | undefined;
   googleClient?: GoogleClient | undefined;
+  /** Login de clientes con Discord y Facebook (solo los configurados). */
+  socialClients?: Partial<Record<SocialProvider, SocialClient>> | undefined;
   /** Verificación automática de jugadores. Sin ella, la verificación es manual (operador). */
   playerVerifier?: PlayerVerifier | undefined;
   now?: () => Date;
@@ -127,11 +131,20 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     config,
     paymentsAvailable: deps?.gateway !== undefined,
     googleAvailable: input.googleClient !== undefined && deps !== undefined,
+    socialAvailable: {
+      discord: input.socialClients?.discord !== undefined && deps !== undefined,
+      facebook: input.socialClients?.facebook !== undefined && deps !== undefined,
+    },
     playerLookupAvailable: input.playerVerifier !== undefined && deps !== undefined,
   });
   await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });
-  await app.register(authRoutes, { config, deps, google: input.googleClient });
+  await app.register(authRoutes, {
+    config,
+    deps,
+    google: input.googleClient,
+    social: input.socialClients,
+  });
   await app.register(adminRoutes, { deps, shield });
 
   if (config.serveWeb) {

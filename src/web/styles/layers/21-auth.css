@@ -62,11 +62,6 @@
   background: #5865f2;
   color: #fff;
 }
-.oauth-btn.vk .oauth-brand {
-  background: #0077ff;
-  color: #fff;
-  font-size: 0.58rem;
-}
 .oauth-btn b,
 .oauth-btn small {
   display: block;

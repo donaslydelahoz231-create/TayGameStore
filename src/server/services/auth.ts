@@ -6,6 +6,7 @@ import {
   oauthStates,
   sessions,
   users,
+  type SocialProvider,
 } from '../db/schema.js';
 import { decrypt, encrypt, randomToken, sha256 } from '../lib/crypto.js';
 import {
@@ -19,14 +20,15 @@ import type { GoogleIdentity } from '../integrations/google/oidc.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, type Actor, type ServiceDeps } from './context.js';
 
-export type OAuthPurpose = 'customer' | 'admin';
+export type OAuthPurpose = 'customer' | 'admin' | 'link';
 
 export interface AuthUser {
   id: string;
-  email: string;
+  /** Nulo si la cuenta se creó con una red social que no dio un correo verificado. */
+  email: string | null;
   name: string | null;
   role: 'customer' | 'admin';
-  googleSub: string;
+  googleSub: string | null;
   mfaEnabled: boolean;
 }
 
@@ -38,7 +40,11 @@ export interface AuthSession {
 
 // ── Estado OAuth (un solo uso, 10 minutos) ───────────────────────────────────
 
-export async function createOAuthState(deps: ServiceDeps, purpose: OAuthPurpose) {
+export async function createOAuthState(
+  deps: ServiceDeps,
+  purpose: OAuthPurpose,
+  options: { provider?: 'google' | SocialProvider; linkUserId?: string } = {},
+) {
   const state = randomToken();
   const nonce = randomToken();
   const codeVerifier = randomToken(48);
@@ -47,6 +53,8 @@ export async function createOAuthState(deps: ServiceDeps, purpose: OAuthPurpose)
     codeVerifier,
     nonce,
     purpose,
+    provider: options.provider ?? 'google',
+    linkUserId: options.linkUserId ?? null,
     expiresAt: new Date(deps.now().getTime() + 10 * 60_000),
   });
   return { state, nonce, codeVerifier };
@@ -62,8 +70,8 @@ export async function consumeOAuthState(deps: ServiceDeps, state: string) {
 
 // ── Usuarios ─────────────────────────────────────────────────────────────────
 
-export function isAllowlistedAdmin(deps: ServiceDeps, email: string): boolean {
-  return deps.config.adminEmails.includes(email.toLowerCase());
+export function isAllowlistedAdmin(deps: ServiceDeps, email: string | null): boolean {
+  return email !== null && deps.config.adminEmails.includes(email.toLowerCase());
 }
 
 export async function upsertGoogleUser(
@@ -135,7 +143,7 @@ export async function upsertGoogleUser(
   return toAuthUser(user);
 }
 
-function toAuthUser(user: typeof users.$inferSelect): AuthUser {
+export function toAuthUser(user: typeof users.$inferSelect): AuthUser {
   return {
     id: user.id,
     email: user.email,
@@ -232,7 +240,7 @@ export async function beginMfaSetup(deps: ServiceDeps, user: AuthUser) {
     .update(users)
     .set({ mfaSecretEnc: encrypt(deps.config.secrets.mfaKeys, secret), updatedAt: sql`now()` })
     .where(and(eq(users.id, user.id), isNull(users.mfaEnabledAt)));
-  return { secret, otpauthUri: otpauthUri(secret, user.email) };
+  return { secret, otpauthUri: otpauthUri(secret, user.email ?? user.id) };
 }
 
 async function storedSecret(deps: ServiceDeps, userId: string): Promise<string> {

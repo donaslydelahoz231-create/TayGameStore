@@ -83,7 +83,7 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
       const result = await createOrder(deps, input, {
         actor: actorOf(request, 'customer'),
         guestHash,
-        googleSub: request.auth.user?.googleSub,
+        googleSub: request.auth.user?.googleSub ?? undefined,
       });
       reply.code(result.created ? 201 : 200).header('cache-control', 'no-store');
       return result;

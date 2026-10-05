@@ -5,7 +5,7 @@ import { errorMessage } from './api.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
 import { closeAllModals, closeMenus, modal, toast } from './ui.js';
-import { login, logout, openAccountMenu, switchAuthMode } from './features/account.js';
+import { logout, openAccountMenu } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
 import {
@@ -93,11 +93,9 @@ async function refreshOrder() {
 function bindEntryAndAccount() {
   $('enterStoreBtn').onclick = () => {
     closeMenus();
-    $('loginError').classList.remove('show');
     $('entryExperience').classList.add('out');
     $('bootScreen')?.classList.add('out');
     modal('loginModal', true);
-    setTimeout(() => $('loginEmail')?.focus(), 80);
   };
   $('menuInvoice').onclick = () => {
     closeMenus();
@@ -115,7 +113,6 @@ function bindEntryAndAccount() {
   };
   $('menuLogin').onclick = () => {
     closeMenus();
-    $('loginError').classList.remove('show');
     modal('loginModal', true);
   };
   $('menuLogout').onclick = logout;
@@ -124,8 +121,6 @@ function bindEntryAndAccount() {
     if (state.session) openAccountMenu();
     else modal('loginModal', true);
   };
-  $('loginForm').onsubmit = login;
-  $('switchAuthMode').onclick = switchAuthMode;
   $('guestBtn').onclick = () => {
     state.session = null;
     modal('loginModal', false);
