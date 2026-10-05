@@ -2,14 +2,18 @@ import { cartItems, countItems, priceOf, total } from '../cart-model.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { renderAll } from '../render.js';
+import { DEFAULT_MAX_UNITS } from '../config.js';
 import { state } from '../state.js';
 import { saveLocal } from '../storage.js';
 import { closeMenus, toast } from '../ui.js';
 
-const MAX_QTY = 99;
+/** Máximo por producto fijado por el propietario (el servidor lo vuelve a validar). */
+const maxQty = () => state.serverConfig?.limits?.maxUnitsPerProduct || DEFAULT_MAX_UNITS;
 
 export function setQty(id, qty) {
-  const n = Math.max(0, Math.min(MAX_QTY, Number(qty) || 0));
+  const wanted = Number(qty) || 0;
+  if (wanted > maxQty()) toast(`Máximo ${maxQty()} unidades por paquete.`, 'bad');
+  const n = Math.max(0, Math.min(maxQty(), wanted));
   if (n) state.qty[id] = n;
   else delete state.qty[id];
   saveLocal();
@@ -57,11 +61,11 @@ export function renderSmartCart() {
   if (recommend)
     recommend.textContent = !items.length
       ? 'Selecciona un paquete para recibir una recomendación.'
-      : state.verified
-        ? 'Jugador confirmado. La factura ya puede continuar al checkout.'
+      : state.uidAccepted
+        ? 'UID listo. Completa tus datos y crea el pedido.'
         : count >= 3
-          ? 'Tienes varias unidades. Verifica el jugador antes de pagar.'
-          : 'Siguiente paso recomendado: verifica tu UID.';
+          ? 'Tienes varias unidades. Escribe el UID del jugador antes de continuar.'
+          : 'Siguiente paso recomendado: escribe tu UID.';
 }
 
 /** Carrito lateral. */

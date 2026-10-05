@@ -1,70 +1,97 @@
-import { api } from '../api.js';
+import { api, errorMessage } from '../api.js';
 import { $, esc, setHtml } from '../dom.js';
 import { cleanUid, validUid } from '../format.js';
 import { renderAll } from '../render.js';
 import { runtime, state } from '../state.js';
-import { toast } from '../ui.js';
+import { modal, toast } from '../ui.js';
+import { setCurrentOrder } from './orders.js';
 
-// Verificación de jugador. No hay una fuente real configurada: sin backend, la consulta
-// falla y la UI lo muestra. El modo demo devuelve un jugador ficticio claramente marcado.
+// Verificación del jugador. No existe una API oficial pública para consultar nicknames: NO se
+// hace scraping ni se usan fuentes no oficiales. El flujo es:
+//   UID válido → pedido creado → el equipo verifica nickname y región con una fuente legítima
+//   → el cliente confirma "Sí, es mi cuenta" → pago.
 
-const PLAYER_ERRORS = {
-  SERVER_REQUIRED: 'Ejecuta TayGameStore con npm start para consultar jugadores reales.',
-  HTTP_404:
-    'El backend no tiene publicada la ruta de consulta del jugador (/api/player/lookup ni /api/nickname). El HTML está listo, pero falta esa ruta en el servidor.',
-  PLAYER_NOT_FOUND: 'No se encontró el jugador.',
-  PLAYER_REGION_UNRESOLVED: 'No fue posible confirmar la región real del jugador.',
-  PLAYER_SOURCES_MISMATCH: 'Las fuentes de verificación devolvieron datos distintos.',
-  LIOGAMES_NOT_CONFIGURED: 'El servicio de verificación del proveedor no está configurado.',
-  USERNAME_API_LIMIT_REACHED: 'Se alcanzó el límite de consultas del servicio de usuario.',
-};
+const PENDING_TEXT =
+  'Nuestro equipo verificará el nickname y la región después de crear tu pedido. No pagarás nada hasta que confirmes que es tu cuenta.';
 
-export function humanPlayerError(code) {
-  return PLAYER_ERRORS[code] || code || 'No fue posible verificar el jugador.';
+function renderUidAccepted() {
+  setHtml(
+    'playerResult',
+    `<div class="player-main"><span class="player-bubble"><svg><use href="#icon-user"></use></svg></span><div><b>UID ${esc(state.playerUid)} listo ✓</b><small>${esc(PENDING_TEXT)}</small></div></div><div class="player-buttons"><button class="btn glass" id="changePlayer" type="button">Cambiar</button></div>`,
+  );
+  $('playerResult').hidden = false;
+  $('changePlayer').onclick = () => resetPlayer(true);
 }
 
-export async function playerLookup(uid) {
-  const q = encodeURIComponent(uid);
-  const custom = (window.TGS_CONFIG && window.TGS_CONFIG.playerLookupUrl) || '';
-  const endpoints = [];
-  if (custom)
-    endpoints.push(
-      custom.includes('{uid}')
-        ? custom.replaceAll('{uid}', q)
-        : custom + (custom.includes('?') ? '&' : '?') + 'uid=' + q,
+/** Muestra el resultado del operador para que el cliente lo confirme explícitamente. */
+function renderVerification(order) {
+  const v = order.verification;
+  setHtml(
+    'playerResult',
+    `<div class="player-main"><span class="player-bubble"><svg><use href="#icon-user"></use></svg></span><div><b>Vas a recargar a: ${esc(v.nickname)}</b><small>ID ${esc(order.playerUid)} · Región: ${esc(v.region)}</small></div></div><div class="player-buttons"><button class="btn primary" id="confirmPlayer" type="button">Sí, es mi cuenta</button><button class="btn glass" id="changePlayer" type="button">No es mi cuenta</button></div><div class="player-source-line">Verificado por el equipo de TayGameStore</div>`,
+  );
+  $('playerResult').hidden = false;
+  $('confirmPlayer').onclick = () => confirmPlayer(true);
+  $('changePlayer').onclick = () => confirmPlayer(false);
+}
+
+function renderMessage(text) {
+  setHtml('playerResult', `<div class="finder-error">${esc(text)}</div>`);
+  $('playerResult').hidden = false;
+}
+
+/** Sincroniza la sección de jugador con la orden actual (si existe). */
+export function renderPlayer() {
+  const order = state.currentOrder;
+  if (!order) return;
+  const v = order.verification || {};
+  if (order.status === 'AWAITING_VERIFICATION' && v.status === 'VERIFIED')
+    renderVerification(order);
+  else if (order.status === 'AWAITING_VERIFICATION')
+    renderMessage('Pedido creado. Estamos verificando el jugador; te avisaremos aquí.');
+  else if (v.status === 'CONFIRMED' && v.nickname)
+    setHtml(
+      'playerResult',
+      `<div class="player-main"><span class="player-bubble"><svg><use href="#icon-user"></use></svg></span><div><b>${esc(v.nickname)} ✓</b><small>ID ${esc(order.playerUid)} · ${esc(v.region || '')}</small></div></div>`,
     );
-  endpoints.push('/api/player/lookup?uid=' + q + '&fresh=1', '/api/nickname?id=' + q);
-  let last = null;
-  for (const endpoint of endpoints) {
-    try {
-      return await api(endpoint);
-    } catch (err) {
-      last = err;
-      if (err.message !== 'HTTP_404') throw err;
-    }
-  }
-  throw last || new Error('HTTP_404');
+  else if (order.status === 'REJECTED')
+    renderMessage('No pudimos confirmar ese jugador. Revisa el UID y crea un nuevo pedido.');
 }
 
-export function demoPlayer(uid) {
-  return {
-    ok: true,
-    found: true,
-    uid,
-    nickname: 'Jugador TGS · Demo',
-    region: 'DEMO',
-    regionLabel: 'Región de prueba',
-    sources: ['Simulación local · conectar backend para datos reales'],
-    demo: true,
-  };
+async function confirmPlayer(confirm) {
+  const order = state.currentOrder;
+  if (!order || runtime.playerBusy) return;
+  runtime.playerBusy = true;
+  try {
+    const j = await api('/api/orders/' + encodeURIComponent(order.reference) + '/confirm-player', {
+      method: 'POST',
+      body: { confirm, nickname: order.verification.nickname },
+    });
+    setCurrentOrder(j.order);
+    toast(
+      confirm ? 'Cuenta confirmada. Ya puedes pagar.' : 'Pedido cancelado: no era tu cuenta.',
+      confirm ? 'good' : '',
+    );
+    if (confirm) $('factura').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    toast(errorMessage(err), 'bad');
+  } finally {
+    runtime.playerBusy = false;
+  }
 }
 
 export function resetPlayer(clearUid = true) {
-  state.verified = false;
-  state.nickname = '';
-  state.region = '';
-  state.regionLabel = '';
-  state.regionSources = [];
+  if (
+    state.currentOrder &&
+    !['REJECTED', 'EXPIRED', 'DELIVERED', 'REFUNDED'].includes(state.currentOrder.status)
+  ) {
+    toast(
+      'Ya hay un pedido en curso con este jugador. Usa "Nueva factura" para empezar otro.',
+      'bad',
+    );
+    return;
+  }
+  state.uidAccepted = false;
   if (clearUid) state.playerUid = '';
   if ($('playerUid')) $('playerUid').value = state.playerUid;
   const r = $('playerResult');
@@ -75,64 +102,31 @@ export function resetPlayer(clearUid = true) {
   renderAll();
 }
 
-export async function verifyPlayer() {
-  if (runtime.playerBusy || state.game !== 'freefire') return;
+export function verifyPlayer() {
+  if (state.game !== 'freefire') return;
+  if (
+    state.currentOrder &&
+    !['REJECTED', 'EXPIRED', 'DELIVERED', 'REFUNDED'].includes(state.currentOrder.status)
+  ) {
+    toast('Este pedido ya tiene un jugador asignado.', 'bad');
+    return;
+  }
   const uid = cleanUid($('playerUid').value);
   $('playerUid').value = uid;
   if (!validUid(uid)) {
-    setHtml(
-      'playerResult',
-      '<div class="finder-error">El UID debe contener entre 6 y 12 dígitos.</div>',
-    );
-    $('playerResult').hidden = false;
+    renderMessage('El UID debe contener entre 6 y 12 dígitos.');
+    state.uidAccepted = false;
+    renderAll();
     return;
   }
-  runtime.playerBusy = true;
-  state.verified = false;
-  state.nickname = '';
-  state.region = '';
-  $('verifyBtn').disabled = true;
-  $('playerResult').hidden = false;
-  setHtml(
-    'playerResult',
-    '<div class="player-main"><span class="player-bubble">?</span><div><b style="color:var(--cyan)">Consultando jugador…</b><small>Nickname + región</small></div></div>',
-  );
-  try {
-    const j = state.localDemo ? demoPlayer(uid) : await playerLookup(uid);
-    if (!j.ok || !j.nickname) throw new Error(j.error || 'PLAYER_LOOKUP_FAILED');
-    state.playerUid = j.uid || uid;
-    state.nickname = j.nickname;
-    state.region = j.region || '';
-    state.regionLabel = j.regionLabel || state.region;
-    state.regionSources = j.sources || [];
-    $('playerResult').innerHTML =
-      `<div class="player-main"><span class="player-bubble"><svg><use href="#icon-user"></use></svg></span><div><b>${esc(j.nickname)} ✓</b><small>ID ${esc(j.uid)}${j.region ? ' · ' + esc(j.regionLabel || j.region) : ''}</small></div></div><div class="player-buttons"><button class="btn primary" id="confirmPlayer" type="button">Confirmar jugador</button><button class="btn glass" id="changePlayer" type="button">Cambiar</button></div><div class="player-source-line">${esc((j.sources || []).join(' · ') || 'fuente live')}</div>`;
-    $('confirmPlayer').onclick = () => {
-      state.verified = true;
-      renderAll();
-      toast(
-        state.localDemo ? 'Jugador de demostración confirmado.' : 'Jugador confirmado.',
-        'good',
-      );
-    };
-    $('changePlayer').onclick = () => resetPlayer(true);
-    renderAll();
-  } catch (err) {
-    state.verified = false;
-    setHtml(
-      'playerResult',
-      '<div class="finder-error">' + esc(humanPlayerError(err.message)) + '</div>',
-    );
-    $('playerResult').hidden = false;
-    renderAll();
-  } finally {
-    runtime.playerBusy = false;
-    $('verifyBtn').disabled = false;
-  }
+  state.playerUid = uid;
+  state.uidAccepted = true;
+  renderUidAccepted();
+  renderAll();
 }
 
-/** Modal "Buscar jugador por ID". */
-export async function finderSearch() {
+/** Modal "Buscar jugador por ID": valida el ID y lo usa; sin consultas a fuentes no oficiales. */
+export function finderSearch() {
   const id = cleanUid($('finderUid').value);
   $('finderUid').value = id;
   if (!validUid(id)) {
@@ -142,23 +136,16 @@ export async function finderSearch() {
     );
     return;
   }
-  $('finderSearchBtn').disabled = true;
   setHtml(
     'finderResult',
-    '<div class="finder-empty"><svg><use href="#icon-search"></use></svg><b>Consultando jugador…</b><small>Comprobando nickname y región.</small></div>',
+    `<div class="finder-live"><span class="finder-avatar"><svg><use href="#icon-user"></use></svg></span><div><small>ID VÁLIDO</small><strong>UID ${esc(id)}</strong><div class="finder-tags"><span class="finder-tag">Verificación por el equipo</span></div></div><div class="finder-source"><button class="btn primary" id="finderUseBtn" type="button">Usar este ID</button><small>El nickname y la región se confirman con una fuente oficial al crear el pedido.</small></div></div>`,
   );
-  try {
-    const j = state.localDemo ? demoPlayer(id) : await playerLookup(id);
-    setHtml(
-      'finderResult',
-      `<div class="finder-live"><span class="finder-avatar"><svg><use href="#icon-user"></use></svg></span><div><small>${j.demo ? 'MODO DEMO LOCAL' : 'NICKNAME ENCONTRADO'}</small><strong>${esc(j.nickname)}</strong><div class="finder-tags"><span class="finder-tag">UID ${esc(j.uid)}</span><span class="finder-tag region">${esc(j.region || '—')} · ${esc(j.regionLabel || j.region || 'No disponible')}</span></div></div><div class="finder-source"><b>✓ ${j.demo ? 'DEMO' : 'VERIFICADO'}</b><small>${esc((j.sources || []).join(' · ') || 'fuente live')}</small></div></div>`,
-    );
-  } catch (err) {
-    setHtml(
-      'finderResult',
-      '<div class="finder-error">' + esc(humanPlayerError(err.message)) + '</div>',
-    );
-  } finally {
-    $('finderSearchBtn').disabled = false;
-  }
+  $('finderUseBtn').onclick = () => {
+    $('playerUid').value = id;
+    modal('playerFinderModal', false);
+    verifyPlayer();
+    $('verificacion').scrollIntoView({ behavior: 'smooth' });
+  };
 }
+
+export { errorMessage as humanPlayerError };

@@ -3,67 +3,48 @@ import { $, setText } from '../dom.js';
 import { state } from '../state.js';
 import { updateOAuthUI } from './account.js';
 
-/** Textos de estado del servicio (cabecera, panel del hero y sección de jugador). */
+/** Estado del servicio (cabecera, panel del hero y sección de jugador) según /api/config. */
 export function renderService() {
-  const cfg = state.serverConfig || {};
-  const live = !!cfg.wompi?.configured && !!cfg.provider?.configured;
+  const cfg = state.serverConfig;
+  const live = !!cfg && cfg.checkoutEnabled && cfg.paymentsEnabled && !cfg.maintenanceMode;
   const e = $('serverState');
+  let label;
+  if (state.previewOnly) label = 'Vista previa visual';
+  else if (!cfg)
+    label =
+      state.serverReachable === false ? 'Sin conexión con el servidor' : 'Comprobando servicio';
+  else if (cfg.maintenanceMode) label = 'Mantenimiento · solo consulta';
+  else if (live) label = 'Tienda operativa · Mercado Pago';
+  else if (cfg.checkoutEnabled) label = 'Pedidos habilitados · pagos pendientes';
+  else label = 'Compras pausadas temporalmente';
   if (e) {
     e.className = 'service-state ' + (live ? ' ok' : '');
-    e.querySelector('span').textContent = state.previewOnly
-      ? 'Vista previa visual'
-      : live
-        ? 'Backend + pagos + proveedor listos'
-        : cfg.ok
-          ? 'Backend conectado · configuración pendiente'
-          : 'Backend no configurado';
+    e.querySelector('span').textContent = label;
   }
-  const heroStatus = state.localDemo
-    ? 'Modo demo local · interfaz interactiva'
-    : live
-      ? 'Sistemas listos para operar'
-      : cfg.ok
-        ? 'Backend conectado · revisión pendiente'
-        : 'Interfaz lista · backend pendiente';
-  setText('serviceText', heroStatus);
-  const op = state.previewOnly
-    ? 'Modo visual · las acciones reales requieren servidor'
-    : live
-      ? 'Catálogo, verificación y checkout conectados'
-      : cfg.ok
-        ? 'Backend conectado, faltan integraciones'
-        : 'Abre el proyecto con npm start para funciones reales';
-  setText('operationText', op);
+  setText('serviceText', live ? 'Sistemas listos para operar' : label);
+  setText(
+    'operationText',
+    state.previewOnly
+      ? 'Modo visual · las acciones reales requieren servidor'
+      : live
+        ? 'Catálogo, verificación y pagos con Mercado Pago'
+        : label,
+  );
 }
 
 export async function bootstrapConfig() {
-  if (state.localDemo) {
+  if (state.previewOnly) {
     renderService();
     updateOAuthUI();
     return;
   }
   try {
-    state.serverConfig = await api('/api/config');
-    renderService();
-    updateOAuthUI();
+    state.serverConfig = await api('/api/config', { timeoutMs: 8000 });
+    state.serverReachable = true;
   } catch {
     state.serverConfig = null;
-    renderService();
-    updateOAuthUI();
+    state.serverReachable = false;
   }
-}
-
-export async function checkHealth() {
-  if (state.previewOnly) return;
-  try {
-    const j = await api('/api/health');
-    state.serverConfig = state.serverConfig || {};
-    state.serverConfig.ok = true;
-    state.serverConfig.wompi = { configured: j.wompi === 'configured' };
-    state.serverConfig.provider = { configured: j.provider === 'online' };
-    state.serverConfig.player = j.player || {};
-    renderService();
-  } catch {
-    renderService();
-  }
+  renderService();
+  updateOAuthUI();
 }

@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectReducedMotion, preparePage, unexpectedErrors } from './support/page.js';
 
 /**
- * Línea base visual del frontend original (legacy/index-cinematic-v4.html).
- * Fija lo no determinista: reloj, Math.random, movimiento reducido, fuentes y backend
- * ausente. Con movimiento reducido el CSS original desactiva partículas y deja visibles
+ * Línea base visual de la tienda conectada al servidor de pruebas (e2e/support/server.ts).
+ * Fija lo no determinista: reloj, Math.random, movimiento reducido, fuentes y datos
+ * sembrados. Con movimiento reducido el CSS original desactiva partículas y deja visibles
  * las secciones cinematográficas.
  */
 
@@ -36,12 +36,12 @@ test('captura las vistas principales del frontend original', async ({ page }) =>
 
   await settle(page);
   await expect(page.locator('#entryExperience')).toBeVisible();
-  await expect(page).toHaveScreenshot('01-entrada.png');
+  await expect.soft(page).toHaveScreenshot('01-entrada.png');
 
   await page.locator('#enterStoreBtn').click();
   await expect(page.locator('#loginModal')).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot('02-acceso.png');
+  await expect.soft(page).toHaveScreenshot('02-acceso.png');
 
   await page.locator('#guestBtn').click();
   await expect(page.locator('#loginModal')).toBeHidden();
@@ -62,7 +62,7 @@ test('captura las vistas principales del frontend original', async ({ page }) =>
       '.smart-cart{position:static!important}',
   });
   await settle(page);
-  await expect(page).toHaveScreenshot('03-tienda-pagina-completa.png', { fullPage: true });
+  await expect.soft(page).toHaveScreenshot('03-tienda-pagina-completa.png', { fullPage: true });
 
   expect(unexpectedErrors(consoleErrors)).toEqual([]);
 });

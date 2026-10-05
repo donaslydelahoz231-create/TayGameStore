@@ -26,7 +26,7 @@ export function renderFavorites() {
       setQty(p.id, Number(state.qty[p.id] || 0) + 1);
       renderAll();
       modal('favoritesModal', false);
-      toast(state.localDemo ? 'Añadido al modo demo.' : 'Añadido desde favoritos.', 'good');
+      toast('Añadido desde favoritos.', 'good');
     };
     box.appendChild(el);
   });

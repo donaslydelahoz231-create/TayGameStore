@@ -1,6 +1,7 @@
 import { state } from './state.js';
 
-// Cálculos del carrito para la interfaz. Los importes reales los decide el servidor.
+// Cálculos del carrito para la interfaz, con los precios que envía el servidor. El total
+// definitivo lo calcula el servidor al crear la orden (y avisa si cambió).
 
 export const currentProducts = () =>
   Array.isArray(state.products[state.game]) ? state.products[state.game] : [];
@@ -10,8 +11,8 @@ export const productById = (id) =>
     .flat()
     .find((p) => p && p.id === id) || null;
 
-export const priceOf = (p) =>
-  state.tariff === 'promo' ? Number(p.promo || p.normal || 0) : Number(p.normal || 0);
+/** Precio que se cobrará (ya incluye la promoción vigente si la hay). */
+export const priceOf = (p) => Number(p.price || 0);
 
 export const cartItems = () =>
   Object.entries(state.qty)

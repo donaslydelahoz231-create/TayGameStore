@@ -1,77 +1,65 @@
-import { FAVORITES_KEY, GAME_INFO, INVOICE_SEQ_KEY, STORAGE_KEY } from './config.js';
-import { cleanUid } from './format.js';
+import { FAVORITES_KEY, GAME_INFO, LAST_ORDER_KEY, LEGACY_KEYS, STORAGE_KEY } from './config.js';
 import { state } from './state.js';
 
-// Persistencia local heredada del HTML original. En la Fase 2 se limita a preferencias
-// y favoritos: órdenes, historial y datos del cliente no deben vivir en localStorage.
+// Almacenamiento local: SOLO preferencias (juego, tarifa, carrito) y favoritos. Ni datos
+// personales, ni órdenes, ni tokens: eso vive en el servidor y en cookies HttpOnly.
 
-export function saveLocal() {
+function safe(action) {
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        game: state.game,
-        tariff: state.tariff,
-        qty: state.qty,
-        customerName: state.customerName,
-        customerEmail: state.customerEmail,
-        playerUid: state.playerUid,
-        nickname: state.nickname,
-        region: state.region,
-        regionLabel: state.regionLabel,
-        verified: state.verified,
-        invoice: state.invoice,
-        currentOrder: state.currentOrder,
-        purchaseHistory: state.purchaseHistory,
-      }),
-    );
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites));
+    return action();
   } catch {
     // Almacenamiento no disponible (modo privado, cuota): la tienda sigue funcionando.
+    return undefined;
   }
 }
 
+export function saveLocal() {
+  safe(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ game: state.game, tariff: state.tariff, qty: state.qty }),
+    );
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites));
+  });
+}
+
+/** Lee solo las claves conocidas y con el tipo esperado (nada de Object.assign masivo). */
 export function loadLocal() {
-  try {
-    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    if (s && typeof s === 'object') Object.assign(state, s);
-    const fav = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
-    state.favorites = Array.isArray(fav) ? fav.filter((x) => typeof x === 'string') : [];
-  } catch {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(FAVORITES_KEY);
-    } catch {
-      // Sin acceso al almacenamiento: se continúa con el estado por defecto.
+  safe(() => LEGACY_KEYS.forEach((key) => localStorage.removeItem(key)));
+  const saved = safe(() => JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+    if (typeof saved.game === 'string' && Object.hasOwn(GAME_INFO, saved.game))
+      state.game = saved.game;
+    state.tariff = saved.tariff === 'promo' ? 'promo' : 'normal';
+    const qty = {};
+    if (saved.qty && typeof saved.qty === 'object' && !Array.isArray(saved.qty)) {
+      for (const [sku, n] of Object.entries(saved.qty)) {
+        if (/^[a-z0-9-]{2,60}$/.test(sku) && Number.isInteger(n) && n > 0 && n <= 5) qty[sku] = n;
+      }
     }
+    state.qty = qty;
   }
-  state.game = GAME_INFO[state.game] ? state.game : 'freefire';
-  state.tariff = state.tariff === 'promo' ? 'promo' : 'normal';
-  state.qty =
-    state.qty && typeof state.qty === 'object' && !Array.isArray(state.qty) ? state.qty : {};
-  state.customerName = typeof state.customerName === 'string' ? state.customerName : '';
-  state.customerEmail = typeof state.customerEmail === 'string' ? state.customerEmail : '';
-  state.playerUid = cleanUid(state.playerUid);
-  state.nickname = typeof state.nickname === 'string' ? state.nickname : '';
-  state.region = typeof state.region === 'string' ? state.region : '';
-  state.regionLabel = typeof state.regionLabel === 'string' ? state.regionLabel : '';
-  state.regionSources = Array.isArray(state.regionSources) ? state.regionSources : [];
-  state.verified = state.verified === true;
-  state.invoice = Number(state.invoice) > 0 ? Number(state.invoice) : 1;
-  state.currentOrder =
-    state.currentOrder && typeof state.currentOrder === 'object' ? state.currentOrder : null;
-  state.purchaseHistory = Array.isArray(state.purchaseHistory)
-    ? state.purchaseHistory.filter((x) => x && typeof x === 'object').slice(0, 100)
-    : [];
+  const fav = safe(() => JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'));
+  state.favorites = Array.isArray(fav) ? fav.filter((x) => typeof x === 'string').slice(0, 50) : [];
 }
 
-export function nextInvoice() {
-  try {
-    let n = Number(localStorage.getItem(INVOICE_SEQ_KEY) || 0) + 1;
-    if (!Number.isSafeInteger(n) || n < 1) n = 1;
-    localStorage.setItem(INVOICE_SEQ_KEY, String(n));
-    return n;
-  } catch {
-    return state.invoice + 1;
-  }
+export function rememberOrder(reference) {
+  safe(() => {
+    if (reference) localStorage.setItem(LAST_ORDER_KEY, reference);
+    else localStorage.removeItem(LAST_ORDER_KEY);
+  });
+}
+
+export function lastOrderReference() {
+  const ref = safe(() => localStorage.getItem(LAST_ORDER_KEY));
+  return typeof ref === 'string' && /^TGS-[0-9A-Z]{10}$/.test(ref) ? ref : null;
+}
+
+/** Tokens de acceso a órdenes: solo en la pestaña (sessionStorage), nunca en localStorage. */
+export function storeOrderToken(reference, token) {
+  safe(() => sessionStorage.setItem('tgs_ot_' + reference, token));
+}
+
+export function orderToken(reference) {
+  return safe(() => sessionStorage.getItem('tgs_ot_' + reference)) || null;
 }

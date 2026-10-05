@@ -1,9 +1,7 @@
-import { cartItems, total } from '../cart-model.js';
 import { $, setText } from '../dom.js';
 import { money } from '../format.js';
-import { state } from '../state.js';
 import { toast } from '../ui.js';
-import { hashCode } from './invoice.js';
+import { invoiceCode, invoiceLines, invoiceReference, invoiceTotal } from './invoice.js';
 
 // Exportación del comprobante a JPG/PDF, generada íntegramente en el navegador.
 // Es una representación visual: no es un documento fiscal.
@@ -11,7 +9,7 @@ import { hashCode } from './invoice.js';
 const FONT = 'Oxanium,Segoe UI,sans-serif';
 
 function invoiceCanvas() {
-  const items = cartItems(),
+  const items = invoiceLines(),
     W = 760,
     H = 540 + items.length * 72,
     S = 2,
@@ -76,7 +74,7 @@ function invoiceCanvas() {
     y += 38;
     c.fillStyle = '#eef2ff';
     c.font = `700 17px ${FONT}`;
-    c.fillText(it.p.name, 42, y);
+    c.fillText(it.name, 42, y);
     c.textAlign = 'center';
     c.fillStyle = '#37d6ff';
     c.fillText(String(it.qty), W - 260, y);
@@ -105,7 +103,7 @@ function invoiceCanvas() {
   c.fillText('TOTAL', 60, y + 40);
   c.textAlign = 'right';
   c.font = `800 28px ${FONT}`;
-  c.fillText(money(total()), W - 60, y + 40);
+  c.fillText(money(invoiceTotal()), W - 60, y + 40);
   c.textAlign = 'left';
   y += 92;
   c.fillStyle = '#b18cff';
@@ -114,14 +112,16 @@ function invoiceCanvas() {
   y += 30;
   c.fillStyle = '#37d6ff';
   c.font = `800 26px ${FONT}`;
-  c.fillText(hashCode(), 42, y);
+  c.fillText(invoiceCode(), 42, y);
   y += 36;
   c.fillStyle = '#8f9bc9';
   c.font = `500 13px ${FONT}`;
   c.fillText('Recarga por ID. Nunca solicita contraseña del juego.', 42, y);
   y += 21;
   c.fillText(
-    'En demo local, el pago y la entrega son simulados; en producción provienen del backend.',
+    invoiceReference() === 'BORRADOR'
+      ? 'Borrador: el pedido aún no se ha creado. Los precios los confirma el servidor.'
+      : 'Estado confirmado por el servidor de TayGameStore. No es una factura electrónica.',
     42,
     y,
   );
@@ -187,7 +187,7 @@ function jpegToPdf(jpegBytes, width, height) {
 }
 
 export async function exportInvoice(type) {
-  if (!cartItems().length) {
+  if (!invoiceLines().length) {
     toast('Agrega una recarga primero.', 'bad');
     return;
   }
@@ -195,8 +195,7 @@ export async function exportInvoice(type) {
     jpg = await new Promise((res, rej) =>
       cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
     );
-  const base =
-    'TGS-' + String(state.currentOrder?.reference || state.invoice).replace(/[^A-Za-z0-9_-]/g, '_');
+  const base = 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_');
   if (type === 'jpg') {
     saveBlob(jpg, base + '.jpg');
     setText('exportMsg', 'JPG generado correctamente.');

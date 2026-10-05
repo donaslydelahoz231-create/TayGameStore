@@ -1,29 +1,29 @@
-import { LOCAL_DEMO, PREVIEW_ONLY } from './config.js';
+import { PREVIEW_ONLY } from './config.js';
 
-/** Estado de la interfaz. Se persiste parcialmente en localStorage (ver storage.js). */
+/**
+ * Estado de la interfaz. Es una vista: la fuente de verdad de precios, órdenes, pagos y
+ * entregas es el servidor. Solo carrito, juego, tarifa y favoritos se guardan localmente.
+ */
 export const state = {
   game: 'freefire',
   tariff: 'normal',
   products: { freefire: [], roblox: [], pubg: [], 'mobile-legends': [] },
+  catalogStatus: 'loading', // loading | ready | empty | error
   qty: {},
   favorites: [],
   playerUid: '',
-  nickname: '',
-  region: '',
-  regionLabel: '',
-  regionSources: [],
-  verified: false,
+  /** UID con formato válido aceptado por el cliente (la identidad la verifica el operador). */
+  uidAccepted: false,
   customerName: '',
   customerEmail: '',
-  invoice: 1,
   session: null,
+  /** Orden actual tal como la devuelve el servidor (PublicOrder). */
   currentOrder: null,
   purchaseHistory: [],
   serverConfig: null,
-  checkout: null,
+  serverReachable: null,
   authMode: 'login',
   previewOnly: PREVIEW_ONLY,
-  localDemo: LOCAL_DEMO,
   storeUnlocked: false,
 };
 
@@ -31,6 +31,9 @@ export const state = {
 export const runtime = {
   playerBusy: false,
   paymentBusy: false,
-  checkoutConfig: null,
+  orderBusy: false,
   pollTimer: null,
+  pollStartedAt: 0,
+  /** Clave de idempotencia del checkout en curso (misma clave en cada reintento). */
+  checkoutKey: null,
 };

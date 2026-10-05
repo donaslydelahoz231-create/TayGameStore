@@ -1,12 +1,12 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Referencias visuales del frontend original (Fase 0), antes de cualquier refactor.
- * Se ejecutan contra el build de Vite servido con `vite preview` y sin backend.
+ * Pruebas end-to-end contra el servidor real (Fastify + PostgreSQL + build de Vite), con
+ * Mercado Pago sustituido por un doble de pruebas (e2e/support/server.ts).
+ * Requiere E2E_DATABASE_URL o TEST_DATABASE_URL (base desechable terminada en _test).
  *
- * Las capturas dependen del motor de render y de las fuentes del sistema: se generaron
- * con el Chromium que corresponde a @playwright/test 1.56.1 en Linux y deben
- * regenerarse en ese mismo entorno.
+ * Las capturas visuales dependen del motor de render y de las fuentes: se generaron con el
+ * Chromium de @playwright/test 1.56.1 en Linux y deben regenerarse en ese mismo entorno.
  */
 const VIEWPORTS = [
   { name: 'mobile-360', width: 360, height: 800 },
@@ -46,9 +46,10 @@ export default defineConfig({
     use: { viewport: { width, height } },
   })),
   webServer: {
-    command: 'npm run build:web && npx vite preview',
-    url: 'http://127.0.0.1:4173',
+    command: 'npm run build && node --import tsx e2e/support/server.ts',
+    url: 'http://127.0.0.1:4173/api/ready',
     reuseExistingServer: false,
-    timeout: 60_000,
+    timeout: 120_000,
+    stdout: 'pipe',
   },
 });

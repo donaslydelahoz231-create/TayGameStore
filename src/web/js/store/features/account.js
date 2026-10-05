@@ -1,16 +1,25 @@
 import { api } from '../api.js';
 import { countItems } from '../cart-model.js';
 import { $, setText } from '../dom.js';
-import { EMAIL_PATTERN } from '../format.js';
 import { renderAll } from '../render.js';
 import { state } from '../state.js';
-import { closeMenus, modal, toast } from '../ui.js';
+import { closeMenus, toast } from '../ui.js';
 import { revealStore } from './entry.js';
 
-// Cuenta del cliente. El acceso con contraseña y OAuth dependen del backend
-// (no implementado todavía: ver docs/PLAN-ARQUITECTURA.md).
+// Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
+// habilitado (no hay recuperación segura sin proveedor de correo): el formulario no envía nada.
 
 const OAUTH_PROVIDERS = ['google', 'facebook', 'discord', 'vk'];
+
+/** Motivos de error del login (códigos fijos del servidor; nunca se muestra texto de la URL). */
+const LOGIN_ERRORS = {
+  cancelado: 'Cancelaste el acceso con Google.',
+  estado: 'La sesión de acceso caducó. Inténtalo de nuevo.',
+  sin_permiso: 'Esta cuenta no tiene acceso de administración.',
+  bloqueado: 'Esta cuenta no puede acceder. Contacta a soporte.',
+  google: 'Google no respondió. Inténtalo de nuevo.',
+  no_configurado: 'El acceso con Google no está configurado.',
+};
 
 export function renderHeader() {
   const name = state.session?.name || 'Invitado';
@@ -46,97 +55,55 @@ export function updateOAuthUI() {
       link = document.querySelector(`[data-provider="${prov}"]`);
     const ok = !!auth[prov];
     if (el)
-      el.textContent = state.localDemo
+      el.textContent = state.previewOnly
         ? 'Servidor requerido'
         : ok
           ? 'Disponible'
           : 'No configurado';
     if (link) {
-      link.classList.toggle('disabled', !ok && !state.localDemo);
-      link.setAttribute('aria-disabled', String(!ok && !state.localDemo));
+      link.classList.toggle('disabled', !ok);
+      link.setAttribute('aria-disabled', String(!ok));
     }
   }
 }
 
-export async function login(e) {
+export function login(e) {
   e.preventDefault();
-  const email = $('loginEmail').value.trim().toLowerCase(),
-    password = $('loginPassword').value,
-    name = $('registerName').value.trim(),
-    reg = state.authMode === 'register';
-  if (!EMAIL_PATTERN.test(email) || password.length < 8 || (reg && name.length < 2)) {
-    setText(
-      'loginError',
-      reg
-        ? 'Completa nombre, correo y contraseña de mínimo 8 caracteres.'
-        : 'Escribe un correo válido y una contraseña de mínimo 8 caracteres.',
-    );
-    $('loginError').classList.add('show');
-    return;
-  }
-  $('loginSubmit').disabled = true;
-  setText('loginSubmit', reg ? 'Creando…' : 'Entrando…');
-  $('loginError').classList.remove('show');
-  try {
-    if (state.localDemo) {
-      state.session = {
-        name: reg ? name || email.split('@')[0] : email.split('@')[0],
-        email,
-        id: 'demo-user',
-      };
-      modal('loginModal', false);
-      revealStore();
-      renderAll();
-      toast(reg ? 'Cuenta demo creada.' : 'Sesión demo iniciada.', 'good');
-      return;
-    }
-    const j = await api(reg ? '/api/auth/register' : '/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(reg ? { name, email, password } : { email, password }),
-    });
-    state.session = {
-      name: j.user?.name || email,
-      email: j.user?.email || email,
-      id: j.user?.id,
-    };
-    modal('loginModal', false);
-    revealStore();
-    renderAll();
-    toast(reg ? 'Cuenta creada.' : 'Sesión iniciada.', 'good');
-  } catch (err) {
-    setText('loginError', err.message || 'No se pudo completar el acceso.');
-    $('loginError').classList.add('show');
-  } finally {
-    $('loginSubmit').disabled = false;
-    setText('loginSubmit', reg ? 'Crear cuenta' : 'Entrar');
-  }
+  setText(
+    'loginError',
+    'El acceso con correo y contraseña no está disponible. Entra con Google o continúa como invitado.',
+  );
+  $('loginError').classList.add('show');
+  $('loginPassword').value = '';
 }
 
 export async function bootstrapSession() {
-  if (state.localDemo) return;
+  const q = new URLSearchParams(location.search);
+  if (q.has('acceso')) {
+    if (q.get('acceso') === 'ok') toast('Acceso completado.', 'good');
+    else toast(LOGIN_ERRORS[q.get('motivo')] || 'No se pudo completar el acceso.', 'bad');
+    q.delete('acceso');
+    q.delete('motivo');
+    history.replaceState({}, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+  }
+  if (state.previewOnly) return;
   try {
     const j = await api('/api/auth/me');
-    state.session = j.authenticated
-      ? { name: j.user.name, email: j.user.email, id: j.user.id }
-      : null;
+    state.session = j.authenticated ? { name: j.user.name, email: j.user.email } : null;
     renderAccount();
     if (state.session) revealStore();
-    const q = new URLSearchParams(location.search);
-    if (q.get('auth') === 'success') toast('Acceso completado.', 'good');
-    if (q.get('auth') === 'error')
-      toast(q.get('message') || 'No se pudo completar el acceso.', 'bad');
-    if (q.has('auth')) history.replaceState({}, '', location.pathname + location.hash);
   } catch {
-    // Sin backend o sin sesión: se continúa como invitado.
+    // Sin servidor: se continúa como invitado y la interfaz muestra el estado del servicio.
   }
 }
 
 export async function logout() {
-  if (!state.localDemo) {
+  if (state.session) {
     try {
       await api('/api/auth/logout', { method: 'POST' });
     } catch {
-      // El cierre local se completa aunque el backend no responda.
+      toast('No se pudo cerrar la sesión en el servidor. Inténtalo de nuevo.', 'bad');
+      return;
     }
   }
   state.session = null;
@@ -151,8 +118,8 @@ export function switchAuthMode() {
   $('registerNameWrap').hidden = !r;
   $('authTitle').textContent = r ? 'Crear cuenta' : 'Acceso cliente';
   $('authSubtitle').textContent = r
-    ? 'Crea tu cuenta TayGameStore para consultar tus pedidos.'
-    : 'Usa tu cuenta para consultar tus pedidos y conservar el historial.';
+    ? 'Crea tu cuenta con Google para consultar tus pedidos.'
+    : 'Usa tu cuenta de Google para consultar tus pedidos y conservar el historial.';
   $('switchAuthMode').textContent = r ? 'Iniciar sesión' : 'Crear cuenta';
   $('loginSubmit').textContent = r ? 'Crear cuenta' : 'Entrar';
   $('loginError').classList.remove('show');

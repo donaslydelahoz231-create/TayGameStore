@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';base-uri 'none';object-src 'none';form-action 'self';script-src 'self';style-src 'self' 'unsafe-inline';img-src 'self' data:;connect-src 'self';"
+    />
+    <title>TayGameStore · Administración</title>
+    <link rel="stylesheet" href="./styles/admin.css" />
+  </head>
+  <body>
+    <header class="adm-header">
+      <b>TayGame<span>Store</span> · Administración</b>
+      <div class="adm-session">
+        <span id="admWho">Comprobando sesión…</span
+        ><button id="admLogout" class="adm-btn ghost" type="button" hidden>Cerrar sesión</button>
+      </div>
+    </header>
+
+    <main class="adm-main">
+      <div id="admMessage" class="adm-message" role="status" aria-live="polite"></div>
+
+      <section id="admLogin" class="adm-card" hidden>
+        <h1>Acceso de administración</h1>
+        <p>Requiere una cuenta de Google autorizada y verificación en dos pasos.</p>
+        <a class="adm-btn" href="/auth/google?modo=admin">Entrar con Google</a>
+      </section>
+
+      <section id="admMfaSetup" class="adm-card" hidden>
+        <h1>Configura la verificación en dos pasos</h1>
+        <p>
+          Añade esta clave en tu app autenticadora (Google Authenticator, Authy…) y escribe el
+          código de 6 dígitos.
+        </p>
+        <button id="admMfaStart" class="adm-btn" type="button">Generar clave</button>
+        <div id="admMfaSecretBox" hidden>
+          <p>Clave: <code id="admMfaSecret"></code></p>
+          <p class="adm-small">URI: <code id="admMfaUri"></code></p>
+          <label for="admMfaEnableCode">Código</label>
+          <input
+            id="admMfaEnableCode"
+            inputmode="numeric"
+            maxlength="6"
+            autocomplete="one-time-code"
+          />
+          <button id="admMfaEnable" class="adm-btn" type="button">Activar</button>
+        </div>
+        <div id="admRecovery" hidden>
+          <h2>Códigos de recuperación</h2>
+          <p>
+            Guárdalos en un lugar seguro. Cada uno sirve una sola vez y no se volverán a mostrar.
+          </p>
+          <pre id="admRecoveryCodes"></pre>
+          <button id="admRecoveryDone" class="adm-btn" type="button">Ya los guardé</button>
+        </div>
+      </section>
+
+      <section id="admMfaVerify" class="adm-card" hidden>
+        <h1>Verificación en dos pasos</h1>
+        <label for="admMfaCode">Código de 6 dígitos</label>
+        <input id="admMfaCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+        <button id="admMfaVerifyBtn" class="adm-btn" type="button">Verificar</button>
+        <details>
+          <summary>Usar un código de recuperación</summary>
+          <input id="admRecoveryInput" maxlength="20" autocomplete="off" />
+          <button id="admRecoveryBtn" class="adm-btn ghost" type="button">Usar código</button>
+        </details>
+      </section>
+
+      <div id="admApp" hidden>
+        <nav class="adm-tabs" aria-label="Secciones">
+          <button type="button" data-tab="orders" class="active">Pedidos</button>
+          <button type="button" data-tab="products">Catálogo</button>
+          <button type="button" data-tab="blocklist">Bloqueos</button>
+          <button type="button" data-tab="audit">Auditoría</button>
+        </nav>
+
+        <section id="tab-orders" class="adm-tab">
+          <div id="admAlerts" class="adm-alerts"></div>
+          <div class="adm-filters">
+            <label for="admStatus">Estado</label>
+            <select id="admStatus">
+              <option value="">Todos</option>
+              <option value="AWAITING_VERIFICATION">Verificar jugador</option>
+              <option value="AWAITING_PAYMENT">Esperando pago</option>
+              <option value="PAID">Pagado (entregar)</option>
+              <option value="DELIVERING">Entregando</option>
+              <option value="NEEDS_REVIEW">En revisión</option>
+              <option value="DELIVERED">Entregado</option>
+              <option value="EXPIRED">Vencido</option>
+              <option value="REJECTED">Rechazado</option>
+              <option value="REFUNDED">Reembolsado</option>
+            </select>
+            <label for="admSearch">Buscar</label>
+            <input id="admSearch" placeholder="Referencia, UID o correo" maxlength="80" />
+            <button id="admReload" class="adm-btn ghost" type="button">Actualizar</button>
+          </div>
+          <div class="adm-split">
+            <div class="adm-table-wrap">
+              <table class="adm-table">
+                <thead>
+                  <tr>
+                    <th>Referencia</th>
+                    <th>Estado</th>
+                    <th>UID</th>
+                    <th>Total</th>
+                    <th>Creado</th>
+                  </tr>
+                </thead>
+                <tbody id="admOrders"></tbody>
+              </table>
+            </div>
+            <aside id="admDetail" class="adm-card adm-detail"><p>Selecciona un pedido.</p></aside>
+          </div>
+        </section>
+
+        <section id="tab-products" class="adm-tab" hidden>
+          <div class="adm-table-wrap">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Nombre</th>
+                  <th>Precio</th>
+                  <th>Promo</th>
+                  <th>Activo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admProducts"></tbody>
+            </table>
+          </div>
+          <form id="admProductForm" class="adm-card adm-form">
+            <h2 id="admProductTitle">Nuevo producto</h2>
+            <input type="hidden" id="pId" />
+            <label for="pSku">SKU</label><input id="pSku" required pattern="[a-z0-9-]{2,60}" />
+            <label for="pName">Nombre</label><input id="pName" required maxlength="80" />
+            <label for="pDesc">Descripción</label><input id="pDesc" maxlength="160" />
+            <label for="pTag">Etiqueta</label><input id="pTag" maxlength="30" />
+            <label for="pUnits">Unidades (diamantes)</label
+            ><input id="pUnits" type="number" min="1" required />
+            <label for="pPrice">Precio COP</label
+            ><input id="pPrice" type="number" min="1" max="1000000" required />
+            <label for="pPromo">Precio promo COP (opcional)</label
+            ><input id="pPromo" type="number" min="1" />
+            <label for="pPromoEnd">Fin de la promo (opcional)</label
+            ><input id="pPromoEnd" type="datetime-local" /> <label for="pSort">Orden</label
+            ><input id="pSort" type="number" min="0" value="0" />
+            <label class="adm-check"><input id="pActive" type="checkbox" checked /> Activo</label>
+            <div class="adm-actions">
+              <button class="adm-btn" type="submit">Guardar</button
+              ><button id="pReset" class="adm-btn ghost" type="button">Nuevo</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="tab-blocklist" class="adm-tab" hidden>
+          <form id="admBlockForm" class="adm-card adm-form">
+            <h2>Bloquear</h2>
+            <label for="bKind">Tipo</label>
+            <select id="bKind">
+              <option value="email">Correo</option>
+              <option value="uid">UID</option>
+              <option value="ip_hash">Hash de IP</option>
+              <option value="google_sub">Cuenta Google (sub)</option>
+            </select>
+            <label for="bValue">Valor</label><input id="bValue" required maxlength="160" />
+            <label for="bReason">Motivo</label><input id="bReason" required maxlength="200" />
+            <div class="adm-actions"><button class="adm-btn" type="submit">Bloquear</button></div>
+          </form>
+          <div class="adm-table-wrap">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Valor</th>
+                  <th>Motivo</th>
+                  <th>Creado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admBlocks"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="tab-audit" class="adm-tab" hidden>
+          <div class="adm-table-wrap">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Acción</th>
+                  <th>Entidad</th>
+                  <th>Estado</th>
+                  <th>Actor</th>
+                </tr>
+              </thead>
+              <tbody id="admAudit"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>

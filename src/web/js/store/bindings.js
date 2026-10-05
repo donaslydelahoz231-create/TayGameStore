@@ -1,19 +1,20 @@
 import { $ } from './dom.js';
 import { cleanUid } from './format.js';
 import { renderAll } from './render.js';
-import { runtime, state } from './state.js';
-import { nextInvoice, saveLocal } from './storage.js';
+import { errorMessage } from './api.js';
+import { state } from './state.js';
+import { rememberOrder, saveLocal } from './storage.js';
 import { closeMenus, modal, toast } from './ui.js';
 import { login, logout, openAccountMenu, switchAuthMode } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
-import { preparePayment, startWompi } from './features/checkout.js';
+import { preparePayment, resetCheckoutKey, startPayment } from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
-import { pollOrder } from './features/orders.js';
+import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { finderSearch, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
 
@@ -26,24 +27,25 @@ const onEnter = (action) => (e) => {
   }
 };
 
+/** "Nueva factura": empieza un pedido nuevo (el anterior sigue guardado en el servidor). */
 function startNewInvoice() {
-  clearInterval(runtime.pollTimer);
-  state.invoice = nextInvoice();
+  stopPolling();
+  setCurrentOrder(null);
+  rememberOrder(null);
+  resetCheckoutKey();
   state.qty = {};
   state.playerUid = '';
-  state.nickname = '';
-  state.region = '';
-  state.regionLabel = '';
-  state.verified = false;
+  state.uidAccepted = false;
   state.customerName = '';
   state.customerEmail = '';
-  state.currentOrder = null;
-  state.checkout = null;
-  runtime.checkoutConfig = null;
   $('playerUid').value = '';
   $('customerName').value = '';
   $('customerEmail').value = '';
   $('acceptTerms').checked = false;
+  const result = $('playerResult');
+  result.hidden = true;
+  result.replaceChildren();
+  saveLocal();
   renderAll();
   toast('Nueva factura creada.', 'good');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -55,13 +57,30 @@ function selectPromoTariff() {
 }
 
 async function copyInvoiceReference() {
-  const r = $('invoiceRef').textContent;
-  if (!r) return;
+  const r = state.currentOrder?.reference;
+  if (!r) {
+    toast('Aún no hay un pedido creado.');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(r);
     toast('Referencia copiada.', 'good');
   } catch {
     toast('No fue posible copiar automáticamente.');
+  }
+}
+
+async function refreshOrder() {
+  const order = state.currentOrder;
+  if (!order) {
+    toast('Aún no existe un pedido.');
+    return;
+  }
+  try {
+    await syncOrder(order.reference);
+    toast('Estado actualizado.', 'good');
+  } catch (err) {
+    toast(errorMessage(err, 'No se pudo actualizar el estado.'), 'bad');
   }
 }
 
@@ -109,11 +128,6 @@ function bindEntryAndAccount() {
   };
   document.querySelectorAll('.oauth-btn').forEach((a) =>
     a.addEventListener('click', (e) => {
-      if (state.localDemo) {
-        e.preventDefault();
-        toast('El acceso social se activa al ejecutar TayGameStore con su backend.', 'bad');
-        return;
-      }
       if (a.getAttribute('aria-disabled') === 'true') {
         e.preventDefault();
         toast('Este proveedor no está configurado en el backend.', 'bad');
@@ -184,24 +198,14 @@ function bindInvoiceAndCheckout() {
   $('customerName').oninput = (e) => {
     state.customerName = e.target.value;
     renderInvoice();
-    saveLocal();
   };
   $('customerEmail').oninput = (e) => {
     state.customerEmail = e.target.value.trim();
-    saveLocal();
   };
-  $('paymentMethod').onchange = (e) => {
-    if (e.target.value !== 'wompi') state.checkout = null;
-    renderAll();
-  };
+  $('paymentMethod').onchange = () => renderAll();
   $('payBtn').onclick = preparePayment;
-  $('startPayment').onclick = startWompi;
-  $('refreshOrderBtn').onclick = async () => {
-    if (state.currentOrder) {
-      const done = await pollOrder();
-      toast(done ? 'Estado actualizado.' : 'Consulta actualizada.', 'good');
-    } else toast('Aún no existe una orden de servidor.');
-  };
+  $('startPayment').onclick = startPayment;
+  $('refreshOrderBtn').onclick = refreshOrder;
   $('newInvoiceBtn').onclick = startNewInvoice;
   $('copyRefBtn').onclick = copyInvoiceReference;
   $('jpgBtn').onclick = () => exportInvoice('jpg');
@@ -255,7 +259,11 @@ function bindGlobal() {
       openSearch();
     }
   });
-  window.addEventListener('online', () => toast('Conexión restaurada.', 'good'));
+  window.addEventListener('online', () => {
+    toast('Conexión restaurada.', 'good');
+    if (state.catalogStatus === 'error') loadCatalog(state.game);
+    if (state.currentOrder) pollOrder();
+  });
   window.addEventListener('offline', () => toast('Navegador sin conexión.', 'bad'));
   try {
     const f = new File(['x'], 'a.jpg', { type: 'image/jpeg' });

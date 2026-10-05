@@ -1,17 +1,20 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 const API_TARGET = 'http://127.0.0.1:3000';
+const root = resolve(import.meta.dirname, 'src/web');
 
-// Fase 0: Vite sirve y compila el HTML original sin modificarlo.
-// La modularización llega en la Fase 1.
 export default defineConfig({
-  root: 'src/web',
+  root,
   build: {
     outDir: '../../dist/web',
     emptyOutDir: true,
-    // El CSS inline del HTML original no se transforma (lightningcss reordena
-    // propiedades y reescribe color-scheme). Se revisará al extraer el CSS en la Fase 1.
+    // El CSS se publica tal cual (lightningcss reordena propiedades y cambia el render).
     cssMinify: false,
+    rolldownOptions: {
+      // Tienda y panel de administración (páginas independientes, mismo origen).
+      input: { main: resolve(root, 'index.html'), admin: resolve(root, 'admin.html') },
+    },
   },
   server: {
     host: '127.0.0.1',

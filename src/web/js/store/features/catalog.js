@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { currentProducts, priceOf, productById } from '../cart-model.js';
-import { FALLBACK_FREEFIRE, GAME_INFO } from '../config.js';
+import { GAME_INFO } from '../config.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { renderAll } from '../render.js';
@@ -9,34 +9,44 @@ import { saveLocal } from '../storage.js';
 import { toast } from '../ui.js';
 import { setQty } from './cart.js';
 
+/** Convierte un producto del servidor al formato de la interfaz. */
+function fromServer(p) {
+  return {
+    id: p.sku,
+    name: p.name,
+    desc: p.description,
+    tag: p.tag,
+    diamonds: p.units,
+    normal: p.listPriceCop,
+    promo: p.priceCop,
+    price: p.priceCop,
+    providerAvailable: true,
+  };
+}
+
+/** Catálogo desde el servidor. Sin servidor no se muestran precios (nunca precios fijos). */
 export async function loadCatalog(game) {
-  if (state.localDemo) {
-    if (game === 'freefire')
-      state.products.freefire = FALLBACK_FREEFIRE.map((p) => ({
-        ...p,
-        providerAvailable: true,
-        demo: true,
-      }));
-    else state.products[game] = [];
+  if (game !== 'freefire') {
+    state.products[game] = [];
     renderAll();
     return;
   }
+  if (state.previewOnly) {
+    state.catalogStatus = 'error';
+    renderAll();
+    return;
+  }
+  state.catalogStatus = 'loading';
+  renderAll();
   try {
     const j = await api('/api/catalog?game=' + encodeURIComponent(game));
-    state.products[game] = Array.isArray(j.products)
-      ? j.products.map((p) => ({
-          ...p,
-          normal: Number(p.normal),
-          promo: Number(p.promo),
-          diamonds: Number(p.diamonds || 0),
-        }))
-      : [];
-    if (game === 'freefire' && !state.products.freefire.length)
-      state.products.freefire = FALLBACK_FREEFIRE.map((p) => ({ ...p }));
+    state.products[game] = Array.isArray(j.products) ? j.products.map(fromServer) : [];
+    state.catalogStatus = state.products[game].length ? 'ready' : 'empty';
+    // Productos que ya no existen salen del carrito.
+    for (const id of Object.keys(state.qty)) if (!productById(id)) delete state.qty[id];
+    saveLocal();
   } catch {
-    if (game === 'freefire' && !state.products.freefire.length)
-      state.products.freefire = FALLBACK_FREEFIRE.map((p) => ({ ...p }));
-    else state.products[game] = [];
+    state.catalogStatus = 'error';
   }
   renderAll();
 }
@@ -54,18 +64,13 @@ export function renderGames() {
   });
   const info = GAME_INFO[state.game] || GAME_INFO.freefire;
   setText('catalogTitle', info.name);
-  const available = currentProducts().length;
-  const ready = currentProducts().some((p) => p.providerAvailable);
-  setText(
-    'catalogStatus',
-    state.previewOnly
-      ? 'Vista previa visual'
-      : ready
-        ? 'Catálogo disponible'
-        : available
-          ? 'Catálogo configurado · proveedor pendiente'
-          : 'Catálogo pendiente de configuración',
-  );
+  const STATUS = {
+    loading: 'Cargando catálogo…',
+    ready: 'Catálogo disponible',
+    empty: 'Catálogo pendiente de configuración',
+    error: 'No se pudo cargar el catálogo',
+  };
+  setText('catalogStatus', state.previewOnly ? 'Vista previa visual' : STATUS[state.catalogStatus]);
   document
     .querySelectorAll('.tariff-toggle button')
     .forEach((b) => b.classList.toggle('active', b.dataset.tariff === state.tariff));
@@ -73,7 +78,7 @@ export function renderGames() {
   if (playerSection) {
     playerSection.querySelector('.hint').textContent =
       state.game === 'freefire'
-        ? 'La consulta se ejecuta en el backend. Nickname y región solo aparecen cuando una fuente real los devuelve.'
+        ? 'El equipo verifica nickname y región con una fuente oficial después de crear el pedido. Nunca te pediremos la contraseña.'
         : 'Este juego está preparado visualmente. La verificación se habilitará cuando exista un flujo de jugador real para esa categoría.';
   }
   const playerInput = $('playerUid');
@@ -91,7 +96,11 @@ export function renderProducts() {
     const empty = document.createElement('div');
     empty.className = 'catalog-empty';
     empty.innerHTML =
-      '<b>Catálogo todavía no habilitado</b><small>El administrador debe configurar productos y proveedor reales para esta categoría. No se muestran precios inventados.</small>';
+      state.catalogStatus === 'error'
+        ? '<b>No pudimos cargar el catálogo</b><small>Revisa tu conexión. Se reintentará automáticamente al recuperar la red.</small>'
+        : state.catalogStatus === 'loading'
+          ? '<b>Cargando catálogo…</b><small>Consultando precios vigentes.</small>'
+          : '<b>Catálogo todavía no habilitado</b><small>Esta categoría aún no tiene productos disponibles. No se muestran precios inventados.</small>';
     box.appendChild(empty);
     setText('favCount', state.favorites.length);
     return;
@@ -107,11 +116,7 @@ export function renderProducts() {
       'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
     const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
     const addLabel = q ? 'Añadido' : 'Agregar';
-    const providerNote = p.providerAvailable
-      ? 'Disponible'
-      : state.localDemo
-        ? 'Demo disponible · sin cobro real'
-        : 'Proveedor pendiente';
+    const providerNote = 'Disponible';
     el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button">${addLabel}</button><div class="qty"><button type="button" data-op="minus" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus">+</button></div></div>`;
     const favBtn = el.querySelector('.fav-btn');
     favBtn.addEventListener('click', (e) => {
@@ -124,14 +129,7 @@ export function renderProducts() {
       e.stopPropagation();
       setQty(p.id, q || 1);
       renderAll();
-      toast(
-        state.localDemo
-          ? 'Paquete añadido. Continúa con jugador → factura → pago demo.'
-          : p.providerAvailable
-            ? 'Paquete añadido. Continúa con jugador → factura → checkout.'
-            : 'Paquete añadido al carrito. El checkout real validará el proveedor en el backend.',
-        'good',
-      );
+      toast('Paquete añadido. Continúa con jugador → factura → pedido.', 'good');
     };
     el.querySelector('[data-op="plus"]').onclick = (e) => {
       e.stopPropagation();

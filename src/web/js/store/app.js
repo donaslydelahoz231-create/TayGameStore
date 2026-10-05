@@ -1,29 +1,25 @@
-import { productById } from './cart-model.js';
-import { FINAL_ORDER_STATUSES } from './config.js';
 import { $, setText } from './dom.js';
 import { registerRenderers, renderAll } from './render.js';
-import { runtime, state } from './state.js';
-import { loadLocal, nextInvoice, saveLocal } from './storage.js';
+import { state } from './state.js';
+import { lastOrderReference, loadLocal, saveLocal } from './storage.js';
 import { toast } from './ui.js';
 import { bind } from './bindings.js';
-import { bootstrapSession, logout, renderAccount, renderHeader } from './features/account.js';
-import { renderDrawer, renderSmartCart, setQty } from './features/cart.js';
-import { loadCatalog, renderGames, renderProducts, toggleFavorite } from './features/catalog.js';
-import { preparePayment } from './features/checkout.js';
-import { showEntryLanding } from './features/entry.js';
+import { bootstrapSession, renderAccount, renderHeader } from './features/account.js';
+import { renderDrawer, renderSmartCart } from './features/cart.js';
+import { loadCatalog, renderGames, renderProducts } from './features/catalog.js';
+import { showEntryLanding, revealStore } from './features/entry.js';
 import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
-import { pollOrder } from './features/orders.js';
-import { verifyPlayer } from './features/player.js';
-import { bootstrapConfig, checkHealth, renderService } from './features/service.js';
+import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
+import { renderPlayer } from './features/player.js';
+import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
 import { renderChecks } from './features/tracking.js';
 
-const ORDER_REFRESH_MS = 15000;
 const CLOCK_REFRESH_MS = 1000;
 
-// Orden de render del HTML original; saveLocal persiste al final de cada render.
+// Orden de render del HTML original; saveLocal persiste las preferencias al final.
 registerRenderers([
   renderHeader,
   renderService,
@@ -33,6 +29,7 @@ registerRenderers([
   renderDrawer,
   renderInvoice,
   renderChecks,
+  renderPlayer,
   renderSupport,
   renderAccount,
   renderHistory,
@@ -42,16 +39,47 @@ registerRenderers([
 const formatClock = (date) =>
   date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
+/** Recupera el pedido: retorno desde Mercado Pago (?pedido=REF) o el último de este navegador. */
+async function resumeOrder() {
+  const params = new URLSearchParams(location.search);
+  const returned = params.get('pedido');
+  if (returned) {
+    params.delete('pedido');
+    history.replaceState(
+      {},
+      '',
+      location.pathname + (params.toString() ? '?' + params : '') + location.hash,
+    );
+  }
+  const reference =
+    returned && /^TGS-[0-9A-Z]{10}$/.test(returned) ? returned : lastOrderReference();
+  if (!reference) return;
+  try {
+    // Al volver de Mercado Pago el servidor consulta el pago; el navegador no decide nada.
+    const order = returned ? await syncOrder(reference) : await loadOrder(reference);
+    if (!order) return;
+    revealStore();
+    if (!isFinalOrderStatus(order.status)) startPolling();
+    if (returned) {
+      toast(
+        order.status === 'PAID' || order.status === 'DELIVERING' || order.status === 'DELIVERED'
+          ? 'Pago confirmado por Mercado Pago.'
+          : 'Estamos confirmando tu pago con Mercado Pago. Este estado se actualiza solo.',
+        order.status === 'PAID' ? 'good' : '',
+      );
+      $('seguimiento')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch {
+    toast(
+      'No pudimos consultar tu pedido ahora. Pulsa "Actualizar estado" en unos segundos.',
+      'bad',
+    );
+  }
+}
+
 async function init() {
   loadLocal();
-  if (!Number(state.invoice)) state.invoice = nextInvoice();
-  const customer = $('customerName'),
-    email = $('customerEmail'),
-    uid = $('playerUid'),
-    terms = $('acceptTerms');
-  if (customer) customer.value = state.customerName || '';
-  if (email) email.value = state.customerEmail || '';
-  if (uid) uid.value = state.playerUid || '';
+  const terms = $('acceptTerms');
   if (terms) terms.checked = false;
   showEntryLanding();
   bind();
@@ -62,46 +90,21 @@ async function init() {
     console.error('[TayGameStore initial render]', err);
   }
 
-  // Never block first interaction while waiting for backend/provider services.
-  bootstrapConfig().catch(() => {});
-  loadCatalog('freefire').catch(() => {});
-  bootstrapSession().catch(() => {});
-  checkHealth().catch(() => {});
+  // Ninguna espera bloquea la primera interacción; cada carga tiene su propio timeout.
+  await bootstrapConfig();
+  await Promise.allSettled([loadCatalog('freefire'), bootstrapSession(), resumeOrder()]);
+  renderAll();
 
-  setInterval(() => {
-    const st = String(state.currentOrder?.status || '').toUpperCase();
-    if (state.currentOrder && !FINAL_ORDER_STATUSES.includes(st) && !runtime.pollTimer)
-      pollOrder().catch(() => {});
-  }, ORDER_REFRESH_MS);
   setText('heroTime', formatClock(new Date()));
   setInterval(() => setText('heroTime', formatClock(new Date())), CLOCK_REFRESH_MS);
 }
 
-/** API de depuración en consola (heredada del HTML original). */
-window.TGS = {
-  state,
-  verifyPlayer,
-  preparePayment,
-  pollOrder,
-  logout,
-  addPackage: (id, qty = 1) => {
-    if (!productById(id)) return false;
-    setQty(id, qty);
-    renderAll();
-    return true;
-  },
-  toggleFavorite: (id) => {
-    if (!productById(id)) return false;
-    toggleFavorite(id);
-    return true;
-  },
-};
-
 export function startStore() {
   init().catch((err) => {
     console.error('[TayGameStore init]', err);
-    bind();
     showEntryLanding();
-    toast('TayGameStore está listo. Las funciones conectadas requieren el servidor.', 'bad');
+    toast('No se pudo iniciar la tienda. Recarga la página.', 'bad');
   });
 }
+
+export { state };

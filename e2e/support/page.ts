@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Preparación común de las pruebas e2e: sin backend, sin red externa y con fuentes reales.
+ * Preparación común de las pruebas e2e: servidor real (e2e/support/server.ts), sin red
+ * externa y con fuentes reales.
  * Google Fonts se sirve desde e2e/fixtures/google-fonts (regenerar con
  * e2e/fixtures/fetch-google-fonts.sh).
  */
@@ -45,20 +46,17 @@ export async function preparePage(page: Page, options: PrepareOptions = {}): Pro
       headers: { 'access-control-allow-origin': '*' },
     });
   });
-  // Sin backend: todas las llamadas a la API fallan de forma determinista.
-  await page.route('**/api/**', (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'SERVER_UNAVAILABLE' }),
-    }),
-  );
   return consoleErrors;
 }
 
-/** Errores de consola distintos de las respuestas 503 simuladas de la API. */
+/**
+ * Errores de consola inesperados. Las respuestas 4xx de la API son parte del contrato (la UI
+ * las muestra); Chromium las registra como "Failed to load resource".
+ */
 export function unexpectedErrors(consoleErrors: string[]): string[] {
-  return consoleErrors.filter((text) => !text.includes('503'));
+  return consoleErrors.filter(
+    (text) => !/Failed to load resource: the server responded with a status of 4\d\d/.test(text),
+  );
 }
 
 export async function expectReducedMotion(page: Page): Promise<void> {
