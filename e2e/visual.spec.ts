@@ -50,12 +50,16 @@ test('captura las vistas principales del frontend original', async ({ page }) =>
   await page.locator('#bootScreen').waitFor({ state: 'hidden' });
   // El último clic deja el puntero sobre el contenido (estado :hover); se aparta.
   await page.mouse.move(0, 0);
-  // El CSS original usa `content-visibility: auto`: Chromium no pinta las secciones fuera de
-  // pantalla y la captura de página completa las dejaría vacías. Solo en la prueba se fuerza
-  // el pintado, equivalente a lo que ve el usuario al hacer scroll. El frontend no cambia.
+  // Ajustes SOLO de la prueba (el frontend no cambia):
+  // - `content-visibility: auto` haría que Chromium no pinte las secciones fuera de pantalla
+  //   en la captura de página completa; se fuerza el pintado (lo que el usuario ve al hacer
+  //   scroll).
+  // - El carrito `.smart-cart` es `position: sticky`; con scroll 0 se pinta igual que
+  //   `static`, pero su capa compuesta introduce ruido de antialiasing intermitente.
   await page.addStyleTag({
     content:
-      '.section,.trust,.smart-band,.tracking-card,.support-section,.faq{content-visibility:visible!important}',
+      '.section,.trust,.smart-band,.tracking-card,.support-section,.faq{content-visibility:visible!important}' +
+      '.smart-cart{position:static!important}',
   });
   await settle(page);
   await expect(page).toHaveScreenshot('03-tienda-pagina-completa.png', { fullPage: true });

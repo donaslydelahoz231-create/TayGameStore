@@ -4,9 +4,12 @@ svg,
 canvas {
   max-width: 100%;
 }
+/*
+ * Sin `contain: paint`: recortaba todo lo que sobresale de la cabecera y dejaba
+ * invisibles el panel de búsqueda y el menú de cuenta (corregido en la Fase 1).
+ */
 .header {
   -webkit-backdrop-filter: blur(16px);
-  contain: paint;
 }
 .btn,
 .game-tab,

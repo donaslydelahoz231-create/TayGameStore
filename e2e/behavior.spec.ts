@@ -203,19 +203,22 @@ test.describe('búsqueda y navegación', () => {
     await expect(page.locator('#searchPanel')).toBeHidden();
   });
 
+  // Regresión corregida en la Fase 1: `.header{contain:paint}` recortaba el panel de
+  // búsqueda y el menú de cuenta (visibles en el DOM pero tapados por el hero).
+  // El clic sin `force` verifica que el elemento recibe realmente el puntero.
   test('el panel de búsqueda se ve y se puede cerrar con el ratón', async ({ page }) => {
-    // DEFECTO del original: `.header{contain:paint}` recorta el panel bajo la cabecera.
-    test.fail(true, 'defecto conocido: el panel de búsqueda queda recortado');
     await page.goto('/');
     await enterAsGuest(page);
+    await page.locator('#searchBtn').click();
+    await page.locator('#searchInput').fill('310');
+    await page.locator('#searchResults .search-result').first().click({ timeout: 3_000 });
+    await expect(page.locator('#searchPanel')).toBeHidden();
     await page.locator('#searchBtn').click();
     await page.locator('#closeSearch').click({ timeout: 3_000 });
     await expect(page.locator('#searchPanel')).toBeHidden();
   });
 
   test('el menú de cuenta se ve con sesión iniciada (demo)', async ({ page }) => {
-    // DEFECTO del original: mismo recorte de `.header{contain:paint}`.
-    test.fail(true, 'defecto conocido: el menú de cuenta queda recortado');
     await page.goto('/?demo=1');
     await page.locator('#enterStoreBtn').click();
     await page.locator('#loginEmail').fill('cliente@example.com');
