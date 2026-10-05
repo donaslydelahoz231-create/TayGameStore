@@ -23,7 +23,11 @@ export interface PrepareOptions {
 export async function preparePage(page: Page, options: PrepareOptions = {}): Promise<string[]> {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
+    if (message.type() !== 'error') return;
+    // 503 de la consulta de jugador = proveedor caído: la UI pasa al flujo manual (contrato).
+    const fromLookup = message.location().url.endsWith('/api/player/lookup');
+    if (fromLookup && message.text().includes('status of 503')) return;
+    consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
 

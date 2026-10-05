@@ -62,19 +62,21 @@ Tienda funcional de punta a punta. Las ventas reales dependen de configurar Merc
 | Área | Estado | Evidencia |
 |---|---|---|
 | Servidor base, configuración validada, errores, logs con redacción, health/ready | `IMPLEMENTADO` | `tests/unit`, `tests/api` |
-| Esquema completo (13 tablas, CHECK/UNIQUE/índices parciales) + auditoría append-only (trigger) | `IMPLEMENTADO` | `migrations/0001_commerce.sql`, `0002_audit_append_only.sql`; `tests/integration` |
+| Esquema completo (14 tablas, CHECK/UNIQUE/índices parciales) + auditoría append-only (trigger) | `IMPLEMENTADO` | `migrations/0001_commerce.sql`, `0002_audit_append_only.sql`, `0003_player_lookups.sql`; `tests/integration` |
 | Catálogo, checkout idempotente, límites antifraude, blocklist, órdenes de invitado y cliente | `IMPLEMENTADO` | `tests/integration/commerce.test.ts` |
 | Verificación manual del jugador + confirmación explícita del cliente | `IMPLEMENTADO` | ídem; `e2e/behavior.spec.ts` |
+| Consulta instantánea del jugador (estilo LootBar) tras `PlayerVerifier`, de un solo uso, con respaldo manual automático | `IMPLEMENTADO` · adaptador real `BLOCKED` (sin proveedor autorizado) | `tests/integration/player-lookup.test.ts`; e2e con doble de pruebas |
+| Carrito (deshacer, ahorro, tope por paquete, sincronización entre pestañas) y favoritos completos; ritmo vertical compacto | `IMPLEMENTADO` | `e2e/behavior.spec.ts`, `e2e/quality.spec.ts`, referencias visuales |
 | Pagos Mercado Pago (preferencia, webhook firmado, consulta, conciliación, duplicados, tardíos, reembolsos) | `IMPLEMENTADO` · `NO VERIFICADO` en sandbox | `services/payments.ts`; pruebas con doble de Mercado Pago |
 | Entrega manual (reclamo atómico, evidencia, liberación, fallo → revisión) | `IMPLEMENTADO` | integración + e2e del panel |
 | Google OIDC + PKCE/state/nonce, sesiones opacas, admin con allowlist + TOTP + códigos de recuperación | `IMPLEMENTADO` · login real `NO VERIFICADO` (sin cliente OAuth) | `tests/integration/auth.test.ts` |
 | CSP/HSTS/anti-clickjacking, CSRF, rate limiting (una instancia), llaveros rotables | `IMPLEMENTADO` | `tests/api/errors.test.ts`, `tests/unit` |
 | Scheduler con advisory locks (expiración, conciliación, reintentos, reclamos, limpieza) | `IMPLEMENTADO` | integración |
-| Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 20 e2e; CSS de la tienda idéntico byte a byte |
+| Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 34 e2e (comportamiento + calidad) |
 | CI: calidad, integración, e2e con PostgreSQL, audit, gitleaks | `IMPLEMENTADO` | `.github/workflows/ci.yml` |
 | Accesibilidad (axe-core WCAG 2.1 AA sin violaciones críticas/graves), diálogos con foco, carrito `inert`, responsive sin desbordes en 360–1920 px (sin `overflow-x:hidden`) | `IMPLEMENTADO` | `e2e/quality.spec.ts` |
 | Revisión con lector de pantalla, métricas externas | `PENDIENTE` | — |
-| Fuente legítima de verificación (C1), proveedor de recargas automático | `BLOCKED` (externo) | — |
+| Fuente legítima de verificación (C1), proveedor de consulta instantánea, proveedor de recargas automático | `BLOCKED` (externo) | — |
 
 ## 3. Principios
 
@@ -372,7 +374,11 @@ propietario (C1). Spec: [`specs/verificacion-jugador.md`](specs/verificacion-jug
   para no facilitar la enumeración; rate limiting por IP/UID.
 - La verificación caduca (`[POR DEFINIR]`); caducada antes del pago ⇒ vuelve a
   `AWAITING_VERIFICATION`.
-- Futuro proveedor automático: interfaz `PlayerVerifier`, sin cambiar la máquina de estados.
+- Consulta instantánea (estilo LootBar) `IMPLEMENTADA` tras la interfaz `PlayerVerifier`:
+  `POST /api/player/lookup` guarda una consulta de 30 min y un solo uso ligada al navegador o
+  la sesión; el checkout la consume (CAS) y la orden nace en `AWAITING_PAYMENT` con
+  `CONFIRMED`. Sin proveedor o con el proveedor caído ⇒ flujo manual automático. Adaptador real
+  `BLOCKED` hasta contratar un proveedor autorizado.
   **Sin API oficial: ni scraping, ni endpoints inventados, ni "API temporal".**
 - Nunca se solicitan contraseñas del juego.
 

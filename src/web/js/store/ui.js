@@ -2,16 +2,33 @@ import { $ } from './dom.js';
 
 let toastTimer = null;
 
-export function toast(message, type = '') {
+/**
+ * Aviso breve. `action` opcional ({ label, onClick }) añade un botón (p. ej. "Deshacer") y
+ * deja el aviso visible más tiempo.
+ */
+export function toast(message, type = '', action) {
   const stack = $('toastStack');
   if (!stack) return;
   clearTimeout(toastTimer);
   stack.replaceChildren();
   const el = document.createElement('div');
-  el.className = 'toast show ' + type;
-  el.textContent = message;
+  el.className = 'toast show ' + type + (action ? ' has-action' : '');
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.appendChild(text);
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toast-action';
+    button.textContent = action.label;
+    button.onclick = () => {
+      el.remove();
+      action.onClick();
+    };
+    el.appendChild(button);
+  }
   stack.appendChild(el);
-  toastTimer = setTimeout(() => el.remove(), 2800);
+  toastTimer = setTimeout(() => el.remove(), action ? 6000 : 2800);
 }
 
 /** Elemento que abrió cada modal: recibe el foco de vuelta al cerrarlo (accesibilidad). */

@@ -95,6 +95,7 @@ export function renderInvoice() {
   const order = state.currentOrder;
   const lines = invoiceLines();
   const verification = order?.verification;
+  const lookup = !order && state.playerLookup?.confirmed ? state.playerLookup : null;
   const showPlayer = verification && ['VERIFIED', 'CONFIRMED'].includes(verification.status);
   setText('invoiceRef', invoiceReference());
   setText('trackingRef', order?.reference || '—');
@@ -108,8 +109,8 @@ export function renderInvoice() {
   );
   setText('invoiceClient', order?.customerName || state.customerName.trim() || '—');
   setText('invoiceUid', order?.playerUid || (state.uidAccepted ? state.playerUid : '—'));
-  setText('invoiceNick', showPlayer ? verification.nickname : '—');
-  setText('invoiceRegion', showPlayer ? verification.region || '—' : '—');
+  setText('invoiceNick', showPlayer ? verification.nickname : lookup ? lookup.nickname : '—');
+  setText('invoiceRegion', showPlayer ? verification.region || '—' : lookup ? lookup.region : '—');
   setText('invoiceTotal', money(invoiceTotal()));
   setText('invoiceCode', invoiceCode());
   setText('invoiceState', order ? humanStatus(order) : 'Pendiente');

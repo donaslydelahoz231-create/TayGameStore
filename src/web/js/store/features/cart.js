@@ -10,19 +10,50 @@ import { closeMenus, toast } from '../ui.js';
 /** Máximo por producto fijado por el propietario (el servidor lo vuelve a validar). */
 const maxQty = () => state.serverConfig?.limits?.maxUnitsPerProduct || DEFAULT_MAX_UNITS;
 
+let orderNoticeShown = false;
+
 export function setQty(id, qty) {
   const wanted = Number(qty) || 0;
-  if (wanted > maxQty()) toast(`Máximo ${maxQty()} unidades por paquete.`, 'bad');
   const n = Math.max(0, Math.min(maxQty(), wanted));
+  if (wanted > maxQty()) toast(`Máximo ${maxQty()} unidades por paquete.`, 'bad');
+  else if (pendingOrder() && !orderNoticeShown) {
+    // El pedido creado no cambia con el carrito: se avisa una vez para evitar confusiones.
+    orderNoticeShown = true;
+    toast('Tu pedido en curso no cambia. Usa "Nueva factura" para preparar otro.');
+  }
   if (n) state.qty[id] = n;
   else delete state.qty[id];
   saveLocal();
 }
 
+function pendingOrder() {
+  const status = state.currentOrder?.status;
+  return !!status && !['REJECTED', 'EXPIRED', 'DELIVERED', 'REFUNDED'].includes(status);
+}
+
+/** Vacía el carrito con opción de deshacer (evita perder la selección por un toque). */
 export function clearCart() {
+  if (!Object.keys(state.qty).length) return;
+  const previous = { ...state.qty };
   state.qty = {};
+  saveLocal();
   renderAll();
-  toast('Carrito vaciado.');
+  toast('Carrito vaciado.', '', {
+    label: 'Deshacer',
+    onClick: () => {
+      state.qty = previous;
+      saveLocal();
+      renderAll();
+    },
+  });
+}
+
+/** Ahorro frente al precio de lista (promociones vigentes que decide el servidor). */
+export function cartSaving() {
+  return cartItems().reduce(
+    (sum, x) => sum + Math.max(0, Number(x.p.normal || 0) - priceOf(x.p)) * x.qty,
+    0,
+  );
 }
 
 /** Panel "Compra en curso" junto al catálogo. */
@@ -73,6 +104,12 @@ export function renderDrawer() {
   const list = $('drawerItems'),
     items = cartItems();
   setText('drawerTotal', money(total()));
+  const saving = cartSaving();
+  const savingEl = $('drawerSaving');
+  if (savingEl) {
+    savingEl.hidden = saving <= 0;
+    savingEl.textContent = saving > 0 ? `Ahorras ${money(saving)} con la promoción vigente` : '';
+  }
   $('drawerReview').disabled = !items.length;
   list.replaceChildren();
   if (!items.length) {

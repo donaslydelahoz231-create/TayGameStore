@@ -63,3 +63,13 @@ export function storeOrderToken(reference, token) {
 export function orderToken(reference) {
   return safe(() => sessionStorage.getItem('tgs_ot_' + reference)) || null;
 }
+
+/** Carrito y favoritos sincronizados entre pestañas del mismo navegador. */
+export function watchOtherTabs(onChange) {
+  addEventListener('storage', (event) => {
+    if (event.key === STORAGE_KEY || event.key === FAVORITES_KEY) {
+      loadLocal();
+      onChange();
+    }
+  });
+}

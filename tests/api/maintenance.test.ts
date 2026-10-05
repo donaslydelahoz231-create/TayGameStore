@@ -82,6 +82,7 @@ describe('GET /api/config', () => {
       paymentsEnabled: false,
       paymentMethod: 'mercadopago',
       auth: { google: false },
+      playerLookup: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',
       limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },

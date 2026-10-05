@@ -1,7 +1,7 @@
 import { $, setText } from './dom.js';
 import { registerRenderers, renderAll } from './render.js';
 import { state } from './state.js';
-import { lastOrderReference, loadLocal, saveLocal } from './storage.js';
+import { lastOrderReference, loadLocal, saveLocal, watchOtherTabs } from './storage.js';
 import { toast } from './ui.js';
 import { bind } from './bindings.js';
 import { bootstrapSession, renderAccount, renderHeader } from './features/account.js';
@@ -12,7 +12,7 @@ import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
-import { renderPlayer } from './features/player.js';
+import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
 import { renderChecks } from './features/tracking.js';
@@ -30,6 +30,7 @@ registerRenderers([
   renderInvoice,
   renderChecks,
   renderPlayer,
+  renderPlayerMode,
   renderSupport,
   renderAccount,
   renderHistory,
@@ -84,6 +85,7 @@ async function init() {
   showEntryLanding();
   bind();
   navObserver();
+  watchOtherTabs(renderAll);
   try {
     renderAll();
   } catch (err) {

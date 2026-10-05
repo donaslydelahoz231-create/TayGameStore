@@ -16,9 +16,12 @@ import {
   type OrderAccess,
 } from '../../services/orders.js';
 import { startPayment, syncOrderFromReturn } from '../../services/payments.js';
+import { lookupPlayer, lookupSchema, ownerKeyOf } from '../../services/player.js';
+import type { PlayerVerifier } from '../../integrations/player/verifier.js';
 
 export interface ShopRoutesOptions {
   deps: ServiceDeps | undefined;
+  playerVerifier?: PlayerVerifier | undefined;
 }
 
 const refParams = z.object({ ref: z.string().regex(/^TGS-[0-9A-Z]{10}$/) });
@@ -45,6 +48,25 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
         .parse(request.query);
       reply.header('cache-control', 'no-store');
       return { game, products: await listCatalog(deps, game) };
+    },
+  );
+
+  // Consulta UID → nickname/región antes de comprar. Solo con un proveedor autorizado
+  // configurado; si no hay, responde 503 y el pedido sigue el flujo de verificación manual.
+  app.post(
+    '/api/player/lookup',
+    { config: { rateLimit: RATE_LIMITS.playerLookup } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      assertCheckoutEnabled(deps.config.flags);
+      const input = lookupSchema.parse(request.body);
+      const guestHash = request.auth.user
+        ? request.auth.guestHash
+        : ensureGuest(deps.config, request, reply);
+      const ownerKey = ownerKeyOf(request.auth.user?.id, guestHash);
+      reply.header('cache-control', 'no-store');
+      if (!ownerKey) throw new Error('consulta sin dueño');
+      return lookupPlayer(deps, options.playerVerifier, input, ownerKey);
     },
   );
 

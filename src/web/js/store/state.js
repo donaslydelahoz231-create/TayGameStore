@@ -14,6 +14,11 @@ export const state = {
   playerUid: '',
   /** UID con formato válido aceptado por el cliente (la identidad la verifica el operador). */
   uidAccepted: false,
+  /**
+   * Consulta instantánea del jugador (solo con proveedor autorizado en el servidor):
+   * { ref, nickname, region, uid, expiresAt, confirmed }. No se persiste.
+   */
+  playerLookup: null,
   customerName: '',
   customerEmail: '',
   session: null,

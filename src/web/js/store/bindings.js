@@ -8,14 +8,19 @@ import { closeAllModals, closeMenus, modal, toast } from './ui.js';
 import { login, logout, openAccountMenu, switchAuthMode } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
-import { preparePayment, resetCheckoutKey, startPayment } from './features/checkout.js';
+import {
+  goToNextStep,
+  preparePayment,
+  resetCheckoutKey,
+  startPayment,
+} from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
-import { finderSearch, resetPlayer, verifyPlayer } from './features/player.js';
+import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
 
 const scrollToSection = (id) => $(id).scrollIntoView({ behavior: 'smooth' });
@@ -36,6 +41,7 @@ function startNewInvoice() {
   state.qty = {};
   state.playerUid = '';
   state.uidAccepted = false;
+  state.playerLookup = null;
   state.customerName = '';
   state.customerEmail = '';
   $('playerUid').value = '';
@@ -154,13 +160,13 @@ function bindCatalogAndCart() {
   document
     .querySelectorAll('.tariff-toggle button')
     .forEach((btn) => btn.addEventListener('click', () => selectTariff(btn.dataset.tariff)));
-  $('smartReview').onclick = () => scrollToSection('factura');
+  $('smartReview').onclick = goToNextStep;
   $('smartClear').onclick = clearCart;
   $('drawerClose').onclick = closeDrawer;
   $('drawerOverlay').onclick = closeDrawer;
   $('drawerReview').onclick = () => {
     closeDrawer();
-    scrollToSection('factura');
+    goToNextStep();
   };
   $('drawerClear').onclick = clearCart;
   $('cartBtn').onclick = openDrawer;
@@ -182,6 +188,7 @@ function bindCatalogAndCart() {
 function bindPlayer() {
   $('playerUid').oninput = (e) => {
     e.target.value = cleanUid(e.target.value);
+    onPlayerUidInput(e.target.value);
   };
   $('playerUid').onkeydown = onEnter(verifyPlayer);
   $('verifyBtn').onclick = verifyPlayer;

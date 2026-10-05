@@ -23,6 +23,7 @@ import {
 } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
+import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 
 export type OrderRow = typeof orders.$inferSelect;
 
@@ -212,6 +213,8 @@ export const checkoutSchema = z.strictObject({
   acceptTerms: z.literal(true),
   termsVersion: z.string().min(1).max(40),
   expectedTotalCop: z.number().int().positive().optional(),
+  /** Consulta automática del jugador ya confirmada por el cliente (flujo con proveedor). */
+  playerLookup: playerLookupRefSchema.optional(),
   items: z
     .array(
       z.strictObject({
@@ -267,6 +270,7 @@ export async function createOrder(
     JSON.stringify({
       playerUid: input.playerUid,
       email: input.customerEmail,
+      lookup: input.playerLookup?.ref ?? null,
       items: [...input.items].sort((a, b) => a.sku.localeCompare(b.sku)),
     }),
   );
@@ -391,13 +395,42 @@ export async function createOrder(
         );
       }
 
+      // Con una consulta de proveedor vigente y confirmada por el cliente, la orden nace
+      // verificada y lista para pagar (como en las tiendas con validación automática).
+      const lookup = input.playerLookup
+        ? await consumeLookup(tx, {
+            ref: input.playerLookup.ref,
+            nickname: input.playerLookup.nickname,
+            ownerKey: ownerKeyOf(context.actor.userId, context.guestHash),
+            game: input.game,
+            uid: input.playerUid,
+            now,
+          })
+        : undefined;
+      const verified = lookup
+        ? {
+            status: 'AWAITING_PAYMENT' as const,
+            verificationStatus: 'CONFIRMED' as const,
+            verifiedNickname: lookup.nickname,
+            verifiedRegion: lookup.region,
+            verificationNote: `proveedor:${lookup.provider}`,
+            verifiedAt: lookup.createdAt,
+            confirmedAt: now,
+            expiresAt: new Date(now.getTime() + config.orders.paymentTtlMinutes * 60_000),
+          }
+        : {
+            status: 'AWAITING_VERIFICATION' as const,
+            verificationStatus: 'PENDING' as const,
+            expiresAt: new Date(now.getTime() + config.orders.verificationTtlMinutes * 60_000),
+          };
+
       const [created] = await tx
         .insert(orders)
         .values({
           publicRef: publicOrderRef(),
           checkoutKey: input.checkoutKey,
           requestHash,
-          status: 'AWAITING_VERIFICATION',
+          ...verified,
           game: input.game,
           playerUid: input.playerUid,
           customerName: input.customerName,
@@ -412,8 +445,6 @@ export async function createOrder(
           currency: 'COP',
           termsVersion: input.termsVersion,
           termsAcceptedAt: now,
-          verificationStatus: 'PENDING',
-          expiresAt: new Date(now.getTime() + config.orders.verificationTtlMinutes * 60_000),
           receiptCode: receiptCode(),
           ipHash: context.actor.ipHash ?? null,
         })
@@ -437,7 +468,11 @@ export async function createOrder(
         entityId: created.id,
         action: 'order.created',
         toStatus: created.status,
-        data: { totalCop: created.totalCop, items: lines.length },
+        data: {
+          totalCop: created.totalCop,
+          items: lines.length,
+          verification: lookup ? `proveedor:${lookup.provider}` : 'manual',
+        },
       });
       return created;
     });

@@ -7,6 +7,7 @@ import type { Db } from './db/client.js';
 import { registerRequestContext } from './http/context.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
+import type { PlayerVerifier } from './integrations/player/verifier.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { configRoutes } from './modules/config/routes.js';
@@ -27,6 +28,8 @@ export interface AppDependencies {
   db?: Db | undefined;
   paymentGateway?: PaymentGateway | undefined;
   googleClient?: GoogleClient | undefined;
+  /** Verificación automática de jugadores. Sin ella, la verificación es manual (operador). */
+  playerVerifier?: PlayerVerifier | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
 }
@@ -89,8 +92,9 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     config,
     paymentsAvailable: deps?.gateway !== undefined,
     googleAvailable: input.googleClient !== undefined && deps !== undefined,
+    playerLookupAvailable: input.playerVerifier !== undefined && deps !== undefined,
   });
-  await app.register(shopRoutes, { deps });
+  await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });
   await app.register(authRoutes, { config, deps, google: input.googleClient });
   await app.register(adminRoutes, { deps });

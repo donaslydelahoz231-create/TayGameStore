@@ -16,6 +16,7 @@ import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-example.js';
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
+import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
 import { resetDatabase } from '../../tests/support/integration.js';
 
 const PORT = 4173;
@@ -66,6 +67,8 @@ const { app, deps } = await buildAppWithDeps({
   database,
   db: database.db,
   paymentGateway: gateway,
+  // Doble del proveedor: UID 9… encontrado, 8… inexistente, otro → caído (flujo manual).
+  playerVerifier: new FakePlayerVerifier(),
 });
 if (!deps) throw new Error('sin dependencias');
 

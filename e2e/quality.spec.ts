@@ -140,6 +140,16 @@ test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     const offenders = await horizontalOverflow(page);
+    // Texto superpuesto en las tarjetas Tay Lab (el enlace inferior tapaba la descripción).
+    const overlaps = await page.evaluate(
+      () =>
+        Array.from(document.querySelectorAll('.lab-card')).filter((card) => {
+          const text = card.querySelector('p')?.getBoundingClientRect();
+          const link = card.querySelector('span:last-child')?.getBoundingClientRect();
+          return text && link && text.bottom > link.top + 1;
+        }).length,
+    );
+    if (overlaps) problems.push(`${width}px: ${overlaps} tarjetas Tay Lab con texto superpuesto`);
     if (scroll > 0 || offenders.length)
       problems.push(`${width}px: +${scroll}px ${offenders.join(', ')}`);
     consoleErrors.push(...errors);

@@ -142,7 +142,7 @@ test.describe('catálogo y carrito', () => {
     await product(page, '1.060 + 106 Diamantes').locator('.fav-btn').click();
     await page.locator('#favoritesBtn').click();
     await expect(page.locator('#favoritesList')).toContainText('1.060 + 106 Diamantes');
-    await page.locator('#favoritesList button').click();
+    await page.locator('#favoritesList [data-fav-op="add"]').click();
     await expect(page.locator('#cartBadge')).toHaveText('1');
   });
 
@@ -167,6 +167,59 @@ test.describe('catálogo y carrito', () => {
     await expect(page.locator('#cartBadge')).toHaveText('1');
     const all = await page.evaluate(() => JSON.stringify({ ...localStorage }));
     expect(all).not.toContain('Nombre Privado');
+  });
+});
+
+test.describe('carrito y favoritos (mejoras)', () => {
+  test('vaciar el carrito se puede deshacer', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await product(page, '310 + 31 Diamantes').locator('.add-btn').click();
+    await page.locator('#smartClear').click();
+    await expect(page.locator('#cartBadge')).toHaveText('0');
+    await page.locator('#toastStack .toast-action').click();
+    await expect(page.locator('#cartBadge')).toHaveText('1');
+  });
+
+  test('el carrito lateral muestra el ahorro de la promoción', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+    await page.locator('#cartBtn').click();
+    await expect(page.locator('#drawerSaving')).toHaveText(
+      'Ahorras $ 200 COP con la promoción vigente',
+    );
+  });
+
+  test('favoritos: quitar (con deshacer) desde el modal', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await product(page, '520 + 52 Diamantes').locator('.fav-btn').click();
+    await page.locator('#favoritesBtn').click();
+    await page.locator('#favoritesList [data-fav-op="remove"]').click();
+    await expect(page.locator('#favoritesList')).toContainText(
+      'Todavía no tienes paquetes favoritos',
+    );
+    await page.locator('#toastStack .toast-action').click();
+    await expect(page.locator('#favoritesList')).toContainText('520 + 52 Diamantes');
+  });
+
+  test('"Revisar factura" lleva al siguiente paso que falta', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+    await page.locator('#smartReview').click();
+    await expect(page.locator('#playerUid')).toBeFocused();
+  });
+
+  test('el carrito se sincroniza entre pestañas', async ({ page, context }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    const other = await context.newPage();
+    await other.goto('/');
+    await enterAsGuest(other);
+    await product(page, '2.180 + 218 Diamantes').locator('.add-btn').click();
+    await expect(other.locator('#cartBadge')).toHaveText('1');
   });
 });
 
@@ -268,6 +321,76 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#payBtn')).toHaveText('Crear pedido');
     await page.evaluate(() => document.getElementById('menuHistory')?.click());
     await expect(page.locator('#historyList .history-entry')).not.toHaveCount(0);
+  });
+
+  test('consulta instantánea: ID → nickname y región → "Sí, es mi cuenta" → pedido listo para pagar', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+    await page.locator('#playerUid').fill('912345678');
+    await page.locator('#verifyBtn').click();
+    await expect(page.locator('#playerResult')).toContainText('Vas a recargar a: Jugador5678');
+    await expect(page.locator('#playerResult')).toContainText('Región: Colombia');
+    // Sin confirmar, no se puede crear el pedido.
+    await expect(page.locator('#uidState')).toHaveText('Pendiente');
+    await page.locator('#confirmLookup').click();
+    await expect(page.locator('#playerResult')).toContainText('Jugador5678 ✓');
+    await expect(page.locator('#nickState')).toHaveText('Listo');
+    await expect(page.locator('#invoiceNick')).toHaveText('Jugador5678');
+
+    await page.locator('#customerName').fill('Cliente E2E');
+    await page.locator('#customerEmail').fill('e2e-lookup@example.com');
+    await page.locator('#paymentMethod').selectOption('mercadopago');
+    await page.locator('#acceptTerms').check();
+    await page.locator('#payBtn').click();
+    await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
+    // Sin esperar al operador: directo a "Confirmar y pagar".
+    await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+    await expect(page.locator('#payBtn')).toHaveText(/Confirmar y pagar/);
+  });
+
+  test('consulta instantánea: ID inexistente se informa y editar el UID anula la consulta', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await page.locator('#playerUid').fill('812345678');
+    await page.locator('#verifyBtn').click();
+    await expect(page.locator('#playerResult')).toContainText('No encontramos ese ID');
+    await expect(page.locator('#uidState')).toHaveText('Pendiente');
+
+    await page.locator('#playerUid').fill('912340000');
+    await page.locator('#verifyBtn').click();
+    await expect(page.locator('#confirmLookup')).toBeVisible();
+    await page.locator('#playerUid').fill('91234000');
+    await expect(page.locator('#playerResult')).toBeHidden();
+  });
+
+  test('si el proveedor no responde, pasa a verificación manual', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    await page.locator('#playerUid').fill('712345678');
+    await page.locator('#verifyBtn').click();
+    await expect(page.locator('#playerResult')).toContainText('UID 712345678 listo');
+    await expect(page.locator('#uidState')).toHaveText('Listo');
+  });
+
+  test('el buscador por ID muestra el jugador y lo usa sin otra consulta', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    let lookups = 0;
+    page.on('request', (r) => {
+      if (r.url().endsWith('/api/player/lookup')) lookups += 1;
+    });
+    await page.locator('#playerFinderBtn').click();
+    await page.locator('#finderUid').fill('923456789');
+    await page.locator('#finderSearchBtn').click();
+    await expect(page.locator('#finderResult')).toContainText('Jugador6789');
+    await page.locator('#finderUseBtn').click();
+    await expect(page.locator('#playerResult')).toContainText('Vas a recargar a: Jugador6789');
+    expect(lookups).toBe(1);
   });
 
   test('valida el UID antes de continuar', async ({ page }) => {

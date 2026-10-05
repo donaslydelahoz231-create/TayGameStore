@@ -127,4 +127,6 @@ export const RATE_LIMITS = {
   webhook: { max: 600, timeWindow: '1 minute' },
   admin: { max: 300, timeWindow: '1 minute' },
   catalog: { max: 120, timeWindow: '1 minute' },
+  /** Bajo a propósito: frena la enumeración de UIDs ajenos. */
+  playerLookup: { max: 20, timeWindow: '10 minutes' },
 } as const;

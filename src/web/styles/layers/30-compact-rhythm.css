@@ -1,0 +1,50 @@
+/* Ritmo vertical compacto (petición del propietario: menos espacio vacío).
+   Misma identidad visual; solo cambian márgenes y rellenos, que ahora escalan con la pantalla.
+   Antes: 62 px entre secciones en todos los tamaños (también en móvil). */
+.section {
+  padding-top: clamp(30px, 4.2vw, 46px);
+}
+.heading {
+  margin-bottom: 14px;
+}
+.smart-band {
+  margin-top: clamp(20px, 3vw, 32px);
+}
+.footer {
+  margin-top: clamp(30px, 4.5vw, 46px);
+}
+.trust {
+  padding-top: 12px;
+}
+
+/* Tay Lab: el enlace inferior iba en posición absoluta sobre una altura fija y se montaba
+   encima del texto en columnas estrechas. Ahora fluye al final de la tarjeta. */
+.lab-card {
+  display: flex;
+  flex-direction: column;
+}
+.lab-card span:last-child {
+  position: static;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .hero-inner {
+    gap: 16px;
+    padding-top: 16px;
+    padding-bottom: 22px;
+  }
+  .hero-left {
+    padding-top: 6px;
+  }
+}
+
+@media (max-width: 650px) {
+  .heading {
+    gap: 12px;
+  }
+  .lab-card {
+    min-height: 0;
+  }
+}

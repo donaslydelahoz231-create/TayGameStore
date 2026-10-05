@@ -1,9 +1,13 @@
 # Especificación — Verificación de jugador (UID / nickname / región)
 
-> Estado: **IMPLEMENTADO como verificación manual por el operador** dentro del ciclo de vida
-> de la orden. No existe una API oficial pública para consultar nicknames de Free Fire:
+> Estado:
+> - **Verificación manual por el operador: IMPLEMENTADA** (flujo activo en producción).
+> - **Consulta instantánea estilo LootBar: IMPLEMENTADA detrás del puerto `PlayerVerifier`,
+>   sin adaptador real → `BLOCKED`** hasta que el propietario contrate un proveedor autorizado
+>   con API oficial documentada. Probada solo con un doble de pruebas (`tests/`).
+>
+> No existe una API oficial pública de Garena para consultar nicknames de Free Fire:
 > **no se hace scraping, no se usan fuentes no oficiales ni endpoints inventados.**
-> La fuente que use el operador debe ser legítima (decisión del propietario, C1).
 
 ## Regla crítica
 
@@ -34,7 +38,39 @@ confirmación explícita.
 - Mensajes genéricos al cliente; rate limiting en todas las rutas de órdenes.
 - Auditoría de verificación, confirmación y rechazo (operador, fecha, región).
 
-## Proveedor automático futuro
+## Consulta instantánea (estilo LootBar)
 
-Si aparece una API oficial: implementar la interfaz `PlayerVerifier` y que el resultado se
-registre igual que el del operador. La máquina de estados no cambia.
+Disponible solo si el servidor arranca con un `PlayerVerifier` (`/api/config` →
+`playerLookup: true`). Sin él, la tienda usa el flujo manual sin cambios.
+
+```
+UID → POST /api/player/lookup → "Vas a recargar a: [nickname] · Región" →
+"Sí, es mi cuenta" → POST /api/checkout { playerLookup: { ref, nickname } } →
+orden en AWAITING_PAYMENT (verification_status = CONFIRMED) → pago
+```
+
+- `POST /api/player/lookup` `{ game: 'freefire', uid }` → `{ lookupRef, nickname, region,
+  expiresAt }`. CSRF, `cache-control: no-store`, **20 consultas cada 10 minutos por IP**
+  (anti-enumeración), timeout de 8 s al proveedor.
+- Respuestas: `422 PLAYER_NOT_FOUND`; `503 PLAYER_LOOKUP_UNAVAILABLE` (sin proveedor, caído o
+  timeout) → el frontend pasa **automáticamente** al flujo manual.
+- El resultado se guarda en `player_lookups` (UID, nickname, región, proveedor; sin datos del
+  cliente) ligado al dueño (sesión `u:<id>` o navegador invitado `g:<hash>`), vigente
+  **30 minutos** y de **un solo uso**.
+- En el checkout se consume con CAS dentro de la transacción de la orden: mismo dueño, juego,
+  UID y nickname confirmado, vigente y sin usar. Si no → `409 PLAYER_LOOKUP_EXPIRED` y el
+  cliente vuelve a consultar. El navegador nunca puede imponer un nickname: el servidor usa
+  el de su propia consulta.
+- La orden queda con `verification_note = proveedor:<nombre>` y auditoría
+  `verification: proveedor:<nombre>`. La limpieza horaria borra consultas caducadas > 1 día.
+
+### Para activarla (pendiente del propietario)
+
+1. Contratar un proveedor **autorizado** (p. ej. el distribuidor oficial de recargas) que
+   ofrezca validación de ID por API documentada, con contrato y credenciales propias.
+2. Implementar su adaptador en `src/server/integrations/player/` con la documentación oficial
+   (sin inventar endpoints), y pasarlo como `playerVerifier` en `src/server/index.ts`.
+3. Probarlo en su sandbox y revisar límites, privacidad y términos de uso.
+
+No se usan las APIs de terceros que extraen datos del juego ("username fetchers"): no son
+oficiales ni están autorizadas.

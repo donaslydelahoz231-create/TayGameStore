@@ -5,6 +5,7 @@ export interface ConfigRoutesOptions {
   config: AppConfig;
   paymentsAvailable: boolean;
   googleAvailable: boolean;
+  playerLookupAvailable: boolean;
 }
 
 /** Configuración pública para el frontend. Nunca incluye secretos. */
@@ -18,6 +19,7 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       paymentsEnabled: config.flags.paymentsEnabled && options.paymentsAvailable,
       paymentMethod: 'mercadopago',
       auth: { google: options.googleAvailable },
+      playerLookup: options.playerLookupAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
       termsVersion: config.orders.termsVersion,
       limits: {

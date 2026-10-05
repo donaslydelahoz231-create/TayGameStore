@@ -8,7 +8,9 @@ PostgreSQL + pagos con **Mercado Pago** (Checkout Pro).
 > administración. Mercado Pago está integrado con el **SDK oficial**, pero **no se ha probado
 > contra su sandbox real** (dominios bloqueados en el entorno de desarrollo): antes de vender,
 > completa el checklist de [`docs/specs/pagos.md`](docs/specs/pagos.md).
-> La verificación del jugador es **manual por el operador** (no existe API oficial pública).
+> La verificación del jugador es **manual por el operador**. La consulta instantánea estilo
+> LootBar (ID → nickname y región al momento) está lista en el código, pero **bloqueada** hasta
+> contratar un proveedor autorizado (no existe API oficial pública de Garena; sin scraping).
 
 ## Requisitos
 
@@ -62,6 +64,7 @@ Producción: [`docs/deployment.md`](docs/deployment.md) (Render + PostgreSQL ges
 |---|---|
 | `GET /api/health`, `/api/ready`, `/api/config` | Público |
 | `GET /api/catalog` | Público |
+| `POST /api/player/lookup` | Invitado o cliente (CSRF, 20/10 min); 503 si no hay proveedor |
 | `POST /api/checkout` | Invitado o cliente (CSRF, rate limit, idempotente) |
 | `GET /api/orders`, `GET /api/orders/:ref` | Dueño (cookie de invitado, sesión o `x-order-token`) |
 | `POST /api/orders/:ref/confirm-player`, `/pay`, `/sync` | Dueño |
@@ -91,7 +94,8 @@ Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md).
 ## Pendiente (no se inventa)
 
 - Probar Mercado Pago en sandbox y producción (checklist en `docs/specs/pagos.md`).
-- Fuente legítima para que el operador verifique UID/nickname (decisión del propietario).
+- Fuente legítima para que el operador verifique UID/nickname y proveedor autorizado para la
+  consulta instantánea (`docs/specs/verificacion-jugador.md`).
 - Proveedor de recargas automático (hoy entrega manual).
 - Cliente OAuth de Google, dominio, cuenta de Render, catálogo y precios reales, textos legales.
 - Revisión manual con lector de pantalla y contraste de los textos decorativos (la suite

@@ -9,6 +9,7 @@ import type { GoogleClient, GoogleIdentity } from '../../src/server/integrations
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
+import { FakePlayerVerifier } from './fake-player-verifier.js';
 
 export function testDatabaseUrl(): string {
   const url = process.env.TEST_DATABASE_URL;
@@ -59,17 +60,22 @@ export interface Harness {
   database: Database;
   gateway: FakePaymentGateway;
   google: FakeGoogle;
+  verifier: FakePlayerVerifier;
   clock: { now: Date };
   close(): Promise<void>;
 }
 
 export const ADMIN_EMAIL = 'admin@example.com';
 
-export async function createHarness(env: Record<string, string> = {}): Promise<Harness> {
+export async function createHarness(
+  env: Record<string, string> = {},
+  options: { playerVerifier?: boolean } = {},
+): Promise<Harness> {
   const url = testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
   const google = new FakeGoogle();
+  const verifier = new FakePlayerVerifier();
   const clock = { now: new Date() };
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -91,6 +97,7 @@ export async function createHarness(env: Record<string, string> = {}): Promise<H
     db: database.db,
     paymentGateway: gateway,
     googleClient: google,
+    playerVerifier: options.playerVerifier === false ? undefined : verifier,
     now: () => clock.now,
   });
   if (!deps) throw new Error('sin dependencias');
@@ -100,6 +107,7 @@ export async function createHarness(env: Record<string, string> = {}): Promise<H
     database,
     gateway,
     google,
+    verifier,
     clock,
     close: async () => {
       await app.close();

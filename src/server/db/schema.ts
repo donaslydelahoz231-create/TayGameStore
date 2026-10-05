@@ -150,6 +150,32 @@ export const oauthStates = pgTable(
   () => [check('oauth_states_purpose_check', inList('purpose', ['customer', 'admin']))],
 );
 
+/**
+ * Consultas automáticas de jugador (UID → nickname/región) con un proveedor legítimo.
+ * Solo vale para quien la hizo (`owner_key`) y caduca pronto: el checkout la exige vigente.
+ */
+export const playerLookups = pgTable(
+  'player_lookups',
+  {
+    id: id(),
+    ownerKey: text('owner_key').notNull(),
+    game: text('game').notNull(),
+    playerUid: text('player_uid').notNull(),
+    provider: text('provider').notNull(),
+    nickname: text('nickname').notNull(),
+    region: text('region').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('player_lookups_owner_idx').on(t.ownerKey, t.createdAt),
+    index('player_lookups_expires_idx').on(t.expiresAt),
+    check('player_lookups_game_check', inList('game', ['freefire'])),
+    check('player_lookups_uid_check', sql`${t.playerUid} ~ '^[0-9]{6,12}$'`),
+  ],
+);
+
 export const products = pgTable(
   'products',
   {

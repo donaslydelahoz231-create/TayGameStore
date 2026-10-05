@@ -7,6 +7,7 @@ import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
 import { modal, toast } from '../ui.js';
 import { loadCatalog } from './catalog.js';
+import { lookupExpired } from './player.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
 // Checkout con Mercado Pago (Checkout Pro):
@@ -69,6 +70,13 @@ function missingRequirement() {
   return null;
 }
 
+/** Consulta instantánea confirmada por el cliente para este UID (si la hay). */
+function confirmedLookup() {
+  const found = state.playerLookup;
+  if (!found || !found.confirmed || found.uid !== state.playerUid) return {};
+  return { playerLookup: { ref: found.ref, nickname: found.nickname } };
+}
+
 async function createOrder() {
   const missing = missingRequirement();
   if (missing) {
@@ -92,14 +100,20 @@ async function createOrder() {
         termsVersion: state.serverConfig.termsVersion,
         expectedTotalCop: total(),
         items: cartItems().map((x) => ({ sku: x.p.id, quantity: x.qty })),
+        ...confirmedLookup(),
       },
     });
     if (j.accessToken) storeOrderToken(j.order.reference, j.accessToken);
     resetCheckoutKey();
     setCurrentOrder(j.order);
     startPolling();
-    toast('Pedido creado. Estamos verificando el jugador.', 'good');
-    scrollTo('verificacion');
+    if (j.order.status === 'AWAITING_PAYMENT') {
+      toast('Pedido creado. Ya puedes pagar con Mercado Pago.', 'good');
+      scrollTo('factura');
+    } else {
+      toast('Pedido creado. Estamos verificando el jugador.', 'good');
+      scrollTo('verificacion');
+    }
   } catch (err) {
     if (
       err instanceof ApiError &&
@@ -108,6 +122,10 @@ async function createOrder() {
       await loadCatalog(state.game);
     }
     if (err instanceof ApiError && err.code === 'IDEMPOTENCY_CONFLICT') resetCheckoutKey();
+    if (err instanceof ApiError && err.code === 'PLAYER_LOOKUP_EXPIRED') {
+      lookupExpired();
+      scrollTo('verificacion');
+    }
     toast(errorMessage(err, 'No se pudo crear el pedido.'), 'bad');
   } finally {
     runtime.orderBusy = false;
@@ -141,6 +159,29 @@ function openConfirmation(order) {
   $('startPayment').disabled = false;
   setText('startPayment', 'Confirmar y pagar');
   modal('paymentModal', true);
+}
+
+/**
+ * "Revisar factura" (carrito lateral y panel del catálogo): lleva al siguiente paso que falta
+ * y le da el foco, en lugar de solo desplazar la página.
+ */
+export function goToNextStep() {
+  const order = state.currentOrder;
+  if (order && !['REJECTED', 'EXPIRED', 'REFUNDED'].includes(order.status)) {
+    scrollTo(order.status === 'AWAITING_VERIFICATION' ? 'verificacion' : 'factura');
+    return;
+  }
+  const steps = [
+    ['verificacion', 'playerUid', () => state.uidAccepted],
+    ['factura', 'customerName', () => state.customerName.trim().length > 0],
+    ['factura', 'customerEmail', () => EMAIL_PATTERN.test(state.customerEmail.trim())],
+    ['factura', 'paymentMethod', () => $('paymentMethod').value === METHOD],
+    ['factura', 'acceptTerms', () => $('acceptTerms').checked],
+  ];
+  const missing = steps.find(([, , done]) => !done());
+  const [section, field] = missing ?? ['factura', 'payBtn'];
+  scrollTo(section);
+  setTimeout(() => $(field)?.focus({ preventScroll: true }), 450);
 }
 
 /** Acción del botón principal según el estado del pedido. */

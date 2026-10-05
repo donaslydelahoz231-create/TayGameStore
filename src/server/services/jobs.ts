@@ -3,6 +3,7 @@ import { fulfillments, oauthStates, orders, payments, sessions } from '../db/sch
 import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
+import { purgeExpiredLookups } from './player.js';
 import {
   failedPaymentEvents,
   ordersNeedingReconciliation,
@@ -135,7 +136,8 @@ export async function cleanup(deps: ServiceDeps): Promise<number> {
     .delete(oauthStates)
     .where(lt(oauthStates.expiresAt, now))
     .returning({ stateHash: oauthStates.stateHash });
-  return removedSessions.length + removedStates.length;
+  const removedLookups = await purgeExpiredLookups(deps);
+  return removedSessions.length + removedStates.length + removedLookups;
 }
 
 const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {

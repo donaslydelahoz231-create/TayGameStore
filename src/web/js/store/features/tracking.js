@@ -20,7 +20,8 @@ export function renderChecks() {
   const order = state.currentOrder;
   const status = order?.status;
   const uidOk = order ? true : validUid(state.playerUid) && state.uidAccepted;
-  const playerOk = order?.verification?.status === 'CONFIRMED';
+  const lookup = !order && state.playerLookup?.confirmed ? state.playerLookup : null;
+  const playerOk = order ? order.verification?.status === 'CONFIRMED' : Boolean(lookup);
   const cartOk = order ? true : cartItems().length > 0;
   [
     ['uidState', uidOk],
@@ -36,7 +37,7 @@ export function renderChecks() {
   const paid = ['PAID', 'DELIVERING', 'DELIVERED'].includes(status);
   $('trackPlayer').classList.toggle('done', playerOk);
   $('trackPlayer').querySelector('small').textContent = playerOk
-    ? order.verification.region || 'Confirmado'
+    ? (order ? order.verification.region : lookup.region) || 'Confirmado'
     : order
       ? 'Verificando'
       : 'Esperando UID';

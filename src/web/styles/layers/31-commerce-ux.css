@@ -1,0 +1,38 @@
+/* Carrito, favoritos y avisos: elementos nuevos con la paleta existente. */
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: auto;
+}
+.toast-action {
+  flex: none;
+  padding: 5px 9px;
+  border: 1px solid rgba(55, 214, 255, 0.35);
+  border-radius: 7px;
+  background: rgba(55, 214, 255, 0.08);
+  color: var(--cyan);
+  font: inherit;
+  cursor: pointer;
+}
+.favorite-actions {
+  display: flex;
+  gap: 6px;
+}
+.favorite-actions [data-fav-op='remove'] {
+  color: var(--muted2, var(--muted));
+}
+.favorite-empty .favorite-browse {
+  margin-top: 10px;
+}
+.drawer-saving {
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(57, 224, 138, 0.3);
+  border-radius: 9px;
+  background: rgba(57, 224, 138, 0.07);
+  color: #7ff0b8;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
