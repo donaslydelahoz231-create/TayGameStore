@@ -129,32 +129,79 @@ export interface PublicOrder {
   fulfillment: { status: string | null; deliveredAt: string | null };
 }
 
+type OrderItemRow = typeof orderItems.$inferSelect;
+interface OrderRelations {
+  items: OrderItemRow[];
+  payments: Pick<typeof payments.$inferSelect, 'status' | 'isOrderPayment'>[];
+  fulfillment: Pick<typeof fulfillments.$inferSelect, 'status' | 'deliveredAt'> | undefined;
+}
+
+/**
+ * Carga partidas, pagos y entrega de varias órdenes con 3 consultas en total (no 3 por orden):
+ * evita el N+1 en el listado del cliente.
+ */
+async function loadOrderRelations(
+  db: DbOrTx,
+  orderIds: readonly string[],
+): Promise<Map<string, OrderRelations>> {
+  const relations = new Map<string, OrderRelations>(
+    orderIds.map((id) => [id, { items: [], payments: [], fulfillment: undefined }]),
+  );
+  if (!orderIds.length) return relations;
+  const ids = [...orderIds];
+  const [itemRows, paymentRows, fulfillmentRows] = await Promise.all([
+    db
+      .select()
+      .from(orderItems)
+      .where(inArray(orderItems.orderId, ids))
+      .orderBy(asc(orderItems.sku)),
+    db
+      .select({
+        orderId: payments.orderId,
+        status: payments.status,
+        isOrderPayment: payments.isOrderPayment,
+      })
+      .from(payments)
+      .where(inArray(payments.orderId, ids))
+      .orderBy(desc(payments.updatedAt)),
+    db
+      .select({
+        orderId: fulfillments.orderId,
+        status: fulfillments.status,
+        deliveredAt: fulfillments.deliveredAt,
+      })
+      .from(fulfillments)
+      .where(inArray(fulfillments.orderId, ids)),
+  ]);
+  for (const item of itemRows) relations.get(item.orderId)?.items.push(item);
+  for (const { orderId, ...payment } of paymentRows) relations.get(orderId)?.payments.push(payment);
+  for (const { orderId, ...fulfillment } of fulfillmentRows) {
+    const entry = relations.get(orderId);
+    if (entry) entry.fulfillment ??= fulfillment;
+  }
+  return relations;
+}
+
 export async function toPublicOrder(
   deps: ServiceDeps,
   db: DbOrTx,
   order: OrderRow,
 ): Promise<PublicOrder> {
-  const [items, orderPayments, fulfillmentRows] = await Promise.all([
-    db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, order.id))
-      .orderBy(asc(orderItems.sku)),
-    db
-      .select({ status: payments.status, isOrderPayment: payments.isOrderPayment })
-      .from(payments)
-      .where(eq(payments.orderId, order.id))
-      .orderBy(desc(payments.updatedAt)),
-    db
-      .select({ status: fulfillments.status, deliveredAt: fulfillments.deliveredAt })
-      .from(fulfillments)
-      .where(eq(fulfillments.orderId, order.id))
-      .limit(1),
-  ]);
+  const relations = await loadOrderRelations(db, [order.id]);
+  return buildPublicOrder(deps, order, relations.get(order.id));
+}
+
+function buildPublicOrder(
+  deps: ServiceDeps,
+  order: OrderRow,
+  relations: OrderRelations | undefined,
+): PublicOrder {
+  const items = relations?.items ?? [];
+  const orderPayments = relations?.payments ?? [];
   const shownVerification = ['VERIFIED', 'CONFIRMED'].includes(order.verificationStatus);
   const paymentStatus =
     orderPayments.find((p) => p.isOrderPayment)?.status ?? orderPayments[0]?.status ?? null;
-  const fulfillment = fulfillmentRows[0];
+  const fulfillment = relations?.fulfillment;
   return {
     reference: order.publicRef,
     status: order.status,
@@ -517,7 +564,11 @@ export async function listOrdersForOwner(
     .where(or(...conditions))
     .orderBy(desc(orders.createdAt))
     .limit(50);
-  return Promise.all(rows.map((row) => toPublicOrder(deps, deps.db, row)));
+  const relations = await loadOrderRelations(
+    deps.db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => buildPublicOrder(deps, row, relations.get(row.id)));
 }
 
 // ── Confirmación del jugador por el cliente ──────────────────────────────────

@@ -104,7 +104,24 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     if (!existsSync(path.join(root, 'index.html'))) {
       throw new Error(`No existe el build del frontend en ${root}. Ejecuta "npm run build".`);
     }
-    await app.register(fastifyStatic, { root, index: 'index.html' });
+    await app.register(fastifyStatic, {
+      root,
+      // Debe ser un array: con preCompressed, @fastify/static solo resuelve índices en array
+      // (con un string, "/" responde 404 a los navegadores que aceptan br/gzip).
+      index: ['index.html'],
+      // .br/.gz generados en el build (vite.config.ts); si no existen, se envía el original.
+      preCompressed: true,
+      cacheControl: false,
+      setHeaders(reply, filePath) {
+        // Los nombres de /assets/ llevan hash de contenido: nunca cambian.
+        reply.header(
+          'cache-control',
+          filePath.includes(`${path.sep}assets${path.sep}`)
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache',
+        );
+      },
+    });
   }
 
   return { app, deps };

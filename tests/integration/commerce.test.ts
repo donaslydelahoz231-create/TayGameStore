@@ -332,6 +332,34 @@ describe('acceso a órdenes (IDOR)', () => {
     const refs = res.json<{ orders: OrderJson[] }>().orders.map((o) => o.reference);
     expect(refs).toEqual([mine.order.reference]);
   });
+
+  it('el listado carga partidas y pagos de cada orden sin mezclarlas', async () => {
+    const first = await createGuestOrder({ items: [{ sku: 'ff-110', quantity: 2 }] });
+    const res = await checkout(
+      body({
+        items: [
+          { sku: 'ff-341', quantity: 1 },
+          { sku: 'ff-6160', quantity: 1 },
+        ],
+      }),
+      first.cookies,
+    );
+    expect(res.statusCode).toBe(201);
+    const second = res.json<{ order: OrderJson }>().order;
+    const listed = (
+      await inject({ method: 'GET', url: '/api/orders', cookies: first.cookies })
+    ).json<{ orders: (OrderJson & { items: { sku: string; quantity: number }[] })[] }>().orders;
+    const byRef = new Map(listed.map((o) => [o.reference, o]));
+    expect(byRef.get(first.order.reference)?.items).toEqual([
+      expect.objectContaining({ sku: 'ff-110', quantity: 2 }),
+    ]);
+    expect(byRef.get(second.reference)?.items.map((i) => i.sku)).toEqual(['ff-341', 'ff-6160']);
+    // Mismo resultado que el detalle de cada orden (ruta que carga una sola).
+    for (const order of [first.order, second]) {
+      const detail = (await getOrder(order.reference, first.cookies)).json<{ order: unknown }>();
+      expect(byRef.get(order.reference)).toEqual(detail.order);
+    }
+  });
 });
 
 describe('verificación manual del jugador', () => {
