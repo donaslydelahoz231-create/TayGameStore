@@ -1,776 +1,670 @@
-# TayGameStore — Plan técnico de arquitectura para producción (v2)
+# TayGameStore — Plan de arquitectura
 
-> **Estado:** documento de planificación. **No hay código de aplicación implementado.**
-> **Fuente de verdad:** el único artefacto existente, `TayGameStore-index-cinematic-v4.html` (SPA de un solo archivo, 1296 líneas). El repositorio no contiene backend, base de datos, tests ni CI. Todo lo que aquí se describe como servidor es **diseño propuesto**.
-> **Versión:** 2 — incorpora la revisión arquitectónica crítica (problemas P1–P30) y las decisiones C1–C12 confirmadas por el propietario.
-> **Fecha:** 2026-10-05
+- **Versión:** 3
+- **Fecha:** 2026-10-05
+- **Cambios respecto a versiones anteriores:** documento regenerado desde cero (no es un parche);
+  pasarela anterior eliminada de la arquitectura vigente; contenido alineado con el estado real
+  del repositorio; Mercado Pago como única pasarela; estados de la orden y del intento de pago
+  separados en dos máquinas de estado distintas.
 
-> **Decisiones posteriores (prevalecen sobre este documento):**
-> - **Pagos:** Mercado Pago es la única pasarela; **Wompi queda eliminado**. Todo lo que este
->   plan dice sobre Wompi está **sustituido** por [`docs/specs/pagos.md`](specs/pagos.md).
-> - **Verificación de jugador:** [`docs/specs/verificacion-jugador.md`](specs/verificacion-jugador.md).
-
-## Convenciones
+**Marcas usadas en todo el documento**
 
 | Marca | Significado |
 |---|---|
-| **[A VERIFICAR]** | Dato externo (Wompi, Google, hosting, librerías) que **no se ha comprobado**. Se contrasta con documentación oficial antes de implementar. |
-| **PENDIENTE DE CONFIGURACIÓN** | Depende de credenciales, cuentas o infraestructura que todavía no existen. |
-| **NO VERIFICADO** | No hay evidencia de que funcione o exista. |
-| **BLOQUEADO** | No se implementa hasta que se resuelva la condición indicada. |
-| **[POR DEFINIR]** | Valor de negocio que debe fijar el propietario; el sistema lo deja configurable y no inventa un valor. |
-
-Reglas permanentes de este plan:
-1. No se inventan APIs, proveedores, credenciales, métodos de pago, estados ni tiempos de Wompi.
-2. No se inventa un proveedor de recargas ni un método de verificación de jugadores.
-3. El cliente muestra; **el servidor decide** precios, promociones, totales, estados, identidad y roles.
-4. Se conserva la identidad visual cinematográfica (oscuro, violeta, azul, cian, animaciones).
+| `IMPLEMENTADO` | Existe código **y** pruebas o evidencia (CI, ejecución) |
+| `DISEÑADO` | Arquitectura decidida y documentada; sin implementación |
+| `PENDIENTE` | Necesidad identificada; falta diseño detallado e implementación |
+| `BLOCKED` | No puede implementarse hasta resolver una dependencia externa |
+| `NO VERIFICADO` | Existe diseño o código, pero falta evidencia suficiente |
+| `NEEDS_IMPLEMENTATION` | Requisito de seguridad u operación sin mecanismo implementado |
+| `[A VERIFICAR]` | Dato de Mercado Pago u otro proveedor no contrastado con documentación oficial: **no se usa** hasta verificarlo |
+| `[POR DEFINIR]` | Valor de negocio que fija el propietario; el sistema lo deja configurable |
 
 ---
 
-## 1. Decisiones
+## 1. Propósito
 
-### 1.1 Confirmadas
+TayGameStore es una tienda de recargas gamer (alcance inicial: Free Fire) con un frontend
+cinematográfico. Este documento define la **arquitectura vigente** y deja explícito, para
+cada parte: qué existe, qué falta, qué está bloqueado, qué está verificado, qué depende de
+Mercado Pago o de otro proveedor externo y qué **no debe inventarse**.
 
-| # | Decisión | Consecuencia en la arquitectura |
+**Jerarquía de fuentes de verdad** (ante una contradicción, prevalece la de mayor nivel y la
+contradicción se documenta en §4.2):
+
+1. Seguridad e integridad financiera.
+2. Decisiones explícitas del propietario.
+3. [`specs/pagos.md`](specs/pagos.md) para Mercado Pago.
+4. [`specs/verificacion-jugador.md`](specs/verificacion-jugador.md) para la verificación de jugador.
+5. Código existente.
+6. Tests y evidencia.
+7. Arquitectura propuesta (este documento).
+8. Documentación histórica.
+
+---
+
+## 2. Estado actual
+
+El repositorio **no está vacío**: contiene un servidor Fastify con base de datos, migraciones,
+pruebas, CI y el frontend modularizado. **No hay ventas reales** ni pueden habilitarse: el
+servidor rechaza en producción `CHECKOUT_ENABLED=true` y rechaza `PAYMENTS_ENABLED=true` en
+cualquier entorno.
+
+| Área | Estado | Evidencia |
 |---|---|---|
-| C1 | **Verificación manual del jugador por un operador antes de habilitar el pago.** No se inventa el método. | Nuevo estado `AWAITING_VERIFICATION`. La función de verificación queda **BLOQUEADA** hasta que el propietario confirme una fuente legítima (ver §8). |
-| C2 | **Google OAuth + checkout como invitado. Sin contraseñas** al lanzamiento. | Se eliminan hashing de contraseñas, recuperación, verificación de correo propia y tablas asociadas. |
-| C3 | Hosting **no cerrado**. Requisito: proceso Node persistente + PostgreSQL gestionado con backups y **PITR**. | Arquitectura portátil (imagen Docker). Opciones en §18. |
-| C4 | Widget vs. redirección de Wompi **sin decidir** hasta verificar documentación oficial. | El módulo de pagos se diseña tras una interfaz; la Fase 8 empieza con una verificación documental. |
-| C5 | No inventar métodos, estados ni expiraciones de Wompi. | Todo dato de Wompi va marcado **[A VERIFICAR]**; los TTL propios de la tienda son independientes y configurables. |
-| C6 | Antifraude: **máx. 5 unidades por producto**, **máx. $1.000.000 COP por orden**, rate limiting por **IP, email y UID**, **lista de bloqueo**. Todo configurable. | Límites en configuración + tabla `blocklist`. |
-| C7 | Panel admin con **alerta visual/sonora** de órdenes pagadas. Email/WhatsApp después. Tienda con **tiempo de entrega realista y horario de atención**. | Endpoint de alertas + configuración de horario y tiempo estimado. |
-| C8 | Correo no bloquea fases iniciales; resuelto **antes del lanzamiento** si se envían comprobantes o enlaces de orden. Sin recuperación de contraseña. | Interfaz `Mailer` con implementación nula hasta elegir proveedor. |
-| C9 | Reembolsos manuales (panel de Wompi + panel admin) con **registro de quién y por qué**. | Campos de reembolso en `payments` + `audit_events`. |
-| C10 | Preparar términos, privacidad y aceptación. **No afirmar facturación electrónica.** Usar **"Comprobante"**. Validación legal antes del lanzamiento. | Versión de términos aceptada guardada en cada orden. |
-| C11 | **Un solo administrador.** Sin rol `support`. | Roles: `customer`, `admin`. |
-| C12 | Sin CAPTCHA inicial; **rate limiting desde el día uno**; CAPTCHA preparado para activarse. | Interfaz `CaptchaVerifier` desactivada por configuración; proveedor no elegido. |
+| Servidor Fastify: configuración validada con Zod, logs JSON con `requestId` y redacción, formato de error estable, cierre ordenado | `IMPLEMENTADO` | `src/server/{app,index}.ts`, `config/env.ts`, `plugins/*`; `tests/unit`, `tests/api` |
+| `GET /api/health`, `GET /api/ready`, `GET /api/config` | `IMPLEMENTADO` | `src/server/modules/{health,config}`; `tests/api/health.test.ts` |
+| Interruptores `MAINTENANCE_MODE`, `CHECKOUT_ENABLED`, `PAYMENTS_ENABLED` | `IMPLEMENTADO` | `env.ts`, `plugins/maintenance.ts`; `tests/api/maintenance.test.ts`, `tests/unit/env.test.ts` |
+| PostgreSQL + Drizzle ORM + migraciones; tabla `audit_events` | `IMPLEMENTADO` | `src/server/db/*`, `migrations/0000_init.sql`; `tests/integration/database.test.ts` |
+| Frontend modular (Vite, 28 capas CSS, módulos ES) con referencias visuales y pruebas de comportamiento | `IMPLEMENTADO` | `src/web/`; `e2e/` |
+| CI en GitHub Actions (3 jobs) | `IMPLEMENTADO`; **último run en rojo** (§20) | `.github/workflows/ci.yml` |
+| Resto de tablas, catálogo, checkout, órdenes, autenticación, admin, verificación y entrega manuales, scheduler, cabeceras de seguridad, CSRF, rate limiting | `DISEÑADO` | Este documento |
+| `FULFILLMENT_ENABLED`, Dockerfile, gitleaks, runbooks, guía de despliegue | `PENDIENTE` | — |
+| Mercado Pago | `BLOCKED` | Dominios bloqueados por la política de red del entorno (403 del proxy, comprobado el 2026-10-05) |
+| Fuente legítima de verificación de jugador (C1) | `BLOCKED` | Sin fuente confirmada por el propietario |
+| Proveedor automático de recargas | `BLOCKED` | Sin proveedor legítimo definido |
 
-### 1.2 Aún pendientes (resumen; detalle en §22)
-
-| # | Pendiente | Bloquea |
-|---|---|---|
-| R1 | **Fuente legítima para verificar UID/nickname** (C1). | Ventas (Fase 7, verificación) |
-| R2 | **Hosting** entre las opciones de §18. | Staging y producción (Fase 10) |
-| R3 | **Acceso a la documentación oficial de Wompi** desde el entorno de desarrollo (hoy `docs.wompi.co` está bloqueado por la red del entorno) y cuenta/llaves sandbox. | Fase 8 |
-| R4 | **Valores de negocio**: horario de atención, tiempo de entrega estimado, TTL de verificación y de pago, catálogo y precios reales. | Fases 4, 6 y 7 |
-| R5 | **Cliente OAuth de Google** (consola de Google Cloud) y lista de correos administradores. | Fase 5 |
-| R6 | **Dominio**. | OAuth en producción, webhooks, correo |
-| R7 | **Proveedor de correo** (antes del lanzamiento). | Fase 11 |
+**Herencia del HTML original todavía presente en el frontend** (no es de producción; se retira
+en las fases B–D): modo demo `?demo=1` con pago y entrega **simulados**, catálogo de respaldo
+con precios fijos, órdenes/historial/datos del cliente en `localStorage`, numeración del
+comprobante en el navegador, formulario de contraseña, consulta de jugador desde el navegador,
+código y textos de la pasarela retirada (ver Anexo, `HISTÓRICO`) y CSP en `<meta>` con
+`'unsafe-inline'`. El frontend llama a rutas que el servidor **no implementa**
+(`/api/auth/*`, `/api/catalog`, `/api/checkout`, `/api/orders`, `/api/player/lookup`,
+`/api/nickname`); al no existir, muestra estados de "servicio no disponible".
 
 ---
 
-## 2. Registro de cambios v1 → v2 (P1–P30)
+## 3. Principios
 
-| P | Problema de v1 | Corrección en v2 | Sección |
-|---|---|---|---|
-| P1 | Verificación bloqueante sin proveedor ⇒ cero ventas | Verificación manual por operador (C1); bloqueada hasta confirmar fuente legítima | §8 |
-| P2 | Doble cobro de una orden | Un único intento de pago activo por orden (índice único parcial); pago aprobado extra ⇒ `needs_refund` + alerta | §10, §11 |
-| P3 | Expiración vs. pagos asíncronos | No expira mientras haya intento pendiente; un pago aprobado y válido gana sobre la expiración; sin cancelación por cliente | §7.3 |
-| P4 | Estados de pago mezclados con la orden | Estados de orden y de intento separados | §7.3 |
-| P5 | Doble entrega manual / sin notificación | Reclamo atómico (`claimed_by`) + alertas en el panel | §9, §14 |
-| P6 | Órdenes de invitado en cuentas ajenas; pre-hijacking | Asociación solo con correo verificado por Google; sin vinculación automática insegura | §6 |
-| P7 | Webhook con dedupe como defensa principal | Webhook = notificación → verificar firma → consultar Wompi → aplicar idempotente; firmas inválidas solo a logs | §11 |
-| P8 | Reconciliación dependiente de búsqueda por referencia | Endpoint `sync` con id de transacción + reconciliación de intentos con id; búsqueda por referencia [A VERIFICAR] | §11 |
-| P9 | CSP con nonce | CSP estática por cabecera; eliminar estilos inline | §13 |
-| P10 | Contraseñas sin correo | Sin contraseñas (C2) | §6 |
-| P11 | Sin antifraude | Límites C6 + rate limiting + blocklist | §7.5, §13 |
-| P12 | Sin interruptor de emergencia | `CHECKOUT_ENABLED`, `MAINTENANCE_MODE` | §7.6 |
-| P13 | Node 22 | Node 24 LTS [A VERIFICAR estado LTS al instalar] | §3 |
-| P14 | Monorepo excesivo | Un solo paquete | §19 |
-| P15 | Cola y worker prematuros | Un proceso con tareas programadas + advisory lock | §4, §12 |
-| P16 | 15 tablas | 9 tablas | §5 |
-| P17 | Idempotencia duplicada | `checkout_key UNIQUE` en `orders` | §7.4 |
-| P18 | CSRF con token sincronizado | Cabecera personalizada + `Origin`/`Sec-Fetch-Site` + JSON | §6.4 |
-| P19 | Sesiones de invitado | Invitado sin sesión; token de orden | §6.3 |
-| P20 | `version` + CAS de estado | Solo CAS de estado | §12 |
-| P21 | Entrega parcial indefinida | `DELIVERED` solo si todos los ítems; parcial ⇒ `NEEDS_REVIEW` | §9 |
-| P22 | Faltan secretos MFA / pepper IP | `MFA_ENCRYPTION_KEY`, códigos de recuperación, `IP_HASH_PEPPER` | §6.5, §16 |
-| P23 | Token en query de enlaces | Token en fragmento `#t=` | §6.3 |
-| P24 | Sin registro de términos | `terms_version` + `terms_accepted_at` en la orden | §5, §7 |
-| P25 | Oráculo de lookup | No hay lookup público al lanzar; rate limit; CAPTCHA preparado | §8, §13 |
-| P26 | TS en Fase 1 | JS modular primero; TS gradual (`checkJs`) | §4.2 |
-| P27 | 16 fases | 11 fases + "Después" | §20 |
-| P28 | Zona horaria / impuestos | UTC en BD, `America/Bogota` en UI; IVA a validar con contador | §5, §22 |
-| P29 | Solo widget | Widget vs. redirección decidido tras documentación (C4) | §10 |
-| P30 | Admin vanilla podría crecer | Entrada Vite separada; migrable sin tocar la tienda | §14 |
+1. **El cliente muestra; el servidor decide**: precios, promociones, descuentos, totales,
+   estados, roles, permisos, identidad del jugador, aprobación de pagos y entrega.
+2. **PostgreSQL es la fuente de verdad.** `localStorage` solo guarda preferencias y favoritos.
+3. **El navegador nunca declara una compra pagada.** La fuente de verdad financiera es el
+   servidor más la verificación oficial con Mercado Pago, nunca el frontend ni el redirect de pago.
+4. **Ante incertidumbre financiera no se adivina:** se consulta, se reconcilia y, si sigue sin
+   resolverse, `NEEDS_REVIEW` + alerta.
+5. **Nunca se repite automáticamente una operación financiera o de recarga cuyo resultado
+   anterior es desconocido.**
+6. **Nada se inventa:** APIs, proveedores, credenciales, estados, precios, tiempos, métodos de
+   pago. Sin documentación oficial ⇒ `BLOCKED`. Dobles de prueba solo en `tests/`.
+7. **Una caída externa no tumba la tienda:** la lectura sigue disponible cuando es seguro;
+   pagar o entregar se bloquea con un mensaje claro.
+8. **Identidad visual intacta:** solo se toca lo visual por funcionalidad, seguridad,
+   responsive o accesibilidad. `legacy/index-cinematic-v4.html` es la referencia congelada.
+9. **Simplicidad operativa:** un solo proceso Node, mismo origen, sin microservicios, Redis,
+   colas externas ni workers separados mientras no se demuestre la necesidad.
 
 ---
 
-## 3. Stack
+## 4. Decisiones confirmadas
 
-| Capa | Elección | Notas |
-|---|---|---|
-| Runtime | **Node 24 LTS** + TypeScript | [A VERIFICAR estado LTS al instalar] |
-| Servidor HTTP | **Fastify** | Plugins oficiales para cookies, cabeceras, rate limit y estáticos |
-| Validación | **Zod** compartido cliente/servidor | Un contrato único |
-| Base de datos | **PostgreSQL ≥ 16** (versión que ofrezca el hosting) | Transacciones, `FOR UPDATE`, índices parciales, JSONB |
-| Acceso a datos | **Drizzle ORM** + `drizzle-kit` | Migraciones SQL generadas y **revisadas a mano** |
-| Frontend | HTML/CSS/JS actuales → **módulos con Vite** | Sin React/Next; identidad intacta |
-| Tests | Vitest, Playwright, axe-core | Postgres real en CI (servicio de contenedor) |
-| Calidad | ESLint, typescript-eslint, Prettier | |
-| CI | GitHub Actions | |
-| Empaquetado | Dockerfile multi-etapa | Portabilidad entre hostings |
+### 4.1 Decisiones del propietario
 
-Versiones concretas: se fijan al instalar y quedan en el lockfile; no se afirman aquí.
-
----
-
-## 4. Arquitectura
-
-### 4.1 Vista general
-
-```
-Navegador ── tienda (/) y panel (/admin)
-   │  HTTPS · mismo origen · sin CORS
-   ▼
-Proxy/TLS del hosting (HSTS)
-   ▼
-┌──────────── Un proceso Node (Fastify) ─────────────────────────────┐
-│ Plugins: cabeceras+CSP estática · cookies · sesión · CSRF ·        │
-│          rate limit · errores · logs (pino, con redacción)         │
-│ Módulos: config · health · auth(Google) · catalog · checkout ·     │
-│          orders · verification · payments · fulfillment · refunds ·│
-│          blocklist · limits · admin · alerts · legal               │
-│ Tareas programadas (advisory lock): expiración · reconciliación    │
-│ Estáticos: build de Vite (tienda + admin)                          │
-└───────────────┬────────────────────────────────────────────────────┘
-                ▼
-       PostgreSQL gestionado (backups + PITR)
-                │
-Integraciones (detrás de interfaces):
-  PaymentGateway ─► Wompi           [A VERIFICAR · PENDIENTE DE CONFIGURACIÓN]
-  FulfillmentProvider ─► Manual     (proveedor real: NO VERIFICADO, sin implementar)
-  PlayerVerifier ─► Manual (operador) [BLOQUEADO hasta R1]
-  Mailer ─► Nulo                    (PENDIENTE DE CONFIGURACIÓN, C8)
-  CaptchaVerifier ─► Desactivado    (C12)
-  IdentityProvider ─► Google OIDC   (PENDIENTE DE CONFIGURACIÓN, R5)
-```
-
-- **Mismo origen**: la API sirve el frontend compilado. No hay CORS; cookies `SameSite` y CSRF son más simples.
-- **Un solo proceso** con tareas programadas protegidas por `pg_try_advisory_lock`, de modo que si en el futuro hay varias instancias, solo una ejecuta cada tarea.
-- **Interfaces para todo lo externo**: permiten implementar Wompi y un proveedor de recargas después sin reescribir órdenes.
-
-### 4.2 Estrategia del frontend (sin reemplazar)
-
-1. Copiar el HTML original a `legacy/` (referencia inmutable).
-2. Capturas de referencia con Playwright (360, 768, 1280 px) **antes** de tocar nada.
-3. Extraer CSS por capas (`tokens`, `base`, `layout`, `components`, `cinematic`, `responsive`) **sin cambiar reglas**.
-4. Extraer JS a **módulos JS** (no TS todavía) manteniendo funciones y nombres: `core/`, `features/`, `effects/`.
-5. Comparar capturas: misma apariencia.
-6. Activar `checkJs` y convertir a TS de forma gradual, empezando por `core/api` y `core/state`.
-
-### 4.3 Cambios de contrato y de UX en el frontend
-
-| Hoy en el HTML | Cambio |
+| Tema | Decisión |
 |---|---|
-| `?demo=1` / `file:` simula pago y jugador | Modo demo **solo en build de desarrollo**; ausente del build de producción |
-| `FALLBACK_FREEFIRE` con precios fijos | Eliminado; sin catálogo ⇒ estado vacío honesto |
-| `localStorage` con órdenes, historial, `verified`, PII; `Object.assign(state, s)` sin lista blanca | Lista blanca: favoritos, preferencias de UI y **referencias + tokens de las órdenes del invitado** (capacidad de acceso, no fuente de verdad). Estado siempre desde el servidor |
-| Verificación instantánea "en tiempo real" y modal "Buscar jugador" | Flujo asíncrono: "Solicitar verificación" → el operador verifica → el cliente confirma el nickname → pagar. El modal de búsqueda en tiempo real se oculta mientras no exista una fuente automática legítima |
-| `?code=` + `hashCode()` (FNV 32 bits) | Token aleatorio en cabecera `X-Order-Token` |
-| Toggle Normal/Promo elegido por el cliente | El servidor aplica la promo vigente; la UI solo la muestra |
-| `nickname`, `tariff`, precios enviados por el cliente | El cliente envía solo `productId`, `quantity`, UID, datos de contacto y aceptación de términos |
-| "Factura", "Factura digital", "Factura viva" | **"Comprobante"** (C10) |
-| "LIVE", "Sistemas activos", "24 ms" fijos | Estado real de `/api/config` o nada; tiempo de entrega y horario visibles (C7) |
-| `window.state` en `tgs-cinematic-v4` (confeti nunca se dispara) | Evento `tgs:order-delivered` |
-| Polling doble (5 s + 15 s) | Un poller con backoff y refresco al volver a la pestaña |
-| 29 `onclick` inline, `style="…"` inline | `addEventListener` y clases CSS (requisito de CSP) |
-| Google Fonts remotas | Autoalojadas (privacidad y CSP) |
-| OAuth Google/Facebook/Discord/VK + formulario de contraseña | Solo Google + "Continuar como invitado"; sin formulario de contraseña |
-| Modales sin `role="dialog"`/`aria-modal`/foco | Módulo `a11y/modal` |
+| Pasarela de pago | **Mercado Pago, única pasarela.** Sin alternativa ni fallback. `BLOCKED` hasta acceder a su documentación oficial y sandbox |
+| Verificación de jugador | **Manual por operador** dentro del ciclo de vida de la orden mientras no exista fuente legítima; interfaz `PlayerVerifier` para un proveedor futuro |
+| Recargas | **Entrega manual** (`FULFILLMENT_MODE=manual`); interfaz `TopUpProvider` para un proveedor futuro |
+| Autenticación | Google OAuth/OIDC + checkout como invitado. **Sin contraseñas** mientras no haya proveedor de correo adecuado |
+| Administración | Un solo rol `admin`: Google + allowlist (`ADMIN_EMAILS`) + TOTP obligatorio |
+| Hosting | Render (servicio web + PostgreSQL gestionado) |
+| Antifraude | Máx. **5 unidades por producto** y **1.000.000 COP por orden**; sin CAPTCHA inicialmente |
+| Reembolsos | Manuales, registrados y auditados |
+| Documento de compra | Se llama **"Comprobante"**; no se afirma facturación electrónica |
+| Frontend | HTML/CSS/JS modular con Vite. **No** se migra a React/Next |
+| Ventas reales | Prohibidas mientras C1 y Mercado Pago estén `BLOCKED` |
 
-La sección **"Ruta de seguimiento"** existente (Pedido creado → Jugador validado → Pago → Entrega) encaja con el nuevo flujo y se conserva como eje visual.
+### 4.2 Contradicciones detectadas y resolución
 
----
-
-## 5. Base de datos (9 tablas)
-
-Convenciones: UUID como PK, `timestamptz` en **UTC**, dinero en **enteros en unidad mínima** (centavos de COP) con `CHECK` de positividad; la conversión al formato que exija Wompi se hace en el adaptador **[A VERIFICAR]**. Moneda única inicial: `COP`.
-
-```
-users
-  id, google_sub UNIQUE, email, email_verified bool, name,
-  role ('customer'|'admin'), status ('active'|'disabled'),
-  mfa_secret_enc NULL, mfa_recovery_hashes jsonb NULL, mfa_enabled_at NULL,
-  created_at, last_login_at
-
-sessions
-  id, token_hash bytea UNIQUE, user_id FK NOT NULL,
-  created_at, last_seen_at, expires_at, revoked_at NULL,
-  mfa_verified_at NULL, ip_hash, user_agent
-
-products
-  id, game ('freefire'|…) , sku UNIQUE, name, description, tag, units int,
-  price_minor bigint CHECK (>0),
-  promo_price_minor bigint NULL CHECK (promo_price_minor < price_minor),
-  promo_starts_at NULL, promo_ends_at NULL,
-  status ('draft'|'active'|'archived'), sort, created_at, updated_at
-
-orders
-  id, public_ref UNIQUE (aleatoria), checkout_key uuid UNIQUE,
-  user_id FK NULL, access_token_hash bytea NOT NULL,
-  customer_name, customer_email,
-  game, player_uid,
-  player_nickname NULL, player_region NULL,
-  verification_source ('manual'|'provider') NULL, verified_by FK NULL, verified_at NULL,
-  verification_note NULL, rejection_reason NULL,
-  player_confirmed_at NULL,                 -- el cliente confirma "es mi cuenta"
-  subtotal_minor, discount_minor, total_minor,
-  CHECK (total_minor = subtotal_minor - discount_minor AND total_minor > 0),
-  currency, status order_status,
-  claimed_by FK NULL, claimed_at NULL,
-  terms_version, terms_accepted_at,
-  expires_at, created_at, updated_at, paid_at NULL, delivered_at NULL
-
-order_items
-  id, order_id FK, product_id FK,
-  product_name_snapshot, units_snapshot,
-  unit_price_minor, quantity CHECK (quantity BETWEEN 1 AND <límite>),
-  line_total_minor
-
-payments                                   -- intentos de pago
-  id, order_id FK, provider ('wompi'), reference UNIQUE,
-  provider_tx_id UNIQUE NULL, status, provider_status_raw NULL,
-  amount_minor, currency, raw jsonb NULL,
-  needs_refund bool DEFAULT false,
-  refunded_at NULL, refunded_by FK NULL, refund_reason NULL, refund_external_ref NULL,
-  created_at, updated_at
-  -- índice único parcial: un solo intento "abierto" por orden
-
-fulfillments
-  id, order_item_id FK UNIQUE, method ('manual'|'provider'),
-  status ('pending'|'succeeded'|'failed'|'unknown'),
-  provider_ref NULL, evidence_note NULL, attempts int,
-  completed_by FK NULL, completed_at NULL, last_error NULL
-
-blocklist
-  id, kind ('email'|'player_uid'|'ip_hash'|'google_sub'),
-  value_norm, reason, created_by FK, created_at, expires_at NULL,
-  UNIQUE (kind, value_norm)
-
-audit_events                               -- append-only
-  id bigserial, entity_type, entity_id, action,
-  from_status NULL, to_status NULL,
-  actor_type ('system'|'customer'|'admin'|'webhook'), actor_id NULL,
-  data jsonb, ip_hash NULL, created_at
-```
-
-Notas:
-- **Snapshot de precios** en `order_items`: reemplaza la tabla `product_prices` de v1; cambios de precio quedan en `audit_events`.
-- **Juegos** como constante en código (solo 4 conocidos); tabla `games` cuando haga falta.
-- La **cantidad máxima** del `CHECK` se valida también en la aplicación con el valor configurable; el `CHECK` de BD es un tope de seguridad.
-- El rol de BD de la aplicación **no** tiene `UPDATE`/`DELETE` sobre `audit_events`.
-- Índices: `orders(status, created_at)`, `orders(user_id)`, `orders(lower(customer_email))`, `orders(player_uid)`, `payments(order_id)`, `audit_events(entity_type, entity_id)`.
-- El valor exacto del "intento abierto" (estado pendiente de Wompi) se define tras la verificación documental **[A VERIFICAR]**.
-- **Eliminadas respecto a v1:** `oauth_identities`, `email_tokens`, `product_prices`, `provider_products`, `idempotency_keys`, `webhook_events`, `settings`, `games`, `order_events` (fusionada en `audit_events`).
-
----
-
-## 6. Autenticación y autorización
-
-### 6.1 Clientes: Google OAuth (C2)
-- OpenID Connect, Authorization Code + **PKCE**, `state` y `nonce` verificados; validación del ID token (emisor, audiencia, expiración, firma) mediante una librería mantenida **[A VERIFICAR librería y endpoints con la documentación de Google]**.
-- Identidad por `google_sub`. Se usa el correo solo si Google lo marca como verificado.
-- **PENDIENTE DE CONFIGURACIÓN:** cliente OAuth en Google Cloud y URIs de redirección exactas por ambiente (R5, R6).
-
-### 6.2 Asociación de órdenes de invitado (P6)
-- Una orden de invitado se asocia a una cuenta **solo** si el correo de Google está verificado y coincide con `customer_email`. Nunca por un correo no verificado.
-- No hay cuentas locales con contraseña, por lo que no existe el escenario de vincular Google con una cuenta local no verificada.
-
-### 6.3 Invitado y token de orden (P19, P23)
-- El invitado **no tiene sesión**.
-- Al crear la orden, el servidor genera un **token aleatorio de 256 bits**, guarda su hash (con `ORDER_TOKEN_PEPPER`) y devuelve el token **una sola vez**.
-- El cliente lo guarda en `localStorage` como capacidad de acceso (lista blanca) y lo envía en la cabecera `X-Order-Token`.
-- Enlaces por correo (cuando exista, C8): `/#/orden/<ref>#t=<token>` en el **fragmento**, que no llega a servidores ni al `Referer`. `Referrer-Policy: no-referrer` en esas vistas.
-- Si el invitado pierde el token y no hay correo: recuperación por soporte, verificando datos de la orden (procedimiento operativo, §21).
-
-### 6.4 Sesiones y CSRF (P18)
-- Sesión opaca de 256 bits (hash en BD) solo para usuarios autenticados.
-- Cookie `__Host-tgs_sid`: `HttpOnly; Secure; SameSite=Lax; Path=/`. En desarrollo local, nombre sin prefijo si el navegador no lo admite en `http://localhost` [A VERIFICAR].
-- Rotación al iniciar sesión y al completar MFA; expiración absoluta e inactividad; logout revoca en BD.
-- **CSRF** en toda petición que cambie estado: cabecera personalizada obligatoria (`X-TGS-Request: 1`), `Content-Type: application/json` y validación de `Origin`/`Sec-Fetch-Site` contra `PUBLIC_BASE_URL`. `GET` nunca cambia estado. El webhook está excluido (se autentica por firma).
-
-### 6.5 Administrador (C11, P22)
-- Un solo rol privilegiado: `admin`.
-- Acceso: Google OAuth **y** correo incluido en `ADMIN_EMAILS` **y** rol `admin` asignado por CLI (`create-admin`) **y** **TOTP obligatorio** en cada sesión.
-- Secreto TOTP cifrado con `MFA_ENCRYPTION_KEY`; códigos de recuperación de un solo uso guardados como hash.
-- Sesión admin con caducidad corta.
-
-### 6.6 Autorización
-
-| Acción | Invitado (token) | customer | admin |
-|---|---|---|---|
-| Ver catálogo | ✔ | ✔ | ✔ |
-| Crear orden | ✔ | ✔ | — |
-| Ver / confirmar / pagar **su** orden | con `X-Order-Token` | si `orders.user_id = sesión` | ✔ |
-| Historial | ✘ | ✔ (propio) | ✔ |
-| Verificar jugador, reclamar, entregar, reembolsar | ✘ | ✘ | ✔ |
-| Catálogo, precios, promos, blocklist, auditoría | ✘ | ✘ | ✔ |
-
-- `user_id`, `role`, `status`, precios y totales **nunca** se aceptan del cliente.
-- El filtro de propietario va **dentro del SQL** (`WHERE public_ref = $1 AND (user_id = $2 OR access_token_hash = $3)`), con respuesta `404` indistinguible para "no existe" y "no es tuya".
-
----
-
-## 7. Productos y órdenes
-
-### 7.1 Catálogo y promociones
-- Productos en BD, gestionados por el admin. **Ningún precio en el código ni en el frontend.**
-- Precio vigente = `promo_price_minor` si `now()` está dentro de `[promo_starts_at, promo_ends_at)`; si no, `price_minor`. Lo calcula el servidor.
-- Carga inicial por CLI **con datos que proporcione el propietario** (R4).
-
-### 7.2 Creación de la orden (`POST /api/checkout`)
-1. Comprobar `CHECKOUT_ENABLED` / `MAINTENANCE_MODE`.
-2. Validar con Zod: `checkoutKey` (UUID), `items[{productId, quantity}]`, un solo juego, `playerUid` (formato), `customerName`, `customerEmail`, `termsVersion` igual a la vigente y `termsAccepted: true`.
-3. Rate limit por IP, email y UID; consultar `blocklist`.
-4. Cargar productos **desde BD**; rechazar inactivos o de otro juego; aplicar límites C6.
-5. Calcular totales en el servidor; si el cliente envía `expectedTotalMinor` y difiere ⇒ `409 PRICE_CHANGED` con los valores reales (el cliente nunca es autoridad).
-6. Insertar orden + ítems en una transacción con estado `AWAITING_VERIFICATION`, `expires_at = now() + VERIFICATION_TTL`.
-7. Responder `{ reference, orderToken (una vez), status }` y emitir alerta al panel.
-
-El precio queda **bloqueado** en la orden; si la promo termina mientras la orden está vigente, se respeta el precio bloqueado.
-
-### 7.3 Máquina de estados de la orden (P3, P4)
-
-Estados: `AWAITING_VERIFICATION`, `REJECTED`, `AWAITING_PAYMENT`, `PAID`, `DELIVERING`, `DELIVERED`, `NEEDS_REVIEW`, `EXPIRED`, `REFUNDED`.
-
-| Desde | Hacia | Disparador | Condiciones |
-|---|---|---|---|
-| `AWAITING_VERIFICATION` | `AWAITING_PAYMENT` | Admin verifica | Nickname registrado + nota de fuente; nuevo `expires_at = now() + PAYMENT_TTL` |
-| `AWAITING_VERIFICATION` | `REJECTED` | Admin rechaza | Motivo obligatorio |
-| `AWAITING_VERIFICATION` | `EXPIRED` | Tarea de expiración | Vencido |
-| `AWAITING_PAYMENT` | `PAID` | Pago aprobado y válido | `player_confirmed_at` presente; referencia, monto y moneda coinciden |
-| `AWAITING_PAYMENT` | `EXPIRED` | Tarea de expiración | Vencido **y sin intento de pago abierto** |
-| `EXPIRED` | `PAID` | Pago aprobado y válido tardío | **El pago gana**: se respeta el precio bloqueado si los productos siguen activos; si no ⇒ `NEEDS_REVIEW` |
-| `PAID` | `DELIVERING` | Admin reclama (CAS) | `claimed_by`, `claimed_at` |
-| `DELIVERING` | `PAID` | Admin libera el reclamo | Auditado |
-| `DELIVERING` | `DELIVERED` | Admin marca entrega | **Todos** los `fulfillments` en `succeeded`, con nota de evidencia |
-| `PAID`, `DELIVERING` | `NEEDS_REVIEW` | Admin o sistema | Entrega parcial/fallida, discrepancia de pago |
-| `NEEDS_REVIEW` | `DELIVERING` | Admin reintenta | |
-| `NEEDS_REVIEW`, `DELIVERED` | `REFUNDED` | Admin registra reembolso | Motivo obligatorio; ejecutado en Wompi (C9) |
-
-- Estados terminales: `REJECTED`, `EXPIRED` (salvo pago tardío), `DELIVERED` (salvo reembolso excepcional), `REFUNDED`.
-- **Sin cancelación por el cliente**: las órdenes no pagadas expiran (evita carreras con pagos en curso).
-- Los **intentos de pago** tienen sus propios estados, que se tomarán de la documentación oficial de Wompi **[A VERIFICAR]**. Un intento rechazado **no cambia** la orden: el cliente puede intentar de nuevo mientras la orden esté vigente.
-- Pago aprobado sobre orden ya `PAID`/`DELIVERING`/`DELIVERED`/`REFUNDED` ⇒ el intento se marca `needs_refund = true` + alerta; la orden no cambia (P2).
-- Pago aprobado con discrepancia de monto, moneda o referencia ⇒ `NEEDS_REVIEW` + alerta.
-- Mapa único de estados → texto UI en `shared/order-states`.
-
-### 7.4 Idempotencia del checkout (P17)
-- `checkout_key` lo genera el cliente por intento de compra.
-- `INSERT … ON CONFLICT (checkout_key) DO NOTHING RETURNING …`: si ya existe, se devuelve la misma orden **solo** si el solicitante es el mismo (sesión o mismo correo + huella de la petición); si no, `409`.
-- El token de orden no se vuelve a emitir en reintentos: el cliente lo conserva desde la primera respuesta; si la perdió, recuperación por soporte.
-
-### 7.5 Antifraude (C6, P11)
-
-| Control | Valor inicial | Configurable |
+| # | Contradicción | Resolución (nivel de la jerarquía §1) |
 |---|---|---|
-| Unidades por producto | **5** | `LIMIT_MAX_UNITS_PER_PRODUCT` |
-| Total por orden | **1.000.000 COP** | `LIMIT_MAX_ORDER_TOTAL_COP` |
-| Rate limit por IP / email / UID | **[POR DEFINIR]** | `RATE_LIMIT_*` |
-| Órdenes abiertas simultáneas por email/UID | **[POR DEFINIR]** | `LIMIT_MAX_OPEN_ORDERS_*` |
-| Lista de bloqueo | email, UID, hash de IP, `google_sub` | Tabla `blocklist`, gestionada en el panel |
-
-- Rate limit de peticiones: en memoria (una instancia). Límites de negocio (órdenes abiertas por email/UID): **consulta a BD**, válidos aunque haya varias instancias.
-- Las respuestas por bloqueo no revelan el motivo.
-
-### 7.6 Interruptores (P12)
-- `CHECKOUT_ENABLED=false` ⇒ `503 CHECKOUT_DISABLED`; la UI muestra un aviso.
-- `MAINTENANCE_MODE=true` ⇒ solo lectura del catálogo y consulta de órdenes.
-- Expuestos en `/api/config`. Cambio = cambio de variable + reinicio (panel editable más adelante).
+| 1 | Nombre de la abstracción de pagos: `specs/pagos.md` usa `PaymentProvider`/`MercadoPagoProvider`; el propietario fija `PaymentGateway`/`MercadoPagoPaymentGateway` | Prevalece la decisión del propietario (2). `specs/pagos.md` debe alinearse (`PENDIENTE`, Fase A) |
+| 2 | Verificación: `specs/verificacion-jugador.md` describe una entidad previa a la orden con proveedor automático; el propietario fija verificación **manual dentro de la orden** e interfaz `PlayerVerifier` | Prevalece el propietario (2). Se conservan las reglas de seguridad del spec (confirmación explícita, anti-enumeración, sin scraping, revalidación). El spec debe reescribirse (`PENDIENTE`, Fase A) |
+| 3 | Versiones anteriores mezclaban estados de pago y de orden | Dos máquinas separadas (§10.3 y §11.3). Los estados de Mercado Pago nunca son estados internos |
+| 4 | Versiones anteriores hablaban de "centavos de COP" | El dinero se guarda como **entero en pesos colombianos** (unidad mínima que usa el sistema) con moneda explícita (§8.2) |
+| 5 | Versiones anteriores y código describían otra pasarela | Eliminada de la arquitectura. Restos en código: Anexo `HISTÓRICO` |
 
 ---
 
-## 8. Verificación del jugador (C1)
+## 5. Arquitectura
 
-### 8.1 Flujo
-1. El cliente crea la orden (`AWAITING_VERIFICATION`) y ve en "Ruta de seguimiento": *Verificación pendiente · horario de atención · tiempo estimado*.
-2. El panel admin alerta de la nueva orden.
-3. El operador verifica el UID **usando una fuente legítima** (ver 8.2) y registra nickname, región (si la fuente la da) y una nota de la fuente; o rechaza con motivo.
-4. El cliente ve el nickname marcado **"Verificado por operador"** y debe confirmar "Sí, es mi cuenta" (`player_confirmed_at`).
-5. Se habilita el pago.
-
-### 8.2 Limitación explícita — **BLOQUEADO**
-- **No existe en este proyecto una fuente legítima confirmada** para comprobar UID/nickname de Free Fire. El HTML menciona "LioGames" solo en textos de error; no hay documentación, contrato ni credenciales. **NO VERIFICADO.**
-- Este plan **no define ni sugiere** ningún método de verificación.
-- **Hasta que el propietario confirme una fuente legítima y autorizada** (R1), el paso 3 queda **BLOQUEADO**: el código del flujo se puede construir y probar, pero **no se habilitan ventas reales**.
-- Si no existe una fuente legítima, la decisión C1 debe revisarse.
-
-### 8.3 Futuro proveedor automático
-- Interfaz `PlayerVerifier { verify(game, uid) → { status: 'verified'|'not_found'|'unavailable', nickname?, region?, source } }`.
-- Implementación actual: `ManualPlayerVerifier` (el operador). **No** se crea un verificador automático hasta tener documentación y credenciales reales.
-- Un endpoint público de consulta se añadiría con rate limit estricto y CAPTCHA activable (P25).
-
----
-
-## 9. Entrega (fulfillment)
-
-### 9.1 Manual (modo inicial, `FULFILLMENT_MODE=manual`)
-1. Pago confirmado ⇒ orden `PAID` + alerta visual/sonora en el panel (C7).
-2. El admin **reclama** la orden: `UPDATE orders SET status='DELIVERING', claimed_by=$admin, claimed_at=now() WHERE id=$1 AND status='PAID' RETURNING id`. Si no devuelve fila, otro proceso ya la reclamó: **imposible entregar dos veces por concurrencia**.
-3. Entrega por el medio que use el operador (fuera del sistema; **no se modela ni se inventa**).
-4. Marca cada ítem como `succeeded` con nota de evidencia; cuando todos lo están ⇒ `DELIVERED` y se dispara el evento de confeti en el cliente.
-5. Entrega parcial o fallida ⇒ `NEEDS_REVIEW` (P21).
-
-### 9.2 Proveedor automático futuro — **NO VERIFICADO, sin implementar**
-```ts
-interface FulfillmentProvider {
-  createTopup(input: { idempotencyKey: string; sku: string; playerUid: string; quantity: number }): Promise<TopupResult>;
-  getTopup(ref: string): Promise<TopupResult>;
-}
 ```
-- Requisitos para activarlo: documentación oficial, credenciales, confirmación de soporte de idempotencia y de consulta de estado.
-- Reglas ya fijadas: timeout o respuesta ambigua ⇒ `unknown`, **nunca reintento ciego**; se consulta `getTopup` antes de decidir; sin resolución ⇒ `NEEDS_REVIEW`.
-- En ese momento se añaden: tabla de mapeo de SKUs, cola de trabajos y, si conviene, un proceso worker separado.
+Navegador ──HTTPS──▶ Render ──▶ un proceso Node 24 (Fastify)
+                                 ├─ frontend compilado (Vite) — mismo origen, sin CORS
+                                 ├─ API /api/*, /auth/*
+                                 ├─ scheduler interno (pg_try_advisory_lock)
+                                 └─ puertos hacia el exterior:
+                                     PaymentGateway ─▶ MercadoPagoPaymentGateway   (BLOCKED)
+                                     PlayerVerifier ─▶ verificación manual         (DISEÑADO)
+                                     TopUpProvider  ─▶ entrega manual              (DISEÑADO)
+                                 ▼
+                           PostgreSQL ≥ 16 (fuente de verdad)
+```
+
+- **Mismo origen:** el servidor sirve el build del frontend (`SERVE_WEB`, `IMPLEMENTADO`); no se
+  habilita CORS.
+- **Puertos y adaptadores:** el dominio (órdenes, pagos, entrega) depende de interfaces; los
+  adaptadores externos se sustituyen sin cambiar las máquinas de estado. Hasta tener
+  documentación oficial, el único adaptador de pagos es uno "no disponible" que siempre
+  responde "no configurado".
+- **Stack:** Node 24 LTS · TypeScript 6 · Fastify 5 · Zod 4 · PostgreSQL ≥ 16 ·
+  Drizzle ORM + drizzle-kit · Vite 8 · Vitest · Playwright · axe-core (`PENDIENTE` de
+  incorporar) · ESLint · Prettier · GitHub Actions.
 
 ---
 
-## 10. Pagos — Wompi (C4, C5)
+## 6. Frontend
 
-### 10.1 Estado
-**PENDIENTE DE CONFIGURACIÓN y [A VERIFICAR].** No se implementa ningún detalle de Wompi hasta completar la verificación documental de 10.3. Mientras tanto, `POST /api/orders/:ref/pay` responde `503 PAYMENTS_NOT_CONFIGURED` y la UI muestra el botón de pago deshabilitado con ese texto. **Nunca se simula un pago aprobado fuera de los tests.**
+**Estado:** `IMPLEMENTADO` como modularización fiel del HTML original (Fase 1); **no** está
+conectado a una API real de compra.
 
-### 10.2 Diseño independiente del proveedor
-```ts
-interface PaymentGateway {
-  createAttempt(order): Promise<{ reference: string; clientParams: unknown }>; // lo que necesite el widget o la redirección
-  verifyNotification(rawRequest): Promise<{ valid: boolean; transactionId?: string }>;
-  fetchTransaction(transactionId): Promise<{ reference; amountMinor; currency; status; raw }>;
-}
-```
-- Las llaves privadas y secretos **solo** en el servidor.
-- El servidor genera la referencia del intento; un único intento abierto por orden (P2).
-- El resultado del widget/redirección es **solo UX**: el estado solo cambia con datos que el servidor obtiene de Wompi (§11).
+- Estructura: `src/web/index.html` (solo marcado), `main.js`, `styles/main.css` + 28 capas
+  `styles/layers/NN-*.css` (el prefijo es el orden de cascada), `js/store/*` (estado, API, UI,
+  render), `js/store/features/*` (17 módulos), `js/effects/*` (decorativos).
+- Datos variables insertados con `innerHTML` pasan por `esc()` (`js/store/dom.js`).
+- **Defectos conocidos** (documentados, sin corregir): desborde horizontal de `.trust` en
+  ≤ 430 px oculto por `body{overflow-x:hidden}`; cajón del carrito cerrado enfocable;
+  violaciones axe (`aria-allowed-attr`, `aria-required-children`, `button-name`); la primera
+  "Nueva factura" repite `TGS-0001`; IDs duplicados de efectos con movimiento activado.
+- **Objetivo** (`DISEÑADO`): cada operación con estados explícitos `cargando → éxito / fallo
+  conocido / fallo reintentable / desconocido`; nunca spinner infinito; ante incertidumbre
+  financiera "Consultar estado", nunca "Pagar de nuevo"; tolera refresh, atrás/adelante, varias
+  pestañas y pérdida de red recuperando el estado del servidor; sin `onclick` inline (CSP).
+- Responsive objetivo: 360, 390, 768, 1024, 1280, 1440 y 1920 px. Compatibilidad declarada solo
+  con evidencia (hoy: Chromium de Playwright).
 
-### 10.3 Lista de verificación contra la documentación oficial (antes de la Fase 8)
+---
 
-| # | Pregunta | Afecta a |
+## 7. Backend
+
+**Estado:** base `IMPLEMENTADO`; módulos de negocio `DISEÑADO`.
+
+- **Implementado:** `buildApp()` con inyección de dependencias (configuración, chequeo de BD);
+  límite de cuerpo 64 KiB; `x-request-id` reutilizado solo si tiene formato seguro; redacción
+  en logs de `authorization`, `cookie`, `x-order-token` y `set-cookie`; errores
+  `{ error: { code, message, requestId } }` sin detalles internos; `TRUST_PROXY` acotado; las
+  migraciones son un paso de despliegue, nunca automáticas al arrancar.
+- **Organización objetivo** por módulos: `routes` (Fastify + Zod) → `services` (dominio,
+  máquinas de estado, transacciones) → `repositories` (Drizzle, SQL parametrizado) → puertos
+  (`PaymentGateway`, `PlayerVerifier`, `TopUpProvider`, `Clock`).
+- **Transiciones de estado:** solo las permitidas explícitamente, dentro de una transacción,
+  con CAS (`UPDATE … WHERE status = <esperado>`) o `SELECT … FOR UPDATE`, y con evento de auditoría.
+
+---
+
+## 8. Base de datos
+
+### 8.1 Entidades existentes (migraciones)
+
+| Tabla | Estado | Contenido |
 |---|---|---|
-| W1 | ¿Widget, Web Checkout por redirección o ambos? Parámetros de cada uno | Decisión C4 |
-| W2 | Dominios y directivas CSP que requiere cada opción | §13 |
-| W3 | Algoritmo y campos exactos de la firma de integridad | `createAttempt` |
-| W4 | Unidad del monto y monedas admitidas | Conversión en el adaptador |
-| W5 | Estados de transacción y cuáles son finales | Mapeo de estados del intento |
-| W6 | Métodos de pago disponibles y cuáles son asíncronos (plazos) | TTL de pago, UX |
-| W7 | Parámetro de expiración del checkout: semántica | TTL de pago |
-| W8 | Eventos/webhooks: tipos, payload, algoritmo de checksum, cabeceras, marca de tiempo, reintentos y respuesta esperada | `verifyNotification` |
-| W9 | API de consulta de transacción: endpoint, autenticación | `fetchTransaction` |
-| W10 | ¿Se puede buscar por referencia? | Reconciliación (P8) |
-| W11 | Unicidad y reutilización de referencias tras un rechazo | Intentos |
-| W12 | Parámetros de retorno de la redirección | Endpoint `sync` |
-| W13 | Reembolsos/anulaciones: ¿API o solo panel? | C9 |
-| W14 | Sandbox: URLs, prefijos de llaves, datos de prueba | Tests y staging |
-| W15 | Requisitos de la cuenta comercial | R3 |
+| `audit_events` | `IMPLEMENTADO` (migración `0000_init`) | `id` identity, `entity_type`, `entity_id`, `action`, `from_status`, `to_status`, `actor_type` (`CHECK`: `system`/`customer`/`admin`/`webhook`), `actor_id`, `data jsonb`, `ip_hash`, `created_at`; índice por entidad y fecha |
 
-Resultado esperado: `docs/wompi-verificacion.md` con cada respuesta y el enlace a la página oficial correspondiente. **Acceso actual:** `docs.wompi.co` está bloqueado por la política de red del entorno de desarrollo (R3).
+**Ninguna otra tabla existe todavía.**
 
----
+### 8.2 Convenciones (`DISEÑADO`)
 
-## 11. Webhooks y reconciliación (P7, P8)
+- UUID como clave; `timestamptz` en UTC; `CHECK`, `FOREIGN KEY`, `UNIQUE` e índices parciales.
+- **Dinero:** enteros (`bigint`) en **pesos colombianos**, la unidad mínima que usa el sistema,
+  con columna de moneda explícita (`currency = 'COP'`). Nunca coma flotante. El formato que
+  exija Mercado Pago para el importe es `[A VERIFICAR]` y se convierte solo en el adaptador.
+- `audit_events` es append-only: el rol de la aplicación sin permisos de `UPDATE`/`DELETE`
+  (`DISEÑADO`).
 
-1. `POST /api/webhooks/wompi` (ruta tentativa): verificar la firma con el secreto de eventos del ambiente (algoritmo **[A VERIFICAR W8]**; comparación en tiempo constante).
-2. **Firma inválida** ⇒ responder con error, registrar en logs y métricas; **no escribir en BD**.
-3. **Firma válida** ⇒ extraer el id de transacción y **consultar la transacción en Wompi** (`fetchTransaction`). El cuerpo del evento no es la fuente de verdad.
-4. Aplicar en **una transacción**: `SELECT … FOR UPDATE` sobre la orden; actualizar el intento (`provider_tx_id` es `UNIQUE`); aplicar la transición permitida (§7.3) por CAS; escribir `audit_events`.
-5. **Idempotencia natural:** repetir un evento produce el mismo resultado (el estado solo avanza; CAS falla sin efectos).
-6. Referencia desconocida con firma válida ⇒ responder éxito para evitar reintentos infinitos [A VERIFICAR W8] + alerta al panel.
-7. **`POST /api/orders/:ref/sync {transactionId}`**: el cliente, al volver del widget o de la redirección, aporta solo el id; el servidor consulta Wompi y exige que la referencia pertenezca a esa orden. Acelera la confirmación sin confiar en el cliente.
-8. **Reconciliación periódica** (tarea programada): consulta en Wompi los intentos abiertos con `provider_tx_id`; los que no tengan id solo se pueden reconciliar si W10 lo permite. Si no, queda como **riesgo residual documentado**.
+### 8.3 Entidades diseñadas (no existen)
 
----
-
-## 12. Concurrencia y transacciones
-
-- Nivel `READ COMMITTED` (por defecto) + `SELECT … FOR UPDATE` en webhook/sync + **CAS de estado** (`WHERE status = $esperado RETURNING`). No se necesita `SERIALIZABLE`.
-- Unicidades que impiden duplicados: `orders.checkout_key`, `payments.reference`, `payments.provider_tx_id`, índice parcial de intento abierto por orden, `fulfillments.order_item_id`.
-- Tareas programadas con `pg_try_advisory_lock` (una sola ejecución aunque haya varias instancias).
-- Escenarios cubiertos por tests: doble clic de checkout, dos webhooks simultáneos, webhook + `sync` simultáneos, dos pestañas del admin reclamando la misma orden, pago tardío sobre orden expirada, segundo pago aprobado.
-
----
-
-## 13. Seguridad
-
-| Área | Medida |
+| Tabla | Propósito y garantías clave |
 |---|---|
-| **CSP** (P9) | Cabecera **estática**: `default-src 'self'; script-src 'self' [+Wompi W2]; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src [Wompi W2 o 'none']; form-action 'self' [+Wompi W2]; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`. Mientras queden estilos inline, `style-src` incluye `'unsafe-inline'` temporalmente; **nunca** en `script-src` |
-| Otras cabeceras | HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` (`no-referrer` en vistas con token), `Permissions-Policy`, `Cross-Origin-Opener-Policy` |
-| **CORS** | Deshabilitado (mismo origen) |
-| **CSRF** | §6.4 |
-| **Rate limiting** | Desde el día uno: global por IP; específico en checkout, consulta de orden, `sync`, OAuth y admin; por IP, email y UID (C6) |
-| **CAPTCHA** (C12) | Interfaz `CaptchaVerifier` con `CAPTCHA_ENABLED=false`; proveedor **no elegido**; activable en checkout |
-| Validación | Zod en todas las rutas; límite de tamaño de cuerpo; campos desconocidos rechazados |
-| SQL injection | Solo consultas parametrizadas |
-| XSS | `textContent`/`esc()`; revisión de cada `innerHTML` al modularizar; sin handlers inline |
-| SSRF | Sin URLs proporcionadas por usuarios; se elimina `TGS_CONFIG.playerLookupUrl` |
-| IDOR/BOLA | Propiedad en SQL; referencias aleatorias; `404` uniforme |
-| Manipulación de precio/estado/IDs | El cliente no envía precios, totales, estados, `user_id`, roles ni nickname |
-| Replay | `checkout_key`, unicidad de `provider_tx_id`, CAS, tokens con expiración |
-| Secretos | Solo variables de entorno / gestor del hosting; `.env` ignorado; gitleaks en CI; logs con redacción |
-| Privacidad | `ip_hash` con `IP_HASH_PEPPER`; minimización de PII; política de retención [POR DEFINIR con asesoría legal] |
-| Dependencias | Lockfile; `audit` en CI |
-| Errores | `{ error: { code, message, requestId } }`, sin trazas al cliente |
+| `users` | `google_sub UNIQUE`, `email`, `role` (`customer`/`admin`), `status`, secreto TOTP cifrado con versión de clave, códigos de recuperación con hash |
+| `sessions` | Hash del token opaco (`UNIQUE`), expiración absoluta y por inactividad, revocación, `mfa_verified_at` |
+| `products` | Juego, SKU `UNIQUE`, precio y precio promocional con vigencia, estado |
+| `orders` | `public_ref UNIQUE`, `checkout_key UNIQUE`, hash del token de invitado + versión de clave, totales con `CHECK`, `currency`, `status`, UID/región, resultado de verificación y operador, confirmación del cliente, `claimed_by`/`claimed_at`, versión de términos aceptada, `expires_at` |
+| `order_items` | Snapshot de nombre, unidades y precio; cantidad `CHECK (1..5)` |
+| `payments` | Intentos de pago: referencia propia `UNIQUE`, id de transacción del proveedor `UNIQUE` (nullable), estado interno, último estado nativo del proveedor, importe, moneda; **índice único parcial: un solo intento abierto por orden** |
+| `payment_events` | Registro de notificaciones y consultas al proveedor: clave de deduplicación `UNIQUE` (`[A VERIFICAR]` qué identificador ofrece Mercado Pago), tipo, id de pago, resultado del procesamiento, campos mínimos (§14.5). Necesaria para idempotencia, auditoría y reproceso |
+| `fulfillments` | Por ítem: `method` (`manual`/`provider`), estado, evidencia, `completed_by`, clave de idempotencia `UNIQUE` |
+| `blocklist` | `kind` (email, UID, hash de IP, `google_sub`) + valor normalizado `UNIQUE`, motivo, expiración |
 
 ---
 
-## 14. Panel administrativo (`/admin`)
+## 9. Autenticación y autorización (`DISEÑADO`)
 
-Entrada Vite separada, mismos tokens visuales de TayGameStore, JS modular (P30). Un solo administrador (C11).
+- **Clientes:** Google OIDC, Authorization Code + **PKCE**, `state` (anti-CSRF del flujo) y
+  `nonce` (anti-replay del ID token) ligados a una cookie temporal; validación del ID token
+  (firma, `iss`, `aud`, `exp`). El correo cuenta como verificado solo si Google lo indica.
+- **Sin autenticación por contraseña** mientras no exista proveedor de correo (recuperación de
+  cuenta imposible de hacer de forma segura). El formulario heredado se retira.
+- **Sesiones opacas:** token aleatorio de 256 bits; en BD solo su hash; cookie
+  `__Host-` con `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`; rotación al iniciar sesión y al
+  completar MFA; expiración absoluta e inactividad `[POR DEFINIR]`; revocación en logout.
+- **Invitados:** sin cuenta; acceso a su orden con token (§10.4).
+- **Admin:** Google + correo en `ADMIN_EMAILS` + rol asignado por CLI + **TOTP obligatorio** en
+  cada sesión; **códigos de recuperación** de un solo uso guardados con hash; sesión corta;
+  toda acción auditada.
+- **Autorización siempre en servidor:** usuario, rol y permisos salen de la sesión. La
+  propiedad de una orden se comprueba **en la consulta SQL**; orden inexistente y orden ajena
+  responden igual (`404`) para evitar IDOR/enumeración.
 
-| Vista | Función |
+---
+
+## 10. Checkout
+
+### 10.1 Creación de la orden (`DISEÑADO`) — `POST /api/checkout`
+
+Validar con Zod → interruptores (`CHECKOUT_ENABLED`, mantenimiento) → límites antifraude →
+blocklist → productos y precios **desde la BD** → promociones vigentes → total → términos →
+crear la orden en `AWAITING_VERIFICATION` con snapshot de precios → devolver referencia y token
+de acceso. El servidor **recalcula todo**; un precio o total enviado por el cliente nunca se
+acepta (si el total que vio difiere: `409 PRICE_CHANGED`). Idempotente por `checkout_key`
+(§14.2).
+
+### 10.2 "Confirmar y pagar" (`DISEÑADO`)
+
+Pantalla final antes de iniciar el pago, construida con datos del servidor: productos,
+cantidades, precio unitario, descuentos, total, moneda, UID, nickname verificado (cuando
+aplique), región, método de pago (Mercado Pago, solo si `PAYMENTS_ENABLED`) y términos. Botón
+**"Confirmar y pagar"**: deshabilitado tras el primer clic, sin envío por Enter accidental; el
+servidor revalida todo y el inicio del intento de pago es idempotente (doble clic, refresh,
+atrás o varias pestañas devuelven el mismo intento abierto).
+
+### 10.3 Ciclo de vida de la orden
+
+Estados: `AWAITING_VERIFICATION`, `REJECTED`, `AWAITING_PAYMENT`, `PAID`, `DELIVERING`,
+`DELIVERED`, `NEEDS_REVIEW`, `EXPIRED`, `REFUNDED`. La creación es un evento
+(`ORDER_CREATED`), no un estado.
+
+| Desde | Hacia | Disparador |
+|---|---|---|
+| — | `AWAITING_VERIFICATION` | Checkout válido |
+| `AWAITING_VERIFICATION` | `AWAITING_PAYMENT` | Operador registra verificación positiva **y** el cliente confirma "Sí, es mi cuenta" |
+| `AWAITING_VERIFICATION` | `REJECTED` | Verificación negativa o el cliente indica que no es su cuenta |
+| `AWAITING_PAYMENT` | `AWAITING_VERIFICATION` | La verificación caducó y no hay intento de pago abierto |
+| `AWAITING_VERIFICATION`, `AWAITING_PAYMENT` | `EXPIRED` | Vencimiento sin intento de pago abierto |
+| `AWAITING_PAYMENT` | `PAID` | Intento `APPROVED` y validado (referencia, importe, moneda, orden) |
+| `EXPIRED` | `PAID` o `NEEDS_REVIEW` | Pago aprobado tardío y válido: el pago gana; si ya no puede entregarse → `NEEDS_REVIEW` |
+| `PAID` | `DELIVERING` | Reclamo atómico del admin |
+| `DELIVERING` | `PAID` | El admin libera el reclamo |
+| `DELIVERING` | `DELIVERED` | Todos los ítems entregados con evidencia |
+| `AWAITING_PAYMENT`, `PAID`, `DELIVERING` | `NEEDS_REVIEW` | Discrepancia de importe/moneda/referencia, entrega parcial o resultado incierto |
+| `NEEDS_REVIEW` | `DELIVERING` / `REFUNDED` | Decisión del admin |
+| `PAID`, `DELIVERED` | `REFUNDED` | Reembolso registrado por el admin |
+
+### 10.4 Acceso de invitados a su orden (`DISEÑADO`)
+
+- Token aleatorio de 256 bits, mostrado una sola vez; en BD solo `HMAC(ORDER_TOKEN_PEPPER, token)`
+  con versión de clave.
+- Se envía en la cabecera `x-order-token` (ya redactada en logs), **nunca** en la query string
+  (quedaría en logs, historial y `Referer`). El frontend heredado usa `?code=` y se corrige.
+- Enlace de acceso con fragmento `#t=…`: el fragmento no llega al servidor ni al `Referer`, pero
+  **es legible por cualquier JavaScript de la página (XSS) y queda en el historial**. Mitigación:
+  al cargar, el frontend lee el fragmento, lo elimina con `history.replaceState` y lo canjea en
+  una petición `POST` por una cookie `__Host-` `HttpOnly` limitada a esa orden; a partir de ahí el
+  token no vive en JavaScript. CSP estricta como defensa adicional.
+- `localStorage` **no es seguro por sí mismo** (cualquier XSS lo lee); no se guarda en él el token.
+- Sin proveedor de correo, el token no se puede reenviar: se advierte al cliente que guarde el
+  enlace. Recuperación por correo: `PENDIENTE` (proveedor de correo por elegir).
+
+---
+
+## 11. Pagos — Mercado Pago
+
+**Estado: `BLOCKED`.** Documentación oficial y sandbox inaccesibles desde el entorno. Detalle
+del proveedor: [`specs/pagos.md`](specs/pagos.md) (prevalece en todo lo específico de Mercado Pago).
+
+### 11.1 Arquitectura
+
+- Interfaz `PaymentGateway`; implementación objetivo `MercadoPagoPaymentGateway`. Hasta el
+  desbloqueo solo existe un adaptador "no disponible".
+- El checkout **no muestra Mercado Pago como disponible** mientras `PAYMENTS_ENABLED=false`
+  (hoy obligatorio en todos los entornos).
+- Nunca se simula un pago aprobado fuera de las pruebas.
+
+### 11.2 Qué se fija solo con documentación oficial
+
+Todo lo siguiente es `[A VERIFICAR]` y **no se implementa por suposición**: tipo de checkout,
+endpoints, SDK, autenticación, preferencias, consulta de pagos, webhooks (formato, firma,
+cabeceras, reintentos, respuesta esperada), estados nativos, reembolsos, expiración, sandbox,
+producción, URLs de retorno y callbacks, dominios de CSP y formato del importe.
+
+### 11.3 Ciclo de vida del intento de pago (estados internos)
+
+`PENDING` · `APPROVED` · `DECLINED` · `EXPIRED` · `REFUNDED` · `NEEDS_REFUND`
+(definidos en `specs/pagos.md`). El estado nativo de Mercado Pago se guarda aparte, solo como
+dato informativo; su **mapeo** a estos estados se define en `specs/pagos.md` tras verificar la
+documentación oficial.
+
+| Desde | Hacia | Disparador |
+|---|---|---|
+| — | `PENDING` | Intento creado (máx. uno abierto por orden) |
+| `PENDING` | `APPROVED` | Consulta oficial confirma aprobación y coinciden referencia, importe, moneda y orden |
+| `PENDING` | `DECLINED` / `EXPIRED` | Consulta oficial o vencimiento |
+| `APPROVED` | `NEEDS_REFUND` | Pago aprobado que no debe conservarse (segundo pago de la misma orden, orden ya no entregable) |
+| `APPROVED`, `NEEDS_REFUND` | `REFUNDED` | Reembolso confirmado por el proveedor y registrado |
+
+Un resultado **desconocido** (timeout, error de red) no cambia el estado: el intento sigue
+`PENDING` y lo resuelve la reconciliación (§16).
+
+**Relación con la orden:** `APPROVED` válido ⇒ orden `PAID`; `DECLINED`/`EXPIRED` ⇒ la orden
+sigue `AWAITING_PAYMENT` y puede abrirse un nuevo intento; discrepancia ⇒ orden `NEEDS_REVIEW`;
+`NEEDS_REFUND` no altera una orden ya pagada (nunca se entrega dos veces).
+
+### 11.4 Para desbloquear
+
+1. Permitir en la red del entorno los dominios oficiales de Mercado Pago (lista exacta `[A VERIFICAR]`).
+2. Cuenta de Mercado Pago Colombia y credenciales **de prueba** como variables de entorno,
+   nunca en código ni en Git.
+
+---
+
+## 12. Verificación de jugador
+
+**Estado:** flujo manual `DISEÑADO`; uso real `BLOCKED` (C1: falta una fuente legítima con la
+que el operador verifique). Spec: [`specs/verificacion-jugador.md`](specs/verificacion-jugador.md)
+(pendiente de alinear, §4.2 #2).
+
+- Flujo: `ORDER_CREATED` → `AWAITING_VERIFICATION` → el operador verifica y registra nickname,
+  región y resultado → el cliente ve "Vas a recargar a: [nickname] — ID: [UID] — Región:
+  [región]" y confirma "Sí, es mi cuenta" → `AWAITING_PAYMENT`.
+- El navegador nunca aporta el nickname; el destino de la recarga es el UID/región guardados en la orden.
+- Resultado inexistente, ambiguo, bloqueado o inconsistente ⇒ no se paga. Mensajes genéricos
+  para no facilitar la enumeración; rate limiting por IP/UID.
+- La verificación caduca (`[POR DEFINIR]`); caducada antes del pago ⇒ vuelve a
+  `AWAITING_VERIFICATION`.
+- Futuro proveedor automático: interfaz `PlayerVerifier`, sin cambiar la máquina de estados.
+  **Sin API oficial: ni scraping, ni endpoints inventados, ni "API temporal".**
+- Nunca se solicitan contraseñas del juego.
+
+---
+
+## 13. Fulfillment / recargas
+
+- **Manual** (`FULFILLMENT_MODE=manual`, `DISEÑADO`): reclamo atómico (`claimed_by`,
+  `claimed_at` con CAS), evidencia por ítem, liberación del reclamo, protección contra doble
+  entrega, auditoría. Interruptor `FULFILLMENT_ENABLED`: `PENDIENTE` (no existe en `env.ts`).
+- **Proveedor automático** (`TopUpProvider`, `BLOCKED`): solo con documentación oficial; clave
+  de idempotencia por ítem, creación, consulta de estado, timeout. Respuesta ambigua ⇒ consulta
+  de estado → si sigue sin resolverse, `NEEDS_REVIEW`. **Nunca reintento ciego.** No se inventa proveedor.
+
+---
+
+## 14. Seguridad
+
+### 14.1 Controles
+
+| Control | Estado |
 |---|---|
-| **Cola en vivo** | Órdenes `AWAITING_VERIFICATION`, `PAID`, `NEEDS_REVIEW`, pagos `needs_refund`. **Alerta visual y sonora** (C7) |
-| Detalle de orden | Datos, ítems, intentos de pago, entregas, línea de tiempo (`audit_events`) |
-| Verificación | Registrar nickname/región + nota de fuente, o rechazar con motivo (**BLOQUEADO para uso real hasta R1**) |
-| Entrega | Reclamar, liberar, marcar ítems entregados con evidencia, enviar a revisión |
-| Reembolsos | Registrar reembolso ejecutado en Wompi: quién, motivo, referencia externa (C9) |
-| Catálogo | Productos, precios, promociones con vigencia, estado |
-| Lista de bloqueo | Altas, bajas, expiración, motivo |
-| Auditoría | Consulta de `audit_events` |
-| Estado | Integraciones configuradas, interruptores (solo lectura al inicio) |
+| Validación de entrada con Zod, límite de cuerpo, errores sin detalles internos | `IMPLEMENTADO` (base); por endpoint `DISEÑADO` |
+| Logs con redacción de credenciales; la configuración inválida muestra el nombre de la variable, nunca su valor | `IMPLEMENTADO` (`tests/unit/logging.test.ts`, `env.test.ts`) |
+| Secretos solo en variables de entorno; `.env` y claves en `.gitignore` | `IMPLEMENTADO` |
+| CSP por cabecera (sin `unsafe-eval`; retirada de `unsafe-inline`), HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors 'none'` | `DISEÑADO`. Hoy solo hay una CSP `<meta>` heredada con `'unsafe-inline'` |
+| CSRF: cabecera personalizada obligatoria + `Origin`/`Sec-Fetch-Site` + solo JSON; webhooks autenticados según la documentación del proveedor | `DISEÑADO` |
+| CORS: no se habilita (mismo origen) | `IMPLEMENTADO` (no hay CORS registrado) |
+| Rate limiting (§15) | `DISEÑADO` |
+| SQL parametrizado (Drizzle) | `IMPLEMENTADO` en lo existente |
+| IDOR: propiedad comprobada en SQL, `404` uniforme | `DISEÑADO` |
+| XSS: `esc()` en `innerHTML`, CSP estricta | Parcial (`esc()` `IMPLEMENTADO`) |
+| SSRF: el servidor nunca llama a URLs aportadas por el usuario; destinos externos fijos | `DISEÑADO` |
+| Auditoría de acciones sensibles | Tabla `IMPLEMENTADO`; escritura `DISEÑADO` |
+| gitleaks en CI | `PENDIENTE` |
+| `npm audit --omit=dev --audit-level=high` en CI | `IMPLEMENTADO` |
 
-Alertas:
-- Polling corto a `GET /api/admin/alerts?since=` (sin infraestructura extra; SSE más adelante si conviene).
-- Sonido con Web Audio: los navegadores bloquean el audio sin interacción previa, así que el panel tendrá un botón **"Activar alertas"** al iniciar el turno [comportamiento del navegador; A VERIFICAR en los navegadores objetivo].
-- Título de pestaña con contador; `Notification API` opcional con permiso.
+### 14.2 Idempotencia y doble pago (`DISEÑADO`)
 
-Toda mutación genera `audit_events` con actor, antes/después y motivo cuando aplica.
+- `checkout_key UNIQUE`: el mismo envío devuelve la misma orden; no depende de IP + User-Agent.
+- Transacciones PostgreSQL en toda operación que cambie estado; CAS o `FOR UPDATE` sobre la
+  orden y el intento.
+- **Máximo un intento de pago abierto por orden** (índice único parcial sobre `payments`).
+- **Id de transacción del proveedor `UNIQUE`**: el mismo pago no se aplica dos veces.
+- **Webhook duplicado:** clave de deduplicación `UNIQUE` en `payment_events`; además los
+  estados solo avanzan (CAS), así que reprocesar no tiene efecto.
+- **Doble pago:** un segundo pago aprobado de la misma orden ⇒ `NEEDS_REFUND` + alerta; la
+  orden se entrega una sola vez.
 
----
+### 14.3 Secretos
 
-## 15. Endpoints de la API
+Nunca en frontend, Git ni logs. En el repositorio solo `.env.example` sin valores.
+Credenciales de Mercado Pago: variables de entorno, nombres `[A VERIFICAR]`.
 
-### Públicos
-| Método y ruta | Auth | Notas |
+### 14.4 Rotación de claves (`NEEDS_IMPLEMENTATION`)
+
+Hoy **no existe** ninguna de estas claves en el código ni versionado de claves.
+
+| Clave | Uso | Rotación sin invalidar todo |
 |---|---|---|
-| `GET /api/health` | — | Liveness |
-| `GET /api/ready` | — | Readiness (BD) |
-| `GET /api/config` | — | Horario, tiempo de entrega, soporte, interruptores, límites visibles, versión de términos, integraciones configuradas (sí/no). **Sin secretos** |
-| `GET /api/catalog?game=` | — | Productos activos con precio vigente |
+| `ORDER_TOKEN_PEPPER` | HMAC de los tokens de invitado | Llavero versionado (activa + anteriores); cada hash guarda su versión; se verifica con la versión registrada y se re-hashea con la activa en el siguiente acceso válido; la anterior se retira cuando no queden órdenes abiertas que la usen |
+| `IP_HASH_PEPPER` | Hash de IP para rate limiting, blocklist y auditoría | Versionado igual; rotar rompe la correlación con hashes antiguos (aceptado: retención corta). Las entradas de blocklist por IP guardan la versión y se recalculan o expiran |
+| `MFA_ENCRYPTION_KEY` | Cifrado autenticado de secretos TOTP | Identificador de clave en cada texto cifrado; descifrar con la clave indicada y re-cifrar con la activa (al iniciar sesión o con un script); retirar la antigua al terminar |
 
-### Autenticación
-| `GET /auth/google` · `GET /auth/google/callback` | — | OIDC + PKCE |
-| `GET /api/auth/me` | sesión | |
-| `POST /api/auth/logout` | sesión + CSRF | |
+Los tokens de sesión se guardan con un hash sin pepper: no dependen de estas claves.
 
-### Órdenes
-| Método y ruta | Auth | Notas |
+### 14.5 Datos sensibles
+
+- **Minimización:** de las respuestas y notificaciones del proveedor se guardan solo los campos
+  necesarios (ids, estado nativo, importe, moneda, fechas, referencia) más un hash del cuerpo
+  para auditoría. **No** se guarda la respuesta completa en un `jsonb` sin filtrar: puede
+  contener PII del pagador o datos de pago.
+- `audit_events.data` sigue la misma regla: metadatos mínimos, sin tokens, cookies, secretos ni
+  datos de pago.
+- PII tratada: email, nombre opcional, UID/nickname, hash de IP. Retención `[POR DEFINIR]`
+  (requisito legal pendiente de revisión por el propietario).
+- Nunca se registran cookies, tokens, secretos ni credenciales.
+
+---
+
+## 15. Antifraude
+
+Siempre en servidor (`DISEÑADO`):
+
+- Máx. 5 unidades por producto (`CHECK` + Zod) y máx. 1.000.000 COP por orden.
+- Órdenes abiertas por email y por UID: límite `[POR DEFINIR]`.
+- Blocklist por email, UID, hash de IP y `google_sub`.
+- **Rate limiting:** por IP, email y UID con valores `[POR DEFINIR]`. Diseño inicial **en
+  memoria del proceso**: correcto **solo con una instancia**; no es una solución distribuida.
+  Mientras sea así, el despliegue se limita a **una instancia**; escalar horizontalmente exige
+  antes un mecanismo compartido (por ejemplo, contadores en PostgreSQL).
+- Sin CAPTCHA inicialmente (decisión del propietario).
+
+---
+
+## 16. Resiliencia
+
+Reglas: timeout en toda llamada externa; reintentos solo en operaciones seguras, acotados, con
+backoff y jitter; **una operación financiera o de recarga con resultado desconocido nunca se
+repite automáticamente**: se consulta su estado y se reconcilia.
+
+| Situación | Comportamiento |
+|---|---|
+| PostgreSQL caído | `/api/ready` = 503 (`IMPLEMENTADO`); escrituras fallan sin estado parcial (transacciones) |
+| Reinicio de Node | Estado en PostgreSQL; cierre ordenado ante `SIGTERM` (`IMPLEMENTADO`); al arrancar, el scheduler reconcilia lo pendiente |
+| Pérdida de red / timeout hacia Mercado Pago | El intento queda `PENDING`; reconciliación posterior; el cliente ve "Consultar estado" |
+| Mercado Pago no disponible | No se inician pagos nuevos; el catálogo y el estado de órdenes siguen disponibles |
+| Webhook retrasado, fuera de orden o reintentado | Se consulta el estado oficial antes de aplicar nada; los estados solo avanzan |
+| Webhook duplicado | Deduplicación en `payment_events` + CAS |
+| Retorno del navegador simultáneo al webhook | El retorno solo dispara una consulta en servidor; ambos caminos convergen con CAS y `FOR UPDATE` |
+| Resultado financiero desconocido | `PENDING` → reconciliación → si no se resuelve en el plazo `[POR DEFINIR]`, `NEEDS_REVIEW` + alerta |
+| Proveedor de recargas caído | Entrega manual; con proveedor automático, la orden queda `PAID` y se alerta |
+| Refresh, doble clic, varias pestañas | Idempotencia (`checkout_key`, intento abierto único); la UI recupera el estado del servidor |
+| `MAINTENANCE_MODE` | Solo lecturas; las rutas `/api/webhooks/*` siguen aceptándose (`IMPLEMENTADO`) |
+
+---
+
+## 17. Observabilidad
+
+- **Implementado:** logs JSON (pino vía Fastify) con `requestId` en cada línea y en la cabecera
+  `x-request-id`; redacción de credenciales; `/api/health` sin log por petición.
+- **Diseñado:** campos `orderId`, `paymentId`, `providerTransactionId` e id de evento cuando
+  existan; auditoría de login, logout, MFA, transiciones de orden y pago, verificación,
+  confirmación, reclamo, entrega, reembolsos, blocklist, catálogo y acciones de admin.
+- **Alertas** (`DISEÑADO`, canal inicial: panel admin): 5xx, pagos `PENDING` demasiado tiempo,
+  `NEEDS_REVIEW`, `NEEDS_REFUND`, webhook inválido, fallos repetidos del proveedor, órdenes
+  `PAID` sin entrega. Métricas externas: `PENDIENTE`.
+
+---
+
+## 18. API
+
+| Ruta | Estado |
+|---|---|
+| `GET /api/health`, `GET /api/ready`, `GET /api/config` | `IMPLEMENTADO` |
+| `GET /api/catalog`, `POST /api/checkout`, `GET /api/orders`, `GET /api/orders/:ref`, `POST /api/orders/:ref/confirm-player`, `POST /api/orders/:ref/pay` | `DISEÑADO` |
+| `GET /auth/google`, `GET /auth/google/callback`, `GET /api/auth/me`, `POST /api/auth/logout` | `DISEÑADO` |
+| `/api/admin/*` (verificación, reclamo, entrega, revisión, reembolsos, catálogo, blocklist, auditoría, alertas, MFA) | `DISEÑADO` |
+| Webhook (`/api/webhooks/…`) y retorno de Mercado Pago | `BLOCKED` |
+
+Contrato de error estable `{ error: { code, message, requestId } }`; el frontend traduce por
+`code` (`src/shared/errors.ts`).
+
+---
+
+## 19. Scheduler (`DISEÑADO`)
+
+Tareas dentro del mismo proceso Node; cada una toma `pg_try_advisory_lock` y, si no lo obtiene,
+no se ejecuta (seguro con varias instancias o reinicios). Todas son idempotentes.
+
+| Tarea | Función |
+|---|---|
+| Expiración | Pasa a `EXPIRED` órdenes vencidas sin intento abierto; vence intentos `PENDING` según el proveedor `[A VERIFICAR]` |
+| Reconciliación de pagos | Consulta a Mercado Pago los intentos `PENDING` y aplica el resultado oficial |
+| Recuperación | Al arrancar: reclamos de entrega abandonados, intentos inciertos, alertas pendientes |
+| Limpieza | Sesiones expiradas y retención de `payment_events` `[POR DEFINIR]` |
+
+Intervalos `[POR DEFINIR]`. No se introduce worker externo ni cola sin necesidad demostrada.
+
+---
+
+## 20. CI/CD
+
+Workflow `.github/workflows/ci.yml` (en `push` y `pull_request`, permisos `contents: read`):
+
+| Job | Pasos | Estado |
 |---|---|---|
-| `POST /api/checkout` | CSRF | Crea orden `AWAITING_VERIFICATION` (§7.2). Se conserva el nombre de ruta que ya usa el frontend |
-| `GET /api/orders/:ref` | sesión o `X-Order-Token` | Estado y datos de la orden |
-| `GET /api/orders` | sesión | Historial del cliente |
-| `POST /api/orders/:ref/confirm-player` | propietario + CSRF | El cliente confirma el nickname verificado |
-| `POST /api/orders/:ref/pay` | propietario + CSRF | Crea/reutiliza el intento abierto. **503 hasta la Fase 8** |
-| `POST /api/orders/:ref/sync` | propietario + CSRF | `{ transactionId }` (Fase 8) |
-| `POST /api/webhooks/wompi` | firma | Fase 8; ruta tentativa |
+| `quality` | `npm ci`, lint, `format:check`, typecheck, unitarias + API, build, `npm audit --omit=dev --audit-level=high` | Configurado; verde en todos los runs |
+| `integration` | Pruebas de integración con servicio `postgres:16` | Configurado; verde en todos los runs |
+| `e2e` | Chromium de Playwright + `npm run test:e2e` (comportamiento, 1280 px) | Configurado; **falló en el run 4** |
 
-### Administración (`/api/admin/*`: sesión admin + TOTP + CSRF)
-`POST /mfa/setup`, `POST /mfa/verify` · `GET /alerts` · `GET /orders`, `GET /orders/:id` · `POST /orders/:id/verify-player`, `/reject`, `/claim`, `/release`, `/items/:itemId/delivered`, `/needs-review`, `/refund` · `POST /payments/:id/refund` (duplicados) · `GET|POST|PATCH /products` · `GET|POST|DELETE /blocklist` · `GET /audit`.
+Historial en la rama de desarrollo: runs 1–3 verdes; **run 4 (commit `b792605`, solo
+documentación) en rojo**: el test de modo demo falló al cerrar el acceso como invitado
+(`#loginModal` siguió visible) con el mismo código que pasó en el run 3 ⇒ fallo
+**intermitente** en el frontend o en la prueba. No se reprodujo en 15 repeticiones locales;
+causa raíz `NO VERIFICADO`. Pendiente de diagnóstico y corrección (no se oculta ni se
+desactiva la prueba).
 
-**Eliminadas respecto a v1/HTML:** `/api/nickname`, `/api/player/lookup` (hasta que exista fuente automática), `/api/auth/register`, `/api/auth/login`, `/api/auth/csrf`, rutas OAuth de Facebook/Discord/VK, cancelación de orden, `?code=`.
+**Pendiente:** gitleaks, pruebas de seguridad, axe-core, referencias visuales en CI (hoy solo
+locales: dependen del motor de render), e2e en más viewports, actualización de las actions
+afectadas por la retirada de Node 20 en los runners, despliegue continuo.
 
 ---
 
-## 16. Variables de entorno
+## 21. Testing
 
-`.env.example` con **nombres y descripción, sin valores** salvo los límites que el propietario ya fijó.
-
-| Variable | Secreta | Notas |
+| Suite | Contenido | Estado |
 |---|---|---|
-| `NODE_ENV`, `PORT`, `LOG_LEVEL` | no | |
-| `PUBLIC_BASE_URL` | no | Origen único; base de CSRF, cookies y OAuth |
-| `TRUST_PROXY` | no | Según el hosting |
-| `DATABASE_URL` | **sí** | |
-| `SESSION_TTL_HOURS`, `SESSION_IDLE_MINUTES`, `ADMIN_SESSION_TTL_MINUTES` | no | [POR DEFINIR] |
-| `ORDER_TOKEN_PEPPER`, `IP_HASH_PEPPER`, `MFA_ENCRYPTION_KEY` | **sí** | Generados por el propietario; rotación documentada |
-| `ADMIN_EMAILS` | no | Correos con permiso de admin |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | secreto | PENDIENTE DE CONFIGURACIÓN (R5) |
-| `CHECKOUT_ENABLED`, `MAINTENANCE_MODE` | no | Interruptores |
-| `LIMIT_MAX_UNITS_PER_PRODUCT` | no | `5` |
-| `LIMIT_MAX_ORDER_TOTAL_COP` | no | `1000000` |
-| `LIMIT_MAX_OPEN_ORDERS_PER_EMAIL`, `LIMIT_MAX_OPEN_ORDERS_PER_UID` | no | [POR DEFINIR] |
-| `RATE_LIMIT_IP_*`, `RATE_LIMIT_EMAIL_*`, `RATE_LIMIT_UID_*` | no | [POR DEFINIR] |
-| `VERIFICATION_TTL_MINUTES`, `PAYMENT_TTL_MINUTES` | no | TTL **de la tienda**, no de Wompi; [POR DEFINIR] |
-| `STORE_TIMEZONE` | no | `America/Bogota` |
-| `STORE_HOURS` | no | Horario de atención (JSON) [POR DEFINIR] |
-| `DELIVERY_ESTIMATE_MINUTES` | no | Tiempo realista [POR DEFINIR] |
-| `SUPPORT_WHATSAPP`, `SUPPORT_EMAIL` | no | [POR DEFINIR] |
-| `TERMS_VERSION`, `PRIVACY_VERSION` | no | Versión vigente de los textos legales |
-| `FULFILLMENT_MODE` | no | `manual` |
-| `CAPTCHA_ENABLED` | no | `false` |
-| `CAPTCHA_*` | secreto | Proveedor no elegido |
-| `PAYMENTS_ENABLED` | no | `false` hasta la Fase 8 |
-| `WOMPI_*` | secretos | **Nombres definitivos tras la verificación W1–W15**; no se definen ahora |
-| `MAIL_*` | secreto | PENDIENTE (C8) |
-| `SENTRY_DSN` o equivalente | secreto | Opcional |
+| `tests/unit` | Configuración, logging, utilidades de tiempo (16) | `IMPLEMENTADO` |
+| `tests/api` | Health, errores, mantenimiento (20) | `IMPLEMENTADO` |
+| `tests/integration` | PostgreSQL real, migraciones (4); exige una base `*_test` | `IMPLEMENTADO` |
+| `e2e/behavior.spec.ts` | Caracterización del frontend sin backend (21; uno marcado `test.fail` por un defecto conocido) | `IMPLEMENTADO`; un test intermitente (§20) |
+| `e2e/visual.spec.ts` | Referencias del HTML original en 360/768/1280 px | `IMPLEMENTADO`, solo local |
 
-Validación al arrancar con Zod: en producción, falta de variable obligatoria ⇒ el proceso no arranca.
+Por fase se añaden: seguridad (IDOR, CSRF, XSS, manipulación de precio y rol, tokens, rate
+limiting), concurrencia (doble checkout, webhooks duplicados, webhook + consulta, dos admins
+reclamando, doble pago, pago tardío), accesibilidad (axe-core). **Pruebas de pagos solo con
+datos tomados de la documentación oficial**; dobles de prueba solo en `tests/`.
 
 ---
 
-## 17. Testing
+## 22. Deployment
 
-| Nivel | Herramienta | Cobertura mínima |
-|---|---|---|
-| Unitarias | Vitest | Dinero, precio vigente/promos, límites C6, máquina de estados (todas las transiciones válidas e inválidas), tokens, validadores |
-| Integración | Vitest + PostgreSQL real (servicio en CI / Docker Compose local) | Repositorios, CAS, unicidades, advisory locks, expiración |
-| API | `fastify.inject` | Auth Google (proveedor OIDC **simulado solo en tests**), admin + TOTP, CSRF, rate limit, blocklist, errores |
-| Seguridad | Vitest | IDOR por referencia/token, manipulación de precio/estado/`user_id`/rol, CSRF sin cabecera, asociación de órdenes con correo no verificado, admin sin TOTP |
-| Concurrencia | Vitest | Escenarios de §12 |
-| Pagos | Vitest | **Bloqueado hasta W1–W15**; fixtures tomados de la documentación oficial, no inventados |
-| E2E | Playwright | Tienda → orden → verificación (admin) → confirmación → pago (deshabilitado/sandbox) → entrega → comprobante |
-| Visual | Playwright (capturas 360/768/1280) | Protege la identidad cinematográfica |
-| Accesibilidad | axe-core | Modales, foco, teclado, contraste |
-| Rendimiento | Lighthouse (manual al inicio) | Presupuesto de JS y `prefers-reduced-motion` |
-
-**CI en cada push/PR:** instalar → lint → typecheck → unit + integración → build → E2E → audit de dependencias → gitleaks.
+- **Objetivo** (`DISEÑADO`): Render, un servicio web Node + PostgreSQL gestionado con backups;
+  **una sola instancia** mientras el rate limiting sea en memoria. Los detalles de la
+  plataforma (comando previo al despliegue, health check, backups/PITR del plan contratado)
+  son `[A VERIFICAR]` con la documentación de Render.
+- Secuencia: `npm ci` → `npm run build` → `npm run db:migrate:prod` (paso de despliegue) →
+  `npm start`. Readiness: `/api/ready`.
+- En producción el servidor exige `PUBLIC_BASE_URL` con `https` y `DATABASE_URL`
+  (`IMPLEMENTADO`).
+- Entorno de staging, Dockerfile, guía `docs/deployment.md` y referencia de variables
+  `docs/variables-entorno.md`: `PENDIENTE`. Variables actuales: `.env.example`.
 
 ---
 
-## 18. Despliegue y hosting (C3 — sin cerrar)
+## 23. Runbooks
 
-### 18.1 Requisitos
-Proceso Node persistente · PostgreSQL gestionado con backups automáticos y **PITR** · TLS y dominio propio · gestión de secretos · logs · región con latencia razonable hacia Colombia · imagen Docker portable · ambientes `staging` y `production`.
-
-### 18.2 Opciones (todas **[A VERIFICAR]** en precio, plan y región al contratar)
-
-| | **A. PaaS gestionado (p. ej. Render)** | **B. DigitalOcean** | **C. AWS** |
-|---|---|---|---|
-| App | Web Service con imagen Docker | App Platform (o Droplet + Docker) | ECS Fargate (o Lightsail Containers) detrás de un balanceador |
-| Postgres | Render Postgres (plan de pago con PITR) | Managed PostgreSQL (backups y PITR) | RDS for PostgreSQL (backups automáticos y PITR) |
-| Secretos | Variables de entorno del servicio | Variables cifradas de App Platform | Secrets Manager / Parameter Store |
-| Operación | La más simple | Simple, algo más de control | La más compleja |
-| Escala futura | Buena | Buena | La mayor |
-| Encaja si… | Hay un solo operador y se quiere mínima administración | Se quiere equilibrio coste/control | Ya hay experiencia en AWS o se prevé crecimiento fuerte |
-
-**No recomendados** para el proceso principal: plataformas solo serverless/edge, porque el diseño necesita un proceso persistente con tareas programadas y conexiones a Postgres.
-
-**Recomendación preliminar:** A o B para el lanzamiento con un solo operador. La imagen Docker y Postgres estándar permiten migrar a C sin cambios de código.
-
-### 18.3 Común a cualquier opción
-- Migraciones como paso de despliegue, nunca automáticas al arrancar.
-- `staging` con Wompi sandbox; `production` con llaves reales.
-- URL pública HTTPS del webhook registrada por ambiente.
-- **Prueba de restauración PITR** antes del lanzamiento.
-- Alertas: órdenes `PAID` sin reclamar más de N minutos, `NEEDS_REVIEW`, pagos `needs_refund`, firmas de webhook inválidas, errores 5xx.
-- Rollback: imagen anterior + migraciones compatibles hacia atrás (expand/contract).
+`PENDIENTE` (ninguno existe todavía): `docs/runbooks/pagos.md` (pago pendiente, doble pago,
+`NEEDS_REFUND`, discrepancias), `docs/runbooks/recuperacion.md` (restauración de BD, reinicio,
+reconciliación manual), `docs/runbooks/incidentes.md` (activar `MAINTENANCE_MODE`, desactivar
+checkout/pagos/entrega, comunicación). Cada uno debe distinguir lo implementado de lo que aún no existe.
 
 ---
 
-## 19. Estructura de carpetas
-
-```
-TayGameStore/
-├─ legacy/index-cinematic-v4.html          # original congelado
-├─ src/
-│  ├─ web/
-│  │  ├─ index.html                        # tienda (marcado actual)
-│  │  ├─ admin/index.html                  # panel
-│  │  ├─ store/{core,features,effects,a11y}/
-│  │  ├─ admin/{views,core}/
-│  │  └─ styles/{tokens,base,layout,components,cinematic,responsive,admin}.css
-│  ├─ server/
-│  │  ├─ index.ts · app.ts
-│  │  ├─ config/                           # env (Zod), límites, interruptores
-│  │  ├─ plugins/                          # headers/CSP · session · csrf · rate-limit · errors · logging
-│  │  ├─ modules/                          # auth · catalog · checkout · orders · verification
-│  │  │                                    # payments · fulfillment · refunds · blocklist
-│  │  │                                    # admin · alerts · health · config · legal
-│  │  ├─ integrations/
-│  │  │  ├─ payments/        (interfaz; wompi/ tras la verificación)
-│  │  │  ├─ fulfillment/     (interfaz; manual)
-│  │  │  ├─ player/          (interfaz; manual)
-│  │  │  ├─ identity/        (google)
-│  │  │  ├─ mail/            (interfaz; nula)
-│  │  │  └─ captcha/         (interfaz; desactivada)
-│  │  ├─ scheduler/                        # expiración · reconciliación
-│  │  ├─ db/{schema.ts,client.ts,migrations/}
-│  │  ├─ lib/                              # money · crypto · ids · time
-│  │  └─ cli/                              # create-admin · seed-products
-│  └─ shared/                              # order-states · contratos Zod · códigos de error · money
-├─ public/{fonts,legal}/                   # fuentes autoalojadas; páginas legales (texto pendiente)
-├─ tests/{unit,integration,api,security,concurrency}/
-├─ e2e/
-├─ docker/{Dockerfile,compose.dev.yml}
-├─ .github/workflows/ci.yml
-├─ docs/{PLAN-ARQUITECTURA.md,wompi-verificacion.md,adr/,runbooks/}
-├─ package.json · tsconfig.json · vite.config.ts · eslint.config.js
-├─ .env.example · .gitignore · .editorconfig
-└─ README.md
-```
-
----
-
-## 20. Orden de implementación
-
-Cada fase termina con: proyecto ejecutable, tests de la fase en verde, informe (objetivo, archivos, cambios, tests, errores, pendientes).
-
-| Fase | Contenido | Bloqueos |
-|---|---|---|
-| **0** | Repositorio, Node 24, `package.json`, lint, typecheck, CI, `.env.example`, `.gitignore`, `legacy/`, **capturas de referencia** | — |
-| **1** | Modularizar el frontend en JS **sin cambiar comportamiento ni apariencia** | — |
-| **2** | Limpieza del cliente (§4.3): demo solo en desarrollo, sin precios de respaldo, `localStorage` con lista blanca, confeti, indicadores honestos, sin `onclick`/estilos inline, "Comprobante", flujo de verificación asíncrono en la UI, accesibilidad de modales, fuentes autoalojadas | — |
-| **3** | Servidor base: Fastify, config validada, logs, errores, cabeceras + CSP, estáticos, `/health`, `/ready`, `/config`, BD + migraciones, `audit_events`, scheduler, interruptores, rate limit base | — |
-| **4** | Catálogo y promociones calculadas en servidor; CLI de carga | Datos reales (R4) para uso real |
-| **5** | Google OAuth (clientes y admin), sesiones, CSRF, admin con TOTP, CLI `create-admin` | Cliente OAuth (R5) para probar fuera de tests |
-| **6** | Checkout de invitado y cliente: `checkout_key`, token de orden, propiedad en SQL, límites C6, blocklist, rate limit IP/email/UID, términos | Valores [POR DEFINIR] |
-| **7** | Panel admin: cola en vivo con alertas, verificación/rechazo, confirmación del cliente, reclamo/entrega/revisión, registro de reembolsos, catálogo, blocklist, auditoría | **Verificación real BLOQUEADA hasta R1** |
-| **8** | Wompi: **8a** verificación documental W1–W15 → decisión C4; **8b** implementación sandbox: intentos, webhook, `sync`, reconciliación, pagos tardíos/duplicados | R3 (acceso a docs + cuenta/llaves sandbox) |
-| **9** | Cuentas de cliente: historial, asociación de órdenes con correo verificado | — |
-| **10** | Endurecimiento y staging: tests de seguridad y concurrencia completos, accesibilidad, responsive, rendimiento, hosting elegido (R2), backups + prueba PITR, runbooks | R2 |
-| **11** | Lanzamiento: textos legales validados, correo transaccional (C8), compra real de bajo monto verificada de extremo a extremo | R1, R6, R7, validación legal/fiscal |
-| **Después** | Email/WhatsApp para alertas, proveedor real de recargas y de verificación (solo con documentación real), cola + worker, CAPTCHA activo si hay abuso, ajustes editables en el panel, rol `support`, más juegos | Según necesidad |
-
-Las Fases 0–7 pueden avanzar **sin credenciales externas** (OAuth se prueba con un proveedor simulado solo en tests hasta tener R5).
-
----
-
-## 21. Procedimientos operativos a documentar (runbooks)
-
-- Turno del operador: activar alertas, cola de verificación, cola de entrega.
-- Pago aprobado sobre orden expirada o con discrepancia.
-- Pago duplicado (`needs_refund`) y registro del reembolso.
-- Recuperación de acceso de un invitado sin token (verificación de identidad mínima, sin exponer datos).
-- Activar `CHECKOUT_ENABLED=false` / modo mantenimiento.
-- Rotación de secretos (peppers, MFA, llaves de Wompi, OAuth).
-- Restauración PITR.
-- Alta y baja en la lista de bloqueo.
-
----
-
-## 22. Pendientes por infraestructura, credenciales o decisión
-
-| # | Elemento | Estado |
-|---|---|---|
-| R1 | Fuente legítima para verificar UID/nickname | **BLOQUEADO / NO VERIFICADO** |
-| R2 | Hosting (A/B/C) | Decisión pendiente |
-| R3 | Acceso a `docs.wompi.co` desde el entorno, cuenta comercial y llaves sandbox | **PENDIENTE DE CONFIGURACIÓN** |
-| R4 | Catálogo y precios reales; horario; tiempo de entrega; TTLs; límites [POR DEFINIR]; canales de soporte | Pendiente del propietario |
-| R5 | Cliente OAuth de Google y `ADMIN_EMAILS` | **PENDIENTE DE CONFIGURACIÓN** |
-| R6 | Dominio y DNS | Pendiente |
-| R7 | Proveedor de correo (antes del lanzamiento) | Pendiente |
-| R8 | Textos de términos, privacidad y reembolsos; política de retención de datos (Ley 1581) | Validación legal |
-| R9 | Tratamiento tributario (IVA) y presentación de precios; no se afirma facturación electrónica | Validación contable |
-| R10 | Proveedor de recargas automático | **NO VERIFICADO** (no se implementa) |
-| R11 | Proveedor de CAPTCHA | Sin elegir (desactivado) |
-
----
-
-## 23. Riesgos
+## 24. Riesgos
 
 | Riesgo | Mitigación |
 |---|---|
-| Sin fuente legítima de verificación no hay ventas | Bloqueo explícito (§8.2); revisar C1 si no existe |
-| Verificación manual y entrega manual añaden latencia | Horario y tiempo realista visibles; alertas en el panel |
-| Detalles de Wompi sin contrastar | Fase 8a obligatoria; nada de Wompi se codifica antes |
-| Pagos asíncronos o tardíos | "El pago gana" + `NEEDS_REVIEW` solo ante discrepancias |
-| Doble cobro | Un intento abierto por orden + `needs_refund` |
-| Contracargos/fraude | Límites C6, blocklist, rate limit, verificación previa; procedimiento de contracargos con Wompi |
-| Regresión visual | Capturas de referencia antes de cualquier cambio |
-| Pérdida de datos | Postgres gestionado con PITR y prueba de restauración |
-| Un solo operador | Interruptor de checkout y horario visible; alertas futuras por email/WhatsApp |
+| Habilitar ventas sin verificación ni pagos reales | El servidor se niega a arrancar con `CHECKOUT_ENABLED`/`PAYMENTS_ENABLED` activados donde está prohibido |
+| Implementar Mercado Pago por suposición | Todo detalle del proveedor `[A VERIFICAR]`; integración `BLOCKED` |
+| Código heredado del frontend (modo demo con pago simulado, `localStorage`, pasarela retirada) llega a producción | Retirada en la Fase B; las ventas siguen bloqueadas |
+| Prueba e2e intermitente oculta regresiones | Diagnosticar la causa raíz antes de seguir (§20) |
+| Rate limiting en memoria con varias instancias | Una sola instancia hasta tener mecanismo compartido |
+| Rotación de claves sin versionado | Llavero versionado `NEEDS_IMPLEMENTATION` antes de usar las claves |
+| Guardar respuestas completas del proveedor | Minimización (§14.5) |
+| CSP con `'unsafe-inline'` | CSP por cabecera y retirada progresiva |
+| `esbuild` antiguo vía `drizzle-kit` (solo desarrollo, moderada) | Riesgo aceptado; revisar en cada actualización de `drizzle-kit` |
 
 ---
 
-*Fin de la versión 2. Siguiente paso: resolver R1–R2 (y, para avanzar sin bloqueos, los valores R4 básicos). La Fase 0 no empieza hasta la aprobación del propietario.*
+## 25. Bloqueos
+
+| Bloqueo | Afecta a | Desbloqueo (responsable: propietario) |
+|---|---|---|
+| Red y credenciales de Mercado Pago | Fase F, ventas | Permitir los dominios oficiales en el entorno + credenciales de prueba como variables de entorno |
+| C1: fuente legítima de verificación | Uso real de la Fase E, ventas | Confirmar una fuente oficial o legítima para el operador |
+| Proveedor de recargas | Entrega automática (no la manual) | Proveedor legítimo con documentación oficial |
+| Cliente OAuth de Google y `ADMIN_EMAILS` | Pruebas reales de la Fase C | Crear el cliente OAuth |
+| Valores `[POR DEFINIR]` | Configuración | Horario, tiempos de entrega, TTLs, rate limits, catálogo y precios reales, soporte, retención de datos |
+| Dominio, proveedor de correo, textos legales, revisión fiscal | Lanzamiento (Fase I) | Decisión y contratación |
+
+---
+
+## 26. Roadmap por fases
+
+No se avanza a una fase que dependa de un bloqueo externo.
+
+| Fase | Contenido | Depende de | Estado |
+|---|---|---|---|
+| 0–1 (previas) | Infraestructura base; modularización del frontend | — | Hechas |
+| **A** | Auditoría y corrección de arquitectura y documentación (este documento, specs, runbooks, deployment, variables) | — | En curso |
+| **B** | Core backend + DB: esquema completo, máquinas de estado, auditoría, scheduler, cabeceras de seguridad, CSRF, rate limiting, retirada del código heredado (modo demo, pasarela retirada, `localStorage` como fuente de verdad) | A | Pendiente |
+| **C** | Google OIDC, sesiones, admin + TOTP + códigos de recuperación | B; cliente OAuth | Pendiente |
+| **D** | Catálogo, checkout, órdenes, "Confirmar y pagar" en el frontend | B | Pendiente |
+| **E** | Verificación manual y entrega manual (panel admin) | B, C; uso real `BLOCKED` (C1) | Pendiente |
+| **F** | Mercado Pago oficial + sandbox | **`BLOCKED`** | Bloqueada |
+| **G** | Resiliencia, reconciliación, antifraude, alertas | B–E (pagos: F) | Pendiente |
+| **H** | Responsive, accesibilidad, rendimiento | D, E | Pendiente |
+| **I** | Staging, auditoría de seguridad, producción | Todas | Pendiente |
+
+---
+
+## 27. Evidencia / estado de implementación
+
+| Elemento | Evidencia | Verificado |
+|---|---|---|
+| Configuración y rechazo de interruptores prohibidos | `tests/unit/env.test.ts` | Sí (CI) |
+| Redacción de logs y `requestId` | `tests/unit/logging.test.ts` | Sí (CI) |
+| Health, readiness, formato de error, mantenimiento | `tests/api/*` | Sí (CI) |
+| Migraciones y `audit_events` en PostgreSQL 16 | `tests/integration/database.test.ts` | Sí (CI) |
+| Build de frontend y servidor | `npm run build` | Sí (CI) |
+| Comportamiento del frontend heredado | `e2e/behavior.spec.ts` | Parcial: un test intermitente (§20) |
+| Fidelidad visual tras la modularización | `e2e/visual.spec.ts` | Sí, solo local |
+| Dependencias de producción sin vulnerabilidades altas | `npm audit` en CI | Sí (CI) |
+| Todo lo marcado `DISEÑADO`, `PENDIENTE` o `BLOCKED` | — | No |
+
+---
+
+## Anexo — Historial (`HISTÓRICO`, no es arquitectura vigente)
+
+- v1 y v2 de este plan usaban otra pasarela (Wompi). El propietario la eliminó el
+  2026-10-05 sin alternativa ni fallback. Restos que se eliminan en la Fase B: CSP `<meta>` y
+  textos de `src/web/index.html`, `src/web/js/store/features/{checkout,invoice,service}.js`,
+  `src/web/js/store/bindings.js`, comentarios de `src/server/config/env.ts`,
+  `e2e/behavior.spec.ts`, `README.md` y `.env.example`.
