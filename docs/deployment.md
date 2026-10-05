@@ -1,47 +1,82 @@
 # Despliegue (Render + PostgreSQL gestionado)
 
-> Los nombres exactos de las opciones de Render están marcados `[A VERIFICAR]` en el panel de
-> Render: no se han podido comprobar desde el entorno de desarrollo.
+> Lo hace el propietario con sus cuentas: Claude no tiene (ni debe tener) acceso a Render,
+> Google Cloud, Mercado Pago ni al dominio. Los nombres de menús de esos paneles cambian con el
+> tiempo; donde no se pudieron comprobar desde el entorno de desarrollo dice `[A VERIFICAR]`.
 
-## Recursos
+## 1. Render con el Blueprint (`render.yaml`)
 
-- **PostgreSQL gestionado** (≥ 16) con backups automáticos; PITR si el plan lo incluye
-  `[A VERIFICAR]`.
-- **Web Service** Node 24, **una sola instancia** (el rate limiting es en memoria del proceso).
+El repositorio incluye [`render.yaml`](../render.yaml) (validado por
+`tests/unit/render-blueprint.test.ts` contra la configuración real del servidor):
 
-## Configuración del servicio
-
-| Opción | Valor |
+| Recurso | Configuración |
 |---|---|
-| Build command | `npm ci && npm run build` |
-| Pre-deploy command `[A VERIFICAR]` | `npm run db:migrate:prod` (si el plan no lo ofrece: ejecútalo en un *one-off job*/shell antes de promover) |
-| Start command | `npm start` |
-| Health check path | `/api/ready` |
-| Node | 24 (`.nvmrc`) |
+| Web Service | Node 24, plan `starter` (el gratuito se suspende y rompería webhooks y tareas), **1 instancia** (rate limiting en memoria), región `virginia` (la más cercana a Colombia) `[A VERIFICAR]` |
+| Build | `npm ci --include=dev && npm run build` — con `NODE_ENV=production` npm omitiría Vite y TypeScript |
+| Pre-deploy | `npm run db:migrate:prod` (migraciones solo aditivas; nunca al arrancar) |
+| Health check | `/api/ready` (comprueba la base de datos) |
+| PostgreSQL 16 | plan de pago con backups (`basic-256mb` `[A VERIFICAR]`), sin acceso desde Internet (`ipAllowList: []`) |
 
-Las migraciones **nunca** se ejecutan al arrancar la app y no contienen `DROP` destructivos.
+Pasos: Render → **New → Blueprint** → elige este repositorio → Render pide los valores marcados
+`sync: false` (secretos). Genera las claves en tu computador:
 
-## Variables de entorno (Render → Environment)
+```bash
+node -e "console.log('1:'+require('crypto').randomBytes(32).toString('base64'))"  # ORDER_TOKEN_KEYS
+node -e "console.log('1:'+require('crypto').randomBytes(32).toString('base64'))"  # MFA_ENCRYPTION_KEYS (otra)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"       # IP_HASH_PEPPER
+```
 
-Ver `.env.example`. Mínimo en producción: `NODE_ENV=production`, `PUBLIC_BASE_URL=https://…`,
-`TRUST_PROXY=1`, `DATABASE_URL` (interna de Render), `ORDER_TOKEN_KEYS`,
-`MFA_ENCRYPTION_KEYS`, `IP_HASH_PEPPER`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
-`ADMIN_EMAILS`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `SUPPORT_*`.
-El servidor **no arranca** si falta algo obligatorio o si se intenta `CHECKOUT_ENABLED=true`
-sin `PAYMENTS_ENABLED=true`. Los errores de configuración muestran el nombre de la variable,
-nunca su valor.
+El Blueprint arranca con `CHECKOUT_ENABLED=false`, `PAYMENTS_ENABLED=false` y `MP_MODE=sandbox`.
+El servidor **no arranca** si falta una variable obligatoria (muestra el nombre, nunca el valor).
 
-## Orden de puesta en marcha
+## 2. Dominio
 
-1. Crear base de datos y servicio con `CHECKOUT_ENABLED=false`, `PAYMENTS_ENABLED=false`.
-2. Desplegar; comprobar `/api/health` y `/api/ready`.
-3. Google Cloud: cliente OAuth "Aplicación web" con redirección
-   `https://<dominio>/auth/google/callback`. Entrar en `/admin.html`, configurar TOTP y guardar
-   los códigos de recuperación.
-4. Cargar el catálogo real desde el panel (Catálogo).
-5. Mercado Pago: credenciales de **prueba**, webhook configurado, checklist de
-   `docs/specs/pagos.md`. Activar `PAYMENTS_ENABLED=true` y `CHECKOUT_ENABLED=true` en staging.
-6. Credenciales de producción, misma prueba con una compra real de bajo importe y su reembolso.
+1. Compra el dominio en un registrador.
+2. Render → servicio → **Settings → Custom Domains** → añade `tudominio.com` y `www.tudominio.com`.
+3. Crea en tu DNS los registros que Render indique (CNAME a `…onrender.com` para `www`; para el
+   dominio raíz, el registro que muestre Render). Render emite el certificado HTTPS.
+4. `PUBLIC_BASE_URL=https://tudominio.com` (sin barra final) y redeploy.
+
+## 3. Google OAuth (acceso de administración y clientes)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → crea un proyecto.
+2. **Pantalla de consentimiento / Google Auth Platform** `[A VERIFICAR nombre del menú]`: tipo
+   *Externo*, nombre de la app, correo de soporte, dominio autorizado `tudominio.com`, enlaces a
+   `https://tudominio.com/privacidad.html` y `/terminos.html`. Ámbitos: `openid`, `email`,
+   `profile`. Publica la app (en modo *Testing* solo entran los usuarios de prueba).
+3. **Credenciales → Crear ID de cliente OAuth → Aplicación web**. URI de redirección autorizada:
+   `https://tudominio.com/auth/google/callback` (y la de staging si la usas).
+4. Copia ID y secreto a `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; tu correo en
+   `ADMIN_EMAILS`.
+5. Entra a `https://tudominio.com/admin.html`, configura el TOTP y **guarda los códigos de
+   recuperación** fuera del computador.
+
+## 4. Catálogo y precios reales
+
+En `/admin.html` → **Catálogo**: crea cada paquete (SKU, nombre, unidades, precio en COP, promo
+opcional con fecha de fin, orden). Los precios los decides tú; `npm run db:seed:dev` solo carga
+los del HTML original como **ejemplo** y no se usa en producción. El servidor recalcula todo al
+crear el pedido: el navegador nunca decide el precio.
+
+## 5. Textos legales
+
+`src/web/terminos.html` y `src/web/privacidad.html` son **borradores técnicos** que describen
+cómo funciona la tienda. Completa cada `[COMPLETAR: …]`, haz que un abogado revise los puntos
+`[REVISAR CON ABOGADO]`, pon en `TERMS_VERSION` la misma fecha de los términos y despliega.
+**Garantía:** en producción, con `CHECKOUT_ENABLED=true`, el servidor no arranca si alguna de
+las dos páginas falta o conserva "[COMPLETAR".
+
+## 6. Orden de puesta en marcha
+
+1. Blueprint aplicado → `/api/health` y `/api/ready` responden 200.
+2. Dominio + `PUBLIC_BASE_URL` → Google OAuth → TOTP del administrador.
+3. Catálogo real cargado desde el panel.
+4. **Sandbox** de Mercado Pago completo: [`sandbox-mercadopago.md`](sandbox-mercadopago.md)
+   (`MP_MODE=sandbox`, credenciales de la cuenta vendedora de prueba, webhook del dominio).
+   Activa `PAYMENTS_ENABLED=true` y luego `CHECKOUT_ENABLED=true`.
+5. Textos legales completos y revisados.
+6. Producción: credenciales reales, `MP_MODE=production`, webhook con su clave, una compra real
+   de bajo importe y su reembolso. El panel debe decir "Mercado Pago: PRODUCCIÓN".
 
 ## Rollback
 

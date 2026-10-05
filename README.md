@@ -33,7 +33,8 @@ Para crear pedidos en local: `CHECKOUT_ENABLED=true`. Para pagar: `PAYMENTS_ENAB
 credenciales **de prueba** de Mercado Pago y un `PUBLIC_BASE_URL` público (Mercado Pago debe
 poder enviar el webhook; p. ej. un túnel https).
 
-Producción: [`docs/deployment.md`](docs/deployment.md) (Render + PostgreSQL gestionado).
+Producción: [`docs/deployment.md`](docs/deployment.md) — Blueprint [`render.yaml`](render.yaml)
+(Render + PostgreSQL), dominio, Google OAuth, catálogo, textos legales y orden de activación.
 
 ## Flujo de compra
 
@@ -56,6 +57,8 @@ Producción: [`docs/deployment.md`](docs/deployment.md) (Render + PostgreSQL ges
 | `npm run test:visual` | Referencias visuales (360/768/1280 px) |
 | `npm run build` | Build de frontend (tienda + admin) y servidor |
 | `npm run db:generate` | Genera una migración desde `src/server/db/schema.ts` (revísala) |
+| `npm run mp:sandbox -- …` | Prueba Mercado Pago con **tu cuenta de prueba** (se niega si `MP_MODE` no es `sandbox`): [`docs/sandbox-mercadopago.md`](docs/sandbox-mercadopago.md) |
+| `npm run perf:orders` / `perf:api` | Mediciones de rendimiento reproducibles (base `_test`) |
 | `npm run check` | lint + formato + typecheck + tests + build |
 
 ## API
@@ -81,23 +84,29 @@ CSP estricta por cabecera (`script-src 'self'`), HSTS con https, anti-clickjacki
 hash, TOTP + códigos de recuperación para admin, rate limiting (en memoria: **una instancia**),
 validación Zod estricta, SQL parametrizado, IDOR con 404 uniforme, auditoría append-only,
 secretos solo por variables de entorno con llaveros rotables, gitleaks y `npm audit` en CI.
-Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md).
+Pagos: `MP_MODE` declarado y contrastado con `live_mode` de cada pago (un pago de prueba nunca
+se entrega en producción). Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md).
 
 ## Documentación
 
 - [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQUITECTURA.md) — arquitectura y estado
 - [`docs/specs/pagos.md`](docs/specs/pagos.md) — Mercado Pago
 - [`docs/specs/verificacion-jugador.md`](docs/specs/verificacion-jugador.md) — verificación
+- [`docs/sandbox-mercadopago.md`](docs/sandbox-mercadopago.md) — sandbox paso a paso
 - [`docs/deployment.md`](docs/deployment.md) · [`docs/runbook.md`](docs/runbook.md) ·
   [`docs/incident-response.md`](docs/incident-response.md)
 
 ## Pendiente (no se inventa)
 
-- Probar Mercado Pago en sandbox y producción (checklist en `docs/specs/pagos.md`).
+- Probar Mercado Pago en sandbox con tu cuenta de prueba (`npm run mp:sandbox` y la guía
+  `docs/sandbox-mercadopago.md`) y después en producción.
 - Fuente legítima para que el operador verifique UID/nickname y proveedor autorizado para la
   consulta instantánea (`docs/specs/verificacion-jugador.md`).
 - Proveedor de recargas automático (hoy entrega manual).
-- Cliente OAuth de Google, dominio, cuenta de Render, catálogo y precios reales, textos legales.
+- Cuentas y datos del propietario: Render (aplicar `render.yaml`), dominio, cliente OAuth de
+  Google, catálogo y precios reales desde el panel, y completar/revisar con un abogado los
+  borradores `terminos.html` y `privacidad.html` (el servidor no deja vender en producción con
+  campos `[COMPLETAR` pendientes).
 - Revisión manual con lector de pantalla y contraste de los textos decorativos (la suite
   automática de axe-core ya pasa sin violaciones críticas ni graves).
 

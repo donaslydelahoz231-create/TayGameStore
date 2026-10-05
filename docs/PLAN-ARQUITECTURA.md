@@ -72,8 +72,11 @@ Tienda funcional de punta a punta. Las ventas reales dependen de configurar Merc
 | Google OIDC + PKCE/state/nonce, sesiones opacas, admin con allowlist + TOTP + códigos de recuperación | `IMPLEMENTADO` · login real `NO VERIFICADO` (sin cliente OAuth) | `tests/integration/auth.test.ts` |
 | CSP/HSTS/anti-clickjacking, CSRF, rate limiting (una instancia), llaveros rotables | `IMPLEMENTADO` | `tests/api/errors.test.ts`, `tests/unit` |
 | Scheduler con advisory locks (expiración, conciliación, reintentos, reclamos, limpieza) | `IMPLEMENTADO` | integración |
-| Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 34 e2e (comportamiento + calidad) |
-| CI: calidad, integración, e2e con PostgreSQL, audit, gitleaks | `IMPLEMENTADO` | `.github/workflows/ci.yml` |
+| Frontend conectado (sin modo demo, sin precios fijos, sin datos personales en `localStorage`) + panel `/admin.html` | `IMPLEMENTADO` | 35 e2e (comportamiento + calidad) |
+| CI: calidad, integración, e2e con PostgreSQL, audit, gitleaks (CLI oficial verificada por checksum), CodeQL | `IMPLEMENTADO` | `.github/workflows/ci.yml`, `codeql.yml` |
+| Sandbox seguro de Mercado Pago: `MP_MODE` + contraste con `live_mode` (discrepancia → revisión), avisos de modo prueba, `npm run mp:sandbox` | `IMPLEMENTADO` · sandbox real `NO VERIFICADO` (lo ejecuta el propietario) | `tests/integration/commerce.test.ts`, `tests/unit/mp-sandbox.test.ts` |
+| Rendimiento: listado de pedidos sin N+1 (151 → 4 consultas), estáticos precomprimidos (br/gzip) y caché inmutable de assets | `IMPLEMENTADO` | `tests/perf/*`, `tests/api/static.test.ts` |
+| Despliegue: Blueprint `render.yaml` validado contra la configuración; textos legales en borrador con bloqueo de ventas en producción si quedan `[COMPLETAR` | `IMPLEMENTADO` · aplicar en Render y revisión legal `PENDIENTE` (propietario) | `tests/unit/render-blueprint.test.ts`, `tests/unit/legal-pages.test.ts` |
 | Accesibilidad (axe-core WCAG 2.1 AA sin violaciones críticas/graves), diálogos con foco, carrito `inert`, responsive sin desbordes en 360–1920 px (sin `overflow-x:hidden`) | `IMPLEMENTADO` | `e2e/quality.spec.ts` |
 | Revisión con lector de pantalla, métricas externas | `PENDIENTE` | — |
 | Fuente legítima de verificación (C1), proveedor de consulta instantánea, proveedor de recargas automático | `BLOCKED` (externo) | — |

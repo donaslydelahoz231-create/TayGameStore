@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import fastifyStatic from '@fastify/static';
 import Fastify, { LogController, type FastifyInstance } from 'fastify';
@@ -42,6 +42,28 @@ function toTrustProxyOption(
 ): boolean | ((address: string, hop: number) => boolean) {
   if (typeof value === 'boolean') return value;
   return (_address, hop) => hop < value;
+}
+
+/** Documentos legales enlazados desde la casilla de aceptación del checkout. */
+export const LEGAL_PAGES = ['terminos.html', 'privacidad.html'] as const;
+const LEGAL_PLACEHOLDER = '[COMPLETAR';
+
+/**
+ * En producción no se vende con los textos legales a medio hacer: si las ventas están activas
+ * y falta una página o conserva marcadores "[COMPLETAR", el servidor no arranca.
+ */
+export function assertLegalPagesReady(config: AppConfig, root: string): void {
+  if (config.env !== 'production' || !config.flags.checkoutEnabled) return;
+  const pending = LEGAL_PAGES.filter((page) => {
+    const file = path.join(root, page);
+    return !existsSync(file) || readFileSync(file, 'utf8').includes(LEGAL_PLACEHOLDER);
+  });
+  if (pending.length) {
+    throw new Error(
+      `Textos legales incompletos (${pending.join(', ')}): completa los campos "[COMPLETAR" ` +
+        'en src/web antes de activar CHECKOUT_ENABLED en producción.',
+    );
+  }
 }
 
 export interface BuiltApp {
@@ -104,6 +126,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     if (!existsSync(path.join(root, 'index.html'))) {
       throw new Error(`No existe el build del frontend en ${root}. Ejecuta "npm run build".`);
     }
+    assertLegalPagesReady(config, root);
     await app.register(fastifyStatic, {
       root,
       // Debe ser un array: con preCompressed, @fastify/static solo resuelve índices en array

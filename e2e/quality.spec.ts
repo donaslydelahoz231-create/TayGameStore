@@ -167,3 +167,25 @@ test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x
   }
   expect(problems).toEqual([]);
 });
+
+test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptación', async ({
+  page,
+  browser,
+}) => {
+  for (const path of ['/terminos.html', '/privacidad.html']) {
+    await page.goto(path);
+    await expect(page.locator('h1')).toBeVisible();
+    expect(await axe(page), path).toEqual([]);
+    const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
+    const narrow = await context.newPage();
+    await narrow.goto(path);
+    expect(await horizontalOverflow(narrow), `${path} a 360 px`).toEqual([]);
+    await context.close();
+  }
+  await page.goto('/');
+  await enterAsGuest(page);
+  const links = page.locator('label.consent a');
+  await expect(links).toHaveCount(2);
+  await expect(links.nth(0)).toHaveAttribute('href', '/terminos.html');
+  await expect(links.nth(1)).toHaveAttribute('href', '/privacidad.html');
+});

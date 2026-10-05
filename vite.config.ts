@@ -51,7 +51,12 @@ export default defineConfig({
     cssMinify: false,
     rolldownOptions: {
       // Tienda y panel de administración (páginas independientes, mismo origen).
-      input: { main: resolve(root, 'index.html'), admin: resolve(root, 'admin.html') },
+      input: {
+        main: resolve(root, 'index.html'),
+        admin: resolve(root, 'admin.html'),
+        terminos: resolve(root, 'terminos.html'),
+        privacidad: resolve(root, 'privacidad.html'),
+      },
     },
   },
   server: {

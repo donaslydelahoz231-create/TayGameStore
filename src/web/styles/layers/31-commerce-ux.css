@@ -36,3 +36,15 @@
   font-size: 0.62rem;
   font-weight: 800;
 }
+
+/* Enlaces a los documentos legales dentro de la casilla de aceptación. */
+.consent a {
+  color: #c3a6ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.consent a:focus-visible {
+  outline: 2px solid #c3a6ff;
+  outline-offset: 2px;
+  border-radius: 2px;
+}

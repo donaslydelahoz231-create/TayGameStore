@@ -174,6 +174,9 @@ const envSchema = z
     }
   });
 
+/** Nombres de todas las variables que entiende el servidor (para validar el Blueprint). */
+export const ENV_VARIABLES: readonly string[] = Object.keys(envSchema.shape);
+
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 export interface FeatureFlags {
