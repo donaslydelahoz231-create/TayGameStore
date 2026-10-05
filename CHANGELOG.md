@@ -3,6 +3,24 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Añadido
+
+- Burbujas de soporte (WhatsApp y correo) que solo aparecen si el canal está configurado.
+- "Mis favoritos" en el menú de cuenta.
+- Panel "Estado de operación" con el estado real del servidor (antes, porcentajes fijos).
+- Vigilancia de producción cada 30 min con reinicio por deploy hook de Render e issues de
+  incidente, y pull request semanal de mantenimiento (`docs/autorreparacion.md`).
+- Botón "Deploy to Render" en el README.
+
+### Corregido
+
+- Enlaces del menú y vuelta de Mercado Pago: la sección quedaba bajo la cabecera o se pasaba.
+- "Soporte" cortado en el menú con sesión iniciada; "Quitar" ilegible en favoritos.
+- "COP COP" en el panel; pasos de compra numerados 01–05 en orden; textos de programador
+  ("backend", "frontend", "checkout") retirados de la tienda.
+
 ## [1.0.0-rc.1] — 2026-10-05
 
 Primera versión candidata a producción. **No se ha vendido todavía**: faltan los pasos del

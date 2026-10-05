@@ -1,0 +1,110 @@
+name: Vigilancia y autorreparación
+
+# Comprueba la tienda en producción cada 30 minutos. Si no responde:
+#   1. reinicia el servicio una sola vez con el deploy hook de Render (vuelve a desplegar el
+#      último commit; no repite pagos ni recargas: el servidor es idempotente),
+#   2. espera a que vuelva y deja constancia en un issue con la etiqueta "incidente".
+# Si sigue caída, el issue queda abierto para el propietario y no se reintenta en bucle.
+# Configuración (docs/autorreparacion.md): variable PRODUCTION_URL y secreto
+# RENDER_DEPLOY_HOOK_URL. Sin PRODUCTION_URL el trabajo no hace nada.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vigilancia
+  cancel-in-progress: false
+
+jobs:
+  salud:
+    name: Salud de producción
+    if: vars.PRODUCTION_URL != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      URL: ${{ vars.PRODUCTION_URL }}
+      DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      GH_TOKEN: ${{ github.token }}
+      LABEL: incidente
+    steps:
+      - name: Comprobar /api/ready (3 intentos)
+        id: check
+        run: |
+          for attempt in 1 2 3; do
+            if curl -fsS --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
+      - name: Incidente abierto
+        id: issue
+        run: |
+          gh label create "$LABEL" --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "Caída detectada por la vigilancia automática" 2>/dev/null || true
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$LABEL" --state open \
+            --json number --jq '.[0].number // empty')
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      - name: Recuperada, cerrar el incidente
+        if: steps.check.outputs.ok == 'true' && steps.issue.outputs.number != ''
+        run: |
+          gh issue close "${{ steps.issue.outputs.number }}" --repo "$GITHUB_REPOSITORY" \
+            --comment "La tienda vuelve a responder en ${URL%/}/api/ready ($(date -u +%FT%TZ))."
+
+      - name: Caída ya reportada
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number != ''
+        run: |
+          echo "::error::La tienda sigue sin responder; incidente #${{ steps.issue.outputs.number }} abierto."
+          exit 1
+
+      - name: Reiniciar con el deploy hook de Render
+        id: heal
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' && env.DEPLOY_HOOK != ''
+        run: |
+          curl -fsS -X POST --max-time 30 "$DEPLOY_HOOK" -o /dev/null
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+          # Un despliegue de Render tarda unos minutos: se espera hasta 12.
+          for attempt in $(seq 1 24); do
+            sleep 30
+            if curl -fsS --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
+              echo "recovered=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "recovered=false" >> "$GITHUB_OUTPUT"
+
+      - name: Registrar el incidente
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == ''
+        env:
+          TRIGGERED: ${{ steps.heal.outputs.triggered }}
+          RECOVERED: ${{ steps.heal.outputs.recovered }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          now=$(date -u +%FT%TZ)
+          if [ "$RECOVERED" = "true" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --label "$LABEL" \
+              --title "Caída de producción reparada automáticamente ($now)" \
+              --body "La tienda dejó de responder en \`/api/ready\`. Se reinició con el deploy hook de Render y volvió a responder. Revisa los logs de Render y el panel (alertas) por si hay pagos o entregas pendientes. Ejecución: $RUN_URL" \
+              | xargs -I{} gh issue close {} --repo "$GITHUB_REPOSITORY" --comment "Recuperada automáticamente."
+            exit 0
+          fi
+          if [ "$TRIGGERED" = "true" ]; then
+            action="Se reinició una vez con el deploy hook de Render y **sigue sin responder**."
+          else
+            action="No hay secreto RENDER_DEPLOY_HOOK_URL: no se intentó reiniciar."
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --label "$LABEL" \
+            --title "Producción no responde ($now)" \
+            --body "La tienda no responde en \`/api/ready\` tras 3 intentos. $action
+
+          Qué hacer: \`docs/runbook.md\` y \`docs/incident-response.md\`. Este issue se cierra solo cuando la tienda vuelva a responder. Ejecución: $RUN_URL"
+          exit 1

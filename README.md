@@ -36,6 +36,13 @@ poder enviar el webhook; p. ej. un túnel https).
 Producción: [`docs/deployment.md`](docs/deployment.md) — Blueprint [`render.yaml`](render.yaml)
 (Render + PostgreSQL), dominio, Google OAuth, catálogo, textos legales y orden de activación.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/donaslydelahoz231-create/TayGameStore)
+
+El botón crea en tu cuenta de Render el servicio web y la base de datos de `render.yaml` y te pide
+las variables secretas (Mercado Pago, Google, `ADMIN_EMAILS`…); ninguna está en el repositorio.
+Render debe tener acceso a este repositorio privado (conecta tu cuenta de GitHub en Render).
+Después configura la vigilancia: [`docs/autorreparacion.md`](docs/autorreparacion.md).
+
 ## Flujo de compra
 
 1. El cliente elige paquetes (precios del servidor; máx. 5 unidades por paquete y
@@ -98,6 +105,8 @@ se entrega en producción). Detalle: [`docs/PLAN-ARQUITECTURA.md`](docs/PLAN-ARQ
 - [`docs/dinero-y-acceso.md`](docs/dinero-y-acceso.md) — a dónde va el dinero y cómo solo tú administras
 - [`docs/deployment.md`](docs/deployment.md) · [`docs/runbook.md`](docs/runbook.md) ·
   [`docs/incident-response.md`](docs/incident-response.md)
+- [`docs/autorreparacion.md`](docs/autorreparacion.md) — vigilancia con reinicio automático y
+  mantenimiento semanal con GitHub Actions
 
 ## Pendiente (no se inventa)
 

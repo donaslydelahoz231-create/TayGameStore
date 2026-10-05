@@ -74,3 +74,21 @@ orden en AWAITING_PAYMENT (verification_status = CONFIRMED) → pago
 
 No se usan las APIs de terceros que extraen datos del juego ("username fetchers"): no son
 oficiales ni están autorizadas.
+
+### Candidatos encontrados (2026-10-05, sin verificar su documentación)
+
+Páginas como mobileverso.com.br muestran nickname y región por ID usando servicios no oficiales.
+TayGameStore no los usa. En búsquedas públicas aparecen distribuidores que ofrecen validación del
+jugador **a socios con contrato** (la documentación no se pudo leer desde el entorno de
+desarrollo, así que no hay adaptador escrito para ninguno):
+
+| Distribuidor | Qué indica su material público | Qué hace falta |
+|---|---|---|
+| UniPin (socio de recargas de Garena) | API "In Game Top Up" con *Validate User* que devuelve el nombre del jugador | Contrato de socio, credenciales y su documentación |
+| Smile.one | API para comercios con consulta de rol (*role query*) | Cuenta de comercio y documentación |
+
+Con el contrato y la documentación oficial (que compartes sin credenciales), el adaptador se escribe
+y se prueba contra su sandbox; las credenciales van solo en variables de entorno de Render.
+Mientras tanto la tienda usa la verificación manual: el cliente escribe su ID, el equipo
+comprueba nickname y región desde el panel y el cliente confirma "Sí, es mi cuenta" antes de
+pagar.
