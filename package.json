@@ -13,6 +13,7 @@
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build",
     "build:server": "tsc -p tsconfig.build.json",
+    "build:preview": "node tools/preview/build.mjs",
     "start": "node --env-file-if-exists=.env dist/server/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit",
     "lint": "eslint .",

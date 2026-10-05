@@ -18,11 +18,16 @@ const MIN_BYTES = 1024;
 function precompress(): Plugin {
   const brotli = promisify(brotliCompress);
   const gz = promisify(gzip);
+  let target = outDir;
   return {
     name: 'tgs-precompress',
     apply: 'build',
+    configResolved(config) {
+      // Respeta un outDir distinto (p. ej. el build de vista previa en dist/preview).
+      target = config.build.outDir;
+    },
     async closeBundle() {
-      const entries = await readdir(outDir, { recursive: true, withFileTypes: true });
+      const entries = await readdir(target, { recursive: true, withFileTypes: true });
       const files = entries
         .filter((entry) => entry.isFile() && COMPRESSIBLE.has(extname(entry.name)))
         .map((entry) => join(entry.parentPath, entry.name));

@@ -41,6 +41,16 @@ export default defineConfig(
     languageOptions: { globals: globals.node },
   },
   {
+    // Entorno de prueba en el navegador (script clásico; solo en dist/preview).
+    files: ['tools/preview/shim.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+    rules: { 'no-unused-vars': ['error', { caughtErrors: 'none' }], eqeqeq: ['error', 'always'] },
+  },
+  {
+    files: ['tools/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     // Frontend (módulos ES del navegador).
     files: ['src/web/**/*.js'],
     languageOptions: { globals: globals.browser, sourceType: 'module' },

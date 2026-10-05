@@ -43,6 +43,19 @@ las variables secretas (Mercado Pago, Google, `ADMIN_EMAILS`…); ninguna está 
 Render debe tener acceso a este repositorio privado (conecta tu cuenta de GitHub en Render).
 Después configura la vigilancia: [`docs/autorreparacion.md`](docs/autorreparacion.md).
 
+## Probar la tienda sin servidor (entorno de prueba)
+
+```bash
+npm run build:preview   # genera dist/preview/
+python3 -m http.server 8080 -d dist/preview   # o cualquier servidor estático
+```
+
+`tools/preview/shim.js` responde a las rutas `/api/*` dentro del navegador con las mismas reglas
+del servidor (precios, estados del pedido, verificación, entrega) y guarda los datos en el
+navegador. El pago es una **pasarela de prueba** (no es Mercado Pago; nada se cobra) y el acceso
+con Google/Discord/Facebook crea una sesión de prueba. Un aviso fijo lo indica en todo momento.
+**Nunca se despliega**: el servidor solo sirve `dist/web`.
+
 ## Flujo de compra
 
 1. El cliente elige paquetes (precios del servidor; máx. 5 unidades por paquete y
