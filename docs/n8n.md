@@ -5,59 +5,82 @@ guarda llaves: cada una va en una **credencial** de n8n que creas tú en la pant
 Los valores están en el archivo `render-variables.env` que te entregué (nunca los pegues en
 chats ni en GitHub).
 
+## La lógica general
+
+```
+            TIENDA (Render)                                    n8n
+ ┌───────────────────────────────────┐       ┌────────────────────────────────────────────┐
+ │ Cliente crea pedido ──────────────┼─evento─▶ Pedidos: "1 · Por verificar ID" + Gmail   │
+ │ Dueño verifica ID/nickname/región │       │                                            │
+ │ Cliente confirma y paga (MP) ─────┼─evento─▶ Pedidos: "3 · Pagado: por entregar" + Gmail│
+ │ Dueño entrega en el panel ────────┼─evento─▶ Pedidos: "4 · Entregado"                  │
+ │ Reembolso de Mercado Pago ────────┼─evento─▶ Pedidos: "✕ Reembolsado"                 │
+ │                                   │       │                                            │
+ │ /api/internal/jobs ◀──────────────┼───────┤ Tareas cada 10 min (concilia y reintenta)  │
+ │ /api/ready ◀──────────────────────┼───────┤ Vigilancia cada 5 min (avisa si cae)       │
+ └───────────────────────────────────┘       │ Errores: cualquier fallo → Incidentes      │
+                                             │ Cerebro (agente): lee todo e informa       │
+                                             └────────────────────────────────────────────┘
+```
+
+La tienda es la única fuente de verdad (pedidos, pagos, entregas). n8n **solo registra, vigila
+y avisa**: nunca cambia un pedido ni confirma un pago.
+
 ## Flujos
 
-| Flujo | Cuándo | Qué hace | Credencial que necesita |
+| Flujo | Cuándo | Qué hace | Estado |
 |---|---|---|---|
-| **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y, en Render Free, mantiene la tienda despierta. Si falla, lo anota en *Incidentes*. | **TayGameStore · Llave de tareas** |
-| **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready`. Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe a `taygamerstore@gmail.com`. | **Gmail · taygamerstore** |
-| **TayGameStore · Pedidos** | Cuando la tienda avisa | Recibe cada pedido **por verificar**, pagado, entregado o reembolsado y lo guarda en la tabla *Pedidos* sin duplicados. Si el pedido espera verificación de ID o ya está pagado, te escribe por Gmail ("Verifica el ID …" / "Pedido pagado por entregar …") con UID, paquetes, total y plazo. Rechaza (y anota) lo que no tenga el formato de la tienda. | **TayGameStore · Llave de eventos** y **Gmail · taygamerstore** |
+| **TayGameStore · Pedidos** | Cada evento de la tienda | 1) Valida el formato (si no, lo anota en *Incidentes*) y descarta duplicados por `eventId`. 2) Actualiza **una fila por pedido** en *Pedidos* con su etapa y la hora del paso, y guarda el evento en *Eventos*. 3) Si está por verificar o pagado, te escribe por Gmail con ID, paquetes, total y plazo. Si algo falla responde error y la tienda reintenta sola. | Probado: ciclo completo y duplicado. Necesita credenciales para publicarse. |
+| **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y mantiene despierta la tienda (Render Free). | Necesita su llave para publicarse. |
+| **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready` (60 s de espera y un reintento). Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe. | **Publicado.** Gmail en pausa hasta conectarlo. |
+| **TayGameStore · Errores** | Cuando otro flujo falla | Flujo de error de los tres anteriores: anota el fallo en *Incidentes* y te escribe con el enlace a la ejecución. | **Publicado.** Gmail en pausa hasta conectarlo. |
+
+## Tablas (Data tables)
+
+- **TayGameStore · Pedidos** — una fila por pedido (`referencia`): `etapa` actual
+  (`1 · Por verificar ID`, `2 · Esperando pago`, `3 · Pagado: por entregar`, `4 · Entregado`,
+  `✕ Reembolsado`…), total, ID y nickname del jugador, paquetes, plazo (`venceEn`) y la hora de
+  cada paso (`porVerificarEn`, `pagadoEn`, `entregadoEn`, `reembolsadoEn`). Nunca el correo ni
+  el nombre del cliente.
+- **TayGameStore · Eventos** — historial: un registro por evento recibido (`eventId`).
+- **TayGameStore · Incidentes** — caídas y recuperaciones, tareas fallidas, eventos rechazados y
+  fallos de cualquier flujo.
+- **TayGameStore · Estado** — último estado de la tienda (la vigilancia avisa solo al cambiar).
 
 ## Agente: TayGameStore · Cerebro de operaciones
 
 Agente de n8n (modelo `openai/gpt-oss-120b` en Groq, con tu credencial "Groq account") que
-actúa como jefe de operaciones, ingeniería y marketing. **Solo lee**: estado en vivo
-(`/api/ready`), configuración pública, catálogo real y las tres tablas. No puede cambiar
-pedidos, precios ni pagos.
+actúa como jefe de operaciones, ingeniería y marketing. **Solo lee**: estado en vivo,
+configuración pública, catálogo real y las cuatro tablas. No puede cambiar pedidos, precios ni
+pagos.
 
-- Pregúntale en el chat del agente: "¿cómo va la tienda?", "¿qué pedidos pagados faltan por
-  entregar?", "escríbeme un post para Instagram con los paquetes actuales".
-- Tarea programada **Informe diario de la tienda** a las 7:52 a. m. (Bogotá): estado,
-  incidentes y pedidos de las últimas 24 h, una idea de publicación (BORRADOR) y siguientes
-  pasos.
-- Reglas fijas: nunca inventa precios ni datos, nunca confirma pagos, nunca pide contraseñas y
-  todo texto de marketing sale como BORRADOR para que lo apruebes.
+- Pregúntale: "¿qué pedidos tengo por verificar o por entregar?", "¿cómo va la tienda?",
+  "escríbeme un post para Instagram con los paquetes actuales".
+- **Informe diario** a las 7:52 a. m. (Bogotá): lo que requiere acción ya, estado, incidentes,
+  ventas de las últimas 24 h, una idea de publicación (BORRADOR) y siguientes pasos.
+- Queda como **borrador**: actívalo con **Publish** en la pantalla del agente cuando lo hayas
+  probado.
 
-Queda como **borrador**: actívalo con **Publish** en la pantalla del agente cuando lo hayas
-probado.
-
-## Tablas (Data tables)
-
-- **TayGameStore · Pedidos** — un registro por evento (`eventId`): referencia, estado, total,
-  paquetes, ID y nickname del jugador. Nunca el correo ni el nombre del cliente.
-- **TayGameStore · Incidentes** — fallos de tareas, caídas y recuperaciones, eventos rechazados.
-- **TayGameStore · Estado** — último estado conocido de la tienda (lo usa la vigilancia para
-  avisarte solo cuando cambia).
-
-Las dos primeras filas de *Incidentes* dicen "PRUEBA de configuración (simulada)": son la
-comprobación de la vigilancia hecha al crearla.
-
-## Activar (unos 5 minutos)
+## Activar lo que falta (unos 5 minutos)
 
 En n8n → **Credentials** → **Add credential**:
 
-1. **TayGameStore · Llave de tareas** — tipo *Custom Auth* con plantilla (la que el flujo pide).
-   Encabezado `Authorization` con el valor `Bearer ` seguido de `CRON_SECRET`.
-2. **TayGameStore · Llave de eventos** — tipo *Header Auth*. Name: `Authorization`. Value:
-   `Bearer ` seguido de `EVENTS_WEBHOOK_SECRET`.
-3. **Gmail · taygamerstore** — tipo *Gmail OAuth2* → **Sign in with Google** con
+1. **Gmail · taygamerstore** — tipo _Gmail OAuth2_ → **Sign in with Google** con
    `taygamerstore@gmail.com`. Nunca escribas la contraseña de Gmail en n8n.
+2. **TayGameStore · Llave de eventos** — tipo _Header Auth_. Name: `Authorization`. Value:
+   `Bearer ` seguido de `EVENTS_WEBHOOK_SECRET`.
+3. **TayGameStore · Llave de tareas** — tipo _Custom Auth_ con plantilla (la que pide el nodo).
+   Encabezado `Authorization` con el valor `Bearer ` seguido de `CRON_SECRET`.
 
-Después abre cada flujo, selecciona su credencial en el nodo marcado en rojo y pulsa
-**Publish**. Orden recomendado: Pedidos → Tareas → Vigilancia.
+Después:
 
-> No publiques *Tareas* sin la llave correcta: la tienda responde 404 a llaves equivocadas y
-> su escudo anti-abuso puede bloquear temporalmente a quien insiste.
+- **Pedidos**: elige las credenciales 1 y 2 en sus nodos → **Publish**.
+- **Tareas**: elige la credencial 3 → **Publish**.
+- **Vigilancia** y **Errores**: elige la credencial 1 en el nodo de Gmail, actívalo (clic
+  derecho → _Activate_) → **Publish**.
+
+> No publiques _Tareas_ sin la llave correcta: la tienda responde 404 a llaves equivocadas y su
+> escudo anti-abuso puede bloquear temporalmente a quien insiste.
 
 ## Lado de la tienda (Render)
 
@@ -76,12 +99,12 @@ El evento que envía la tienda (`POST`, `Authorization: Bearer …`, `x-tgs-even
   "occurredAt": "2026-10-06T17:00:00.000Z",
   "order": {
     "reference": "TGS-…",
-    "status": "PAID",
+    "status": "estado actual del pedido al enviar",
     "totalCop": 25900,
     "currency": "COP",
     "expiresAt": "plazo para verificar o pagar (o null)",
     "playerUid": "…",
-    "nickname": "…",
+    "nickname": "… o null si aún no se verificó",
     "items": [{ "name": "100 + 10 Diamantes", "quantity": 2 }]
   }
 }
