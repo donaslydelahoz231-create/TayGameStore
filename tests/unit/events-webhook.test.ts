@@ -42,6 +42,7 @@ const payload: OrderEventPayload = {
     status: 'PAID',
     totalCop: 25_900,
     currency: 'COP',
+    expiresAt: null,
     playerUid: '765432100',
     nickname: 'Jugador',
     items: [{ name: '100 + 10 Diamantes', quantity: 2 }],

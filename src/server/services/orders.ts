@@ -23,6 +23,7 @@ import {
 } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
+import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -528,8 +529,15 @@ export async function createOrder(
           verification: lookup ? `proveedor:${lookup.provider}` : 'manual',
         },
       });
+      // Verificación manual: el operador debe saberlo enseguida (aviso a su automatización).
+      if (created.status === 'AWAITING_VERIFICATION') {
+        await enqueueOrderNotifications(deps, tx, created.id, 'awaiting_verification');
+      }
       return created;
     });
+    if (order.status === 'AWAITING_VERIFICATION') {
+      await deliverNotifications(deps, { orderId: order.id });
+    }
     return { order: await toPublicOrder(deps, deps.db, order), accessToken, created: true };
   } catch (error) {
     // Dos envíos simultáneos con la misma clave: el segundo choca con el UNIQUE y se resuelve

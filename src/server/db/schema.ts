@@ -530,6 +530,7 @@ export const NOTIFICATION_KINDS = [
   'order_paid_event',
   'order_delivered_event',
   'order_refunded_event',
+  'order_verification_event',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook'] as const;

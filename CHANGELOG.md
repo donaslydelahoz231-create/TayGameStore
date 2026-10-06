@@ -11,6 +11,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   entregado y reembolsado salen por la cola de avisos con id estable, llave Bearer, sin
   redirecciones y sin correo ni nombre del cliente. Flujos de n8n de tareas, vigilancia y
   registro de pedidos: `docs/n8n.md`.
+- Evento `order.awaiting_verification` al crear un pedido con verificación manual (con su
+  plazo): el dueño recibe al momento el aviso para verificar ID, nickname y región.
+- Catálogo de producción cargado con los precios del HTML original, aprobados por el
+  propietario el 2026-10-06 (registro de auditoría `product.created`).
 - Burbujas de soporte (WhatsApp y correo) que solo aparecen si el canal está configurado.
 - "Mis favoritos" en el menú de cuenta.
 - Panel "Estado de operación" con el estado real del servidor (antes, porcentajes fijos).

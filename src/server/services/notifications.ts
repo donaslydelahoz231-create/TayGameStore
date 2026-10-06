@@ -16,7 +16,9 @@ import type { ServiceDeps } from './context.js';
  * Avisos de un pedido (cola `notifications`):
  * - pagado → al dueño (Telegram y/o correo) y al cliente (correo);
  * - entregado → al cliente; reembolsado → al cliente;
- * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n).
+ * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n), más
+ *   "pedido por verificar" (nuevo pedido esperando que el operador verifique ID y nickname).
+ *   Ese evento solo va a la automatización del dueño, nunca al correo del cliente.
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
@@ -24,17 +26,19 @@ import type { ServiceDeps } from './context.js';
  * usar la tienda para enviar correos a una dirección ajena escribiéndola en un pedido sin pagar.
  */
 
-export type OrderEvent = 'paid' | 'delivered' | 'refunded';
+export type OrderEvent = 'awaiting_verification' | 'paid' | 'delivered' | 'refunded';
 
 type EventKind = Extract<NotificationKind, `${string}_event`>;
 type EmailKind = Exclude<NotificationKind, EventKind>;
 
 const EVENT_KINDS: Record<OrderEvent, EventKind> = {
+  awaiting_verification: 'order_verification_event',
   paid: 'order_paid_event',
   delivered: 'order_delivered_event',
   refunded: 'order_refunded_event',
 };
 const EVENT_NAMES: Record<EventKind, OrderEventName> = {
+  order_verification_event: 'order.awaiting_verification',
   order_paid_event: 'order.paid',
   order_delivered_event: 'order.delivered',
   order_refunded_event: 'order.refunded',
@@ -87,6 +91,7 @@ export async function enqueueOrderNotifications(
 interface OrderSnapshot {
   reference: string;
   status: string;
+  expiresAt: Date | null;
   totalCop: number;
   playerUid: string;
   nickname: string | null;
@@ -211,6 +216,7 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
     .select({
       reference: orders.publicRef,
       status: orders.status,
+      expiresAt: orders.expiresAt,
       totalCop: orders.totalCop,
       playerUid: orders.playerUid,
       nickname: orders.verifiedNickname,
@@ -241,6 +247,7 @@ function eventPayload(
       status: order.status,
       totalCop: order.totalCop,
       currency: 'COP',
+      expiresAt: order.expiresAt?.toISOString() ?? null,
       playerUid: order.playerUid,
       nickname: order.nickname,
       items: order.items,

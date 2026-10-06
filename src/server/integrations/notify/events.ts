@@ -8,7 +8,8 @@
  * duplica (en n8n, `upsert` por `eventId`).
  */
 
-export type OrderEventName = 'order.paid' | 'order.delivered' | 'order.refunded';
+export type OrderEventName =
+  'order.awaiting_verification' | 'order.paid' | 'order.delivered' | 'order.refunded';
 
 export interface OrderEventPayload {
   id: string;
@@ -19,6 +20,8 @@ export interface OrderEventPayload {
     status: string;
     totalCop: number;
     currency: 'COP';
+    /** Plazo del estado actual (verificar o pagar); null si no vence. */
+    expiresAt: string | null;
     playerUid: string;
     nickname: string | null;
     items: { name: string; quantity: number }[];

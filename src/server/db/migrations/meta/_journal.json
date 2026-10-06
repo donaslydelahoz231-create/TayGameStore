@@ -57,6 +57,13 @@
       "when": 1791306379328,
       "tag": "0007_notification_events",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791307730098,
+      "tag": "0008_verification_event",
+      "breakpoints": true
     }
   ]
 }

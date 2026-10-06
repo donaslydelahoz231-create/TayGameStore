@@ -22,7 +22,9 @@ confirmación explícita.
 ## Flujo implementado
 
 1. El cliente escribe el UID (6–12 dígitos). El servidor lo valida al crear el pedido.
-2. Orden en `AWAITING_VERIFICATION` con `verification_status = PENDING`.
+2. Orden en `AWAITING_VERIFICATION` con `verification_status = PENDING`. Si el webhook de
+   eventos está configurado, sale `order.awaiting_verification` hacia n8n y el dueño recibe un
+   Gmail "Verifica el ID …" con el plazo (`docs/n8n.md`).
 3. Operador (panel en su ruta secreta `ADMIN_PATH`, Google + TOTP): registra `VERIFIED` con nickname y región,
    o `NOT_FOUND` / `AMBIGUOUS` / `BLOCKED_ACCOUNT` (la orden pasa a `REJECTED`).
 4. El cliente ve **"Vas a recargar a: [nickname] — ID: [UID] — Región: [región]"** y elige

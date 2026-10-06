@@ -11,7 +11,7 @@ chats ni en GitHub).
 |---|---|---|---|
 | **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y, en Render Free, mantiene la tienda despierta. Si falla, lo anota en *Incidentes*. | **TayGameStore · Llave de tareas** |
 | **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready`. Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe a `taygamerstore@gmail.com`. | **Gmail · taygamerstore** |
-| **TayGameStore · Pedidos** | Cuando la tienda avisa | Recibe cada pedido pagado, entregado o reembolsado y lo guarda en la tabla *Pedidos* sin duplicados. Rechaza (y anota) lo que no tenga el formato de la tienda. | **TayGameStore · Llave de eventos** |
+| **TayGameStore · Pedidos** | Cuando la tienda avisa | Recibe cada pedido **por verificar**, pagado, entregado o reembolsado y lo guarda en la tabla *Pedidos* sin duplicados. Si el pedido espera verificación de ID o ya está pagado, te escribe por Gmail ("Verifica el ID …" / "Pedido pagado por entregar …") con UID, paquetes, total y plazo. Rechaza (y anota) lo que no tenga el formato de la tienda. | **TayGameStore · Llave de eventos** y **Gmail · taygamerstore** |
 
 ## Agente: TayGameStore · Cerebro de operaciones
 
@@ -72,13 +72,14 @@ El evento que envía la tienda (`POST`, `Authorization: Bearer …`, `x-tgs-even
 ```json
 {
   "id": "uuid estable del evento",
-  "event": "order.paid | order.delivered | order.refunded",
+  "event": "order.awaiting_verification | order.paid | order.delivered | order.refunded",
   "occurredAt": "2026-10-06T17:00:00.000Z",
   "order": {
     "reference": "TGS-…",
     "status": "PAID",
     "totalCop": 25900,
     "currency": "COP",
+    "expiresAt": "plazo para verificar o pagar (o null)",
     "playerUid": "…",
     "nickname": "…",
     "items": [{ "name": "100 + 10 Diamantes", "quantity": 2 }]

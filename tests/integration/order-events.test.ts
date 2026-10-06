@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { notifications, orders } from '../../src/server/db/schema.js';
@@ -115,15 +115,45 @@ async function payOrder(order: { reference: string; totalCop: number }, status =
   return paymentId;
 }
 
-const eventsOf = (reference: string) =>
+const allEventsOf = (reference: string) =>
   h.events.sent.filter((e) => e.order.reference === reference);
+/** Eventos posteriores a la verificación (el aviso "por verificar" tiene su propia prueba). */
+const eventsOf = (reference: string) =>
+  allEventsOf(reference).filter((e) => e.event !== 'order.awaiting_verification');
 const eventRows = (orderId: string) =>
   h.database.db
     .select()
     .from(notifications)
-    .where(and(eq(notifications.orderId, orderId), eq(notifications.channel, 'webhook')));
+    .where(
+      and(
+        eq(notifications.orderId, orderId),
+        eq(notifications.channel, 'webhook'),
+        ne(notifications.kind, 'order_verification_event'),
+      ),
+    );
 
 describe('eventos de pedidos hacia n8n', () => {
+  it('pedido nuevo por verificar → aviso order.awaiting_verification al momento', async () => {
+    const order = await readyOrder();
+    const [sent] = allEventsOf(order.reference);
+    expect(sent?.event).toBe('order.awaiting_verification');
+    expect(sent?.order).toMatchObject({
+      reference: order.reference,
+      status: 'AWAITING_VERIFICATION',
+      nickname: null,
+      totalCop: order.totalCop,
+    });
+    // El plazo para verificar viaja en el evento para que el dueño sepa cuánto tiene.
+    expect(Date.parse(sent?.order.expiresAt ?? '')).toBeGreaterThan(Date.now());
+    expect(JSON.stringify(sent)).not.toContain(order.email);
+    // Solo uno, aunque el pedido siga su camino.
+    await payOrder(order);
+    await runJob(h.deps, 'sendNotifications');
+    expect(
+      allEventsOf(order.reference).filter((e) => e.event === 'order.awaiting_verification'),
+    ).toHaveLength(1);
+  });
+
   it('sin pago confirmado no sale ningún evento', async () => {
     const order = await readyOrder();
     await payOrder(order, 'rejected');
@@ -141,6 +171,10 @@ describe('eventos de pedidos hacia n8n', () => {
     expect(sent).toHaveLength(1);
     const [row] = await eventRows(order.id);
     expect(row).toMatchObject({ kind: 'order_paid_event', status: 'SENT' });
+    const [saved] = await h.database.db
+      .select({ expiresAt: orders.expiresAt })
+      .from(orders)
+      .where(eq(orders.id, order.id));
     expect(sent[0]).toEqual({
       id: row?.id,
       event: 'order.paid',
@@ -150,6 +184,7 @@ describe('eventos de pedidos hacia n8n', () => {
         status: 'PAID',
         totalCop: order.totalCop,
         currency: 'COP',
+        expiresAt: saved?.expiresAt?.toISOString() ?? null,
         playerUid: expect.any(String) as string,
         nickname: 'NickEventos',
         items: [{ name: expect.any(String) as string, quantity: 2 }],
