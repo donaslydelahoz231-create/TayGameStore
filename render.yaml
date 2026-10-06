@@ -79,6 +79,11 @@ services:
         sync: false
       - key: SUPPORT_WHATSAPP
         sync: false
+      # Aviso por Telegram de cada pago confirmado (opcional; ver docs/salir-a-produccion.md).
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
 
 databases:
   - name: taygamestore-db

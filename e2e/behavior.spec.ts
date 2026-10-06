@@ -540,8 +540,24 @@ test.describe('panel de administración', () => {
     };
     await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     const admin = await context.newPage();
+    // Notificaciones del sistema observables: el permiso real lo concede el dueño en su navegador.
+    await admin.addInitScript(() => {
+      const notices: { title: string; body: string | undefined }[] = [];
+      Object.assign(window, { __notices: notices });
+      class RecordedNotification {
+        static permission = 'granted';
+        static requestPermission = () => Promise.resolve('granted');
+        constructor(title: string, options?: { body?: string }) {
+          notices.push({ title, body: options?.body });
+        }
+      }
+      Object.defineProperty(window, 'Notification', { value: RecordedNotification });
+    });
     await admin.goto(ADMIN_PATH);
     await expect(admin.locator('#admApp')).toBeVisible();
+    await expect(admin.locator('#admNotify')).toHaveText('Activar sonido de avisos');
+    await admin.locator('#admNotify').click();
+    await expect(admin.locator('#admNotify')).toBeDisabled();
     await admin.locator('#admSearch').fill(ref);
     await admin.locator('#admReload').click();
     await admin.locator('#admOrders tr', { hasText: ref }).click();
@@ -559,7 +575,13 @@ test.describe('panel de administración', () => {
     await page.waitForURL(/\/#seguimiento$/);
     await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
 
+    // El panel avisa del pago nuevo: notificación del sistema y contador en el título.
     await admin.locator('#admReload').click();
+    await expect(admin).toHaveTitle(/^\(\d+\) Pagados por entregar · /);
+    const notices = await admin.evaluate(
+      () => (window as unknown as { __notices: { title: string }[] }).__notices,
+    );
+    expect(notices.map((n) => n.title)).toContain('Pedido pagado por entregar');
     await admin.locator('[data-f="claim"]').click();
     await admin.locator('[data-f="start"]').click();
     await admin.locator('#fEvidence').fill('Recarga hecha en el panel del proveedor');

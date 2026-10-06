@@ -3,6 +3,7 @@ import type { AppConfig } from '../config/env.js';
 import type { Db, DbOrTx } from '../db/client.js';
 import { auditEvents } from '../db/schema.js';
 import { AppError } from '../plugins/errors.js';
+import type { OwnerNotifier } from '../integrations/notify/owner.js';
 import type { PaymentGateway } from '../integrations/payments/gateway.js';
 
 /** Dependencias compartidas por los servicios de dominio. */
@@ -12,6 +13,8 @@ export interface ServiceDeps {
   now: () => Date;
   gateway: PaymentGateway | undefined;
   log: FastifyBaseLogger;
+  /** Aviso al dueño cuando un pedido queda pagado. Opcional: sin él, solo avisa el panel. */
+  notifier?: OwnerNotifier | undefined;
 }
 
 /** Quién ejecuta una acción. Nunca se toma del cuerpo de la petición. */

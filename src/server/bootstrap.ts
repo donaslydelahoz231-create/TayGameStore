@@ -3,6 +3,7 @@ import { buildAppWithDeps, type BuiltApp } from './app.js';
 import type { AppConfig } from './config/env.js';
 import { createDatabase, type Database } from './db/client.js';
 import { HttpGoogleClient } from './integrations/google/oidc.js';
+import { TelegramOwnerNotifier } from './integrations/notify/owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
 import { DiscordClient, FacebookClient } from './integrations/social/providers.js';
 
@@ -32,6 +33,9 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     db: database?.db,
     paymentGateway: config.mercadoPago
       ? new MercadoPagoPaymentGateway(config.mercadoPago)
+      : undefined,
+    ownerNotifier: config.ownerNotify.telegram
+      ? new TelegramOwnerNotifier(config.ownerNotify.telegram)
       : undefined,
     googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
     socialClients: {

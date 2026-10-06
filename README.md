@@ -80,6 +80,7 @@ con Google/Discord/Facebook crea una sesión de prueba. Un aviso fijo lo indica 
 | `npm run test:visual` | Referencias visuales (360/768/1280 px) |
 | `npm run build` | Build de frontend (tienda + admin) y servidor |
 | `npm run db:generate` | Genera una migración desde `src/server/db/schema.ts` (revísala) |
+| `npm run golive:check -- --entorno` / `-- --url https://…` | Comprueba si la tienda está lista para cobrar dinero real (solo lee; nunca imprime secretos): [`docs/salir-a-produccion.md`](docs/salir-a-produccion.md) |
 | `npm run mp:sandbox -- …` | Prueba Mercado Pago con **tu cuenta de prueba** (se niega si `MP_MODE` no es `sandbox`): [`docs/sandbox-mercadopago.md`](docs/sandbox-mercadopago.md) |
 | `npm run perf:orders` / `perf:api` | Mediciones de rendimiento reproducibles (base `_test`) |
 | `npm run check` | lint + formato + typecheck + tests + build |

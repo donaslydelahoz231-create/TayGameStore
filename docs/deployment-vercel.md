@@ -8,7 +8,7 @@ Todo lo demás es igual: mismas variables de entorno, mismo código, mismas prue
 |---|---|
 | Build | `sh tools/vercel/build.sh`: `npm run build` y, si hay `DATABASE_URL`, las migraciones |
 | Base de datos | PostgreSQL de **Neon** desde *Storage* (añade `DATABASE_URL` al proyecto) |
-| Tareas programadas | Vercel Cron llama a `/api/internal/jobs` con `Authorization: Bearer $CRON_SECRET` (en Hobby, una vez al día; en Pro puede ser cada pocos minutos) |
+| Tareas programadas | Vercel Cron llama a `/api/internal/jobs` con `Authorization: Bearer $CRON_SECRET` (en Hobby, una vez al día; en Pro puede ser cada pocos minutos) y el flujo de GitHub `tareas.yml` lo llama cada 10 minutos (paso 5) |
 | Rate limiting y escudo | En memoria de cada instancia (como en Render, pero Vercel puede abrir varias) |
 
 ## Plan Hobby (gratis) o Pro
@@ -30,3 +30,7 @@ condiciones y precios vigentes en vercel.com antes de cobrar a clientes.
    dirección (`/auth/google/callback`, `/api/webhooks/mercadopago`, …).
 4. Vigilancia (`docs/autorreparacion.md`): Settings → Git → **Deploy Hooks** → crea uno y
    guárdalo en GitHub como secreto `DEPLOY_HOOK_URL`; `PRODUCTION_URL` como variable.
+5. Tareas cada 10 minutos: en GitHub → *Settings → Secrets and variables → Actions*, crea el
+   secreto `CRON_SECRET` con **el mismo valor** que en Vercel (con `PRODUCTION_URL` del paso 4).
+   Sin esto, un pago cuyo webhook se pierda no se concilia hasta la ejecución diaria (o hasta
+   que el cliente vuelva a la tienda, o pulses "Conciliar con Mercado Pago" en el pedido del panel).

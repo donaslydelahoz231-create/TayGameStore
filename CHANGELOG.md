@@ -17,6 +17,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
   CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
 
+### Salida a producción
+
+- Aviso al dueño cuando Mercado Pago confirma un pago: notificación del sistema, sonido y
+  contador en el título del panel (también en segundo plano), y mensaje de Telegram opcional
+  (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Se envía una sola vez por pedido, después de
+  guardar el pago; si el canal falla, el pago queda igual.
+- Alerta "Pagados por entregar" en el panel.
+- `npm run golive:check` revisa las variables de producción y la tienda publicada
+  (`docs/salir-a-produccion.md`).
+- Flujo de GitHub `tareas.yml`: en Vercel dispara las tareas del servidor cada 10 minutos
+  (conciliación de pagos sin webhook, vencimientos, reintentos); antes, en Hobby, una vez al día.
+
 ### Seguridad del panel
 
 - Panel en una dirección secreta (`ADMIN_PATH`, obligatoria en producción con `ADMIN_EMAILS`):

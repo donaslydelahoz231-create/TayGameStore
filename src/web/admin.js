@@ -107,6 +107,7 @@ async function boot() {
   if (!me.admin.mfaEnabled) return show('admMfaSetup');
   if (!me.admin.mfaVerified) return show('admMfaVerify');
   show('admApp');
+  updateNotifyButton();
   await loadOrdersTab();
 }
 
@@ -180,11 +181,77 @@ document.querySelectorAll('.adm-tabs button').forEach((button) =>
   }),
 );
 
+// ── Aviso de pedidos pagados ──
+// Con el panel abierto (aunque esté en segundo plano), cada pedido que Mercado Pago confirma
+// suena, sale como notificación del sistema y queda contado en el título de la pestaña.
+
+const BASE_TITLE = document.title;
+let lastPaidToDeliver = null;
+let chime = null;
+
+function updateNotifyButton() {
+  const button = $('admNotify');
+  if (!('Notification' in window)) return void (button.hidden = true);
+  button.hidden = $('admApp').hidden;
+  const state = Notification.permission;
+  const done = state !== 'default' && chime !== null;
+  button.textContent = done
+    ? state === 'granted'
+      ? 'Avisos activados'
+      : 'Sonido activado (notificaciones bloqueadas en el navegador)'
+    : state === 'default'
+      ? 'Activar avisos de pedidos pagados'
+      : 'Activar sonido de avisos';
+  button.disabled = done;
+}
+
+$('admNotify').onclick = async () => {
+  // El sonido solo puede prepararse tras un gesto del usuario (política de autoplay).
+  chime ??= new AudioContext();
+  if (Notification.permission === 'default') await Notification.requestPermission();
+  updateNotifyButton();
+};
+
+function playChime() {
+  if (!chime) return;
+  const at = chime.currentTime;
+  for (const [i, freq] of [880, 1320].entries()) {
+    const osc = chime.createOscillator();
+    const gain = chime.createGain();
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, at + i * 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.2, at + i * 0.18 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + i * 0.18 + 0.3);
+    osc.connect(gain).connect(chime.destination);
+    osc.start(at + i * 0.18);
+    osc.stop(at + i * 0.18 + 0.32);
+  }
+}
+
+function announcePaid(total) {
+  document.title = total > 0 ? `(${total}) Pagados por entregar · ${BASE_TITLE}` : BASE_TITLE;
+  const fresh = lastPaidToDeliver === null ? 0 : total - lastPaidToDeliver;
+  lastPaidToDeliver = total;
+  if (fresh <= 0) return;
+  playChime();
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Pedido pagado por entregar', {
+      body:
+        fresh === 1
+          ? 'Mercado Pago confirmó un pago. Entrega los diamantes desde el panel.'
+          : `Mercado Pago confirmó ${fresh} pagos. Entrega los diamantes desde el panel.`,
+      tag: 'tgs-paid',
+    });
+  }
+}
+
 // ── Pedidos ──
 
 async function loadAlerts() {
   const a = await call('/api/admin/alerts');
+  announcePaid(Number(a.paidToDeliver) || 0);
   const items = [
+    ['paidToDeliver', 'Pagados por entregar', 'ok'],
     ['awaitingVerification', 'Por verificar', 'warn'],
     ['paidWithoutDelivery', 'Pagados sin entregar (+30 min)', 'bad'],
     ['needsReview', 'En revisión', 'bad'],
@@ -481,5 +548,8 @@ async function loadAudit() {
 boot();
 // Refresco automático de alertas y pedidos cada minuto (sin solapamiento).
 setInterval(() => {
-  if (!$('admApp').hidden && !document.hidden) loadOrdersTab();
+  if ($('admApp').hidden) return;
+  // En segundo plano solo se consultan las alertas: bastan para avisar de pagos nuevos.
+  if (document.hidden) void loadAlerts().catch(() => {});
+  else loadOrdersTab();
 }, 60_000);

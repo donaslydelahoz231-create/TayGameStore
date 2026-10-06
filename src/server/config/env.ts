@@ -165,6 +165,16 @@ const envSchema = z
       .regex(/^\+?\d{8,15}$/)
       .optional(),
     SUPPORT_EMAIL: z.email().optional(),
+
+    /** Aviso al dueño por Telegram cuando un pedido queda pagado (opcional). */
+    TELEGRAM_BOT_TOKEN: z
+      .string()
+      .regex(/^\d{5,15}:[A-Za-z0-9_-]{30,64}$/, 'formato de token de @BotFather')
+      .optional(),
+    TELEGRAM_CHAT_ID: z
+      .string()
+      .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
+      .optional(),
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
@@ -175,6 +185,9 @@ const envSchema = z
     }
     if (Boolean(env.FACEBOOK_APP_ID) !== Boolean(env.FACEBOOK_APP_SECRET)) {
       issue('FACEBOOK_APP_SECRET', 'FACEBOOK_APP_ID y FACEBOOK_APP_SECRET van juntos');
+    }
+    if (Boolean(env.TELEGRAM_BOT_TOKEN) !== Boolean(env.TELEGRAM_CHAT_ID)) {
+      issue('TELEGRAM_CHAT_ID', 'TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID van juntos');
     }
     if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
       issue('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET van juntos');
@@ -277,6 +290,8 @@ export interface AppConfig {
     termsVersion: string;
   };
   support: { whatsapp: string | undefined; email: string | undefined };
+  /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
+  ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
 }
 
 export class ConfigError extends Error {
@@ -385,5 +400,11 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       termsVersion: env.TERMS_VERSION,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
+    ownerNotify: {
+      telegram:
+        env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID
+          ? { botToken: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
+          : undefined,
+    },
   };
 }

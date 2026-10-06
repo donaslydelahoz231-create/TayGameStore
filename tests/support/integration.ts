@@ -9,6 +9,7 @@ import type { GoogleClient, GoogleIdentity } from '../../src/server/integrations
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
+import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
 import type { AbuseShield } from '../../src/server/services/shield.js';
@@ -61,6 +62,7 @@ export interface Harness {
   deps: ServiceDeps;
   database: Database;
   gateway: FakePaymentGateway;
+  notifier: RecordingOwnerNotifier;
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
@@ -80,6 +82,7 @@ export async function createHarness(
   const url = testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
+  const notifier = new RecordingOwnerNotifier();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
   const discord = new FakeSocialClient('discord');
@@ -108,6 +111,7 @@ export async function createHarness(
     googleClient: google,
     socialClients: { discord, facebook },
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
+    ownerNotifier: notifier,
     now: () => clock.now,
   });
   if (!deps) throw new Error('sin dependencias');
@@ -116,6 +120,7 @@ export async function createHarness(
     deps,
     database,
     gateway,
+    notifier,
     google,
     verifier,
     shield,

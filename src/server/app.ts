@@ -8,6 +8,7 @@ import { registerRequestContext } from './http/context.js';
 import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
+import type { OwnerNotifier } from './integrations/notify/owner.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
 import { adminRoutes } from './modules/admin/routes.js';
@@ -40,6 +41,8 @@ export interface AppDependencies {
   socialClients?: Partial<Record<SocialProvider, SocialClient>> | undefined;
   /** Verificación automática de jugadores. Sin ella, la verificación es manual (operador). */
   playerVerifier?: PlayerVerifier | undefined;
+  /** Aviso al dueño de pedidos pagados (Telegram si está configurado). */
+  ownerNotifier?: OwnerNotifier | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
 }
@@ -57,7 +60,7 @@ function toTrustProxyOption(
 
 /** Documentos legales enlazados desde la casilla de aceptación del checkout. */
 export const LEGAL_PAGES = ['terminos.html', 'privacidad.html'] as const;
-const LEGAL_PLACEHOLDER = '[COMPLETAR';
+export const LEGAL_PLACEHOLDER = '[COMPLETAR';
 
 /**
  * En producción no se vende con los textos legales a medio hacer: si las ventas están activas
@@ -123,6 +126,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         now: input.now ?? (() => new Date()),
         gateway: config.flags.paymentsEnabled ? input.paymentGateway : undefined,
         log: app.log,
+        notifier: input.ownerNotifier,
       }
     : undefined;
 

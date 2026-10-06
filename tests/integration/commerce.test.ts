@@ -497,6 +497,70 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
     expect(view).toMatchObject({ status: 'PAID', payment: { status: 'APPROVED', canPay: false } });
   });
 
+  it('pago confirmado → un único aviso al dueño con lo que debe entregar', async () => {
+    const ready = await readyToPay();
+    await pay(ready.order.reference, ready.cookies);
+    const paymentId = '900000000101';
+    h.gateway.setPayment({
+      id: paymentId,
+      externalReference: ready.order.reference,
+      amount: ready.order.totalCop,
+    });
+    const before = h.notifier.sent.length;
+    expect((await webhook(paymentId)).statusCode).toBe(200);
+    const notices = h.notifier.sent.slice(before);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({
+      reference: ready.order.reference,
+      totalCop: ready.order.totalCop,
+      nickname: 'JugadorPro',
+      items: [{ quantity: 2 }],
+    });
+    // Reintentos de Mercado Pago y la conciliación no repiten el aviso.
+    await Promise.all([webhook(paymentId), webhook(paymentId)]);
+    await inject({
+      method: 'POST',
+      url: `/api/admin/orders/${ready.id}/reconcile`,
+      headers: CSRF,
+      cookies: admin,
+    });
+    expect(h.notifier.sent.length).toBe(before + 1);
+  });
+
+  it('sin pago confirmado no hay aviso: rechazado o con monto distinto', async () => {
+    const before = h.notifier.sent.length;
+    for (const [paymentId, overrides] of [
+      ['900000000102', { status: 'rejected' }],
+      ['900000000103', { amount: 1 }],
+    ] as const) {
+      const ready = await readyToPay();
+      await pay(ready.order.reference, ready.cookies);
+      h.gateway.setPayment({
+        id: paymentId,
+        externalReference: ready.order.reference,
+        amount: ready.order.totalCop,
+        ...overrides,
+      });
+      expect((await webhook(paymentId)).statusCode).toBe(200);
+      expect((await dbOrder(ready.id))?.status).not.toBe('PAID');
+    }
+    expect(h.notifier.sent.length).toBe(before);
+  });
+
+  it('si el canal de aviso falla, el pago queda guardado igual y el webhook responde 200', async () => {
+    const ready = await readyToPay();
+    await pay(ready.order.reference, ready.cookies);
+    const paymentId = '900000000104';
+    h.gateway.setPayment({
+      id: paymentId,
+      externalReference: ready.order.reference,
+      amount: ready.order.totalCop,
+    });
+    h.notifier.failNext = true;
+    expect((await webhook(paymentId)).statusCode).toBe(200);
+    expect((await dbOrder(ready.id))?.status).toBe('PAID');
+  });
+
   it('webhook + retorno del navegador simultáneos convergen', async () => {
     const ready = await readyToPay();
     await pay(ready.order.reference, ready.cookies);

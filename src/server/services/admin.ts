@@ -446,6 +446,7 @@ export async function alertSummary(deps: ServiceDeps) {
     [review],
     [needsRefund],
     [paidWaiting],
+    [paidToDeliver],
     [pendingLong],
     [awaitingVerification],
     [invalidWebhooks],
@@ -459,6 +460,7 @@ export async function alertSummary(deps: ServiceDeps) {
       .select({ n: count() })
       .from(orders)
       .where(and(eq(orders.status, 'PAID'), lt(orders.updatedAt, paidWaitingSince))),
+    deps.db.select({ n: count() }).from(orders).where(eq(orders.status, 'PAID')),
     deps.db
       .select({ n: count() })
       .from(payments)
@@ -507,6 +509,7 @@ export async function alertSummary(deps: ServiceDeps) {
     needsReview: review?.n ?? 0,
     needsRefund: needsRefund?.n ?? 0,
     paidWithoutDelivery: paidWaiting?.n ?? 0,
+    paidToDeliver: paidToDeliver?.n ?? 0,
     paymentsPendingTooLong: pendingLong?.n ?? 0,
     awaitingVerification: awaitingVerification?.n ?? 0,
     invalidWebhooks24h: invalidWebhooks?.n ?? 0,
