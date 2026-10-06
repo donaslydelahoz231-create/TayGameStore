@@ -41,7 +41,10 @@ export async function preparePage(page: Page, options: PrepareOptions = {}): Pro
       };
     });
   }
-  await page.route(GOOGLE_FONTS_URL, (route) => {
+  // En todo el contexto: las pestañas que abra la prueba (context.newPage) también usan las
+  // fuentes locales. Sin esto, una segunda pestaña iba a Google Fonts y, si la red de la CI
+  // tardaba, el evento "load" no llegaba y la prueba caducaba (Firefox, CI 35).
+  await page.context().route(GOOGLE_FONTS_URL, (route) => {
     const entry = fontsManifest[route.request().url()];
     if (!entry) return route.abort();
     return route.fulfill({
