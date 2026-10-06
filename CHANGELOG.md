@@ -30,6 +30,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
   CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
 
+### Corregido
+
+- Base de datos: `sslmode=require` (y `prefer`/`verify-ca`) se fija como `verify-full`, el
+  comportamiento que `pg` 8 ya aplicaba. Quita el aviso de seguridad en cada arranque de Render
+  y evita que `pg` 9 debilite la verificación del certificado.
+
 ### Salida a producción
 
 - Publicación gratuita: `render.yaml` pasa al plan Free de Render con PostgreSQL de Neon
