@@ -104,3 +104,18 @@ a {
 code {
   color: #b9f5dc;
 }
+
+/* Foco visible con teclado y enlaces de 44 px en pantallas táctiles (guías de Apple). */
+a:focus-visible {
+  outline: 2px solid #37d6ff;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (pointer: coarse) {
+  .legal-header a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

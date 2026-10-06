@@ -96,9 +96,12 @@ pre {
   cursor: not-allowed;
 }
 .adm-btn:focus-visible,
+a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
@@ -276,5 +279,20 @@ label {
   * {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Pantallas táctiles: controles de 44 px (guías de Apple, accessibility.md › Mobility). */
+@media (pointer: coarse) {
+  .adm-btn,
+  .adm-tabs button,
+  button,
+  input:not([type='checkbox']):not([type='radio']),
+  select {
+    min-height: 44px;
+  }
+  input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
   }
 }

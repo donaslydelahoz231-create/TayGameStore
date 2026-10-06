@@ -262,3 +262,63 @@ test('legibilidad: ningún texto visible bajo 11 px y foco visible con teclado',
     )
     .toBeGreaterThanOrEqual(2);
 });
+
+test('panel y páginas legales: texto legible y controles táctiles de 44 px', async ({
+  browser,
+  browserName,
+}) => {
+  // Misma revisión que la tienda (guías de Apple): 11 px mínimo y 44 px en pantallas táctiles.
+  test.skip(browserName === 'firefox', 'Firefox no emula un puntero táctil (pointer: coarse)');
+  const touch = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await touch.newPage();
+  await preparePage(page);
+  const audit = () =>
+    page.evaluate(() => {
+      const visible = (el: Element) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && !el.closest('[hidden],[aria-hidden="true"]');
+      };
+      const tiny = Array.from(document.querySelectorAll('body *')).filter(
+        (el) =>
+          visible(el) &&
+          Array.from(el.childNodes).some(
+            (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 1,
+          ) &&
+          parseFloat(getComputedStyle(el).fontSize) < 11,
+      ).length;
+      // Controles propios (los enlaces dentro de un párrafo quedan exentos, como en WCAG 2.5.8).
+      const small = Array.from(document.querySelectorAll('button, input, select, nav a'))
+        .filter(visible)
+        .filter((el) => {
+          const box = el.matches('input[type="checkbox"]') ? 22 : 44;
+          return el.getBoundingClientRect().height < box - 0.5;
+        })
+        .map((el) => `${el.tagName.toLowerCase()}#${el.id}`);
+      return { tiny, small };
+    });
+  try {
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    for (const path of ['/terminos.html', '/privacidad.html', '/admin.html']) {
+      await page.goto(path);
+      expect(await audit(), path).toEqual({ tiny: 0, small: [] });
+    }
+    const session = await page.request.post('/__e2e__/admin-session', {
+      data: {},
+      headers: { 'x-tgs-csrf': '1' },
+    });
+    const { token } = (await session.json()) as { token: string };
+    await touch.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
+    await page.goto('/admin.html');
+    await expect(page.locator('#admApp')).toBeVisible();
+    for (const tab of ['orders', 'products', 'blocklist', 'audit']) {
+      await page.locator(`[data-tab="${tab}"]`).click();
+      expect(await audit(), `panel: ${tab}`).toEqual({ tiny: 0, small: [] });
+    }
+  } finally {
+    await touch.close();
+  }
+});
