@@ -35,7 +35,7 @@
   border-radius: 999px;
   background: rgba(8, 14, 38, 0.75);
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   white-space: nowrap;
 }
 .service-pill > i,
@@ -131,7 +131,7 @@
   line-height: 1.02;
 }
 .account-btn small {
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -186,7 +186,7 @@
   padding: 0 4px;
   border-radius: 999px;
   background: var(--violet);
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
   font-style: normal;
   box-shadow: 0 0 14px rgba(139, 61, 255, 0.5);
 }
@@ -221,7 +221,7 @@
 .account-user small {
   display: block;
   color: var(--muted);
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
 }
 .menu-rule {
   height: 1px;
@@ -302,7 +302,7 @@
   border-radius: 8px;
   background: #070c24;
   color: var(--ink);
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
 }
 .search-result small {
   color: var(--muted);

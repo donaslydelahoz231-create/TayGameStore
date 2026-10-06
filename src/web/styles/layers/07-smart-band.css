@@ -30,6 +30,6 @@
 .smart-band p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.63rem;
+  font-size: 0.6875rem;
   max-width: 72ch;
 }

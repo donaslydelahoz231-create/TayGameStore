@@ -95,7 +95,7 @@
   background: #070c24;
   color: var(--muted);
   font-family: var(--display);
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
 .result-timeline span.on {
@@ -106,6 +106,6 @@
 }
 .result-timeline b {
   color: var(--muted);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
   font-weight: 700;
 }

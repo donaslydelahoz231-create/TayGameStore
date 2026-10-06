@@ -39,7 +39,7 @@
   border-radius: 12px 12px 4px 12px;
   background: #0b1233;
   color: var(--ink);
-  font: 800 0.66rem var(--display);
+  font: 800 0.6875rem var(--display);
   letter-spacing: 0.03em;
   white-space: nowrap;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);

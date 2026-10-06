@@ -99,7 +99,7 @@
 .eyebrow {
   font-family: var(--display);
   font-weight: 800;
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.14em;
   color: var(--cyan);
   text-transform: uppercase;
@@ -197,7 +197,7 @@
 }
 .hero-stats span {
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
 }
 .hero-panel {
   position: relative;
@@ -227,7 +227,7 @@
   justify-content: space-between;
   align-items: center;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
 }
 .live-tag {
   display: inline-flex;
@@ -285,7 +285,7 @@
 }
 .hero-panel-copy small {
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
 }
 .hero-panel-copy h3 {
   margin: 4px 0 5px;
@@ -296,7 +296,7 @@
 .hero-panel-copy p {
   margin: 0;
   color: #aab6e5;
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   max-width: 27ch;
 }
 .meter-list {
@@ -311,7 +311,7 @@
 }
 .meter-list span,
 .meter-list b {
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
   color: var(--muted);
 }
 .meter-list b {

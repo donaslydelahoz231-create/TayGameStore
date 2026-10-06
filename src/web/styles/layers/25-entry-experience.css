@@ -60,7 +60,7 @@
   align-items: center;
   gap: 8px;
   color: var(--cyan);
-  font: 800 0.58rem/1 var(--display);
+  font: 800 0.6875rem/1 var(--display);
   letter-spacing: 0.16em;
 }
 .entry-kicker span {
@@ -151,7 +151,7 @@
   flex-wrap: wrap;
   margin: 18px auto 20px;
   color: var(--muted);
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
 }
 .entry-status .pulse {
   width: 7px;
@@ -173,7 +173,7 @@
 .entry-status em {
   font-style: normal;
   color: var(--muted2);
-  font: 800 0.49rem var(--display);
+  font: 800 0.6875rem var(--display);
   letter-spacing: 0.07em;
 }
 .entry-cta {
@@ -211,7 +211,7 @@
   flex-wrap: wrap;
   margin-top: 16px;
   color: var(--muted2);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 .entry-legal span {
   display: inline-flex;
@@ -228,8 +228,8 @@
   right: 0;
   bottom: 18px;
   text-align: center;
-  color: rgba(143, 155, 201, 0.42);
-  font: 700 0.5rem var(--display);
+  color: var(--muted2);
+  font: 700 0.6875rem var(--display);
   letter-spacing: 0.09em;
 }
 .entry-locked {
@@ -264,7 +264,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   text-decoration: none;
-  font: 800 0.62rem var(--display);
+  font: 800 0.6875rem var(--display);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -325,12 +325,12 @@
 }
 .support-readonly b {
   display: block;
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
 }
 .support-readonly small {
   display: block;
   color: var(--muted);
-  font-size: 0.53rem;
+  font-size: 0.6875rem;
 }
 .support-backend-state {
   display: inline-flex;
@@ -340,7 +340,7 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--muted);
-  font: 800 0.56rem var(--display);
+  font: 800 0.6875rem var(--display);
   white-space: nowrap;
 }
 .support-backend-state i {
@@ -422,7 +422,7 @@
   }
   .entry-footer {
     bottom: 9px;
-    font-size: 0.45rem;
+    font-size: 0.6875rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {

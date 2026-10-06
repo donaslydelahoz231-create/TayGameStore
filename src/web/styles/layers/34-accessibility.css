@@ -1,0 +1,90 @@
+/*
+ * Accesibilidad (revisión con las guías de Apple, HIG):
+ *  - foco visible con teclado en todos los controles (accessibility.md › Mobility),
+ *  - controles táctiles de 44 px (accessibility.md › Mobility: 44x44 pt por defecto en móvil),
+ *  - respuesta a "Aumentar contraste" y "Reducir transparencia" del sistema
+ *    (accessibility.md › Vision; color.md › Best practices).
+ * La identidad (colores neón, Oxanium, animaciones) no cambia.
+ */
+
+/* Anillo de foco de la marca: solo con teclado (:focus-visible), nunca al tocar o hacer clic. */
+:where(a[href], button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+:where(input, select, textarea):focus-visible {
+  outline-offset: 1px;
+}
+
+/* Pantallas táctiles: los controles pequeños crecen hasta 44 px sin cambiar su estilo. */
+@media (pointer: coarse) {
+  .header-icon,
+  .account-btn,
+  .cart-btn,
+  .fav-btn,
+  .add-btn,
+  .tariff-toggle button,
+  .qty button,
+  .cart-controls button,
+  .drawer-controls button,
+  .favorite-actions button,
+  #closeSearch,
+  [data-close] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .btn,
+  .support-mini .btn,
+  .brand,
+  #backToCatalog,
+  .faq summary,
+  input:not([type='checkbox']):not([type='radio']),
+  select {
+    min-height: 44px;
+  }
+  /* La casilla de términos: toda la frase es pulsable; la casilla, además, se ve mejor. */
+  .consent input[type='checkbox'] {
+    flex: none;
+    width: 22px;
+    height: 22px;
+  }
+  .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+/* Paso 02: texto blanco sobre el degradado azul→cian bajaba a 1,5:1; oscuro como 04 y 05. */
+.step.blue {
+  color: #04122b;
+}
+
+/* "catálogo disponible" en la pantalla de entrada (tamaño relativo que quedaba en 9 px). */
+.entry-status small {
+  font-size: 0.6875rem;
+}
+
+/* "Aumentar contraste": textos secundarios y bordes más marcados. */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #c3cbec;
+    --muted2: #aab5e2;
+    --line: #5b67a3;
+  }
+}
+
+/* "Reducir transparencia": paneles de vidrio opacos, sin desenfoque. */
+@media (prefers-reduced-transparency: reduce) {
+  * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .header,
+  .modal,
+  .drawer,
+  .btn.glass,
+  .support-float-btn {
+    background-color: var(--panel) !important;
+  }
+}

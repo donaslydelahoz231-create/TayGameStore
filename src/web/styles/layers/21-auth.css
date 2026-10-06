@@ -9,7 +9,7 @@
   margin: 2px 0 8px;
   color: var(--muted);
   font-family: var(--display);
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.12em;
 }
 .auth-social-title span {
@@ -67,11 +67,11 @@
   display: block;
 }
 .oauth-btn b {
-  font-size: 0.67rem;
+  font-size: 0.6875rem;
   color: var(--ink);
 }
 .oauth-btn small {
-  font-size: 0.52rem;
+  font-size: 0.6875rem;
   color: var(--muted);
 }
 .oauth-btn.disabled {
@@ -82,7 +82,7 @@
   align-items: center;
   gap: 8px;
   color: var(--muted2);
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
   margin: 13px 0;
 }
 .auth-divider:before,
@@ -109,7 +109,7 @@
 .login-oauth-note {
   margin-top: 7px;
   color: var(--muted);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 @media (max-width: 520px) {
   .oauth-grid {
@@ -122,6 +122,6 @@
     margin-left: 0;
   }
   .oauth-btn small {
-    font-size: 0.49rem;
+    font-size: 0.6875rem;
   }
 }

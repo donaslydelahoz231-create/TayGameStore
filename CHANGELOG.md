@@ -17,6 +17,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
   CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
 
+### Accesibilidad y diseño (revisión con las guías de Apple, HIG)
+
+- Ningún texto bajo 11 px (había 163 en móvil, el menor de 7,2 px); `--muted2` de 3,99:1 a
+  5,34:1 sobre paneles; paso "02" de 1,5:1 a ≥5,5:1; pie de la entrada de 2,1:1 a 5,8:1.
+- Anillo de foco cian en todos los controles con teclado (44 de 44).
+- Controles táctiles de 44 px en pantallas táctiles (había 68 por debajo).
+- Respuesta a "Aumentar contraste" y "Reducir transparencia" del sistema.
+- La numeración 01–04 queda solo para los pasos de compra (Lab, Soporte y FAQ sin número).
+
 ### Rendimiento
 
 - Arranque y fluidez sin quitar animaciones: las que no se ven (fuera de pantalla, tras la

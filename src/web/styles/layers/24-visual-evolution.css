@@ -353,7 +353,7 @@ body:before {
   -webkit-backdrop-filter: blur(9px);
   backdrop-filter: blur(9px);
   color: #8fa0ca;
-  font: 700 0.58rem var(--display);
+  font: 700 0.6875rem var(--display);
   letter-spacing: 0.09em;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
   pointer-events: none;
@@ -441,7 +441,7 @@ body:before {
   align-items: flex-start;
   gap: 8px;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
   line-height: 1.35;
 }
 .consent input {

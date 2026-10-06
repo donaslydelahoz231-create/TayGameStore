@@ -23,7 +23,7 @@
 .footer-brand small {
   display: block;
   color: var(--muted);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 .footer-links {
   display: flex;
@@ -34,11 +34,11 @@
 .footer-links a {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
   font-weight: 700;
 }
 .footer-copy {
   color: var(--muted2);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
   text-align: right;
 }

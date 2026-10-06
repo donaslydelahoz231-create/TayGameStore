@@ -15,7 +15,7 @@
   border-radius: 10px;
   background: #11172b;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.36);
-  font-size: 0.63rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   animation: toastIn 0.18s ease;
 }

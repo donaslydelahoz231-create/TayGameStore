@@ -68,15 +68,15 @@
 }
 .drawer-entry b {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
 }
 .drawer-entry small {
   display: block;
   color: var(--muted);
-  font-size: 0.55rem;
+  font-size: 0.6875rem;
 }
 .drawer-entry strong {
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
   color: var(--cyan);
 }
 .drawer-empty {
@@ -84,7 +84,7 @@
   border: 1px dashed var(--line);
   border-radius: 10px;
   color: var(--muted);
-  font-size: 0.63rem;
+  font-size: 0.6875rem;
   text-align: center;
 }
 .drawer-bottom {
@@ -100,7 +100,7 @@
 }
 .drawer-total span {
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
 }
 .drawer-total b {
   font-family: var(--display);

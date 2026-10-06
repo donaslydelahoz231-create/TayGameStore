@@ -58,7 +58,7 @@
 .invoice-brand small {
   display: block;
   color: var(--muted);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
 }
 .invoice-ref {
   text-align: right;
@@ -72,7 +72,7 @@
 .invoice-ref span {
   display: block;
   color: var(--muted);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
 }
 .invoice-grid {
   display: grid;
@@ -83,12 +83,12 @@
 .invoice-grid small {
   display: block;
   color: var(--muted);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 .invoice-grid b {
   display: block;
   margin-top: 2px;
-  font-size: 0.64rem;
+  font-size: 0.6875rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -109,7 +109,7 @@
 .invoice-table-head {
   padding: 8px 0;
   color: var(--violet2);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
   font-weight: 900;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -127,16 +127,16 @@
   border-bottom: 1px solid rgba(38, 48, 95, 0.65);
 }
 .invoice-line span {
-  font-size: 0.64rem;
+  font-size: 0.6875rem;
 }
 .invoice-line small {
   display: block;
   color: var(--muted);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 .invoice-line strong {
   color: var(--cyan);
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
 }
 .invoice-total {
   display: flex;
@@ -169,16 +169,16 @@
 }
 .invoice-meta-row small {
   color: var(--muted);
-  font-size: 0.53rem;
+  font-size: 0.6875rem;
 }
 .invoice-meta-row b {
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   margin-top: 2px;
 }
 .invoice-foot {
   margin-top: 12px;
   color: var(--muted);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 .invoice-tools {
@@ -205,7 +205,7 @@
   border-radius: 8px;
   background: #070c24;
   color: var(--muted);
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
 }
 .payment-state.ok i {
   background: var(--green);

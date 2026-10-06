@@ -21,7 +21,7 @@
   top: 9px;
   color: var(--muted2);
   font-family: var(--display);
-  font-size: 0.53rem;
+  font-size: 0.6875rem;
 }
 .lab-icon {
   width: 37px;
@@ -44,14 +44,14 @@
 .lab-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
 }
 .lab-card span:last-child {
   position: absolute;
   left: 15px;
   bottom: 14px;
   color: var(--cyan);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
   font-weight: 800;
 }
 .lab-card kbd {

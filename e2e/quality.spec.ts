@@ -226,3 +226,39 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
   await expect(links.nth(0)).toHaveAttribute('href', '/terminos.html');
   await expect(links.nth(1)).toHaveAttribute('href', '/privacidad.html');
 });
+
+test('legibilidad: ningún texto visible bajo 11 px y foco visible con teclado', async ({
+  page,
+}) => {
+  // Guías de Apple (accessibility.md › Vision): 11 pt mínimo en móvil; foco visible para teclado.
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/');
+  await enterAsGuest(page);
+  const tiny = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('body *'))
+      .filter((el) => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        if (!rect.width || style.visibility === 'hidden' || el.closest('[hidden]')) return false;
+        if (el.closest('[aria-hidden="true"]')) return false;
+        const ownText = Array.from(el.childNodes).some(
+          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim().length > 1,
+        );
+        return ownText && parseFloat(style.fontSize) < 11;
+      })
+      .map((el) => `${el.tagName.toLowerCase()}.${el.className} ${getComputedStyle(el).fontSize}`),
+  );
+  expect(tiny).toEqual([]);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const style = getComputedStyle(document.activeElement as Element);
+        return style.outlineStyle !== 'none' ? parseFloat(style.outlineWidth) : 0;
+      }),
+    )
+    .toBeGreaterThanOrEqual(2);
+});

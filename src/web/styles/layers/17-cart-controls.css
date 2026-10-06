@@ -23,7 +23,7 @@
   background: #080e29;
   color: var(--ink);
   font-weight: 900;
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
 }
 .cart-controls span,
 .drawer-controls span {
@@ -31,7 +31,7 @@
   text-align: center;
   color: var(--cyan);
   font-family: var(--display);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
 .cart-controls .cart-remove {
@@ -39,7 +39,7 @@
   padding: 0 7px;
   color: #ffb7c0;
   border-color: rgba(255, 90, 90, 0.18);
-  font-size: 0.52rem;
+  font-size: 0.6875rem;
 }
 .drawer-controls .drawer-remove {
   margin-left: 2px;

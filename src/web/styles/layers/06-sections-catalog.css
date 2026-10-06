@@ -85,15 +85,15 @@
 .game-tab b {
   display: block;
   color: var(--ink);
-  font-size: 0.68rem;
+  font-size: 0.6875rem;
 }
 .game-tab small {
   display: block;
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
 }
 .game-tab em {
   font-style: normal;
-  font-size: 0.49rem;
+  font-size: 0.6875rem;
   color: var(--green);
 }
 .game-tab:not(.active) em {
@@ -120,7 +120,7 @@
 }
 .catalog-status small {
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
 }
 .tariff-toggle {
   display: flex;
@@ -135,7 +135,7 @@
   color: var(--muted);
   padding: 7px 10px;
   border-radius: 7px;
-  font-size: 0.63rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
 .tariff-toggle button.active {
@@ -198,7 +198,7 @@
   gap: 6px;
 }
 .product-tag {
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
   font-weight: 900;
   color: #1c1503;
   background: var(--gold);
@@ -206,7 +206,7 @@
   border-radius: 999px;
 }
 .product-game {
-  font-size: 0.51rem;
+  font-size: 0.6875rem;
   color: var(--muted2);
 }
 .product-visual {
@@ -242,7 +242,7 @@
 }
 .product-desc {
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
 }
 .product-price {
   display: flex;
@@ -258,12 +258,12 @@
 .product-price s {
   display: block;
   color: var(--muted2);
-  font-size: 0.52rem;
+  font-size: 0.6875rem;
   margin-top: 1px;
 }
 .saving {
   color: var(--green);
-  font-size: 0.51rem;
+  font-size: 0.6875rem;
   text-align: right;
 }
 .product-actions {
@@ -277,7 +277,7 @@
   background: #080e29;
   color: var(--muted);
   padding: 7px 8px;
-  font-size: 0.61rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
 .product-actions .add {
@@ -304,7 +304,7 @@
   display: grid;
   place-items: center;
   color: var(--cyan);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
 .smart-cart {
@@ -319,7 +319,7 @@
 }
 .smart-label {
   font-family: var(--display);
-  font-size: 0.57rem;
+  font-size: 0.6875rem;
   color: var(--cyan);
   letter-spacing: 0.13em;
 }
@@ -335,7 +335,7 @@
   font-size: 0.95rem;
 }
 .smart-head span {
-  font-size: 0.58rem;
+  font-size: 0.6875rem;
   color: var(--muted);
 }
 .cart-list {
@@ -368,15 +368,15 @@
 }
 .cart-entry b {
   display: block;
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
 }
 .cart-entry small {
   display: block;
   color: var(--muted);
-  font-size: 0.54rem;
+  font-size: 0.6875rem;
 }
 .cart-entry strong {
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   color: var(--cyan);
 }
 .cart-empty {
@@ -384,7 +384,7 @@
   border: 1px dashed var(--line);
   border-radius: 9px;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.6875rem;
   text-align: center;
 }
 .smart-total {
@@ -397,7 +397,7 @@
 }
 .smart-total span {
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: 0.6875rem;
 }
 .smart-total b {
   font-family: var(--display);
@@ -422,12 +422,12 @@
   display: block;
 }
 .smart-recommend b {
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
 }
 .smart-recommend span {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.56rem;
+  font-size: 0.6875rem;
 }
 .catalog-note {
   display: flex;
@@ -435,7 +435,7 @@
   gap: 10px;
   align-items: center;
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   margin-top: 10px;
 }
 .catalog-note span {
@@ -451,6 +451,6 @@
   border: 0;
   background: transparent;
   color: var(--cyan);
-  font-size: 0.6rem;
+  font-size: 0.6875rem;
   font-weight: 900;
 }
