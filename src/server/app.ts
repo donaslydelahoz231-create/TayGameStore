@@ -65,6 +65,9 @@ const LEGAL_PLACEHOLDER = '[COMPLETAR';
  */
 export function assertLegalPagesReady(config: AppConfig, root: string): void {
   if (config.env !== 'production' || !config.flags.checkoutEnabled) return;
+  // Sandbox de Mercado Pago: ningún pago es real (los de producción van a revisión, nunca a
+  // entrega), así que se puede probar la compra completa antes de terminar los textos legales.
+  if (config.flags.paymentsEnabled && config.mercadoPago?.mode === 'sandbox') return;
   const pending = LEGAL_PAGES.filter((page) => {
     const file = path.join(root, page);
     return !existsSync(file) || readFileSync(file, 'utf8').includes(LEGAL_PLACEHOLDER);

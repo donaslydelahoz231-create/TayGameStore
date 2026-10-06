@@ -90,7 +90,9 @@ crear el pedido: el navegador nunca decide el precio.
 cómo funciona la tienda. Completa cada `[COMPLETAR: …]`, haz que un abogado revise los puntos
 `[REVISAR CON ABOGADO]`, pon en `TERMS_VERSION` la misma fecha de los términos y despliega.
 **Garantía:** en producción, con `CHECKOUT_ENABLED=true`, el servidor no arranca si alguna de
-las dos páginas falta o conserva "[COMPLETAR".
+las dos páginas falta o conserva "[COMPLETAR". Única excepción: con `PAYMENTS_ENABLED=true` y
+`MP_MODE=sandbox` (pagos de prueba, sin dinero real) se puede probar la compra completa antes
+de terminar los textos; al pasar a `MP_MODE=production` el bloqueo vuelve a aplicarse.
 
 ## 6. Orden de puesta en marcha
 

@@ -6,7 +6,7 @@ import { assertLegalPagesReady, LEGAL_PAGES } from '../../src/server/app.js';
 import { loadConfig } from '../../src/server/config/env.js';
 
 const KEY = Buffer.alloc(32, 3).toString('base64');
-const production = (checkout: boolean) =>
+const production = (checkout: boolean, mode: 'production' | 'sandbox' = 'production') =>
   loadConfig({
     NODE_ENV: 'production',
     PUBLIC_BASE_URL: 'https://tienda.example',
@@ -17,7 +17,7 @@ const production = (checkout: boolean) =>
     PAYMENTS_ENABLED: String(checkout),
     MP_ACCESS_TOKEN: 'APP_USR-relleno',
     MP_WEBHOOK_SECRET: 'secreto-relleno',
-    MP_MODE: 'production',
+    MP_MODE: mode,
   });
 
 let dir: string;
@@ -40,6 +40,12 @@ describe('textos legales antes de vender', () => {
   it('no bloquea con las ventas apagadas ni fuera de producción', () => {
     expect(() => assertLegalPagesReady(production(false), dir)).not.toThrow();
     expect(() => assertLegalPagesReady(loadConfig({ NODE_ENV: 'test' }), dir)).not.toThrow();
+  });
+
+  it('en sandbox de Mercado Pago (sin dinero real) deja probar la compra con borradores', async () => {
+    for (const page of LEGAL_PAGES) await writeFile(join(dir, page), '<p>[COMPLETAR: NIT]</p>');
+    expect(() => assertLegalPagesReady(production(true, 'sandbox'), dir)).not.toThrow();
+    expect(() => assertLegalPagesReady(production(true, 'production'), dir)).toThrow(/\[COMPLETAR/);
   });
 
   it('los borradores del repositorio siguen marcados como pendientes', async () => {
