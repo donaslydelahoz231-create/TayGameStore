@@ -518,6 +518,8 @@ test.describe('panel de administración', () => {
 
     await page.locator('#refreshOrderBtn').click();
     await page.locator('#confirmPlayer').click();
+    // Lo que hace "Pagar" depende del estado: esperar a que el servidor confirme al jugador.
+    await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
     await page.locator('#payBtn').click();
     await page.locator('#startPayment').click();
     await page.waitForURL(/\/#seguimiento$/);
