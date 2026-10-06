@@ -527,9 +527,12 @@ export const NOTIFICATION_KINDS = [
   'order_paid_customer',
   'order_delivered_customer',
   'order_refunded_customer',
+  'order_paid_event',
+  'order_delivered_event',
+  'order_refunded_event',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
-export const NOTIFICATION_CHANNELS = ['email', 'telegram'] as const;
+export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];

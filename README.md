@@ -44,6 +44,8 @@ El botón crea en tu cuenta de Render el servicio web gratuito de [`render.yaml`
 pide las variables secretas (`DATABASE_URL` de Neon, claves, correo…); ninguna está en el
 repositorio. Render debe tener acceso a este repositorio (conecta tu cuenta de GitHub en Render).
 Después configura la vigilancia: [`docs/autorreparacion.md`](docs/autorreparacion.md).
+Automatización (tareas, vigilancia con aviso por Gmail y registro de pedidos) en n8n:
+[`docs/n8n.md`](docs/n8n.md).
 
 **Alternativa sin Render:** Vercel (gratis para probar; para vender, plan Pro). Ver
 [`docs/deployment-vercel.md`](docs/deployment-vercel.md).

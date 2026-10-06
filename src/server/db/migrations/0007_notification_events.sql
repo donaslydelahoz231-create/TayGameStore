@@ -1,0 +1,4 @@
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_kind_check";--> statement-breakpoint
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_channel_check";--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_kind_check" CHECK (kind in ('order_paid_owner', 'order_paid_customer', 'order_delivered_customer', 'order_refunded_customer', 'order_paid_event', 'order_delivered_event', 'order_refunded_event'));--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_channel_check" CHECK (channel in ('email', 'telegram', 'webhook'));

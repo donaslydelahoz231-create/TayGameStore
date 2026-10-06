@@ -85,6 +85,11 @@ services:
         sync: false
       - key: SUPPORT_WHATSAPP
         sync: false
+      # Eventos de pedidos hacia n8n (opcional; ver docs/n8n.md).
+      - key: EVENTS_WEBHOOK_URL
+        sync: false
+      - key: EVENTS_WEBHOOK_SECRET
+        sync: false
       # Aviso por Telegram de cada pago confirmado (opcional; ver docs/salir-a-produccion.md).
       - key: TELEGRAM_BOT_TOKEN
         sync: false

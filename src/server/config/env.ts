@@ -192,6 +192,13 @@ const envSchema = z
      * de al menos 32 caracteres; el mismo valor en el hosting y en los secretos de GitHub.
      */
     CRON_SECRET: z.string().min(32).max(256).optional(),
+    /**
+     * Eventos de pedidos (pagado, entregado, reembolsado) hacia una automatización del dueño,
+     * p. ej. el Webhook de un flujo de n8n. La llave va como `Authorization: Bearer` y en n8n
+     * como credencial "Header Auth". Opcionales; van juntas.
+     */
+    EVENTS_WEBHOOK_URL: z.url().max(500).optional(),
+    EVENTS_WEBHOOK_SECRET: z.string().min(32).max(256).optional(),
     TELEGRAM_CHAT_ID: z
       .string()
       .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
@@ -216,6 +223,9 @@ const envSchema = z
     }
     if (Boolean(env.TELEGRAM_BOT_TOKEN) !== Boolean(env.TELEGRAM_CHAT_ID)) {
       issue('TELEGRAM_CHAT_ID', 'TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID van juntos');
+    }
+    if (Boolean(env.EVENTS_WEBHOOK_URL) !== Boolean(env.EVENTS_WEBHOOK_SECRET)) {
+      issue('EVENTS_WEBHOOK_SECRET', 'EVENTS_WEBHOOK_URL y EVENTS_WEBHOOK_SECRET van juntas');
     }
     if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
       issue('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET van juntos');
@@ -245,6 +255,10 @@ const envSchema = z
     // Nunca credenciales de correo sin cifrar: 465 (TLS) o 587 (STARTTLS obligatorio).
     if (env.SMTP_HOST && env.SMTP_PORT !== 465 && env.SMTP_PORT !== 587) {
       issue('SMTP_PORT', 'en producción debe ser 465 (TLS) o 587 (STARTTLS)');
+    }
+    // La llave del webhook de eventos nunca viaja sin cifrar.
+    if (env.EVENTS_WEBHOOK_URL && !env.EVENTS_WEBHOOK_URL.startsWith('https://')) {
+      issue('EVENTS_WEBHOOK_URL', 'debe usar https en producción');
     }
     if (env.GOOGLE_CLIENT_ID && !env.MFA_ENCRYPTION_KEYS) {
       issue('MFA_ENCRYPTION_KEYS', 'obligatoria en producción cuando hay acceso con Google');
@@ -324,6 +338,8 @@ export interface AppConfig {
   support: { whatsapp: string | undefined; email: string | undefined };
   /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
   ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
+  /** Eventos de pedidos hacia una automatización externa (n8n). */
+  eventsWebhook: { url: string; secret: string } | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
@@ -452,6 +468,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
           : undefined,
     },
     cronSecret: env.CRON_SECRET,
+    eventsWebhook:
+      env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
+        ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }
+        : undefined,
     smtp:
       env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
         ? {

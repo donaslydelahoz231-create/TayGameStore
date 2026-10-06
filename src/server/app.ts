@@ -9,6 +9,7 @@ import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
 import type { Mailer } from './integrations/notify/email.js';
+import type { OrderEventSink } from './integrations/notify/events.js';
 import type { OwnerNotifier } from './integrations/notify/owner.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
@@ -47,6 +48,8 @@ export interface AppDependencies {
   ownerNotifier?: OwnerNotifier | undefined;
   /** Correo saliente para avisos a clientes y dueño (SMTP si está configurado). */
   mailer?: Mailer | undefined;
+  /** Eventos de pedidos hacia una automatización externa (webhook de n8n si está configurado). */
+  eventSink?: OrderEventSink | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
 }
@@ -132,6 +135,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         log: app.log,
         notifier: input.ownerNotifier,
         mailer: input.mailer,
+        events: input.eventSink,
       }
     : undefined;
 

@@ -9,12 +9,14 @@ import {
 } from '../db/schema.js';
 import { paidOrderText } from '../integrations/notify/owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
+import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
 import type { ServiceDeps } from './context.js';
 
 /**
  * Avisos de un pedido (cola `notifications`):
  * - pagado → al dueño (Telegram y/o correo) y al cliente (correo);
- * - entregado → al cliente; reembolsado → al cliente.
+ * - entregado → al cliente; reembolsado → al cliente;
+ * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n).
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
@@ -23,6 +25,21 @@ import type { ServiceDeps } from './context.js';
  */
 
 export type OrderEvent = 'paid' | 'delivered' | 'refunded';
+
+type EventKind = Extract<NotificationKind, `${string}_event`>;
+type EmailKind = Exclude<NotificationKind, EventKind>;
+
+const EVENT_KINDS: Record<OrderEvent, EventKind> = {
+  paid: 'order_paid_event',
+  delivered: 'order_delivered_event',
+  refunded: 'order_refunded_event',
+};
+const EVENT_NAMES: Record<EventKind, OrderEventName> = {
+  order_paid_event: 'order.paid',
+  order_delivered_event: 'order.delivered',
+  order_refunded_event: 'order.refunded',
+};
+const isEventKind = (kind: NotificationKind): kind is EventKind => kind in EVENT_NAMES;
 
 const MAX_ATTEMPTS = 5;
 /** Espera tras cada intento fallido (minutos). */
@@ -46,6 +63,7 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
   if (event === 'refunded' && email) {
     planned.push({ kind: 'order_refunded_customer', channel: 'email' });
   }
+  if (deps.events) planned.push({ kind: EVENT_KINDS[event], channel: 'webhook' });
   return planned;
 }
 
@@ -68,6 +86,7 @@ export async function enqueueOrderNotifications(
 
 interface OrderSnapshot {
   reference: string;
+  status: string;
   totalCop: number;
   playerUid: string;
   nickname: string | null;
@@ -128,11 +147,7 @@ function playerText(order: OrderSnapshot): string {
   return order.nickname ? `${order.playerUid} (${order.nickname})` : order.playerUid;
 }
 
-export function renderEmail(
-  deps: ServiceDeps,
-  kind: NotificationKind,
-  order: OrderSnapshot,
-): MailMessage {
+export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnapshot): MailMessage {
   const base = deps.config.publicBaseUrl ?? '';
   // Sin el nombre que escribió el cliente: es texto libre de un formulario y, si alguien paga
   // un pedido con el correo de otra persona, no puede usar este correo legítimo para colarle
@@ -195,6 +210,7 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
   const [order] = await deps.db
     .select({
       reference: orders.publicRef,
+      status: orders.status,
       totalCop: orders.totalCop,
       playerUid: orders.playerUid,
       nickname: orders.verifiedNickname,
@@ -210,17 +226,52 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
   return { ...order, items };
 }
 
+/** Solo datos de la operación: ni correo ni nombre del cliente. */
+function eventPayload(
+  row: { id: string; createdAt: Date },
+  kind: EventKind,
+  order: OrderSnapshot,
+): OrderEventPayload {
+  return {
+    id: row.id,
+    event: EVENT_NAMES[kind],
+    occurredAt: row.createdAt.toISOString(),
+    order: {
+      reference: order.reference,
+      status: order.status,
+      totalCop: order.totalCop,
+      currency: 'COP',
+      playerUid: order.playerUid,
+      nickname: order.nickname,
+      items: order.items,
+    },
+  };
+}
+
 async function sendOne(
   deps: ServiceDeps,
-  row: { orderId: string; kind: NotificationKind; channel: NotificationChannel },
+  row: {
+    id: string;
+    orderId: string;
+    kind: NotificationKind;
+    channel: NotificationChannel;
+    createdAt: Date;
+  },
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
+  if (isEventKind(row.kind)) {
+    if (row.channel !== 'webhook') throw new Error('canal inválido para un evento');
+    if (!deps.events) throw new Error('el webhook de eventos no está configurado');
+    await deps.events.send(eventPayload(row, row.kind, order));
+    return;
+  }
   if (row.channel === 'telegram') {
     if (!deps.notifier) throw new Error('Telegram no está configurado');
     await deps.notifier.orderPaid(order);
     return;
   }
+  if (row.channel !== 'email') throw new Error('canal inválido para un correo');
   if (!deps.mailer) throw new Error('el correo no está configurado');
   const message = renderEmail(deps, row.kind, order);
   if (!message.to.length) throw new Error('sin destinatarios');
@@ -233,6 +284,7 @@ type ClaimedRow = {
   kind: NotificationKind;
   channel: NotificationChannel;
   attempts: number;
+  created_at: Date | string;
 };
 
 /**
@@ -258,7 +310,7 @@ export async function deliverNotifications(
           order by created_at
           limit ${options.limit ?? 20}
           for update skip locked)
-      returning id, order_id, kind, channel, attempts`);
+      returning id, order_id, kind, channel, attempts, created_at`);
     claimed = result.rows;
   } catch (error) {
     deps.log.error({ err: error }, 'notifications: no se pudo reservar la cola');
@@ -267,7 +319,13 @@ export async function deliverNotifications(
 
   const results = await Promise.allSettled(
     claimed.map((row) =>
-      sendOne(deps, { orderId: row.order_id, kind: row.kind, channel: row.channel }),
+      sendOne(deps, {
+        id: row.id,
+        orderId: row.order_id,
+        kind: row.kind,
+        channel: row.channel,
+        createdAt: new Date(row.created_at),
+      }),
     ),
   );
   let sent = 0;

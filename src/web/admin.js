@@ -268,7 +268,7 @@ async function loadAlerts() {
     ['autoBlocks24h', 'Bloqueos automáticos (24 h)', 'warn'],
     ['activeIpBlocks', 'IPs bloqueadas ahora', 'warn'],
     ['mfaLocks24h', 'Cuentas admin con MFA bloqueado (24 h)', 'bad'],
-    ['notificationsFailed', 'Avisos sin enviar (correo/Telegram)', 'bad'],
+    ['notificationsFailed', 'Avisos sin enviar (correo/Telegram/n8n)', 'bad'],
   ];
   $('admAlerts').innerHTML = items
     .map(

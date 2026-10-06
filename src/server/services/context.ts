@@ -4,6 +4,7 @@ import type { Db, DbOrTx } from '../db/client.js';
 import { auditEvents } from '../db/schema.js';
 import { AppError } from '../plugins/errors.js';
 import type { Mailer } from '../integrations/notify/email.js';
+import type { OrderEventSink } from '../integrations/notify/events.js';
 import type { OwnerNotifier } from '../integrations/notify/owner.js';
 import type { PaymentGateway } from '../integrations/payments/gateway.js';
 
@@ -18,6 +19,8 @@ export interface ServiceDeps {
   notifier?: OwnerNotifier | undefined;
   /** Correo saliente (SMTP). Opcional: sin él no se envían correos. */
   mailer?: Mailer | undefined;
+  /** Eventos de pedidos hacia la automatización del dueño (n8n). Opcional. */
+  events?: OrderEventSink | undefined;
 }
 
 /** Quién ejecuta una acción. Nunca se toma del cuerpo de la petición. */

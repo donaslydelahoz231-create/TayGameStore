@@ -9,6 +9,7 @@ import type { GoogleClient, GoogleIdentity } from '../../src/server/integrations
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
+import { RecordingEventSink } from './fake-event-sink.js';
 import { RecordingMailer } from './fake-mailer.js';
 import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
@@ -65,6 +66,8 @@ export interface Harness {
   gateway: FakePaymentGateway;
   notifier: RecordingOwnerNotifier;
   mailer: RecordingMailer;
+  /** Webhook de eventos (n8n); solo conectado con `{ events: true }`. */
+  events: RecordingEventSink;
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
@@ -79,13 +82,14 @@ export const ADMIN_EMAIL = 'admin@example.com';
 
 export async function createHarness(
   env: Record<string, string> = {},
-  options: { playerVerifier?: boolean } = {},
+  options: { playerVerifier?: boolean; events?: boolean } = {},
 ): Promise<Harness> {
   const url = testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
   const notifier = new RecordingOwnerNotifier();
   const mailer = new RecordingMailer();
+  const events = new RecordingEventSink();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
   const discord = new FakeSocialClient('discord');
@@ -116,6 +120,7 @@ export async function createHarness(
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
     ownerNotifier: notifier,
     mailer,
+    eventSink: options.events ? events : undefined,
     now: () => clock.now,
   });
   if (!deps) throw new Error('sin dependencias');
@@ -126,6 +131,7 @@ export async function createHarness(
     gateway,
     notifier,
     mailer,
+    events,
     google,
     verifier,
     shield,
