@@ -24,6 +24,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Se envía una sola vez por pedido, después de
   guardar el pago; si el canal falla, el pago queda igual.
 - Alerta "Pagados por entregar" en el panel.
+- El aviso del panel también funciona en Chrome para Android (donde `new Notification` falla) y
+  en navegadores sin notificaciones (queda el sonido); la alerta se pinta antes de avisar.
 - `npm run golive:check` revisa las variables de producción y la tienda publicada
   (`docs/salir-a-produccion.md`).
 - Flujo de GitHub `tareas.yml`: en Vercel dispara las tareas del servidor cada 10 minutos

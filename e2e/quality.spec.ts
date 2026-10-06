@@ -265,8 +265,12 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
     expect(await axe(page), path).toEqual([]);
     const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
     const narrow = await context.newPage();
+    // Igual que el resto de contextos de la suite (preparePage): en Firefox (CI 39-40) era el
+    // único contexto sin intercepción de red y su navegación no llegaba a "load".
+    const narrowErrors = await preparePage(narrow);
     await narrow.goto(path);
     expect(await horizontalOverflow(narrow), `${path} a 360 px`).toEqual([]);
+    expect(unexpectedErrors(narrowErrors), `${path} a 360 px`).toEqual([]);
     await context.close();
   }
   await page.goto('/');

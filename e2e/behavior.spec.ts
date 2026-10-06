@@ -540,18 +540,20 @@ test.describe('panel de administración', () => {
     };
     await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     const admin = await context.newPage();
-    // Notificaciones del sistema observables: el permiso real lo concede el dueño en su navegador.
+    // Notificaciones observables, con permiso concedido pero como en Chrome para Android:
+    // `new Notification` lanza "Illegal constructor". El panel debe seguir al día igualmente.
     await admin.addInitScript(() => {
       const notices: { title: string; body: string | undefined }[] = [];
       Object.assign(window, { __notices: notices });
-      class RecordedNotification {
+      class AndroidLikeNotification {
         static permission = 'granted';
         static requestPermission = () => Promise.resolve('granted');
         constructor(title: string, options?: { body?: string }) {
           notices.push({ title, body: options?.body });
+          throw new TypeError('Illegal constructor');
         }
       }
-      Object.defineProperty(window, 'Notification', { value: RecordedNotification });
+      Object.defineProperty(window, 'Notification', { value: AndroidLikeNotification });
     });
     await admin.goto(ADMIN_PATH);
     await expect(admin.locator('#admApp')).toBeVisible();
@@ -582,6 +584,11 @@ test.describe('panel de administración', () => {
       () => (window as unknown as { __notices: { title: string }[] }).__notices,
     );
     expect(notices.map((n) => n.title)).toContain('Pedido pagado por entregar');
+    // Aunque la notificación falle, la alerta del panel muestra la misma cifra que el título.
+    const pending = Number(/^\((\d+)\)/.exec(await admin.title())?.[1]);
+    await expect(
+      admin.locator('.adm-alert', { hasText: 'Pagados por entregar' }).locator('b'),
+    ).toHaveText(String(pending));
     await admin.locator('[data-f="claim"]').click();
     await admin.locator('[data-f="start"]').click();
     await admin.locator('#fEvidence').fill('Recarga hecha en el panel del proveedor');

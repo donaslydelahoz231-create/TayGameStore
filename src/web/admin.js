@@ -186,19 +186,21 @@ document.querySelectorAll('.adm-tabs button').forEach((button) =>
 // suena, sale como notificación del sistema y queda contado en el título de la pestaña.
 
 const BASE_TITLE = document.title;
+const canNotify = 'Notification' in window;
+const AudioCtx = window.AudioContext;
 let lastPaidToDeliver = null;
 let chime = null;
 
 function updateNotifyButton() {
   const button = $('admNotify');
-  if (!('Notification' in window)) return void (button.hidden = true);
-  button.hidden = $('admApp').hidden;
-  const state = Notification.permission;
-  const done = state !== 'default' && chime !== null;
+  // Sin notificaciones (p. ej. Safari de iPhone fuera de la app) queda el sonido.
+  button.hidden = $('admApp').hidden || (!canNotify && !AudioCtx);
+  const state = canNotify ? Notification.permission : 'denied';
+  const done = state !== 'default' && (chime !== null || !AudioCtx);
   button.textContent = done
     ? state === 'granted'
       ? 'Avisos activados'
-      : 'Sonido activado (notificaciones bloqueadas en el navegador)'
+      : 'Sonido activado (sin notificaciones en este navegador)'
     : state === 'default'
       ? 'Activar avisos de pedidos pagados'
       : 'Activar sonido de avisos';
@@ -207,8 +209,10 @@ function updateNotifyButton() {
 
 $('admNotify').onclick = async () => {
   // El sonido solo puede prepararse tras un gesto del usuario (política de autoplay).
-  chime ??= new AudioContext();
-  if (Notification.permission === 'default') await Notification.requestPermission();
+  if (AudioCtx) chime ??= new AudioCtx();
+  if (canNotify && Notification.permission === 'default') {
+    await Notification.requestPermission().catch(() => 'denied');
+  }
   updateNotifyButton();
 };
 
@@ -234,7 +238,8 @@ function announcePaid(total) {
   lastPaidToDeliver = total;
   if (fresh <= 0) return;
   playChime();
-  if ('Notification' in window && Notification.permission === 'granted') {
+  if (!canNotify || Notification.permission !== 'granted') return;
+  try {
     new Notification('Pedido pagado por entregar', {
       body:
         fresh === 1
@@ -242,6 +247,9 @@ function announcePaid(total) {
           : `Mercado Pago confirmó ${fresh} pagos. Entrega los diamantes desde el panel.`,
       tag: 'tgs-paid',
     });
+  } catch {
+    // Chrome para Android no permite `new Notification` (exige Service Worker): quedan el
+    // sonido, el título y la alerta del panel.
   }
 }
 
@@ -249,7 +257,6 @@ function announcePaid(total) {
 
 async function loadAlerts() {
   const a = await call('/api/admin/alerts');
-  announcePaid(Number(a.paidToDeliver) || 0);
   const items = [
     ['paidToDeliver', 'Pagados por entregar', 'ok'],
     ['awaitingVerification', 'Por verificar', 'warn'],
@@ -268,6 +275,8 @@ async function loadAlerts() {
         `<div class="adm-alert ${a[key] ? level : ''}"><b>${Number(a[key])}</b>${esc(label)}</div>`,
     )
     .join('');
+  // Después de pintar: un fallo del aviso nunca deja el panel sin datos.
+  announcePaid(Number(a.paidToDeliver) || 0);
 }
 
 async function loadOrders() {
