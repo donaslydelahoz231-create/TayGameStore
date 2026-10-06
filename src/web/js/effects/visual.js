@@ -25,7 +25,9 @@ export function initVisualEffects() {
     },
     { passive: true },
   );
-  paintProgress();
+  // Primera medición tras el primer pintado: leer scrollHeight aquí forzaría el layout completo
+  // de la página antes de mostrarla.
+  progressRaf = requestAnimationFrame(paintProgress);
 
   // Desktop-only cursor glow + hero parallax. Disabled on touch / low power / reduced motion.
   const enhanced = !reduce && !touch && !lowPower;
@@ -208,7 +210,11 @@ export function initVisualEffects() {
 
   const badge = document.getElementById('cartBadge');
   if (badge && 'MutationObserver' in window) {
+    // Cada render reescribe el contador: el rebote (que fuerza un reflujo) solo cuando cambia.
+    let lastCount = badge.textContent;
     new MutationObserver(() => {
+      if (badge.textContent === lastCount) return;
+      lastCount = badge.textContent;
       const cart = document.getElementById('cartBtn');
       if (!cart) return;
       cart.classList.remove('bump');

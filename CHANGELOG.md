@@ -13,6 +13,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Vigilancia de producción cada 30 min con reinicio por deploy hook de Render e issues de
   incidente, y pull request semanal de mantenimiento (`docs/autorreparacion.md`).
 - Botón "Deploy to Render" en el README.
+- Despliegue alternativo en Vercel (`docs/deployment-vercel.md`).
+- Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
+  CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
+
+### Rendimiento
+
+- Arranque y fluidez sin quitar animaciones: las que no se ven (fuera de pantalla, tras la
+  pantalla de entrada) se pausan y continúan al volver; partículas a 30 FPS en móvil; cursor,
+  inclinación y barra de avance una vez por fotograma; aura y brillo sin repintar la página.
+  Medido con CPU ×4 en móvil: arranque 2,1 s → 0,9 s, bloqueos 2,5 s → 0,8 s, entrada a 60 FPS;
+  en escritorio el cursor pasa de 25 a 60 FPS. `e2e/motion.spec.ts` lo vigila.
 
 ### Corregido
 

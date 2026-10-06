@@ -44,10 +44,17 @@ export function initCinematicEffects() {
         vy: -0.08 - Math.random() * 0.16,
         p: Math.random() * 6.28,
       }));
+      // 30 FPS: las partículas se mueven despacio y en función del tiempo, así que se ven igual
+      // que a 60 FPS con la mitad de trabajo (este bucle es el de móvil y táctil).
+      const FRAME_MS = 1000 / 30;
       let raf,
         last = performance.now();
       const draw = (t) => {
-        const dt = Math.min(32, t - last);
+        if (t - last < FRAME_MS - 1) {
+          if (!document.hidden) raf = requestAnimationFrame(draw);
+          return;
+        }
+        const dt = Math.min(48, t - last);
         last = t;
         const d = Math.min(devicePixelRatio || 1, 1.5);
         c.setTransform(d, 0, 0, d, 0, 0);
@@ -79,30 +86,45 @@ export function initCinematicEffects() {
       });
     } else canvas.remove();
   }
+  // Brillo del cursor y paralaje del panel: como mucho una escritura por fotograma. Las
+  // variables van en el panel (lo único que las usa); en <html> recalculaban toda la página.
+  const heroPanel = $('.hero-panel');
+  let pointerRaf = 0,
+    px = 0,
+    py = 0;
+  const paintPointer = () => {
+    pointerRaf = 0;
+    glow.style.left = px + 'px';
+    glow.style.top = py + 'px';
+    glow.style.opacity = '1';
+    heroPanel?.style.setProperty('--tgs-mx', (px / innerWidth - 0.5).toFixed(3));
+    heroPanel?.style.setProperty('--tgs-my', (py / innerHeight - 0.5).toFixed(3));
+  };
   addEventListener(
     'pointermove',
     (e) => {
       if (reduced) return;
-      glow.style.left = e.clientX + 'px';
-      glow.style.top = e.clientY + 'px';
-      glow.style.opacity = '1';
-      document.documentElement.style.setProperty(
-        '--tgs-mx',
-        (e.clientX / innerWidth - 0.5).toFixed(3),
-      );
-      document.documentElement.style.setProperty(
-        '--tgs-my',
-        (e.clientY / innerHeight - 0.5).toFixed(3),
-      );
+      px = e.clientX;
+      py = e.clientY;
+      if (!pointerRaf) pointerRaf = requestAnimationFrame(paintPointer);
     },
     { passive: true },
   );
+  // Barra de avance: escala en lugar de ancho (no recalcula el layout) y una vez por fotograma.
+  let progressRaf = 0;
   const progress = () => {
+    progressRaf = 0;
     const m = document.documentElement.scrollHeight - innerHeight;
-    bar.style.width = (m > 0 ? (scrollY / m) * 100 : 0) + '%';
+    bar.style.transform = 'scaleX(' + (m > 0 ? scrollY / m : 0) + ')';
   };
-  addEventListener('scroll', progress, { passive: true });
-  progress();
+  addEventListener(
+    'scroll',
+    () => {
+      if (!progressRaf) progressRaf = requestAnimationFrame(progress);
+    },
+    { passive: true },
+  );
+  progressRaf = requestAnimationFrame(progress);
   const targets = $$(
     '.section,.trust,.smart-band,.support-panel,.faq-grid,.footer,.hero-left,.hero-panel,.product,.game-tab,.card,.lab-card,.tracking-card,.invoice',
   );
@@ -124,15 +146,28 @@ export function initCinematicEffects() {
     targets.forEach((e) => io.observe(e));
   } else targets.forEach((e) => e.classList.add('tgs-visible'));
   if (!reduced) {
-    // Delegación: las tarjetas se vuelven a crear en cada render del catálogo.
+    // Delegación: las tarjetas se vuelven a crear en cada render del catálogo. Una medición y
+    // una escritura por fotograma (leer y escribir en cada evento forzaba reflujos en cadena).
+    let tiltRaf = 0,
+      tiltCard = null,
+      tx = 0,
+      ty = 0;
+    const paintTilt = () => {
+      tiltRaf = 0;
+      if (!tiltCard?.isConnected) return;
+      const r = tiltCard.getBoundingClientRect();
+      tiltCard.style.setProperty('--ry', ((tx - r.left) / r.width - 0.5) * 5.5 + 'deg');
+      tiltCard.style.setProperty('--rx', -((ty - r.top) / r.height - 0.5) * 5.5 + 'deg');
+    };
     document.addEventListener(
       'pointermove',
       (e) => {
         const card = e.target.closest?.('.product');
         if (!card) return;
-        const r = card.getBoundingClientRect();
-        card.style.setProperty('--ry', ((e.clientX - r.left) / r.width - 0.5) * 5.5 + 'deg');
-        card.style.setProperty('--rx', -((e.clientY - r.top) / r.height - 0.5) * 5.5 + 'deg');
+        tiltCard = card;
+        tx = e.clientX;
+        ty = e.clientY;
+        if (!tiltRaf) tiltRaf = requestAnimationFrame(paintTilt);
       },
       { passive: true },
     );
@@ -141,6 +176,7 @@ export function initCinematicEffects() {
       (e) => {
         const card = e.target.closest?.('.product');
         if (!card || card.contains(e.relatedTarget)) return;
+        if (tiltCard === card) tiltCard = null;
         card.style.setProperty('--ry', '0deg');
         card.style.setProperty('--rx', '0deg');
       },
