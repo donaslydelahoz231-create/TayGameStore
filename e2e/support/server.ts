@@ -114,11 +114,14 @@ app.get('/__e2e__/oauth/:provider', async (request, reply) => {
   return reply.redirect(back.toString());
 });
 
+let paymentSeq = 0;
 app.get('/__e2e__/mercadopago', async (request, reply) => {
   const { pref_id: preferenceId, status } = request.query as { pref_id?: string; status?: string };
   const preference = preferenceId ? gateway.findPreference(preferenceId) : undefined;
   if (!preference) return reply.code(404).send('preferencia desconocida');
-  const paymentId = String(Date.now());
+  // Único aunque lleguen varios pagos en el mismo milisegundo (Date.now() se repetía bajo carga
+  // y un pago pisaba a otro en el doble).
+  const paymentId = `${Date.now()}${String(++paymentSeq).padStart(6, '0')}`;
   gateway.setPayment({
     id: paymentId,
     externalReference: preference.input.orderRef,

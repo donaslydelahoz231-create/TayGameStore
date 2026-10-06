@@ -17,6 +17,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
   CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
 
+### Simulación de clientes
+
+- `npm run load:sim` (`tools/load/simulate.mjs`, `docs/simulacion-clientes.md`): hasta 300
+  clientes comprando a la vez y ataques simultáneos. 9 rondas, ≈ 210.000 peticiones, 0 errores
+  del servidor, 0 clientes fallidos, memoria estable y las 9 defensas activas.
+- Doble de Mercado Pago de pruebas: id de pago único aunque coincida el milisegundo.
+
 ### Accesibilidad y diseño (revisión con las guías de Apple, HIG)
 
 - Ningún texto bajo 11 px (había 163 en móvil, el menor de 7,2 px); `--muted2` de 3,99:1 a
