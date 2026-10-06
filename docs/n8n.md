@@ -13,6 +13,24 @@ chats ni en GitHub).
 | **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready`. Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe a `taygamerstore@gmail.com`. | **Gmail · taygamerstore** |
 | **TayGameStore · Pedidos** | Cuando la tienda avisa | Recibe cada pedido pagado, entregado o reembolsado y lo guarda en la tabla *Pedidos* sin duplicados. Rechaza (y anota) lo que no tenga el formato de la tienda. | **TayGameStore · Llave de eventos** |
 
+## Agente: TayGameStore · Cerebro de operaciones
+
+Agente de n8n (modelo `openai/gpt-oss-120b` en Groq, con tu credencial "Groq account") que
+actúa como jefe de operaciones, ingeniería y marketing. **Solo lee**: estado en vivo
+(`/api/ready`), configuración pública, catálogo real y las tres tablas. No puede cambiar
+pedidos, precios ni pagos.
+
+- Pregúntale en el chat del agente: "¿cómo va la tienda?", "¿qué pedidos pagados faltan por
+  entregar?", "escríbeme un post para Instagram con los paquetes actuales".
+- Tarea programada **Informe diario de la tienda** a las 7:52 a. m. (Bogotá): estado,
+  incidentes y pedidos de las últimas 24 h, una idea de publicación (BORRADOR) y siguientes
+  pasos.
+- Reglas fijas: nunca inventa precios ni datos, nunca confirma pagos, nunca pide contraseñas y
+  todo texto de marketing sale como BORRADOR para que lo apruebes.
+
+Queda como **borrador**: actívalo con **Publish** en la pantalla del agente cuando lo hayas
+probado.
+
 ## Tablas (Data tables)
 
 - **TayGameStore · Pedidos** — un registro por evento (`eventId`): referencia, estado, total,
