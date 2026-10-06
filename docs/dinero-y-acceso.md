@@ -29,6 +29,28 @@ Cliente paga en Mercado Pago ──▶ Cuenta de Mercado Pago del dueño de MP_A
 | Credenciales de Mercado Pago | Solo en variables de entorno de Render; ninguna respuesta del servidor las muestra |
 | Cambios en el panel | Auditoría que no se puede modificar ni borrar |
 
+## Manipulación desde el navegador (DevTools)
+
+Nadie puede impedir que alguien abra las herramientas de desarrollador y cambie la página **en
+su propio navegador** (textos, precios visibles, botones ocultos). Lo que cambia allí solo lo
+ve esa persona: no se guarda en el servidor ni lo ven otros clientes. La tienda no confía en
+nada de lo que llega del navegador:
+
+| Intento | Respuesta del servidor |
+|---|---|
+| Editar el precio en el HTML y comprar | Cobra el precio de su catálogo |
+| Añadir `totalCop`, `priceCop`, `status` u otros campos a la petición | 400: el esquema es estricto |
+| Enviar un total esperado falso (`expectedTotalCop`) | 409 `PRICE_CHANGED` |
+| Webhook de "pago aprobado" con firma inventada | 401; el pedido no cambia |
+| Cambiar el estado de un pedido desde el cliente | No existe esa ruta (404) |
+| Escritura sin la cabecera anti-CSRF | 403 `CSRF_REJECTED` y señal al escudo anti-abuso |
+| Mostrar el panel oculto (`#admApp`) | Sin datos: la API exige sesión de administrador |
+| Cookie de sesión inventada | 401 |
+| Cliente con sesión (Discord, Facebook o Google sin permiso) | 403 en todo `/api/admin/*` |
+
+`e2e/tampering.spec.ts` ejecuta estos ataques en un navegador real en cada CI. El riesgo real no
+está en el inspector sino en **tus cuentas**: por eso la lista siguiente.
+
 ## Lista de comprobación del dueño
 
 1. `ADMIN_EMAILS=tu-correo@gmail.com` (solo uno).
@@ -36,6 +58,7 @@ Cliente paga en Mercado Pago ──▶ Cuenta de Mercado Pago del dueño de MP_A
 3. Tu cuenta de Mercado Pago con verificación en dos pasos y un correo/teléfono que solo tú
    controles.
 4. Panel → configura el TOTP y guarda los códigos de recuperación **fuera** del computador.
-5. Nadie más tiene acceso a Render, Google Cloud, Meta, Discord ni Mercado Pago.
+5. Nadie más tiene acceso a GitHub, Vercel/Render, Google Cloud, Meta, Discord ni Mercado Pago
+   (verificación en dos pasos en todas).
 6. Si sospechas de una filtración: rota `MP_ACCESS_TOKEN`/`MP_WEBHOOK_SECRET` en Mercado Pago y en
    Render (ver `deployment.md` → Rotación de secretos) y revisa la Auditoría del panel.

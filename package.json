@@ -21,7 +21,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run tests/unit tests/api",
     "test:integration": "vitest run tests/integration --no-file-parallelism",
-    "test:e2e": "playwright test e2e/behavior.spec.ts e2e/quality.spec.ts --project=desktop-1280",
+    "test:e2e": "playwright test e2e/behavior.spec.ts e2e/quality.spec.ts e2e/tampering.spec.ts --project=desktop-1280",
     "test:visual": "playwright test e2e/visual.spec.ts",
     "test:visual:update": "playwright test e2e/visual.spec.ts --update-snapshots",
     "perf:api": "node --import tsx tests/perf/api-load.bench.ts",

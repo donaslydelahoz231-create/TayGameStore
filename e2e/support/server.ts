@@ -62,6 +62,10 @@ const config = loadConfig({
   MP_MODE: 'sandbox',
   // Todas las pruebas salen de 127.0.0.1: el límite global por IP se mide en tests/integration.
   RATE_LIMIT_GLOBAL_PER_MINUTE: '100000',
+  // Como en producción detrás del proxy de Vercel/Render: un salto de confianza. Las pruebas de
+  // manipulación (tampering.spec.ts) se presentan con su propia IP para no consumir los límites
+  // por IP del resto de pruebas.
+  TRUST_PROXY: '1',
   MP_ACCESS_TOKEN: 'TEST-e2e-sin-uso',
   MP_WEBHOOK_SECRET: 'secreto-e2e-sin-uso',
   JOBS_ENABLED: 'false',
