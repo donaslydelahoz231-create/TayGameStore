@@ -38,6 +38,8 @@ const RENDER_ONLY = new Set(['NODE_VERSION']);
 const key32 = `1:${Buffer.alloc(32, 7).toString('base64')}`;
 const SECRET_PLACEHOLDERS: Record<string, string> = {
   PUBLIC_BASE_URL: 'https://tienda.example.com',
+  DATABASE_URL: 'postgres://u:p@ep-relleno.neon.tech/taygamestore?sslmode=require',
+  CRON_SECRET: 'c'.repeat(64),
   ORDER_TOKEN_KEYS: key32,
   MFA_ENCRYPTION_KEYS: key32,
   IP_HASH_PEPPER: 'p'.repeat(40),
@@ -91,10 +93,17 @@ describe('render.yaml', () => {
     expect(config.trustProxy).toBe(1);
   });
 
-  it('una sola instancia (rate limiting en memoria) y migraciones antes de publicar', () => {
+  it('plan gratuito: una instancia, migraciones antes de publicar y base de datos externa', () => {
+    expect(blueprint).toMatch(/^\s+plan: free\s*$/m);
     expect(blueprint).toMatch(/^\s+numInstances: 1\s*$/m);
-    expect(blueprint).toMatch(/^\s+preDeployCommand: npm run db:migrate:prod\s*$/m);
+    // Sin preDeployCommand (no existe en el plan gratuito): la migración cierra la compilación.
+    expect(blueprint).not.toMatch(/^\s+preDeployCommand:/m);
+    expect(blueprint).toMatch(
+      /^\s+buildCommand: npm ci --include=dev && npm run build && npm run db:migrate:prod\s*$/m,
+    );
     expect(blueprint).toMatch(/^\s+healthCheckPath: \/api\/ready\s*$/m);
-    expect(blueprint).toMatch(/^\s+buildCommand: npm ci --include=dev && npm run build\s*$/m);
+    // La base gratuita de Render caduca: PostgreSQL de Neon, nunca un bloque `databases`.
+    expect(blueprint).not.toMatch(/^databases:/m);
+    expect(envEntries().find((e) => e.key === 'DATABASE_URL')).toMatchObject({ sync: false });
   });
 });

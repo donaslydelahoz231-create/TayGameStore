@@ -33,14 +33,16 @@ Para crear pedidos en local: `CHECKOUT_ENABLED=true`. Para pagar: `PAYMENTS_ENAB
 credenciales **de prueba** de Mercado Pago y un `PUBLIC_BASE_URL` público (Mercado Pago debe
 poder enviar el webhook; p. ej. un túnel https).
 
-Producción: [`docs/deployment.md`](docs/deployment.md) — Blueprint [`render.yaml`](render.yaml)
-(Render + PostgreSQL), dominio, Google OAuth, catálogo, textos legales y orden de activación.
+**Publicar gratis (Render Free + PostgreSQL de Neon):** guía paso a paso en
+[`docs/despliegue-gratis.md`](docs/despliegue-gratis.md). Producción completa:
+[`docs/deployment.md`](docs/deployment.md) — dominio, Google OAuth, catálogo, textos legales y
+orden de activación.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/donaslydelahoz231-create/TayGameStore)
 
-El botón crea en tu cuenta de Render el servicio web y la base de datos de `render.yaml` y te pide
-las variables secretas (Mercado Pago, Google, `ADMIN_EMAILS`…); ninguna está en el repositorio.
-Render debe tener acceso a este repositorio privado (conecta tu cuenta de GitHub en Render).
+El botón crea en tu cuenta de Render el servicio web gratuito de [`render.yaml`](render.yaml) y te
+pide las variables secretas (`DATABASE_URL` de Neon, claves, correo…); ninguna está en el
+repositorio. Render debe tener acceso a este repositorio (conecta tu cuenta de GitHub en Render).
 Después configura la vigilancia: [`docs/autorreparacion.md`](docs/autorreparacion.md).
 
 **Alternativa sin Render:** Vercel (gratis para probar; para vender, plan Pro). Ver

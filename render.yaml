@@ -1,24 +1,28 @@
-# Blueprint de Render para TayGameStore (staging o producción).
+# Blueprint de Render para TayGameStore, en el PLAN GRATUITO (guía: docs/despliegue-gratis.md).
 # Referencia: https://render.com/docs/blueprint-spec
-# Antes de aplicarlo: lee docs/deployment.md. Los secretos (sync: false) se escriben en el panel
-# de Render, nunca en este archivo. Arranca con ventas y pagos APAGADOS.
+# Base de datos: PostgreSQL gratuito de Neon (neon.tech); su cadena de conexión va en
+# DATABASE_URL. Los secretos (sync: false) se escriben en el panel de Render, nunca aquí.
+# Arranca con ventas y pagos APAGADOS.
+#
+# Para pasar a un plan de pago (no se duerme, despliegues sin corte): plan: starter y mueve
+# `npm run db:migrate:prod` del buildCommand a `preDeployCommand` (ver docs/deployment.md).
 
 services:
   - type: web
     name: taygamestore
     runtime: node
-    # Instancia de pago: el plan gratuito se suspende sin tráfico (webhooks y tareas
-    # programadas fallarían) y no permite preDeployCommand.
-    plan: starter
+    # Gratuito: se duerme sin tráfico. El flujo de GitHub `tareas.yml` (cada 10 min, con
+    # CRON_SECRET) ejecuta las tareas y la mantiene despierta; ver docs/despliegue-gratis.md.
+    plan: free
     # Región de EE. UU. más cercana a Colombia. [A VERIFICAR en el panel]
     region: virginia
     # UNA instancia: el rate limiting vive en la memoria del proceso.
     numInstances: 1
     # --include=dev: con NODE_ENV=production npm omite devDependencies, y el build necesita
     # Vite y TypeScript. En ejecución solo se usan las dependencias de producción.
-    buildCommand: npm ci --include=dev && npm run build
-    # Migraciones antes de publicar la versión nueva (solo aditivas, nunca al arrancar).
-    preDeployCommand: npm run db:migrate:prod
+    # El plan gratuito no admite preDeployCommand: las migraciones (solo aditivas) se aplican
+    # al final de la compilación, antes de publicar la versión nueva.
+    buildCommand: npm ci --include=dev && npm run build && npm run db:migrate:prod
     startCommand: npm start
     healthCheckPath: /api/ready
     envVars:
@@ -30,10 +34,12 @@ services:
         value: '1'
       - key: SERVE_WEB
         value: 'true'
+      # Cadena de conexión de Neon (con ?sslmode=require).
       - key: DATABASE_URL
-        fromDatabase:
-          name: taygamestore-db
-          property: connectionString
+        sync: false
+      # Llave de /api/internal/jobs: la misma en Render y en los secretos de GitHub.
+      - key: CRON_SECRET
+        sync: false
       # Interruptores: se activan a mano siguiendo docs/deployment.md.
       - key: MAINTENANCE_MODE
         value: 'false'
@@ -93,15 +99,3 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
-
-databases:
-  - name: taygamestore-db
-    databaseName: taygamestore
-    user: taygamestore
-    # El plan gratuito de PostgreSQL caduca: usa uno de pago con backups. Nombre del plan
-    # [A VERIFICAR en el panel de Render; si no existe, Render rechaza el Blueprint].
-    plan: basic-256mb
-    postgresMajorVersion: '16'
-    region: virginia
-    # Sin acceso desde Internet: solo la red privada de Render.
-    ipAllowList: []

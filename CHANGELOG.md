@@ -19,6 +19,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Salida a producción
 
+- Publicación gratuita: `render.yaml` pasa al plan Free de Render con PostgreSQL de Neon
+  (la base gratuita de Render caduca); las migraciones cierran la compilación (el plan gratuito
+  no tiene `preDeployCommand`). Guía `docs/despliegue-gratis.md`. Simulado con una base vacía:
+  migraciones, `/api/ready`, tareas, panel oculto y segundo despliegue sin errores.
+- `/api/internal/jobs` es ahora una ruta de la app (Render, Vercel o cualquier hosting), con
+  `CRON_SECRET` validado (mínimo 32 caracteres): sin llave o con otra, 404; si una tarea falla,
+  500 para que el flujo de GitHub quede en rojo. `tareas.yml` sirve para ambos hostings y, en
+  Render Free, mantiene la tienda despierta.
+
 - Seguridad de los correos: no incluyen el nombre que escribe el cliente (texto libre); así
   nadie puede pagar un pedido con el correo de otra persona para colarle un engaño en un
   correo legítimo de la tienda. El nombre del pedido rechaza saltos de línea y caracteres

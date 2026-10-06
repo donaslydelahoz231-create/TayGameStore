@@ -1,14 +1,16 @@
-name: Tareas programadas (Vercel)
+name: Tareas programadas
 
-# En Vercel no hay procesos de fondo y, en el plan Hobby, Vercel Cron solo corre una vez al día.
-# Este flujo llama cada 10 minutos a /api/internal/jobs (vencer pedidos, conciliar pagos con
-# Mercado Pago si un webhook no llegó, reintentar eventos fallidos, liberar entregas tomadas).
+# Llama cada 10 minutos a /api/internal/jobs de la tienda publicada (vencer pedidos, conciliar
+# pagos con Mercado Pago si un webhook no llegó, reintentar correos y avisos, liberar entregas).
 # Las tareas son idempotentes y usan locks en PostgreSQL: repetirlas no duplica pagos ni entregas.
 # GitHub puede retrasar los flujos programados unos minutos; no sustituye al webhook, lo respalda.
 #
-# Configuración (docs/salir-a-produccion.md): variable PRODUCTION_URL y secreto CRON_SECRET (el
-# mismo valor que en Vercel). Sin ellos no hace nada. En Render no hace falta: allí las tareas
-# corren dentro del servidor (no configures CRON_SECRET en GitHub si despliegas en Render).
+# - Render gratuito: además mantiene la tienda despierta (sin visitas se dormiría y las tareas
+#   no correrían). Ver docs/despliegue-gratis.md.
+# - Vercel: en el plan Hobby, Vercel Cron solo corre una vez al día.
+#
+# Configuración: variable PRODUCTION_URL y secreto CRON_SECRET (el mismo valor que en el
+# hosting). Sin ellos no hace nada.
 
 on:
   schedule:
@@ -42,6 +44,6 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" "${URL%/}/api/internal/jobs")
           echo "Respuesta: $status"
           if [ "$status" != "200" ]; then
-            echo "::error::/api/internal/jobs respondió $status (404: CRON_SECRET no coincide con el de Vercel)."
+            echo "::error::/api/internal/jobs respondió $status (404: CRON_SECRET no coincide con el del hosting)."
             exit 1
           fi

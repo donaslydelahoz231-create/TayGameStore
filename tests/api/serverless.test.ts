@@ -12,7 +12,7 @@ let base: string;
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('LOG_LEVEL', 'silent');
-  vi.stubEnv('CRON_SECRET', 'secreto-de-prueba-cron');
+  vi.stubEnv('CRON_SECRET', 'secreto-de-prueba-cron-de-32-caracteres-o-mas');
   vi.stubEnv('DATABASE_URL', '');
   const { default: handler } = await import('../../src/server/serverless.js');
   server = createServer((req, res) => void handler(req, res));
@@ -38,7 +38,11 @@ describe('función de Vercel', () => {
   });
 
   it('las tareas programadas no existen para quien no trae el secreto', async () => {
-    for (const authorization of ['', 'Bearer otro', 'secreto-de-prueba-cron']) {
+    for (const authorization of [
+      '',
+      'Bearer otro',
+      'secreto-de-prueba-cron-de-32-caracteres-o-mas',
+    ]) {
       const res = await fetch(`${base}/api/internal/jobs`, {
         headers: authorization ? { authorization } : {},
       });
@@ -48,7 +52,7 @@ describe('función de Vercel', () => {
 
   it('con el secreto correcto y sin base de datos lo dice sin ejecutar nada', async () => {
     const res = await fetch(`${base}/api/internal/jobs`, {
-      headers: { authorization: 'Bearer secreto-de-prueba-cron' },
+      headers: { authorization: 'Bearer secreto-de-prueba-cron-de-32-caracteres-o-mas' },
     });
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ error: { code: 'NO_DATABASE' } });

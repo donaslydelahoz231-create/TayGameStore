@@ -1,13 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { buildServer, type Server } from './bootstrap.js';
 import { ConfigError, loadConfig } from './config/env.js';
-import { safeEqual } from './lib/crypto.js';
-import { JOB_NAMES, runJob } from './services/jobs.js';
 
 /**
  * Entrada para Vercel Functions (api/index.mjs). La app se construye una vez por instancia y
  * se reutiliza entre peticiones. Sin procesos de fondo: las tareas programadas las dispara
- * Vercel Cron en /api/internal/jobs con `Authorization: Bearer $CRON_SECRET`.
+ * Vercel Cron en /api/internal/jobs con `Authorization: Bearer $CRON_SECRET` (ruta de la app).
  */
 let starting: Promise<Server> | undefined;
 
@@ -31,33 +29,6 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-const JOBS_PATH = '/api/internal/jobs';
-
-async function runJobs(server: Server, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization ?? '';
-  if (!secret || !safeEqual(auth, `Bearer ${secret}`)) {
-    sendJson(res, 404, { error: { code: 'NOT_FOUND', message: 'Ruta no encontrada.' } });
-    return;
-  }
-  if (!server.deps) {
-    sendJson(res, 503, {
-      error: { code: 'NO_DATABASE', message: 'Base de datos no configurada.' },
-    });
-    return;
-  }
-  const results: Record<string, number | null | 'error'> = {};
-  for (const name of JOB_NAMES) {
-    try {
-      results[name] = await runJob(server.deps, name);
-    } catch (error) {
-      server.app.log.error({ err: error, job: name, alert: 'job_failed' }, 'job failed');
-      results[name] = 'error';
-    }
-  }
-  sendJson(res, 200, { ok: true, results });
-}
-
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let server: Server;
   try {
@@ -70,10 +41,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
     return;
   }
-  const path = (req.url ?? '/').split('?')[0];
-  if (path === JOBS_PATH) {
-    await runJobs(server, req, res);
-    return;
-  }
+  // /api/internal/jobs (Vercel Cron) lo atiende la propia app, igual que en Render.
   server.app.server.emit('request', req, res);
 }

@@ -16,6 +16,7 @@ import { adminRoutes } from './modules/admin/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { configRoutes } from './modules/config/routes.js';
 import { healthRoutes, type DatabaseHealthCheck } from './modules/health/routes.js';
+import { jobRoutes } from './modules/jobs/routes.js';
 import { shopRoutes } from './modules/shop/routes.js';
 import { webhookRoutes } from './modules/webhooks/routes.js';
 import {
@@ -166,6 +167,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
   });
   await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });
+  await app.register(jobRoutes, { config, deps });
   await app.register(authRoutes, {
     config,
     deps,

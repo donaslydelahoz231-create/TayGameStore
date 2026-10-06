@@ -187,6 +187,11 @@ const envSchema = z
       .string()
       .regex(/^[\p{L}\p{N} .·-]{1,60}$/u, 'solo letras, números, espacios y . · -')
       .default('TayGameStore'),
+    /**
+     * Llave de /api/internal/jobs (Vercel Cron y el flujo de GitHub `tareas.yml`). Aleatoria,
+     * de al menos 32 caracteres; el mismo valor en el hosting y en los secretos de GitHub.
+     */
+    CRON_SECRET: z.string().min(32).max(256).optional(),
     TELEGRAM_CHAT_ID: z
       .string()
       .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
@@ -319,6 +324,8 @@ export interface AppConfig {
   support: { whatsapp: string | undefined; email: string | undefined };
   /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
   ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
+  /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
+  cronSecret: string | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
   smtp:
     | {
@@ -444,6 +451,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
           ? { botToken: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
           : undefined,
     },
+    cronSecret: env.CRON_SECRET,
     smtp:
       env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
         ? {
