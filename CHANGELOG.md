@@ -19,6 +19,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Salida a producción
 
+- Correos al cliente ("Pago confirmado", "Recarga completada", "Reembolso registrado") y al
+  dueño ("Pedido pagado por entregar") por SMTP (Gmail con contraseña de aplicación u otro
+  servidor). Cola `notifications` en la misma transacción que el cambio de estado, envío
+  inmediato, reintentos (1/5/15/60 min) y alerta "Avisos sin enviar" tras 5 fallos; nunca
+  duplicados. Al cliente solo se le escribe tras un pago confirmado. Validado contra un
+  servidor SMTP real local con STARTTLS y autenticación.
+
 - Aviso al dueño cuando Mercado Pago confirma un pago: notificación del sistema, sonido y
   contador en el título del panel (también en segundo plano), y mensaje de Telegram opcional
   (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Se envía una sola vez por pedido, después de

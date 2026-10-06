@@ -4,6 +4,7 @@ import {
   auditEvents,
   blocklist,
   fulfillments,
+  notifications,
   ORDER_STATUSES,
   orders,
   paymentAttempts,
@@ -13,6 +14,7 @@ import { canTransitionFulfillment } from '../domain/state-machines.js';
 import { AppError } from '../plugins/errors.js';
 import { isUniqueViolation, toPublicOrder, transitionOrder } from './orders.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
+import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 
 // ── Órdenes ──────────────────────────────────────────────────────────────────
 
@@ -291,10 +293,14 @@ export async function fulfillmentAction(
     });
     if (to === 'DELIVERING' && order.status === 'PAID')
       await transitionOrder(tx, actor, order, 'DELIVERING');
-    if (to === 'DELIVERED') await transitionOrder(tx, actor, order, 'DELIVERED');
+    if (to === 'DELIVERED') {
+      await transitionOrder(tx, actor, order, 'DELIVERED');
+      await enqueueOrderNotifications(deps, tx, order.id, 'delivered');
+    }
     if (to === 'FAILED')
       await transitionOrder(tx, actor, order, 'NEEDS_REVIEW', {}, { reason: 'fulfillment_failed' });
   });
+  if (input.action === 'deliver') await deliverNotifications(deps, { orderId });
 }
 
 // ── Resolución de revisiones ─────────────────────────────────────────────────
@@ -327,6 +333,8 @@ export async function resolveReview(
       if (!valid) throw invalidState('No hay un pago aprobado y correcto para esta orden.');
       if (order.confirmedAt === null) throw invalidState('El cliente no confirmó el jugador.');
       await transitionOrder(tx, actor, order, 'PAID', {}, { note: input.note });
+      // Si el pago llegó tarde y se aceptó en revisión, el cliente y el dueño reciben el aviso.
+      await enqueueOrderNotifications(deps, tx, order.id, 'paid');
       const [existing] = await tx
         .select()
         .from(fulfillments)
@@ -368,6 +376,7 @@ export async function resolveReview(
       {},
       { note: input.note },
     );
+    if (refunded) await enqueueOrderNotifications(deps, tx, order.id, 'refunded');
     await tx
       .update(fulfillments)
       .set({ status: 'CANCELLED', updatedAt: sql`now()` })
@@ -378,6 +387,7 @@ export async function resolveReview(
         ),
       );
   });
+  await deliverNotifications(deps, { orderId });
 }
 
 // ── Lista de bloqueo ─────────────────────────────────────────────────────────
@@ -453,6 +463,7 @@ export async function alertSummary(deps: ServiceDeps) {
     [autoBlocks],
     [mfaLocks],
     [activeIpBlocks],
+    [notificationsFailed],
   ] = await Promise.all([
     deps.db.select({ n: count() }).from(orders).where(eq(orders.status, 'NEEDS_REVIEW')),
     deps.db.select({ n: count() }).from(payments).where(eq(payments.status, 'NEEDS_REFUND')),
@@ -504,6 +515,7 @@ export async function alertSummary(deps: ServiceDeps) {
           sql`(${blocklist.expiresAt} is null or ${blocklist.expiresAt} > now())`,
         ),
       ),
+    deps.db.select({ n: count() }).from(notifications).where(eq(notifications.status, 'FAILED')),
   ]);
   return {
     needsReview: review?.n ?? 0,
@@ -516,6 +528,7 @@ export async function alertSummary(deps: ServiceDeps) {
     autoBlocks24h: autoBlocks?.n ?? 0,
     mfaLocks24h: mfaLocks?.n ?? 0,
     activeIpBlocks: activeIpBlocks?.n ?? 0,
+    notificationsFailed: notificationsFailed?.n ?? 0,
   };
 }
 

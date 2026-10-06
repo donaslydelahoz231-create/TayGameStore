@@ -3,6 +3,7 @@ import { fulfillments, oauthStates, orders, payments, sessions } from '../db/sch
 import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
+import { deliverNotifications } from './notifications.js';
 import { purgeExpiredLookups } from './player.js';
 import { purgeExpiredBlocks } from './shield.js';
 import {
@@ -23,6 +24,7 @@ const JOB_LOCKS = {
   retryEvents: 7303,
   releaseClaims: 7304,
   cleanup: 7305,
+  sendNotifications: 7306,
 } as const;
 export type JobName = keyof typeof JOB_LOCKS;
 /** Todas las tareas, en el orden en que conviene ejecutarlas en una pasada. */
@@ -150,6 +152,8 @@ const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   retryEvents: retryFailedEvents,
   releaseClaims: releaseStaleClaims,
   cleanup,
+  // Reintenta avisos (correo/Telegram) que fallaron o que no se enviaron al momento.
+  sendNotifications: (deps) => deliverNotifications(deps, { limit: 50 }),
 };
 
 const JOB_TIMEOUT_MS = 50_000;
@@ -178,6 +182,7 @@ const SCHEDULE: [JobName, number][] = [
   ['retryEvents', 60_000],
   ['releaseClaims', 120_000],
   ['cleanup', 3_600_000],
+  ['sendNotifications', 60_000],
 ];
 
 export function startScheduler(deps: ServiceDeps): Scheduler {

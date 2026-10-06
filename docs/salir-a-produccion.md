@@ -13,10 +13,11 @@ llega cada pedido pagado hasta el jugador.
 | Mercado Pago avisa al servidor (webhook firmado), el servidor **consulta el pago a Mercado Pago** y comprueba monto, moneda y `live_mode` | Servidor | Sí. El navegador nunca puede marcar un pedido como pagado |
 | Si el webhook no llega: al volver el cliente a la tienda se consulta su pago; además la conciliación revisa los pendientes (Render: cada 2 minutos dentro del servidor; Vercel: cada 10 minutos con el flujo `tareas.yml`, ver `deployment-vercel.md`) | Servidor | Sí |
 | El pedido pasa a **Pagado** y queda "listo para entregar" | Servidor | Sí, una sola vez por pedido |
-| **Aviso al dueño**: notificación + sonido + contador en el panel y, si lo configuras, mensaje de Telegram | Servidor / panel | Sí |
+| **Correo al cliente** "Pago confirmado" (con su pedido, ID y paquetes) | Servidor | Sí, con correo configurado (sección 1) |
+| **Aviso al dueño**: notificación + sonido + contador en el panel; correo y Telegram si los configuras | Servidor / panel | Sí |
 | Recargar los diamantes al ID del jugador | **Tú**, con tu canal de recarga | **No**: entrega manual (ver abajo) |
 | Marcar el pedido como entregado con la evidencia | Tú, en el panel | — |
-| El cliente ve "Recarga completada" en su seguimiento | Tienda | Sí |
+| El cliente ve "Recarga completada" en su seguimiento y la recibe por correo | Tienda / servidor | Sí |
 
 ### Por qué la entrega es manual
 
@@ -29,7 +30,48 @@ desde Mercado Pago; el reembolso llega por webhook y el pedido pasa a **Reembols
 Cuando contrates un distribuidor, el punto de conexión ya existe (`FULFILLMENT_MODE` y el
 puerto de verificación de jugador); se integra con su documentación oficial, nunca antes.
 
-## 1. Aviso a tu celular por Telegram (opcional, recomendado)
+## 1. Correos al cliente y a ti (recomendado)
+
+Con correo configurado, el cliente recibe **"Pago confirmado"** cuando Mercado Pago confirma el
+pago, **"Recarga completada"** cuando marcas la entrega y **"Reembolso registrado"** si hay un
+reembolso; tú recibes **"Pedido pagado por entregar"** en los correos de `ADMIN_EMAILS`. La
+tienda le dice al cliente, junto al campo de correo, que le escribiremos allí (solo si el correo
+está configurado: nunca promete lo que no hace).
+
+Cómo es de fiable:
+- El aviso se guarda en la base de datos **en la misma operación** que marca el pedido como
+  pagado: no existe un pedido pagado sin su aviso pendiente.
+- Se envía en el momento. Si el servidor de correo falla, se reintenta solo (1, 5, 15 y 60
+  minutos). Tras 5 intentos fallidos queda marcado y el panel lo muestra en
+  **"Avisos sin enviar"**.
+- Nunca se envía dos veces el mismo aviso, aunque Mercado Pago repita su notificación.
+- Al cliente solo se le escribe **después de un pago confirmado**: nadie puede usar tu tienda
+  para mandar correos a otra persona escribiendo su dirección en un pedido sin pagar.
+- Los correos nunca piden contraseñas y lo dicen en el pie; las respuestas del cliente van a
+  `SUPPORT_EMAIL`.
+
+### Con Gmail
+
+1. En tu cuenta de Google activa la **verificación en dos pasos**.
+2. En *Cuenta de Google → Seguridad → Contraseñas de aplicaciones*
+   (`myaccount.google.com/apppasswords`), crea una para "TayGameStore". Google te muestra una
+   clave de 16 letras. Si la clave se filtra, revócala allí mismo y crea otra.
+3. En el hosting: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER=` tu Gmail,
+   `SMTP_PASS=` esa clave de aplicación (nunca tu contraseña normal). Redespliega.
+
+Gmail limita los envíos diarios de una cuenta personal; para una tienda con mucho volumen
+conviene Google Workspace o un servicio de correo transaccional (también funcionan por SMTP con
+las mismas variables). Revisa los límites vigentes en la ayuda de Google.
+
+### SMS
+
+No está incluido: requiere contratar un proveedor de SMS (cobra por mensaje) y pedir el
+celular al cliente en el pedido. Si lo quieres, se integra con la documentación oficial del
+proveedor que elijas, con la misma cola de avisos.
+
+## 2. Aviso a tu celular por Telegram (opcional)
+
+Telegram es **solo para ti** (el dueño): los clientes nunca lo ven ni lo necesitan.
 
 1. En Telegram abre **@BotFather**, envía `/newbot` y sigue los pasos. Te da un *token*.
 2. Escríbele cualquier mensaje a tu bot nuevo.
@@ -43,7 +85,7 @@ El token es un secreto: no lo pegues en chats, issues ni en Git. Si se filtra, r
 
 El mensaje incluye la referencia, el total, el ID del jugador y los paquetes; no incluye el
 correo ni el nombre del cliente. Si Telegram no responde, el pago queda guardado igual y el
-fallo se registra (`alert: owner_notify_failed`); el panel sigue avisando.
+aviso se reintenta como los correos; el panel sigue avisando.
 
 ### Aviso en el panel
 
@@ -51,7 +93,7 @@ Con el panel abierto (aunque la pestaña esté en segundo plano) se consulta cad
 **"Activar avisos de pedidos pagados"** una vez por sesión: el navegador pide permiso para las
 notificaciones y habilita el sonido. El título de la pestaña muestra `(n) Pagados por entregar`.
 
-## 2. Mercado Pago en producción
+## 3. Mercado Pago en producción
 
 1. En Mercado Pago → **Tus integraciones** → tu aplicación de Checkout Pro → **Credenciales de
    producción**: copia el *Access Token* a `MP_ACCESS_TOKEN`.
@@ -63,13 +105,13 @@ Con `MP_MODE=production` desaparecen los avisos de "Modo prueba" de la tienda y 
 "Mercado Pago: PRODUCCIÓN". Un pago de prueba (`live_mode=false`) nunca cuenta como pagado en
 producción: va a revisión.
 
-## 3. Textos legales
+## 4. Textos legales
 
 `src/web/terminos.html` y `src/web/privacidad.html` tienen campos `[COMPLETAR…]` (razón social,
 NIT o cédula, domicilio, plazo de entrega, canales oficiales…). Son datos tuyos: nadie más
 puede escribirlos. Con ventas en producción el servidor **no arranca** mientras queden.
 
-## 4. Comprobar antes de abrir
+## 5. Comprobar antes de abrir
 
 ```bash
 # Variables (con un .env de producción en tu equipo, nunca en Git)
@@ -81,12 +123,14 @@ npm run golive:check -- --url https://tu-dominio.com
 Termina con `LISTO para vender.` (código 0) o lista lo que falta (código 1). Solo lee: no crea
 pedidos, no paga y nunca imprime valores de variables.
 
-## 5. Primera venta real
+## 6. Primera venta real
 
 1. Compra tú mismo el paquete más barato con una tarjeta real.
 2. Comprueba: llega el aviso, el pedido está **Pagado** en el panel, el pago aparece en tu
-   cuenta de Mercado Pago con la misma referencia.
-3. Entrega la recarga y márcala como entregada; el seguimiento debe decir "Recarga completada".
+   cuenta de Mercado Pago con la misma referencia y te llega el correo **"Pago confirmado"**
+   (revisa también la carpeta de spam la primera vez).
+3. Entrega la recarga y márcala como entregada; el seguimiento debe decir "Recarga completada"
+   y te llega ese correo.
 4. Prueba un reembolso desde Mercado Pago y comprueba que el pedido pasa a **Reembolsado**.
 
 Hasta hacer este paso, el cobro real está **sin verificar**: las pruebas automáticas usan un

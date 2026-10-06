@@ -42,6 +42,7 @@ describe('golive:check — variables del servidor', () => {
     expect(report('Variables', checks, (l) => lines.push(l))).toBe(true);
     expect(lines.join('\n')).toContain('AVISO Entrega manual');
     expect(lines.join('\n')).toContain('AVISO Sin TELEGRAM_BOT_TOKEN');
+    expect(lines.join('\n')).toContain('AVISO Sin SMTP_HOST');
     // Nunca imprime valores de las variables.
     for (const value of Object.values(PRODUCTION).filter((v) => v.length > 12)) {
       expect(lines.join('\n')).not.toContain(value);

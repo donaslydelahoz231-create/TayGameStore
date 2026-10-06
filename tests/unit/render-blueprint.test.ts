@@ -51,6 +51,10 @@ const SECRET_PLACEHOLDERS: Record<string, string> = {
   SUPPORT_WHATSAPP: '+573000000000',
   TELEGRAM_BOT_TOKEN: `123456789:${'r'.repeat(35)}`,
   TELEGRAM_CHAT_ID: '123456789',
+  SMTP_HOST: 'smtp.example.com',
+  SMTP_USER: 'tienda@example.com',
+  SMTP_PASS: 'clave-de-aplicacion-relleno',
+  MAIL_FROM: 'tienda@example.com',
 };
 
 describe('render.yaml', () => {

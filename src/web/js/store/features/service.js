@@ -89,4 +89,7 @@ export async function bootstrapConfig() {
   }
   renderService();
   updateOAuthUI();
+  // Solo se promete el correo si el servidor de verdad lo envía.
+  const emailHint = document.getElementById('emailUpdatesHint');
+  if (emailHint) emailHint.hidden = !state.serverConfig?.emailUpdates;
 }

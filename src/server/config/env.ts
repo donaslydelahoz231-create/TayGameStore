@@ -171,6 +171,22 @@ const envSchema = z
       .string()
       .regex(/^\d{5,15}:[A-Za-z0-9_-]{30,64}$/, 'formato de token de @BotFather')
       .optional(),
+    /**
+     * Correo por SMTP (opcional): avisos al cliente (pago confirmado, entrega, reembolso) y al
+     * dueño. Gmail: smtp.gmail.com, puerto 465 y una contraseña de aplicación de la cuenta.
+     */
+    SMTP_HOST: z
+      .string()
+      .regex(/^[A-Za-z0-9.-]{3,253}$/, 'nombre de servidor, p. ej. smtp.gmail.com')
+      .optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+    SMTP_USER: z.string().min(3).max(320).optional(),
+    SMTP_PASS: z.string().min(8).max(200).optional(),
+    MAIL_FROM: z.email().optional(),
+    MAIL_FROM_NAME: z
+      .string()
+      .regex(/^[\p{L}\p{N} .·-]{1,60}$/u, 'solo letras, números, espacios y . · -')
+      .default('TayGameStore'),
     TELEGRAM_CHAT_ID: z
       .string()
       .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
@@ -185,6 +201,13 @@ const envSchema = z
     }
     if (Boolean(env.FACEBOOK_APP_ID) !== Boolean(env.FACEBOOK_APP_SECRET)) {
       issue('FACEBOOK_APP_SECRET', 'FACEBOOK_APP_ID y FACEBOOK_APP_SECRET van juntos');
+    }
+    const smtp = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASS];
+    if (smtp.some(Boolean) && !smtp.every(Boolean)) {
+      issue('SMTP_HOST', 'SMTP_HOST, SMTP_USER y SMTP_PASS van juntos');
+    }
+    if (env.SMTP_HOST && !env.MAIL_FROM && !z.email().safeParse(env.SMTP_USER).success) {
+      issue('MAIL_FROM', 'obligatoria si SMTP_USER no es una dirección de correo');
     }
     if (Boolean(env.TELEGRAM_BOT_TOKEN) !== Boolean(env.TELEGRAM_CHAT_ID)) {
       issue('TELEGRAM_CHAT_ID', 'TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID van juntos');
@@ -214,6 +237,10 @@ const envSchema = z
       issue('ADMIN_PATH', 'obligatoria en producción: dirección secreta del panel');
     }
     if (!env.IP_HASH_PEPPER) issue('IP_HASH_PEPPER', 'obligatoria en producción');
+    // Nunca credenciales de correo sin cifrar: 465 (TLS) o 587 (STARTTLS obligatorio).
+    if (env.SMTP_HOST && env.SMTP_PORT !== 465 && env.SMTP_PORT !== 587) {
+      issue('SMTP_PORT', 'en producción debe ser 465 (TLS) o 587 (STARTTLS)');
+    }
     if (env.GOOGLE_CLIENT_ID && !env.MFA_ENCRYPTION_KEYS) {
       issue('MFA_ENCRYPTION_KEYS', 'obligatoria en producción cuando hay acceso con Google');
     }
@@ -292,6 +319,17 @@ export interface AppConfig {
   support: { whatsapp: string | undefined; email: string | undefined };
   /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
   ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
+  /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
+  smtp:
+    | {
+        host: string;
+        port: number;
+        user: string;
+        pass: string;
+        fromAddress: string;
+        fromName: string;
+      }
+    | undefined;
 }
 
 export class ConfigError extends Error {
@@ -406,5 +444,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
           ? { botToken: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
           : undefined,
     },
+    smtp:
+      env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
+        ? {
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+            fromAddress: env.MAIL_FROM ?? env.SMTP_USER,
+            fromName: env.MAIL_FROM_NAME,
+          }
+        : undefined,
   };
 }

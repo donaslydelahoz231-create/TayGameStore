@@ -9,6 +9,7 @@ import type { GoogleClient, GoogleIdentity } from '../../src/server/integrations
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
+import { RecordingMailer } from './fake-mailer.js';
 import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
@@ -63,6 +64,7 @@ export interface Harness {
   database: Database;
   gateway: FakePaymentGateway;
   notifier: RecordingOwnerNotifier;
+  mailer: RecordingMailer;
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
@@ -83,6 +85,7 @@ export async function createHarness(
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
   const notifier = new RecordingOwnerNotifier();
+  const mailer = new RecordingMailer();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
   const discord = new FakeSocialClient('discord');
@@ -112,6 +115,7 @@ export async function createHarness(
     socialClients: { discord, facebook },
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
     ownerNotifier: notifier,
+    mailer,
     now: () => clock.now,
   });
   if (!deps) throw new Error('sin dependencias');
@@ -121,6 +125,7 @@ export async function createHarness(
     database,
     gateway,
     notifier,
+    mailer,
     google,
     verifier,
     shield,

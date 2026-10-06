@@ -8,6 +8,7 @@ import { registerRequestContext } from './http/context.js';
 import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
+import type { Mailer } from './integrations/notify/email.js';
 import type { OwnerNotifier } from './integrations/notify/owner.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
@@ -43,6 +44,8 @@ export interface AppDependencies {
   playerVerifier?: PlayerVerifier | undefined;
   /** Aviso al dueño de pedidos pagados (Telegram si está configurado). */
   ownerNotifier?: OwnerNotifier | undefined;
+  /** Correo saliente para avisos a clientes y dueño (SMTP si está configurado). */
+  mailer?: Mailer | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
 }
@@ -127,6 +130,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         gateway: config.flags.paymentsEnabled ? input.paymentGateway : undefined,
         log: app.log,
         notifier: input.ownerNotifier,
+        mailer: input.mailer,
       }
     : undefined;
 
@@ -158,6 +162,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
       facebook: input.socialClients?.facebook !== undefined && deps !== undefined,
     },
     playerLookupAvailable: input.playerVerifier !== undefined && deps !== undefined,
+    emailUpdatesAvailable: input.mailer !== undefined && deps !== undefined,
   });
   await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });

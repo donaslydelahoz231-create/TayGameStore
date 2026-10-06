@@ -43,6 +43,13 @@
       "when": 1791231300782,
       "tag": "0005_fk_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791292557045,
+      "tag": "0006_notifications",
+      "breakpoints": true
     }
   ]
 }

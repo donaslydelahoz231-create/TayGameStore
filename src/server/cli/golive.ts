@@ -104,6 +104,14 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
       : warn('Sin SUPPORT_WHATSAPP ni SUPPORT_EMAIL: el cliente no tiene a quién escribir'),
   );
   checks.push(
+    config.smtp
+      ? ok('Correo activo: el cliente recibe "Pago confirmado" y "Recarga completada"')
+      : warn(
+          'Sin SMTP_HOST/SMTP_USER/SMTP_PASS: los clientes no reciben correos de su pedido ' +
+            '(solo lo ven en la tienda)',
+        ),
+  );
+  checks.push(
     config.ownerNotify.telegram
       ? ok('Aviso al celular por Telegram cuando entra un pago')
       : warn(

@@ -84,6 +84,15 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      # Correo a clientes y al dueño (opcional; ver docs/salir-a-produccion.md).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
 
 databases:
   - name: taygamestore-db

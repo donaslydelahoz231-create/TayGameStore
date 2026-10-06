@@ -7,6 +7,7 @@ export interface ConfigRoutesOptions {
   googleAvailable: boolean;
   socialAvailable: { discord: boolean; facebook: boolean };
   playerLookupAvailable: boolean;
+  emailUpdatesAvailable: boolean;
 }
 
 /** Configuración pública para el frontend. Nunca incluye secretos. */
@@ -26,6 +27,8 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       paymentMethod: 'mercadopago',
       auth: { google: options.googleAvailable, ...options.socialAvailable },
       playerLookup: options.playerLookupAvailable,
+      /** El cliente recibe por correo el pago confirmado y la entrega (SMTP configurado). */
+      emailUpdates: options.emailUpdatesAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
       termsVersion: config.orders.termsVersion,
       limits: {

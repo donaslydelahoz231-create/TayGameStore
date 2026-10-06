@@ -17,6 +17,7 @@ import {
 } from '../integrations/payments/gateway.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
+import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   closeOpenAttempts,
   loadOrderForAccess,
@@ -196,7 +197,7 @@ export async function applyProviderPayment(
       .limit(1)
       .for('update');
     if (!order)
-      return { orderRef: ref, paymentStatus: undefined, ignored: true, paidOrderId: undefined };
+      return { orderRef: ref, paymentStatus: undefined, ignored: true, notifyOrderId: undefined };
 
     const amountMatches =
       payment.currency === 'COP' &&
@@ -253,7 +254,7 @@ export async function applyProviderPayment(
         .update(payments)
         .set({ lastSyncedAt: deps.now() })
         .where(eq(payments.id, existing.id));
-      return { orderRef: ref, paymentStatus: status, ignored: false, paidOrderId: undefined };
+      return { orderRef: ref, paymentStatus: status, ignored: false, notifyOrderId: undefined };
     }
     if (!row) throw new Error('no se guardó el pago');
     await audit(tx, actor, {
@@ -286,51 +287,13 @@ export async function applyProviderPayment(
       orderRef: ref,
       paymentStatus: status,
       ignored: false,
-      paidOrderId: effect === 'PAID' ? order.id : undefined,
+      notifyOrderId: effect ? order.id : undefined,
     };
   });
   // Solo tras confirmar la transacción: el aviso nunca anuncia un pago que no quedó guardado.
-  const { paidOrderId, ...result } = applied;
-  if (paidOrderId) await notifyOwnerPaid(deps, paidOrderId);
+  const { notifyOrderId, ...result } = applied;
+  if (notifyOrderId) await deliverNotifications(deps, { orderId: notifyOrderId });
   return result;
-}
-
-/**
- * Avisa al dueño de que hay un pedido pagado por entregar. Ocurre una sola vez por pedido (la
- * transición a PAID está protegida por el bloqueo de la orden). Nunca falla hacia el llamador:
- * el pago ya está guardado y el panel lo muestra aunque el aviso no llegue.
- */
-async function notifyOwnerPaid(deps: ServiceDeps, orderId: string): Promise<void> {
-  const notifier = deps.notifier;
-  if (!notifier) return;
-  try {
-    const [order] = await deps.db
-      .select({
-        reference: orders.publicRef,
-        totalCop: orders.totalCop,
-        playerUid: orders.playerUid,
-        nickname: orders.verifiedNickname,
-      })
-      .from(orders)
-      .where(eq(orders.id, orderId));
-    if (!order) return;
-    const items = await deps.db
-      .select({ name: orderItems.name, quantity: orderItems.quantity })
-      .from(orderItems)
-      .where(eq(orderItems.orderId, orderId));
-    await notifier.orderPaid({ ...order, items });
-    deps.log.info({ orderRef: order.reference, channel: notifier.channel }, 'owner notified');
-  } catch (error) {
-    deps.log.warn(
-      {
-        orderId,
-        channel: notifier.channel,
-        reason: error instanceof Error ? error.message : 'unknown',
-        alert: 'owner_notify_failed',
-      },
-      'owner notification failed',
-    );
-  }
 }
 
 async function applyOrderEffects(
@@ -342,7 +305,7 @@ async function applyOrderEffects(
   status: PaymentStatus,
   amountMatches: boolean,
   modeMatches: boolean,
-): Promise<'PAID' | void> {
+): Promise<'PAID' | 'REFUNDED' | void> {
   const review = async (reason: string) => {
     if (order.status !== 'NEEDS_REVIEW' && order.status !== 'REFUNDED') {
       await transitionOrder(
@@ -401,6 +364,8 @@ async function applyOrderEffects(
         action: 'fulfillment.ready',
         toStatus: 'READY_FOR_FULFILLMENT',
       });
+      // Aviso al dueño y al cliente: existe si y solo si el pago quedó guardado.
+      await enqueueOrderNotifications(deps, tx, order.id, 'paid');
       return 'PAID';
     }
     // Pago aprobado de una orden que no lo esperaba (expirada, rechazada…): revisión humana.
@@ -415,8 +380,11 @@ async function applyOrderEffects(
     ) {
       return review('refund_on_unexpected_status');
     }
+    let refundedNow = false;
     if (order.status !== 'REFUNDED') {
       await transitionOrder(tx, actor, order, 'REFUNDED', {}, { paymentId: payment.id });
+      await enqueueOrderNotifications(deps, tx, order.id, 'refunded');
+      refundedNow = true;
     }
     await tx
       .update(fulfillments)
@@ -427,7 +395,7 @@ async function applyOrderEffects(
           inArray(fulfillments.status, ['READY_FOR_FULFILLMENT', 'CLAIMED', 'FAILED']),
         ),
       );
-    return;
+    return refundedNow ? 'REFUNDED' : undefined;
   }
 
   if (status === 'DISPUTED' && payment.isOrderPayment) return review('payment_disputed');

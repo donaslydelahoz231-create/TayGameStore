@@ -521,3 +521,49 @@ export const auditEvents = pgTable(
     ),
   ],
 );
+
+export const NOTIFICATION_KINDS = [
+  'order_paid_owner',
+  'order_paid_customer',
+  'order_delivered_customer',
+  'order_refunded_customer',
+] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+export const NOTIFICATION_CHANNELS = ['email', 'telegram'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
+export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
+
+/**
+ * Cola de avisos (outbox). Se inserta en la misma transacción que el cambio de estado del
+ * pedido: si el pedido quedó pagado, su aviso existe. Se envía enseguida y, si falla, el
+ * scheduler lo reintenta con espera creciente. Un aviso por pedido, tipo y canal.
+ * El destinatario no se copia aquí: se lee del pedido (cliente) o de ADMIN_EMAILS (dueño).
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: id(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<NotificationKind>().notNull(),
+    channel: text('channel').$type<NotificationChannel>().notNull(),
+    status: text('status').$type<NotificationStatus>().notNull().default('PENDING'),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('notifications_order_kind_channel_key').on(t.orderId, t.kind, t.channel),
+    index('notifications_pending_idx')
+      .on(t.nextAttemptAt)
+      .where(sql`${t.status} = 'PENDING'`),
+    check('notifications_kind_check', inList('kind', NOTIFICATION_KINDS)),
+    check('notifications_channel_check', inList('channel', NOTIFICATION_CHANNELS)),
+    check('notifications_status_check', inList('status', NOTIFICATION_STATUSES)),
+    check('notifications_attempts_check', sql`${t.attempts} >= 0`),
+  ],
+);
