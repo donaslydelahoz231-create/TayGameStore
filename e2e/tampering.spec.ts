@@ -218,6 +218,9 @@ test.describe('panel de administración', () => {
     await page.waitForURL(/\/$/);
     await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
 
+    // La cookie de sesión es HttpOnly: ni la consola ni un script inyectado pueden leerla.
+    expect(await page.evaluate(() => document.cookie)).not.toContain('tgs_session');
+
     const orders = await consoleFetch(page, '/api/admin/orders');
     expect(orders.status).toBe(403);
     const price = await consoleFetch(page, '/api/admin/products', {
@@ -225,5 +228,41 @@ test.describe('panel de administración', () => {
       body: { sku: 'ff-gratis', name: 'Diamantes gratis', priceCop: 1 },
     });
     expect(price.status).toBe(403);
+  });
+
+  test('código malicioso en el nombre del cliente no se ejecuta al abrir el pedido en el panel', async ({
+    page,
+    context,
+  }) => {
+    // XSS almacenado: la vía real para "infiltrarse" en el panel sería que el administrador
+    // ejecute, sin saberlo, código que un cliente dejó en su pedido.
+    const payload = '<img src=x onerror="window.__tgsPwned=1">';
+    await guestStore(page);
+    const created = await consoleFetch(page, '/api/checkout', {
+      method: 'POST',
+      body: await checkoutBody(page, { playerUid: '765432102', customerName: payload }),
+    });
+    expect(created.status).toBe(201);
+    const ref = (created.body?.order as { reference: string }).reference;
+
+    const session = await page.request.post('/__e2e__/admin-session', {
+      data: {},
+      headers: { 'x-tgs-csrf': '1' },
+    });
+    const { token } = (await session.json()) as { token: string };
+    await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
+    const admin = await context.newPage();
+    const adminErrors = await preparePage(admin);
+    await admin.goto('/admin.html');
+    await expect(admin.locator('#admApp')).toBeVisible();
+    await admin.locator('#admSearch').fill(ref);
+    await admin.locator('#admReload').click();
+    await admin.locator('#admOrders tr', { hasText: ref }).click();
+
+    // Se muestra como texto, no como HTML: no hay imagen inyectada ni código ejecutado.
+    await expect(admin.locator('#admDetail')).toContainText(payload);
+    await expect(admin.locator('#admApp img[src="x"]')).toHaveCount(0);
+    expect(await admin.evaluate(() => 'tgsPwned' in window || '__tgsPwned' in window)).toBe(false);
+    expect(unexpectedErrors(adminErrors)).toEqual([]);
   });
 });

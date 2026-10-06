@@ -47,6 +47,8 @@ nada de lo que llega del navegador:
 | Mostrar el panel oculto (`#admApp`) | Sin datos: la API exige sesión de administrador |
 | Cookie de sesión inventada | 401 |
 | Cliente con sesión (Discord, Facebook o Google sin permiso) | 403 en todo `/api/admin/*` |
+| Leer la cookie de sesión desde la consola (`document.cookie`) | No aparece: es HttpOnly (y `__Host-` en producción) |
+| Dejar código (`<img onerror=…>`) en el nombre del pedido para que se ejecute en el panel | Se muestra como texto; la CSP tampoco permite scripts en línea |
 
 `e2e/tampering.spec.ts` ejecuta estos ataques en un navegador real en cada CI. El riesgo real no
 está en el inspector sino en **tus cuentas**: por eso la lista siguiente.
