@@ -31,7 +31,7 @@ y avisa**: nunca cambia un pedido ni confirma un pago.
 | Flujo | Cuándo | Qué hace | Estado |
 |---|---|---|---|
 | **TayGameStore · Pedidos** | Cada evento de la tienda | 1) Valida el formato (si no, lo anota en *Incidentes*) y descarta duplicados por `eventId`. 2) Actualiza **una fila por pedido** en *Pedidos* con su etapa y la hora del paso, y guarda el evento en *Eventos*. 3) Si está por verificar o pagado, te escribe por Gmail con ID, paquetes, total y plazo. Si algo falla responde error y la tienda reintenta sola. | Probado: ciclo completo y duplicado. Necesita credenciales para publicarse. |
-| **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y mantiene despierta la tienda (Render Free). | Necesita su llave para publicarse. |
+| **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y mantiene despierta la tienda (Render Free). | Respaldo opcional (la tienda ya lo hace sola). Necesita su llave para publicarse. |
 | **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready` (60 s de espera y un reintento). Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe. | **Publicado.** Gmail en pausa hasta conectarlo. |
 | **TayGameStore · Errores** | Cuando otro flujo falla | Flujo de error de los tres anteriores: anota el fallo en *Incidentes* y te escribe con el enlace a la ejecución. | **Publicado.** Gmail en pausa hasta conectarlo. |
 
@@ -47,19 +47,35 @@ y avisa**: nunca cambia un pedido ni confirma un pago.
   fallos de cualquier flujo.
 - **TayGameStore · Estado** — último estado de la tienda (la vigilancia avisa solo al cambiar).
 
-## Agente: TayGameStore · Cerebro de operaciones
+## Agentes IA (organización por función)
 
-Agente de n8n (modelo `openai/gpt-oss-120b` en Groq, con tu credencial "Groq account") que
-actúa como jefe de operaciones, ingeniería y marketing. **Solo lee**: estado en vivo,
-configuración pública, catálogo real y las cuatro tablas. No puede cambiar pedidos, precios ni
-pagos.
+| Agente | Función | Herramientas |
+|---|---|---|
+| **Cerebro de operaciones** | Director: reparte cada pregunta al especialista y une las respuestas. Informe diario 7:52 a. m. | Todas las de lectura + `diagnostico_integral` + los 3 especialistas como sub-agentes |
+| **Infraestructura y autorreparación** | Estado, caídas, errores de n8n; causa → solución con su habilidad **"Fallas y soluciones"** (13 fallas conocidas y su arreglo) | `diagnostico_integral`, estado en vivo, Incidentes, Estado |
+| **Operación de pedidos** | Pedidos por verificar/entregar ordenados por urgencia, línea de tiempo de un pedido, ventas | Pedidos, Eventos, catálogo |
+| **Marketing y ventas** | Publicaciones y campañas con precios reales, siempre como BORRADOR | Catálogo, configuración pública, Pedidos |
 
-- Pregúntale: "¿qué pedidos tengo por verificar o por entregar?", "¿cómo va la tienda?",
-  "escríbeme un post para Instagram con los paquetes actuales".
-- **Informe diario** a las 7:52 a. m. (Bogotá): lo que requiere acción ya, estado, incidentes,
-  ventas de las últimas 24 h, una idea de publicación (BORRADOR) y siguientes pasos.
-- Queda como **borrador**: actívalo con **Publish** en la pantalla del agente cuando lo hayas
-  probado.
+Todos **solo leen**: no cambian pedidos, precios ni pagos, nunca piden contraseñas y no
+inventan datos. Están publicados; se usan desde la pantalla de Agentes de n8n.
+
+## Autorreparación: qué se arregla solo y qué necesita al dueño
+
+| Situación | Qué pasa |
+|---|---|
+| La tienda se durmió (Render Free) | La Vigilancia la despierta cada 5 min (60 s de espera y un reintento) |
+| Un evento de pedido no llegó a n8n | La tienda lo reintenta sola (1, 5, 15, 60 min) |
+| Un aviso de Mercado Pago no llegó | La conciliación interna consulta el pago cada 2 min |
+| Un flujo falla en producción | El flujo **Errores** lo anota en *Incidentes* y avisa (Gmail al conectarlo) |
+| Falta una credencial o variable | No se repara sola: el **Diagnóstico integral** la marca como PENDIENTE y el agente de Infraestructura dice dónde configurarla |
+
+El flujo **TayGameStore · Diagnóstico integral** revisa todo junto (tienda, base de datos,
+catálogo, pagos, login, correos, soporte, verificación de ID, webhook de Pedidos y latidos) y
+devuelve cada punto como OK, PENDIENTE o FALLA. Lo usan los agentes.
+
+**Tareas cada 10 min** es un respaldo opcional: la tienda ya ejecuta sus tareas con su
+programador interno. No lo publiques ni lo pruebes sin su credencial (daría "Credentials not
+found").
 
 ## Activar lo que falta (unos 5 minutos)
 

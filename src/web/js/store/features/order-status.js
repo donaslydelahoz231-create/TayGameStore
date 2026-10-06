@@ -11,8 +11,17 @@ const STATUS_TEXT = {
   REFUNDED: 'Reembolsado',
 };
 
+/**
+ * Pago iniciado en Mercado Pago que aún no se acredita (p. ej. efectivo en Efecty o PSE en
+ * proceso). El pedido sigue esperando el pago: lo confirma el servidor, nunca el navegador.
+ */
+export function paymentInProgress(order) {
+  return order?.status === 'AWAITING_PAYMENT' && order.payment?.status === 'PENDING';
+}
+
 export function humanStatus(order) {
   if (!order) return 'Pendiente';
+  if (paymentInProgress(order)) return 'Pago en proceso';
   if (order.status === 'AWAITING_VERIFICATION' && order.verification?.status === 'VERIFIED') {
     return 'Confirma tu cuenta';
   }

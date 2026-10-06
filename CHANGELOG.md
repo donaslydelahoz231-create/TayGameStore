@@ -11,6 +11,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   entregado y reembolsado salen por la cola de avisos con id estable, llave Bearer, sin
   redirecciones y sin correo ni nombre del cliente. Flujos de n8n de tareas, vigilancia y
   registro de pedidos: `docs/n8n.md`.
+- Pago en proceso: si un pago de Mercado Pago queda pendiente (Efecty o PSE), la tienda lo
+  muestra como «Pago en proceso» y avisa antes de abrir otro pago, para no cobrar dos veces. La
+  tienda informa los medios de Checkout Pro en Colombia (tarjeta, PSE, Efecty, saldo).
+- n8n: Diagnóstico integral, latido de la Vigilancia, agentes especializados (infraestructura,
+  pedidos, marketing) bajo el Cerebro y plan de proveedor (`docs/specs/proveedores-recargas.md`).
 - Evento `order.awaiting_verification` al crear un pedido con verificación manual (con su
   plazo): el dueño recibe al momento el aviso para verificar ID, nickname y región.
 - Catálogo de producción cargado con los precios del HTML original, aprobados por el

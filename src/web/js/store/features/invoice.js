@@ -2,7 +2,7 @@ import { cartItems, total } from '../cart-model.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { runtime, state } from '../state.js';
-import { humanStatus } from './order-status.js';
+import { humanStatus, paymentInProgress } from './order-status.js';
 
 // Comprobante en vivo. Antes de crear el pedido es un borrador con los precios del catálogo;
 // después muestra exactamente la orden del servidor (referencia, totales, estado).
@@ -70,6 +70,15 @@ function payButtonState() {
       text: verified ? 'Confirma tu cuenta' : BUTTON_TEXT.AWAITING_VERIFICATION,
       enabled: verified,
       note: verified ? 'Revisa el jugador y confírmalo' : 'El equipo está verificando el jugador',
+    };
+  }
+  if (paymentInProgress(order)) {
+    // Efecty o PSE pueden tardar en acreditarse: avisar antes de abrir otro pago.
+    return {
+      text: order.payment.canPay ? 'Pagar con otro medio' : 'Pago en proceso',
+      enabled: order.payment.canPay && !runtime.paymentBusy,
+      note: 'Tu pago está en proceso en Mercado Pago. Si ya pagaste (Efecty o PSE pueden tardar), no pagues de nuevo.',
+      ok: false,
     };
   }
   if (order.status === 'AWAITING_PAYMENT') {
