@@ -40,6 +40,8 @@ const APPROVED_ADMIN_ROUTES = [
   'POST /api/admin/orders/:id/review',
   'POST /api/admin/orders/:id/verification',
   'POST /api/admin/products',
+  // Baja la propia sesión a cliente ("Ver tienda como cliente"); nunca sube privilegios.
+  'POST /api/admin/sesion/cliente',
   'PUT /api/admin/products/:id',
 ];
 
@@ -82,6 +84,7 @@ describe('solo el propietario administra; el dinero no se puede desviar', () => 
   it('un usuario con sesión normal, aunque su correo esté en la lista, no es administrador', async () => {
     const { cookie } = await sessionFor(h, { email: 'admin@example.com', admin: false });
     const res = await h.app.inject({ method: 'GET', url: '/api/admin/orders', cookies: cookie });
-    expect([401, 403]).toContain(res.statusCode);
+    // Para quien no es administrador el panel no existe (404).
+    expect(res.statusCode).toBe(404);
   });
 });

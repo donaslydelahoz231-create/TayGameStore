@@ -6,7 +6,7 @@ import { errorMessage } from './api.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
 import { closeAllModals, closeMenus, modal, toast } from './ui.js';
-import { logout, openAccountMenu } from './features/account.js';
+import { logout, openAccountMenu, openAdminPanel } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
 import {
@@ -106,6 +106,7 @@ function bindEntryAndAccount() {
     modal('historyModal', true);
     await syncPurchaseHistory();
   };
+  $('menuAdmin').onclick = openAdminPanel;
   $('menuFavorites').onclick = () => {
     closeMenus();
     renderFavorites();

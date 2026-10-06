@@ -97,7 +97,8 @@ describe('Google OIDC', () => {
       name: 'X',
     };
     const denied = await googleLogin('admin');
-    expect(denied.callback.headers.location).toBe('/?acceso=error&motivo=sin_permiso');
+    // Mismo mensaje que cualquier fallo de Google: no confirma que exista un panel.
+    expect(denied.callback.headers.location).toBe('/?acceso=error&motivo=google');
     expect(denied.session).toBeUndefined();
   });
 
@@ -157,10 +158,11 @@ describe('MFA de administración (TOTP + códigos de recuperación)', () => {
     expect(enabled.statusCode).toBe(200);
     const { recoveryCodes } = enabled.json<{ recoveryCodes: string[] }>();
     expect(recoveryCodes).toHaveLength(10);
-    // La sesión rota su token al completar MFA (anti fijación de sesión).
+    // La sesión rota su token al completar MFA (anti fijación de sesión): el token viejo ya no
+    // es una sesión de administrador, así que el panel no existe para él (404).
     expect(
       (await inject({ method: 'GET', url: '/api/admin/orders', cookies: session })).statusCode,
-    ).toBe(401);
+    ).toBe(404);
     const rotated = enabled.cookies.find((c) => c.name === 'tgs_session');
     const adminCookie = { tgs_session: rotated?.value ?? '' };
     expect(

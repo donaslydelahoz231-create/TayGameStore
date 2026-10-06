@@ -23,7 +23,7 @@ confirmación explícita.
 
 1. El cliente escribe el UID (6–12 dígitos). El servidor lo valida al crear el pedido.
 2. Orden en `AWAITING_VERIFICATION` con `verification_status = PENDING`.
-3. Operador (panel `/admin.html`, Google + TOTP): registra `VERIFIED` con nickname y región,
+3. Operador (panel en su ruta secreta `ADMIN_PATH`, Google + TOTP): registra `VERIFIED` con nickname y región,
    o `NOT_FOUND` / `AMBIGUOUS` / `BLOCKED_ACCOUNT` (la orden pasa a `REJECTED`).
 4. El cliente ve **"Vas a recargar a: [nickname] — ID: [UID] — Región: [región]"** y elige
    "Sí, es mi cuenta" (→ `AWAITING_PAYMENT`) o "No es mi cuenta" (→ `REJECTED`).

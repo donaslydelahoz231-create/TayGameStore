@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
+import { ADMIN_PATH } from './support/admin-path.js';
 
 /**
  * Comportamiento de la tienda contra el servidor real (PostgreSQL + API) con Mercado Pago
@@ -488,7 +489,35 @@ test.describe('comprobante', () => {
 
 test.describe('panel de administración', () => {
   test('sin sesión muestra el acceso con Google', async ({ page }) => {
-    await page.goto('/admin.html');
+    await page.goto(ADMIN_PATH);
+    await expect(page.locator('#admLogin')).toBeVisible();
+    await expect(page.locator('#admApp')).toBeHidden();
+  });
+
+  test('el dueño pasa a ver la tienda como cliente y vuelve al panel autenticándose', async ({
+    page,
+    context,
+  }) => {
+    const { token } = (await (await operator(page, 'admin-session', {})).json()) as {
+      token: string;
+    };
+    await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
+    await page.goto(ADMIN_PATH);
+    await expect(page.locator('#admApp')).toBeVisible();
+
+    // "Ver tienda como cliente": misma cuenta, sesión de cliente, en la tienda.
+    await page.locator('#admAsCustomer').click();
+    await page.waitForURL(/\/$/);
+    await expect(page.locator('#accountName')).not.toHaveText('Invitado');
+    const asCustomer = await page.request.get('/api/admin/orders');
+    expect(asCustomer.status()).toBe(404);
+
+    // Solo el dueño ve el acceso a su panel en el menú de cuenta.
+    await page.locator('#accountBtn').click();
+    await expect(page.locator('#menuAdmin')).toBeVisible();
+    await page.locator('#menuAdmin').click();
+    await page.waitForURL((url) => url.pathname === ADMIN_PATH);
+    // Volver al panel exige autenticarse otra vez (Google + código).
     await expect(page.locator('#admLogin')).toBeVisible();
     await expect(page.locator('#admApp')).toBeHidden();
   });
@@ -506,7 +535,7 @@ test.describe('panel de administración', () => {
     };
     await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     const admin = await context.newPage();
-    await admin.goto('/admin.html');
+    await admin.goto(ADMIN_PATH);
     await expect(admin.locator('#admApp')).toBeVisible();
     await admin.locator('#admSearch').fill(ref);
     await admin.locator('#admReload').click();

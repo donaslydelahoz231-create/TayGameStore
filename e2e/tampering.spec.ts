@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
+import { ADMIN_PATH } from './support/admin-path.js';
 
 /**
  * Manipulación desde las herramientas de desarrollador (DevTools) del navegador.
@@ -176,10 +177,29 @@ test.describe('precios y pedidos', () => {
 });
 
 test.describe('panel de administración', () => {
+  test('el panel no está en una dirección pública: /admin.html no existe y la tienda no lo enlaza', async ({
+    page,
+  }) => {
+    const legacy = await page.request.get('/admin.html');
+    expect(legacy.status()).toBe(404);
+    expect(await legacy.text()).not.toContain('Administración');
+    // La ruta secreta sirve el panel, sin caché y fuera de los buscadores.
+    const secret = await page.request.get(ADMIN_PATH);
+    expect(secret.status()).toBe(200);
+    expect(secret.headers()['x-robots-tag']).toBe('noindex, nofollow');
+    expect(secret.headers()['cache-control']).toBe('no-store');
+    expect(secret.headers()['referrer-policy']).toBe('no-referrer');
+    // Ni la página de la tienda ni sus scripts contienen la dirección del panel.
+    await guestStore(page);
+    const html = await page.content();
+    expect(html).not.toContain(ADMIN_PATH);
+    expect(await page.locator('#menuAdmin').isHidden()).toBe(true);
+  });
+
   test('mostrar el panel oculto desde el inspector no da acceso a ningún dato', async ({
     page,
   }) => {
-    await page.goto('/admin.html');
+    await page.goto(ADMIN_PATH);
     await page.locator('#admApp').evaluate((el) => el.removeAttribute('hidden'));
     await expect(page.locator('#admApp')).toBeVisible();
     // El HTML del panel es solo un cascarón: los datos vienen de la API, que exige sesión admin.
@@ -187,17 +207,18 @@ test.describe('panel de administración', () => {
 
     for (const path of ['/api/admin/orders', '/api/admin/products', '/api/admin/audit']) {
       const res = await consoleFetch(page, path);
-      expect(res.status, path).toBe(401);
+      // Para quien no es administrador el panel no existe: 404, como cualquier ruta inexistente.
+      expect(res.status, path).toBe(404);
     }
     const edit = await consoleFetch(page, '/api/admin/products', {
       method: 'POST',
       body: { sku: 'ff-gratis', name: 'Diamantes gratis', priceCop: 1 },
     });
-    expect(edit.status).toBe(401);
+    expect(edit.status).toBe(404);
   });
 
   test('una cookie de sesión inventada no abre el panel', async ({ page, context }) => {
-    await page.goto('/admin.html');
+    await page.goto(ADMIN_PATH);
     await context.addCookies([
       {
         name: 'tgs_session',
@@ -208,10 +229,12 @@ test.describe('panel de administración', () => {
       },
     ]);
     const res = await consoleFetch(page, '/api/admin/orders');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 
-  test('un cliente con sesión (no administrador) recibe 403 en el panel', async ({ page }) => {
+  test('para un cliente con sesión (no administrador) el panel no existe (404)', async ({
+    page,
+  }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
     await page.locator('[data-provider="discord"]').click();
@@ -222,12 +245,12 @@ test.describe('panel de administración', () => {
     expect(await page.evaluate(() => document.cookie)).not.toContain('tgs_session');
 
     const orders = await consoleFetch(page, '/api/admin/orders');
-    expect(orders.status).toBe(403);
+    expect(orders.status).toBe(404);
     const price = await consoleFetch(page, '/api/admin/products', {
       method: 'POST',
       body: { sku: 'ff-gratis', name: 'Diamantes gratis', priceCop: 1 },
     });
-    expect(price.status).toBe(403);
+    expect(price.status).toBe(404);
   });
 
   test('código malicioso en el nombre del cliente no se ejecuta al abrir el pedido en el panel', async ({
@@ -253,7 +276,7 @@ test.describe('panel de administración', () => {
     await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     const admin = await context.newPage();
     const adminErrors = await preparePage(admin);
-    await admin.goto('/admin.html');
+    await admin.goto(ADMIN_PATH);
     await expect(admin.locator('#admApp')).toBeVisible();
     await admin.locator('#admSearch').fill(ref);
     await admin.locator('#admReload').click();

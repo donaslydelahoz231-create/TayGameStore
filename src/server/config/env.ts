@@ -128,6 +128,14 @@ const envSchema = z
       .regex(/^v\d{1,3}\.\d$/)
       .default('v25.0'),
     ADMIN_EMAILS: emailList,
+    /**
+     * Dirección secreta del panel (p. ej. /gestion-k7Q2x9LmP4vR). /admin.html responde 404 y el
+     * panel no se enlaza desde ningún sitio público. Obligatoria en producción con ADMIN_EMAILS.
+     */
+    ADMIN_PATH: z
+      .string()
+      .regex(/^\/[A-Za-z0-9_-]{12,64}$/, '"/" seguido de 12 a 64 letras, números, "-" o "_"')
+      .optional(),
 
     MP_ACCESS_TOKEN: z.string().min(10).optional(),
     MP_WEBHOOK_SECRET: z.string().min(10).optional(),
@@ -189,6 +197,9 @@ const envSchema = z
     }
     if (!env.DATABASE_URL) issue('DATABASE_URL', 'obligatoria en producción');
     if (!env.ORDER_TOKEN_KEYS) issue('ORDER_TOKEN_KEYS', 'obligatoria en producción');
+    if (env.ADMIN_EMAILS.length && !env.ADMIN_PATH) {
+      issue('ADMIN_PATH', 'obligatoria en producción: dirección secreta del panel');
+    }
     if (!env.IP_HASH_PEPPER) issue('IP_HASH_PEPPER', 'obligatoria en producción');
     if (env.GOOGLE_CLIENT_ID && !env.MFA_ENCRYPTION_KEYS) {
       issue('MFA_ENCRYPTION_KEYS', 'obligatoria en producción cuando hay acceso con Google');
@@ -243,6 +254,8 @@ export interface AppConfig {
     facebook: { clientId: string; clientSecret: string; graphVersion: string } | undefined;
   };
   adminEmails: readonly string[];
+  /** Ruta del panel. Sin ADMIN_PATH (desarrollo y pruebas) es /admin.html. */
+  adminPath: string;
   mercadoPago:
     | {
         accessToken: string;
@@ -350,6 +363,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET }
         : undefined,
     adminEmails: env.ADMIN_EMAILS,
+    adminPath: env.ADMIN_PATH ?? '/admin.html',
     mercadoPago:
       env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET
         ? {

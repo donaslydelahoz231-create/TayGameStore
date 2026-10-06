@@ -1,6 +1,6 @@
 # Runbook de operación
 
-Panel: `https://<dominio>/admin.html` (Google + allowlist + TOTP). Toda acción queda en
+Panel: `https://<dominio><ADMIN_PATH>`, dirección secreta (Google + allowlist + TOTP); `/admin.html` responde 404. Toda acción queda en
 Auditoría.
 
 ## Día a día

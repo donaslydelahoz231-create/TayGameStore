@@ -14,12 +14,13 @@ import {
   createOAuthState,
   createSession,
   enableMfa,
+  isAllowlistedAdmin,
   revokeSession,
   rotateSession,
   upsertGoogleUser,
   verifyMfa,
 } from '../../services/auth.js';
-import type { ServiceDeps } from '../../services/context.js';
+import { audit, type ServiceDeps } from '../../services/context.js';
 import {
   linkGoogleIdentity,
   linkSocialIdentity,
@@ -36,10 +37,12 @@ export interface AuthRoutesOptions {
 
 const OAUTH_COOKIE = 'tgs_oauth';
 
-/** Destinos de redirección fijos: nunca se redirige a una URL aportada por el usuario. */
+/**
+ * Destinos de redirección fijos: nunca se redirige a una URL aportada por el usuario. El del
+ * panel es su ruta secreta (config.adminPath).
+ */
 const AFTER_LOGIN = {
   customer: '/?acceso=ok',
-  admin: '/admin.html',
   link: '/?acceso=vinculado',
 } as const;
 const loginError = (reason: string) => `/?acceso=error&motivo=${encodeURIComponent(reason)}`;
@@ -155,13 +158,17 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
           userAgent: request.headers['user-agent'],
         });
         setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
-        return reply.redirect(AFTER_LOGIN[purpose]);
+        return reply.redirect(purpose === 'admin' ? deps.config.adminPath : AFTER_LOGIN.customer);
       } catch (error) {
         request.log.warn(
           { err: error instanceof OidcError ? error.reason : error },
           'google login failed',
         );
-        return reply.redirect(loginError(failureReason(error, 'google')));
+        // Un intento de entrar al panel con una cuenta sin permiso recibe el mismo mensaje que
+        // cualquier fallo de Google: no confirma que exista un panel (queda en la auditoría).
+        return reply.redirect(
+          loginError(purpose === 'admin' ? 'google' : failureReason(error, 'google')),
+        );
       }
     },
   );
@@ -262,6 +269,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       admin: session.isAdmin
         ? { mfaEnabled: user.mfaEnabled, mfaVerified: session.mfaVerified }
         : null,
+      // Solo para el dueño (rol admin y en ADMIN_EMAILS), también con sesión de cliente: dónde
+      // está su panel. Entrar sigue exigiendo Google + allowlist + TOTP.
+      adminEntry:
+        options.deps && user.role === 'admin' && isAllowlistedAdmin(options.deps, user.email)
+          ? options.deps.config.adminPath
+          : null,
     };
   });
 
@@ -271,6 +284,36 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     clearCookie(options.config, reply, SESSION_COOKIE);
     return { ok: true };
   });
+
+  /**
+   * "Ver tienda como cliente": el administrador baja su propia sesión a cliente (misma cuenta,
+   * sin permisos de panel). Volver al panel exige de nuevo Google + allowlist + TOTP: cambiar de
+   * rol nunca sube privilegios sin autenticarse.
+   */
+  app.post(
+    '/api/admin/sesion/cliente',
+    { config: { rateLimit: RATE_LIMITS.admin } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const user = requireAdmin(deps, request);
+      const current = request.auth.session;
+      if (!current) throw new AppError('NOT_FOUND', 404, 'Recurso no encontrado.');
+      await revokeSession(deps, current.id);
+      const session = await createSession(deps, user.id, {
+        isAdmin: false,
+        ipHash: request.auth.ipHash,
+        userAgent: request.headers['user-agent'],
+      });
+      await audit(deps.db, actorOf(request, 'admin'), {
+        entityType: 'user',
+        entityId: user.id,
+        action: 'admin.switch_to_customer',
+      });
+      setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+      reply.header('cache-control', 'no-store');
+      return { redirect: '/' };
+    },
+  );
 
   // ── MFA de administración ──
   app.post(

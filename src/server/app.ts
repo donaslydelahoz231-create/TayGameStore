@@ -179,6 +179,8 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
       // .br/.gz generados en el build (vite.config.ts); si no existen, se envía el original.
       preCompressed: true,
       cacheControl: false,
+      // El panel nunca se sirve por su nombre de archivo: solo en la ruta secreta (abajo).
+      allowedPath: (pathName) => !pathName.startsWith('/admin.html'),
       setHeaders(reply, filePath) {
         // Los nombres de /assets/ llevan hash de contenido: nunca cambian.
         reply.header(
@@ -189,6 +191,22 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         );
       },
     });
+    // Panel de administración en su ruta secreta (ADMIN_PATH): sin caché, sin indexar y sin
+    // enviar la dirección como Referer a otros sitios.
+    app.get(
+      config.adminPath,
+      {
+        // onSend corre después de setHeaders de @fastify/static: estas cabeceras prevalecen.
+        onSend: async (_request, reply, payload) => {
+          reply
+            .header('cache-control', 'no-store')
+            .header('x-robots-tag', 'noindex, nofollow')
+            .header('referrer-policy', 'no-referrer');
+          return payload;
+        },
+      },
+      (_request, reply) => reply.sendFile('admin.html'),
+    );
   }
 
   return { app, deps, shield, routes };

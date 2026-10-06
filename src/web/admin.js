@@ -50,7 +50,12 @@ async function call(path, options) {
   try {
     return await api(path, options);
   } catch (err) {
-    if (err instanceof ApiError && (err.code === 'UNAUTHORIZED' || err.code === 'MFA_REQUIRED')) {
+    // Sin sesión de administrador el servidor responde 404 (el panel no existe para otros):
+    // si la sesión caducó, se vuelve a la pantalla de acceso.
+    if (
+      err instanceof ApiError &&
+      (err.code === 'UNAUTHORIZED' || err.code === 'MFA_REQUIRED' || err.code === 'NOT_FOUND')
+    ) {
       await boot();
     }
     throw err;
@@ -96,6 +101,7 @@ async function boot() {
     return;
   }
   $('admLogout').hidden = !me.authenticated;
+  $('admAsCustomer').hidden = !(me.admin && me.admin.mfaVerified);
   $('admWho').textContent = me.authenticated ? me.user.email : 'Sin sesión';
   if (!me.authenticated || !me.admin) return show('admLogin');
   if (!me.admin.mfaEnabled) return show('admMfaSetup');
@@ -103,6 +109,12 @@ async function boot() {
   show('admApp');
   await loadOrdersTab();
 }
+
+// Cambiar a cliente: misma cuenta, sin permisos de panel. Volver pide Google + código otra vez.
+$('admAsCustomer').onclick = async () => {
+  const done = await run(() => api('/api/admin/sesion/cliente', { method: 'POST' }));
+  if (done) location.assign(done.redirect || '/');
+};
 
 $('admLogout').onclick = async () => {
   await run(() => api('/api/auth/logout', { method: 'POST' }));

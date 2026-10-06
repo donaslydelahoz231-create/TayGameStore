@@ -44,6 +44,7 @@ const SECRET_PLACEHOLDERS: Record<string, string> = {
   GOOGLE_CLIENT_ID: 'cliente.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'secreto-google-relleno',
   ADMIN_EMAILS: 'admin@example.com',
+  ADMIN_PATH: '/gestion-relleno-0000',
   MP_ACCESS_TOKEN: 'APP_USR-relleno-de-prueba',
   MP_WEBHOOK_SECRET: 'secreto-webhook-relleno',
   SUPPORT_EMAIL: 'soporte@example.com',

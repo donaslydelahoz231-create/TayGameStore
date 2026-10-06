@@ -47,8 +47,10 @@ El servidor **no arranca** si falta una variable obligatoria (muestra el nombre,
 3. **Credenciales → Crear ID de cliente OAuth → Aplicación web**. URI de redirección autorizada:
    `https://tudominio.com/auth/google/callback` (y la de staging si la usas).
 4. Copia ID y secreto a `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; tu correo en
-   `ADMIN_EMAILS`.
-5. Entra a `https://tudominio.com/admin.html`, configura el TOTP y **guarda los códigos de
+   `ADMIN_EMAILS` y una dirección secreta para el panel en `ADMIN_PATH` (por ejemplo
+   `/gestion-k7Q2x9LmP4vR`: `/` y de 12 a 64 letras, números, `-` o `_`; inventa la tuya y no la
+   compartas). Sin `ADMIN_PATH` el servidor no arranca en producción si hay `ADMIN_EMAILS`.
+5. Entra a `https://tudominio.com<ADMIN_PATH>` (tu dirección secreta), configura el TOTP y **guarda los códigos de
    recuperación** fuera del computador.
 
 ### Discord y Facebook (acceso de clientes, opcional)
@@ -79,7 +81,7 @@ verificar; se puede añadir con esa documentación y una app registrada.
 
 ## 4. Catálogo y precios reales
 
-En `/admin.html` → **Catálogo**: crea cada paquete (SKU, nombre, unidades, precio en COP, promo
+En el panel (`ADMIN_PATH`) → **Catálogo**: crea cada paquete (SKU, nombre, unidades, precio en COP, promo
 opcional con fecha de fin, orden). Los precios los decides tú; `npm run db:seed:dev` solo carga
 los del HTML original como **ejemplo** y no se usa en producción. El servidor recalcula todo al
 crear el pedido: el navegador nunca decide el precio.

@@ -734,13 +734,20 @@ describe('entrega manual', () => {
 });
 
 describe('autorización de administración', () => {
-  it('sin sesión 401, cliente 403, admin sin MFA 403 MFA_REQUIRED', async () => {
-    expect((await inject({ method: 'GET', url: '/api/admin/orders' })).statusCode).toBe(401);
+  // Para quien no es administrador el panel no existe: 404, igual que una ruta inexistente.
+  it('sin sesión y cliente 404 (el panel no se revela), admin sin MFA 403 MFA_REQUIRED', async () => {
+    const guest = await inject({ method: 'GET', url: '/api/admin/orders' });
+    const missing = await inject({ method: 'GET', url: '/api/admin/no-existe' });
+    expect(guest.statusCode).toBe(404);
+    expect(guest.json<ApiErrorBody>().error.code).toBe(missing.json<ApiErrorBody>().error.code);
+    expect(guest.json<ApiErrorBody>().error.message).toBe(
+      missing.json<ApiErrorBody>().error.message,
+    );
     const customer = await sessionFor(h, { email: 'cliente2@example.com' });
     expect(
       (await inject({ method: 'GET', url: '/api/admin/orders', cookies: customer.cookie }))
         .statusCode,
-    ).toBe(403);
+    ).toBe(404);
     const noMfa = await sessionFor(h, {
       email: ADMIN_EMAIL,
       admin: true,
@@ -760,7 +767,7 @@ describe('autorización de administración', () => {
       sub: 'ex-admin',
     });
     const res = await inject({ method: 'GET', url: '/api/admin/orders', cookies: former.cookie });
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(404);
   });
 });
 

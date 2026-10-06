@@ -89,10 +89,17 @@ export function requireAdmin(
   options: { mfa: boolean } = { mfa: true },
 ): AuthUser {
   const { user, session } = request.auth;
-  if (!user || !session) throw new AppError('UNAUTHORIZED', 401, 'Debes iniciar sesión.');
+  // Para quien no es administrador, el panel no existe: la misma respuesta que una ruta
+  // inexistente (404), que además suma al escudo anti-abuso. No revela que haya un panel.
   // La allowlist se revisa en cada petición: quitar un correo de ADMIN_EMAILS revoca el acceso.
-  if (!session.isAdmin || user.role !== 'admin' || !isAllowlistedAdmin(deps, user.email)) {
-    throw new AppError('FORBIDDEN', 403, 'No tienes permiso para esta acción.');
+  if (
+    !user ||
+    !session ||
+    !session.isAdmin ||
+    user.role !== 'admin' ||
+    !isAllowlistedAdmin(deps, user.email)
+  ) {
+    throw new AppError('NOT_FOUND', 404, 'Recurso no encontrado.');
   }
   if (options.mfa && !session.mfaVerified) {
     throw new AppError('MFA_REQUIRED', 403, 'Se requiere verificación en dos pasos.');

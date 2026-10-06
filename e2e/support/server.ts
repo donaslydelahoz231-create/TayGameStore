@@ -19,6 +19,7 @@ import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
 import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
 import { FakeSocialClient } from '../../tests/support/fake-social.js';
 import { resetDatabase } from '../../tests/support/integration.js';
+import { ADMIN_PATH } from './admin-path.js';
 
 const PORT = 4173;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -74,6 +75,7 @@ const config = loadConfig({
   GOOGLE_CLIENT_ID: 'e2e-sin-uso.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'e2e-sin-uso-secreto',
   ADMIN_EMAILS: 'operador@example.com',
+  ADMIN_PATH,
 });
 const { app, deps } = await buildAppWithDeps({
   config,

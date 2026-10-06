@@ -29,6 +29,21 @@ Cliente paga en Mercado Pago ──▶ Cuenta de Mercado Pago del dueño de MP_A
 | Credenciales de Mercado Pago | Solo en variables de entorno de Render; ninguna respuesta del servidor las muestra |
 | Cambios en el panel | Auditoría que no se puede modificar ni borrar |
 
+## Panel oculto y cambio de rol
+
+- El panel vive en una **dirección secreta** (`ADMIN_PATH`). `/admin.html` responde 404 como
+  cualquier página inexistente, la tienda no lo enlaza y los buscadores no lo indexan
+  (`X-Robots-Tag: noindex`). Sus rutas `/api/admin/*` responden 404 a quien no es administrador,
+  así que desde fuera no se puede saber que existe; quien las sondea suma al escudo anti-abuso.
+- Un intento de entrar al panel con una cuenta sin permiso recibe el mismo mensaje que cualquier
+  fallo de Google (y queda en la Auditoría como `admin.login_denied`).
+- **Ver tienda como cliente** (botón del panel): tu sesión pasa a ser de cliente con la misma
+  cuenta, sin permisos de panel. Para volver, tu menú de cuenta muestra **Panel de
+  administración** (solo a ti); entrar de nuevo pide Google y tu código de 6 dígitos. Cambiar de
+  rol nunca sube privilegios sin autenticarse.
+- La dirección secreta es una capa extra, no la seguridad principal: aunque alguien la
+  conociera, seguiría necesitando tu Google, estar en `ADMIN_EMAILS` y tu código TOTP.
+
 ## Manipulación desde el navegador (DevTools)
 
 Nadie puede impedir que alguien abra las herramientas de desarrollador y cambie la página **en
@@ -44,9 +59,9 @@ nada de lo que llega del navegador:
 | Webhook de "pago aprobado" con firma inventada | 401; el pedido no cambia |
 | Cambiar el estado de un pedido desde el cliente | No existe esa ruta (404) |
 | Escritura sin la cabecera anti-CSRF | 403 `CSRF_REJECTED` y señal al escudo anti-abuso |
-| Mostrar el panel oculto (`#admApp`) | Sin datos: la API exige sesión de administrador |
-| Cookie de sesión inventada | 401 |
-| Cliente con sesión (Discord, Facebook o Google sin permiso) | 403 en todo `/api/admin/*` |
+| Mostrar el panel oculto (`#admApp`) | Sin datos: la API responde 404 a quien no es administrador |
+| Cookie de sesión inventada | 404 (el panel no existe para ella) |
+| Cliente con sesión (Discord, Facebook o Google sin permiso) | 404 en todo `/api/admin/*` |
 | Leer la cookie de sesión desde la consola (`document.cookie`) | No aparece: es HttpOnly (y `__Host-` en producción) |
 | Dejar código (`<img onerror=…>`) en el nombre del pedido para que se ejecute en el panel | Se muestra como texto; la CSP tampoco permite scripts en línea |
 

@@ -219,7 +219,8 @@ describe('vinculación de cuentas', () => {
       url: '/api/admin/orders',
       cookies: flow.session ?? {},
     });
-    expect([401, 403]).toContain(panel.statusCode);
+    // Para quien no es administrador el panel no existe (404).
+    expect(panel.statusCode).toBe(404);
   });
 
   it('vincula Google a una cuenta creada con Discord', async () => {

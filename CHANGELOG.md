@@ -17,6 +17,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Pruebas de ataque desde el navegador (`e2e/tampering.spec.ts`): precios, pagos falsos,
   CSRF, panel oculto, cookies inventadas y XSS almacenado contra el panel.
 
+### Seguridad del panel
+
+- Panel en una dirección secreta (`ADMIN_PATH`, obligatoria en producción con `ADMIN_EMAILS`):
+  `/admin.html` responde 404, sin enlaces públicos, `noindex` y sin Referer. `/api/admin/*`
+  responde 404 (no 401/403) a quien no es administrador. Un intento de entrada al panel sin
+  permiso recibe el mensaje genérico de Google.
+- "Ver tienda como cliente" en el panel y "Panel de administración" en el menú de cuenta (solo
+  para el dueño); volver al panel exige Google + TOTP.
+
 ### Simulación de clientes
 
 - `npm run load:sim` (`tools/load/simulate.mjs`, `docs/simulacion-clientes.md`): hasta 300

@@ -1,6 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
+import { ADMIN_PATH } from './support/admin-path.js';
 
 /**
  * Calidad transversal: accesibilidad (axe-core, WCAG 2.1 A/AA) y responsive real (sin
@@ -136,7 +137,7 @@ test('accesibilidad del panel con sesión: todas las pestañas y el detalle de u
   });
   const { token } = (await session.json()) as { token: string };
   await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
-  await page.goto('/admin.html');
+  await page.goto(ADMIN_PATH);
   await expect(page.locator('#admApp')).toBeVisible();
   await page.locator('#admOrders tr', { hasText: 'TGS-' }).first().click();
   await expect(page.locator('#admDetail h2')).toBeVisible();
@@ -148,7 +149,7 @@ test('accesibilidad del panel con sesión: todas las pestañas y el detalle de u
 });
 
 test('accesibilidad del panel de administración (acceso)', async ({ page }) => {
-  await page.goto('/admin.html');
+  await page.goto(ADMIN_PATH);
   await page.locator('#admLogin').waitFor();
   expect(await axe(page)).toEqual([]);
 });
@@ -351,7 +352,7 @@ test('panel y páginas legales: texto legible y controles táctiles de 44 px', a
     });
   try {
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-    for (const path of ['/terminos.html', '/privacidad.html', '/admin.html']) {
+    for (const path of ['/terminos.html', '/privacidad.html', ADMIN_PATH]) {
       await page.goto(path);
       expect(await audit(), path).toEqual({ tiny: 0, small: [] });
     }
@@ -361,7 +362,7 @@ test('panel y páginas legales: texto legible y controles táctiles de 44 px', a
     });
     const { token } = (await session.json()) as { token: string };
     await touch.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
-    await page.goto('/admin.html');
+    await page.goto(ADMIN_PATH);
     await expect(page.locator('#admApp')).toBeVisible();
     for (const tab of ['orders', 'products', 'blocklist', 'audit']) {
       await page.locator(`[data-tab="${tab}"]`).click();

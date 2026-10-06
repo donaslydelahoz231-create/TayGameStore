@@ -59,6 +59,9 @@ services:
         sync: false
       - key: ADMIN_EMAILS
         sync: false
+      # Dirección secreta del panel, p. ej. /gestion-k7Q2x9LmP4vR (no la compartas).
+      - key: ADMIN_PATH
+        sync: false
       # Login de clientes con Discord y Facebook (opcional: vacío = botón deshabilitado).
       - key: DISCORD_CLIENT_ID
         sync: false

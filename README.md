@@ -63,7 +63,7 @@ con Google/Discord/Facebook crea una sesión de prueba. Un aviso fijo lo indica 
 
 1. El cliente elige paquetes (precios del servidor; máx. 5 unidades por paquete y
    1.000.000 COP por pedido), escribe el UID y sus datos y pulsa **Crear pedido**.
-2. El operador verifica nickname y región desde `/admin.html`.
+2. El operador verifica nickname y región desde el panel (dirección secreta `ADMIN_PATH`).
 3. El cliente ve "Vas a recargar a: …" y confirma **Sí, es mi cuenta**.
 4. **Confirmar y pagar** muestra el resumen completo y redirige a Mercado Pago.
 5. El servidor confirma el pago (webhook firmado + consulta a la API) — nunca el navegador.

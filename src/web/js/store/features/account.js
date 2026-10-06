@@ -16,7 +16,7 @@ const PROVIDER_NAMES = { google: 'Google', facebook: 'Facebook', discord: 'Disco
 const LOGIN_ERRORS = {
   cancelado: 'Cancelaste el acceso.',
   estado: 'La sesión de acceso caducó. Inténtalo de nuevo.',
-  sin_permiso: 'Esta cuenta no tiene acceso de administración.',
+  sin_permiso: 'Esta cuenta no puede acceder.',
   bloqueado: 'Esta cuenta no puede acceder. Contacta a soporte.',
   google: 'Google no respondió. Inténtalo de nuevo.',
   facebook: 'Facebook no respondió. Inténtalo de nuevo.',
@@ -71,6 +71,8 @@ export function renderAccount() {
   setText('menuName', state.session?.name || 'Invitado');
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
   $('menuLogin').hidden = !guest;
+  const admin = $('menuAdmin');
+  if (admin) admin.hidden = !state.session?.adminEntry;
   $('menuLogout').hidden = false;
   const label = $('menuLogout')?.querySelector('[data-logout-label]');
   if (label) label.textContent = state.session ? 'Cerrar sesión' : 'Salir del modo invitado';
@@ -117,7 +119,13 @@ export async function bootstrapSession() {
   try {
     const j = await api('/api/auth/me');
     state.session = j.authenticated
-      ? { name: j.user.name, email: j.user.email, linked: j.linked || [] }
+      ? {
+          name: j.user.name,
+          email: j.user.email,
+          linked: j.linked || [],
+          // Solo llega para la cuenta del dueño: dirección de su panel (entrar pide Google + código).
+          adminEntry: typeof j.adminEntry === 'string' ? j.adminEntry : null,
+        }
       : null;
     renderAccount();
     if (state.session) revealStore();
@@ -139,4 +147,10 @@ export async function logout() {
   closeMenus();
   renderAll();
   toast('Sesión cerrada.', 'good');
+}
+
+/** Ir al panel desde la sesión de cliente del dueño. */
+export function openAdminPanel() {
+  const entry = state.session?.adminEntry;
+  if (entry && /^\/[A-Za-z0-9_.-]+$/.test(entry)) location.assign(entry);
 }
