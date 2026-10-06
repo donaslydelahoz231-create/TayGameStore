@@ -73,6 +73,9 @@ const config = loadConfig({
   JOBS_ENABLED: 'false',
   SUPPORT_EMAIL: 'soporte@example.com',
   LEGAL_NAME: 'Tienda de Pruebas',
+  // WebAuthn no acepta una IP como dominio: las llaves de acceso se prueban en localhost.
+  PASSKEY_RP_ID: 'localhost',
+  PASSKEY_ORIGIN: `http://localhost:${PORT}`,
   // Credenciales ficticias SOLO para habilitar la allowlist en pruebas; no hay cliente Google.
   GOOGLE_CLIENT_ID: 'e2e-sin-uso.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'e2e-sin-uso-secreto',

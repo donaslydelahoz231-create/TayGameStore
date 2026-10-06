@@ -91,6 +91,15 @@ const envSchema = z
     LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
     LOG_PRETTY: z.stringbool().optional(),
     PUBLIC_BASE_URL: z.url({ protocol: /^https?$/ }).optional(),
+    /**
+     * Llaves de acceso (WebAuthn). Por defecto: dominio y origen de PUBLIC_BASE_URL. Solo hace
+     * falta fijarlas cuando la tienda se sirve en otra dirección (pruebas locales).
+     */
+    PASSKEY_RP_ID: z
+      .string()
+      .regex(/^[a-z0-9.-]{1,253}$/)
+      .optional(),
+    PASSKEY_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     TRUST_PROXY: trustProxySchema,
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
@@ -314,6 +323,8 @@ export interface AppConfig {
   logLevel: LogLevel;
   logPretty: boolean;
   publicBaseUrl: string | undefined;
+  /** Llaves de acceso: dominio (RP ID) y origen exacto aceptado. Sin ellos, no se ofrecen. */
+  passkey: { rpId: string; origin: string } | undefined;
   /** Las cookies llevan prefijo `__Host-` y `Secure` solo con un origen https. */
   secureCookies: boolean;
   trustProxy: boolean | number;
@@ -400,6 +411,21 @@ export class ConfigError extends Error {
 }
 
 /** Trata las variables vacías (p. ej. copiadas de .env.example) como no definidas. */
+/**
+ * WebAuthn exige un dominio (no una IP) y que el origen sea ese dominio o un subdominio suyo.
+ */
+function passkeyConfig(
+  rpIdOverride: string | undefined,
+  originUrl: string | undefined,
+): { rpId: string; origin: string } | undefined {
+  if (!originUrl) return undefined;
+  const url = new URL(originUrl);
+  const rpId = rpIdOverride ?? url.hostname;
+  const isIp = /^[\d.]+$/.test(rpId) || rpId.includes(':');
+  const matches = url.hostname === rpId || url.hostname.endsWith(`.${rpId}`);
+  return isIp || !matches ? undefined : { rpId, origin: url.origin };
+}
+
 function withoutEmptyValues(source: NodeJS.ProcessEnv): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(source)) {
@@ -430,6 +456,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     logLevel: env.LOG_LEVEL,
     logPretty: env.LOG_PRETTY ?? env.NODE_ENV === 'development',
     publicBaseUrl: env.PUBLIC_BASE_URL?.replace(/\/+$/, ''),
+    passkey: passkeyConfig(env.PASSKEY_RP_ID, env.PASSKEY_ORIGIN ?? env.PUBLIC_BASE_URL),
     secureCookies: env.PUBLIC_BASE_URL?.startsWith('https://') ?? false,
     trustProxy: env.TRUST_PROXY,
     databaseUrl: env.DATABASE_URL,

@@ -118,6 +118,27 @@ describe('loadConfig', () => {
     );
   });
 
+  it('llaves de acceso: dominio de PUBLIC_BASE_URL; nunca una IP ni un origen ajeno', () => {
+    expect(loadConfig({ PUBLIC_BASE_URL: 'https://taygamestore.onrender.com/' }).passkey).toEqual({
+      rpId: 'taygamestore.onrender.com',
+      origin: 'https://taygamestore.onrender.com',
+    });
+    expect(loadConfig({}).passkey).toBeUndefined();
+    expect(loadConfig({ PUBLIC_BASE_URL: 'http://127.0.0.1:4173' }).passkey).toBeUndefined();
+    expect(
+      loadConfig({ PASSKEY_RP_ID: 'localhost', PASSKEY_ORIGIN: 'http://localhost:4173' }).passkey,
+    ).toEqual({ rpId: 'localhost', origin: 'http://localhost:4173' });
+    // El origen tiene que ser el dominio o un subdominio suyo.
+    expect(
+      loadConfig({ PASSKEY_RP_ID: 'tienda.example', PASSKEY_ORIGIN: 'https://evil.example' })
+        .passkey,
+    ).toBeUndefined();
+    expect(
+      loadConfig({ PASSKEY_RP_ID: 'tienda.example', PASSKEY_ORIGIN: 'https://www.tienda.example' })
+        .passkey,
+    ).toEqual({ rpId: 'tienda.example', origin: 'https://www.tienda.example' });
+  });
+
   it('Google OAuth: id y secreto juntos; ADMIN_EMAILS requiere Google', () => {
     expect(configError({ GOOGLE_CLIENT_ID: 'id-de-cliente-google' }).issues.join()).toContain(
       'GOOGLE_CLIENT_SECRET',

@@ -5,6 +5,7 @@ import { renderAll } from '../render.js';
 import { state } from '../state.js';
 import { closeMenus, toast } from '../ui.js';
 import { revealStore } from './entry.js';
+import { passkeysAvailable } from './passkey.js';
 
 // Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
 // habilitado (no hay recuperación segura sin proveedor de correo): el formulario no envía nada.
@@ -71,6 +72,8 @@ export function renderAccount() {
   setText('menuName', state.session?.name || 'Invitado');
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
   $('menuLogin').hidden = !guest;
+  const addPasskey = $('menuPasskey');
+  if (addPasskey) addPasskey.hidden = guest || !passkeysAvailable();
   const admin = $('menuAdmin');
   if (admin) admin.hidden = !state.session?.adminEntry;
   $('menuLogout').hidden = false;
@@ -120,11 +123,17 @@ export function updateOAuthUI() {
   }
   const grid = $('oauthGrid');
   if (grid) grid.dataset.count = String(known ? available.length : OAUTH_PROVIDERS.length);
-  const guestOnly = known && available.length === 0;
+  const passkey = passkeysAvailable();
+  const passkeyBox = $('passkeyBox');
+  if (passkeyBox) passkeyBox.hidden = !passkey;
+  const noOAuth = known && available.length === 0;
+  const guestOnly = noOAuth && !passkey;
   const shown = known ? available : OAUTH_PROVIDERS;
   document
     .querySelectorAll('#loginModal [data-oauth-only]')
-    .forEach((node) => (node.hidden = guestOnly));
+    .forEach((node) => (node.hidden = noOAuth));
+  const divider = $('authDivider');
+  if (divider) divider.hidden = guestOnly;
   const guest = $('guestBtn');
   if (guest) guest.className = guestOnly ? 'btn primary full' : 'text-btn inline';
   const mailNote = cfg?.emailUpdates ? ' y te enviamos el comprobante a tu correo' : '';
@@ -132,13 +141,17 @@ export function updateOAuthUI() {
     'authSubtitle',
     guestOnly
       ? `Compra sin crear cuenta: solo necesitas tu ID de jugador y tu correo. Tu pedido queda guardado en este navegador${mailNote}.`
-      : `Entra con ${providerList(shown)} para conservar tu historial de pedidos.`,
+      : noOAuth
+        ? 'Entra o crea tu cuenta con tu llave de acceso (huella, rostro o PIN de tu dispositivo) para conservar tu historial, o compra como invitado.'
+        : `Entra con ${passkey ? 'tu llave de acceso o con ' : ''}${providerList(shown)} para conservar tu historial de pedidos.`,
   );
   setText(
     'authNote',
     guestOnly
       ? 'No necesitas contraseña. TayGameStore no guarda datos de tarjetas: pagas en Mercado Pago.'
-      : `Entra con ${providerList(shown)}, o compra como invitado. TayGameStore no guarda contraseñas ni datos de tarjetas: pagas en Mercado Pago.`,
+      : passkey
+        ? 'Tu llave de acceso queda en tu dispositivo: TayGameStore no guarda contraseñas ni datos de tarjetas (pagas en Mercado Pago).'
+        : `Entra con ${providerList(shown)}, o compra como invitado. TayGameStore no guarda contraseñas ni datos de tarjetas: pagas en Mercado Pago.`,
   );
 }
 

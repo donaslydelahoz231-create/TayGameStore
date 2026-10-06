@@ -22,6 +22,12 @@ import {
 } from '../../services/auth.js';
 import { audit, type ServiceDeps } from '../../services/context.js';
 import {
+  beginPasskeyLogin,
+  beginPasskeyRegistration,
+  finishPasskeyLogin,
+  finishPasskeyRegistration,
+} from '../../services/passkeys.js';
+import {
   linkGoogleIdentity,
   linkSocialIdentity,
   listLinkedProviders,
@@ -36,6 +42,62 @@ export interface AuthRoutesOptions {
 }
 
 const OAUTH_COOKIE = 'tgs_oauth';
+const PASSKEY_COOKIE = 'tgs_webauthn';
+const PASSKEY_COOKIE_SECONDS = 5 * 60;
+
+// Respuestas de WebAuthn tal como las produce el navegador (solo los campos que se usan).
+const b64url = z
+  .string()
+  .min(1)
+  .max(16_384)
+  .regex(/^[A-Za-z0-9_-]+$/);
+const clientExtensionResults = z
+  .object({
+    appid: z.boolean().optional(),
+    credProps: z.object({ rk: z.boolean().optional() }).optional(),
+  })
+  .default({});
+const credentialBase = {
+  id: b64url.max(1024),
+  rawId: b64url.max(1024),
+  type: z.literal('public-key'),
+  authenticatorAttachment: z.enum(['cross-platform', 'platform']).optional(),
+  clientExtensionResults,
+};
+const registrationBody = z.object({
+  response: z.object({
+    ...credentialBase,
+    response: z.object({
+      clientDataJSON: b64url,
+      attestationObject: b64url,
+      authenticatorData: b64url.optional(),
+      transports: z.array(z.string().max(20)).max(10).optional(),
+      publicKeyAlgorithm: z.number().int().optional(),
+      publicKey: b64url.optional(),
+    }),
+  }),
+});
+const authenticationBody = z.object({
+  response: z.object({
+    ...credentialBase,
+    response: z.object({
+      clientDataJSON: b64url,
+      authenticatorData: b64url,
+      signature: b64url,
+      userHandle: b64url.optional(),
+    }),
+  }),
+});
+const passkeyNameBody = z.object({
+  /** Cómo llamar al cliente (opcional). Sin saltos ni caracteres invisibles. */
+  name: z
+    .string()
+    .trim()
+    .min(2)
+    .max(60)
+    .regex(/^[^\p{Cc}\p{Cf}]+$/u)
+    .optional(),
+});
 
 /**
  * Destinos de redirección fijos: nunca se redirige a una URL aportada por el usuario. El del
@@ -257,6 +319,92 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       },
     );
   }
+
+  // ── Llaves de acceso (passkeys) ────────────────────────────────────────────
+  // Crear cuenta o añadir una llave (con sesión de cliente) y entrar. Solo sesiones de cliente.
+
+  app.post(
+    '/api/auth/passkey/register/options',
+    { config: { rateLimit: RATE_LIMITS.auth } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      if (request.auth.session?.isAdmin) {
+        throw new AppError('FORBIDDEN', 403, 'Usa la tienda como cliente para crear una llave.');
+      }
+      const body = passkeyNameBody.parse(request.body ?? {});
+      const { token, options: creation } = await beginPasskeyRegistration(deps, {
+        userId: request.auth.user?.id,
+        displayName: body.name ?? null,
+      });
+      setCookie(deps.config, reply, PASSKEY_COOKIE, token, PASSKEY_COOKIE_SECONDS);
+      reply.header('cache-control', 'no-store');
+      return { options: creation };
+    },
+  );
+
+  app.post(
+    '/api/auth/passkey/register/verify',
+    { config: { rateLimit: RATE_LIMITS.auth } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const body = registrationBody.parse(request.body);
+      const token = readCookie(deps.config, request, PASSKEY_COOKIE);
+      clearCookie(deps.config, reply, PASSKEY_COOKIE);
+      const sessionUserId = request.auth.session?.isAdmin ? undefined : request.auth.user?.id;
+      const user = await finishPasskeyRegistration(
+        deps,
+        { token, response: body.response, sessionUserId },
+        actorOf(request, 'customer'),
+      );
+      // Cuenta nueva: se abre su sesión. Llave añadida: la sesión actual sigue igual.
+      if (!sessionUserId) {
+        if (request.auth.session) await revokeSession(deps, request.auth.session.id);
+        const session = await createSession(deps, user.id, {
+          isAdmin: false,
+          ipHash: request.auth.ipHash,
+          userAgent: request.headers['user-agent'],
+        });
+        setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+      }
+      return { ok: true, added: Boolean(sessionUserId) };
+    },
+  );
+
+  app.post(
+    '/api/auth/passkey/login/options',
+    { config: { rateLimit: RATE_LIMITS.auth } },
+    async (_request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { token, options: request } = await beginPasskeyLogin(deps);
+      setCookie(deps.config, reply, PASSKEY_COOKIE, token, PASSKEY_COOKIE_SECONDS);
+      reply.header('cache-control', 'no-store');
+      return { options: request };
+    },
+  );
+
+  app.post(
+    '/api/auth/passkey/login/verify',
+    { config: { rateLimit: RATE_LIMITS.auth } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const body = authenticationBody.parse(request.body);
+      const token = readCookie(deps.config, request, PASSKEY_COOKIE);
+      clearCookie(deps.config, reply, PASSKEY_COOKIE);
+      const user = await finishPasskeyLogin(
+        deps,
+        { token, response: body.response },
+        actorOf(request, 'customer'),
+      );
+      if (request.auth.session) await revokeSession(deps, request.auth.session.id);
+      const session = await createSession(deps, user.id, {
+        isAdmin: false,
+        ipHash: request.auth.ipHash,
+        userAgent: request.headers['user-agent'],
+      });
+      setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+      return { ok: true };
+    },
+  );
 
   app.get('/api/auth/me', async (request, reply) => {
     reply.header('cache-control', 'no-store');

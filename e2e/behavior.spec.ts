@@ -108,6 +108,49 @@ test.describe('entrada y acceso', () => {
     await expect(page.locator('#products .product')).toHaveCount(6);
   });
 
+  test('llave de acceso: crear la cuenta con huella/PIN, salir y volver a entrar', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'el autenticador virtual es de Chrome DevTools (CDP)');
+    // Autenticador virtual de Chrome: hace lo que la huella o el PIN de un celular real.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    // WebAuthn exige un dominio: la prueba usa localhost (el resto de la suite, 127.0.0.1).
+    await page.goto('http://localhost:4173/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#passkeyBox')).toBeVisible();
+    await page.locator('#passkeyName').fill('Gamer Llave');
+    await page.locator('#passkeyCreateBtn').click();
+    await expect(page.locator('#loginModal')).toBeHidden();
+    await expect(page.locator('#accountName')).toHaveText('Gamer Llave');
+    // La llave quedó guardada en el dispositivo (no en la tienda).
+    const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
+    expect(credentials).toHaveLength(1);
+    expect(credentials[0]?.isResidentCredential).toBe(true);
+
+    await page.locator('#accountBtn').click();
+    await expect(page.locator('#menuPasskey')).toBeVisible();
+    await page.locator('#menuLogout').click();
+    await expect(page.locator('#accountName')).toHaveText('Invitado');
+
+    await page.goto('http://localhost:4173/');
+    await page.locator('#enterStoreBtn').click();
+    await page.locator('#passkeyLoginBtn').click();
+    await expect(page.locator('#loginModal')).toBeHidden();
+    await expect(page.locator('#accountName')).toHaveText('Gamer Llave');
+  });
+
   test('entrar con Discord y vincular Facebook desde Mi cuenta', async ({ page }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();

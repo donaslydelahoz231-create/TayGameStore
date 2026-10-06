@@ -70,9 +70,15 @@ export function readCookie(
   return value && value.length <= 200 ? value : undefined;
 }
 
-function expectedOrigin(config: AppConfig, request: FastifyRequest): string {
-  if (config.publicBaseUrl) return new URL(config.publicBaseUrl).origin;
-  return `${request.protocol}://${request.host}`;
+/**
+ * Orígenes propios de la tienda: su dirección pública y, si se configuró aparte, la de las
+ * llaves de acceso (en producción es la misma; en pruebas locales, localhost).
+ */
+function expectedOrigins(config: AppConfig, request: FastifyRequest): string[] {
+  const base = config.publicBaseUrl
+    ? new URL(config.publicBaseUrl).origin
+    : `${request.protocol}://${request.host}`;
+  return config.passkey && config.passkey.origin !== base ? [base, config.passkey.origin] : [base];
 }
 
 /**
@@ -87,7 +93,7 @@ function assertSameOriginWrite(config: AppConfig, request: FastifyRequest): void
     new AppError('CSRF_REJECTED', 403, 'Solicitud rechazada por seguridad. Recarga la página.');
   if (request.headers[CSRF_HEADER] !== '1') throw reject();
   const origin = request.headers.origin;
-  if (origin !== undefined && origin !== expectedOrigin(config, request)) throw reject();
+  if (origin !== undefined && !expectedOrigins(config, request).includes(origin)) throw reject();
   const site = request.headers['sec-fetch-site'];
   if (site !== undefined && site !== 'same-origin' && site !== 'none') throw reject();
 }

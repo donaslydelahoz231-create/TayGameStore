@@ -7,6 +7,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Llaves de acceso (passkeys, WebAuthn): los clientes crean su cuenta y entran con la huella,
+  el rostro o el PIN del dispositivo, sin contraseña ni credenciales de terceros. Solo se guarda
+  la clave pública; retos de un solo uso, origen exacto, contador anti-clonado, CSRF y límite
+  por IP. Nunca dan acceso de administración. Guía: `docs/acceso-clientes.md`.
 - Promo de fin de semana automática (`PROMO_SCHEDULE=weekends`, por defecto): el precio
   promocional rige de sábado 00:00 a domingo 23:59, hora de Colombia, en el catálogo y en lo que
   cobra el servidor. «Radar promo» muestra el horario en hora de Colombia, del visitante y UTC.

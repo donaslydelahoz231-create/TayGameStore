@@ -64,6 +64,13 @@
       "when": 1791307730098,
       "tag": "0008_verification_event",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791323500491,
+      "tag": "0009_passkeys",
+      "breakpoints": true
     }
   ]
 }

@@ -160,6 +160,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     config,
     paymentsAvailable: deps?.gateway !== undefined,
     googleAvailable: input.googleClient !== undefined && deps !== undefined,
+    passkeyAvailable: config.passkey !== undefined && deps !== undefined,
     socialAvailable: {
       discord: input.socialClients?.discord !== undefined && deps !== undefined,
       facebook: input.socialClients?.facebook !== undefined && deps !== undefined,

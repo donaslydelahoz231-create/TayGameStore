@@ -189,6 +189,61 @@ export const userIdentities = pgTable(
 );
 
 /**
+ * Llaves de acceso (passkeys, WebAuthn) de clientes: huella, rostro o PIN del dispositivo, sin
+ * contraseña ni proveedor externo. Solo se guarda la clave PÚBLICA de cada credencial.
+ */
+export const passkeys = pgTable(
+  'passkeys',
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Id de la credencial (base64url), tal como lo envía el navegador. */
+    credentialId: text('credential_id').notNull(),
+    /** Clave pública COSE (base64url). */
+    publicKey: text('public_key').notNull(),
+    /** Contador de firmas del autenticador (detecta clones si retrocede). */
+    counter: bigint('counter', { mode: 'number' }).notNull().default(0),
+    transports: text('transports'),
+    deviceType: text('device_type').notNull(),
+    backedUp: boolean('backed_up').notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('passkeys_credential_id_key').on(t.credentialId),
+    index('passkeys_user_idx').on(t.userId),
+    check('passkeys_device_type_check', inList('device_type', ['singleDevice', 'multiDevice'])),
+    check('passkeys_counter_check', sql`${t.counter} >= 0`),
+  ],
+);
+
+/** Reto de un solo uso (5 minutos) para registrar o usar una llave de acceso. */
+export const webauthnChallenges = pgTable(
+  'webauthn_challenges',
+  {
+    idHash: text('id_hash').primaryKey(),
+    challenge: text('challenge').notNull(),
+    purpose: text('purpose').notNull(),
+    /** Registro de una llave más para una cuenta con sesión abierta. */
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    /** Id WebAuthn (base64url) de la cuenta nueva que se está creando. */
+    webauthnUserId: text('webauthn_user_id'),
+    displayName: text('display_name'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('webauthn_challenges_user_idx')
+      .on(t.userId)
+      .where(sql`${t.userId} is not null`),
+    index('webauthn_challenges_expires_idx').on(t.expiresAt),
+    check('webauthn_challenges_purpose_check', inList('purpose', ['register', 'login'])),
+  ],
+);
+
+/**
  * Consultas automáticas de jugador (UID → nickname/región) con un proveedor legítimo.
  * Solo vale para quien la hizo (`owner_key`) y caduca pronto: el checkout la exige vigente.
  */
