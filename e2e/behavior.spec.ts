@@ -164,6 +164,44 @@ test.describe('catálogo y carrito', () => {
     );
   });
 
+  test('radar promo: horario del fin de semana en hora de Colombia, del visitante y UTC', async ({
+    page,
+  }) => {
+    for (const active of [false, true]) {
+      await page.unroute('**/api/config');
+      await page.route('**/api/config', async (route) => {
+        const response = await route.fetch();
+        const json = (await response.json()) as Record<string, unknown>;
+        await route.fulfill({
+          response,
+          json: {
+            ...json,
+            promo: {
+              schedule: 'weekends',
+              timeZone: 'America/Bogota',
+              active,
+              startsAt: '2026-10-10T05:00:00.000Z',
+              endsAt: '2026-10-12T05:00:00.000Z',
+            },
+          },
+        });
+      });
+      await page.goto('/');
+      await enterAsGuest(page);
+      await page.locator('#promoBtn').click();
+      await expect(page.locator('#promoModal')).toBeVisible();
+      await expect(page.locator('#promoBadge')).toHaveText(active ? 'LIVE' : 'PRÓXIMA');
+      await expect(page.locator('#promoStatus')).toContainText(
+        active ? 'Termina el dom' : 'Empieza el sáb',
+      );
+      await expect(page.locator('#promoStatus')).toContainText('(hora de Colombia)');
+      await expect(page.locator('#promoTimes')).toContainText('Colombia (UTC−5): sáb');
+      await expect(page.locator('#promoTimes')).toContainText('Hora general (UTC): sáb');
+      await page.locator('#activatePromo').click();
+      await expect(page.locator('#promoModal')).toBeHidden();
+    }
+  });
+
   test('el cajón lateral lista y elimina productos', async ({ page }) => {
     await page.goto('/');
     await enterAsGuest(page);

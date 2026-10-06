@@ -100,6 +100,7 @@ export async function createHarness(
     LOG_LEVEL: 'silent',
     PUBLIC_BASE_URL: 'http://localhost:3000',
     CHECKOUT_ENABLED: 'true',
+    PROMO_SCHEDULE: 'always',
     PAYMENTS_ENABLED: 'true',
     MP_MODE: 'sandbox',
     MP_ACCESS_TOKEN: 'TEST-token-de-prueba',

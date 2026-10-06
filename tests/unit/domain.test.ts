@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { computeTotals, effectivePrice } from '../../src/server/domain/pricing.js';
+import { computeTotals, effectivePrice, weekendWindow } from '../../src/server/domain/pricing.js';
 import {
   canTransitionFulfillment,
   canTransitionOrder,
@@ -45,6 +45,30 @@ describe('precios', () => {
     expect(effectivePrice({ priceCop: 4000, promoPriceCop: null, promoEndsAt: null }, now)).toBe(
       4000,
     );
+  });
+
+  it('promo de fin de semana: sábado 00:00 a domingo 23:59, hora de Colombia (UTC−5)', () => {
+    const at = (iso: string) => weekendWindow(new Date(iso));
+    const saturday = {
+      startsAt: new Date('2026-10-10T05:00:00Z'),
+      endsAt: new Date('2026-10-12T05:00:00Z'),
+    };
+    // Martes y viernes 23:59 en Colombia: aún no; anuncia el sábado siguiente.
+    expect(at('2026-10-06T21:00:00Z')).toEqual({ ...saturday, active: false });
+    expect(at('2026-10-10T04:59:59Z')).toEqual({ ...saturday, active: false });
+    // Sábado 00:00 y domingo 23:59:59 en Colombia: activa.
+    expect(at('2026-10-10T05:00:00Z')).toEqual({ ...saturday, active: true });
+    expect(at('2026-10-12T04:59:59Z')).toEqual({ ...saturday, active: true });
+    // Lunes 00:00 en Colombia: terminó; la próxima es el sábado 17.
+    expect(at('2026-10-12T05:00:00Z')).toEqual({
+      startsAt: new Date('2026-10-17T05:00:00Z'),
+      endsAt: new Date('2026-10-19T05:00:00Z'),
+      active: false,
+    });
+    const product = { priceCop: 4000, promoPriceCop: 3800, promoEndsAt: null };
+    expect(effectivePrice(product, new Date('2026-10-06T21:00:00Z'), 'weekends')).toBe(4000);
+    expect(effectivePrice(product, new Date('2026-10-11T18:00:00Z'), 'weekends')).toBe(3800);
+    expect(effectivePrice(product, new Date('2026-10-06T21:00:00Z'), 'always')).toBe(3800);
   });
 
   it('calcula totales en enteros y rechaza importes no enteros', () => {

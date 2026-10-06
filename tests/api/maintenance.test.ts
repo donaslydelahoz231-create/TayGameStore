@@ -87,6 +87,14 @@ describe('GET /api/config', () => {
       emailUpdates: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',
+      // Horario público de la promo (por defecto, fines de semana en hora de Colombia).
+      promo: {
+        schedule: 'weekends',
+        timeZone: 'America/Bogota',
+        active: expect.any(Boolean) as boolean,
+        startsAt: expect.stringMatching(/T05:00:00\.000Z$/) as string,
+        endsAt: expect.stringMatching(/T05:00:00\.000Z$/) as string,
+      },
       limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },
     });
     expect(res.body).not.toContain('secreto');

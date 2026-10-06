@@ -1,3 +1,4 @@
+import type { PromoSchedule } from '../domain/pricing.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
@@ -170,6 +171,8 @@ const envSchema = z
     LIMIT_MAX_OPEN_ORDERS_PER_UID: z.coerce.number().int().min(1).max(50).default(3),
 
     TERMS_VERSION: z.string().min(1).max(40).default('2026-10-05'),
+    /** Precio promocional: `weekends` (sábado y domingo, hora de Colombia) o `always`. */
+    PROMO_SCHEDULE: z.enum(['always', 'weekends']).default('weekends'),
     SUPPORT_WHATSAPP: z
       .string()
       .regex(/^\+?\d{8,15}$/)
@@ -359,6 +362,7 @@ export interface AppConfig {
     termsVersion: string;
   };
   support: { whatsapp: string | undefined; email: string | undefined };
+  promoSchedule: PromoSchedule;
   legal: {
     name?: string;
     id?: string;
@@ -494,6 +498,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       termsVersion: env.TERMS_VERSION,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
+    promoSchedule: env.PROMO_SCHEDULE,
     legal: {
       name: env.LEGAL_NAME,
       id: env.LEGAL_ID,

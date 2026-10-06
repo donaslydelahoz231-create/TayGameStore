@@ -398,7 +398,7 @@ export async function createOrder(
             'Uno de los productos ya no está disponible.',
           );
         }
-        const unitPriceCop = effectivePrice(product, now);
+        const unitPriceCop = effectivePrice(product, now, deps.config.promoSchedule);
         return { product, quantity: item.quantity, unitPriceCop, listPriceCop: product.priceCop };
       });
       const totals = computeTotals(lines);

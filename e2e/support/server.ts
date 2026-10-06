@@ -59,6 +59,7 @@ const config = loadConfig({
   SERVE_WEB: 'true',
   WEB_DIST_DIR: 'dist/web',
   CHECKOUT_ENABLED: 'true',
+  PROMO_SCHEDULE: 'always',
   PAYMENTS_ENABLED: 'true',
   MP_MODE: 'sandbox',
   // Todas las pruebas salen de 127.0.0.1: el límite global por IP se mide en tests/integration.

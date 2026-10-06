@@ -7,6 +7,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Promo de fin de semana automática (`PROMO_SCHEDULE=weekends`, por defecto): el precio
+  promocional rige de sábado 00:00 a domingo 23:59, hora de Colombia, en el catálogo y en lo que
+  cobra el servidor. «Radar promo» muestra el horario en hora de Colombia, del visitante y UTC.
 - Comprobante de pago por correo: al confirmarse el pago el cliente recibe «Comprobante de pago ·
   Pedido …» con código, fecha y operación de Mercado Pago, jugador, detalle con precio unitario,
   descuento y total (aclara que no reemplaza una factura electrónica).

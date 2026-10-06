@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
+import { weekendWindow } from '../../domain/pricing.js';
 
 export interface ConfigRoutesOptions {
   config: AppConfig;
@@ -8,6 +9,7 @@ export interface ConfigRoutesOptions {
   socialAvailable: { discord: boolean; facebook: boolean };
   playerLookupAvailable: boolean;
   emailUpdatesAvailable: boolean;
+  now: () => Date;
 }
 
 /** Configuración pública para el frontend. Nunca incluye secretos. */
@@ -31,6 +33,7 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       emailUpdates: options.emailUpdatesAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
       termsVersion: config.orders.termsVersion,
+      promo: promoInfo(config, options.now()),
       limits: {
         maxUnitsPerProduct: config.orders.maxUnitsPerProduct,
         maxOrderTotalCop: config.orders.maxOrderTotalCop,
@@ -38,3 +41,18 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
     };
   });
 };
+
+/** Horario de la promo para que la tienda lo muestre (en hora de Colombia y del visitante). */
+function promoInfo(config: AppConfig, now: Date) {
+  if (config.promoSchedule === 'always') {
+    return { schedule: 'always' as const, active: true, startsAt: null, endsAt: null };
+  }
+  const window = weekendWindow(now);
+  return {
+    schedule: 'weekends' as const,
+    timeZone: 'America/Bogota',
+    active: window.active,
+    startsAt: window.startsAt.toISOString(),
+    endsAt: window.endsAt.toISOString(),
+  };
+}

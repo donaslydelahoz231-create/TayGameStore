@@ -17,6 +17,7 @@ import {
 } from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
+import { renderPromo, weekendPromo } from './features/promo.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
@@ -157,9 +158,15 @@ function bindCatalogAndCart() {
       renderAll();
     }),
   );
-  document
-    .querySelectorAll('.tariff-toggle button')
-    .forEach((btn) => btn.addEventListener('click', () => selectTariff(btn.dataset.tariff)));
+  document.querySelectorAll('.tariff-toggle button').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      selectTariff(btn.dataset.tariff);
+      const promo = weekendPromo();
+      if (btn.dataset.tariff === 'promo' && promo && !promo.active) {
+        toast('La promo se activa el fin de semana (hora de Colombia). Mira el Radar promo.');
+      }
+    }),
+  );
   $('smartReview').onclick = goToNextStep;
   $('smartClear').onclick = clearCart;
   $('drawerClose').onclick = closeDrawer;
@@ -175,6 +182,12 @@ function bindCatalogAndCart() {
     modal('favoritesModal', true);
   };
   $('promoBtn').onclick = () => {
+    // Con promo de fin de semana, el radar muestra el horario; si no, selecciona la tarifa.
+    if (weekendPromo()) {
+      renderPromo();
+      modal('promoModal', true);
+      return;
+    }
     selectPromoTariff();
     toast('Tarifa promo seleccionada.');
   };

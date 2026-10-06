@@ -166,6 +166,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     },
     playerLookupAvailable: input.playerVerifier !== undefined && deps !== undefined,
     emailUpdatesAvailable: input.mailer !== undefined && deps !== undefined,
+    now: input.now ?? (() => new Date()),
   });
   await app.register(shopRoutes, { deps, playerVerifier: input.playerVerifier });
   await app.register(webhookRoutes, { deps });

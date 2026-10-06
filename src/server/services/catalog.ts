@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { products } from '../db/schema.js';
-import { effectivePrice } from '../domain/pricing.js';
+import { effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { AppError } from '../plugins/errors.js';
 import { isUniqueViolation } from './orders.js';
 import { audit, notFound, type Actor, type ServiceDeps } from './context.js';
@@ -25,8 +25,13 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
     .from(products)
     .where(and(eq(products.game, game), eq(products.active, true)))
     .orderBy(asc(products.sortOrder), asc(products.priceCop));
+  const schedule = deps.config.promoSchedule;
+  // Con promo de fin de semana, la oferta termina a más tardar el lunes 00:00 (Colombia).
+  const weekendEnd = schedule === 'weekends' ? weekendWindow(now).endsAt : null;
   return rows.map((row) => {
-    const price = effectivePrice(row, now);
+    const price = effectivePrice(row, now, schedule);
+    const ends = [row.promoEndsAt, weekendEnd].filter((d): d is Date => d !== null);
+    const promoEndsAt = ends.length ? new Date(Math.min(...ends.map((d) => d.getTime()))) : null;
     return {
       sku: row.sku,
       name: row.name,
@@ -35,7 +40,7 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
       units: row.units,
       listPriceCop: row.priceCop,
       priceCop: price,
-      promoEndsAt: price < row.priceCop && row.promoEndsAt ? row.promoEndsAt.toISOString() : null,
+      promoEndsAt: price < row.priceCop && promoEndsAt ? promoEndsAt.toISOString() : null,
     };
   });
 }
