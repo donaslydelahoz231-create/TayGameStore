@@ -19,7 +19,10 @@ const MESSAGES = {
 export function renderChecks() {
   const order = state.currentOrder;
   const status = order?.status;
-  const uidOk = order ? true : validUid(state.playerUid) && state.uidAccepted;
+  // El UID está listo cuando se aceptó o cuando la consulta instantánea ya encontró ese jugador
+  // (falta confirmar el nickname, que es la línea siguiente).
+  const found = state.playerLookup?.uid === state.playerUid;
+  const uidOk = order ? true : validUid(state.playerUid) && (state.uidAccepted || found);
   const lookup = !order && state.playerLookup?.confirmed ? state.playerLookup : null;
   const playerOk = order ? order.verification?.status === 'CONFIRMED' : Boolean(lookup);
   const cartOk = order ? true : cartItems().length > 0;

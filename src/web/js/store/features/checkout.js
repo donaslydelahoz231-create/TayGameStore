@@ -57,6 +57,8 @@ function missingRequirement() {
   if (cfg.maintenanceMode) return ['La tienda está en mantenimiento. Inténtalo más tarde.', null];
   if (!cfg.checkoutEnabled) return ['Las compras no están habilitadas en este momento.', null];
   if (!cartItems().length) return ['Agrega una recarga.', 'catalogo'];
+  if (!state.uidAccepted && state.playerLookup?.uid === state.playerUid)
+    return ['Confirma el jugador: pulsa "Sí, es mi cuenta".', 'verificacion'];
   if (!state.uidAccepted || !validUid(state.playerUid))
     return ['Escribe y verifica el UID del jugador.', 'verificacion'];
   if (!state.customerName.trim()) return ['Escribe el nombre del cliente.', 'factura'];

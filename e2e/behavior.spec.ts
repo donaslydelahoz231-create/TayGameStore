@@ -399,17 +399,22 @@ test.describe('compra completa (invitado)', () => {
     await page.locator('#verifyBtn').click();
     await expect(page.locator('#playerResult')).toContainText('Vas a recargar a: Jugador5678');
     await expect(page.locator('#playerResult')).toContainText('Región: Colombia');
-    // Sin confirmar, no se puede crear el pedido.
-    await expect(page.locator('#uidState')).toHaveText('Pendiente');
-    await page.locator('#confirmLookup').click();
-    await expect(page.locator('#playerResult')).toContainText('Jugador5678 ✓');
-    await expect(page.locator('#nickState')).toHaveText('Listo');
-    await expect(page.locator('#invoiceNick')).toHaveText('Jugador5678');
-
+    // El UID ya es válido y se encontró; lo que falta es confirmar el nickname.
+    await expect(page.locator('#uidState')).toHaveText('Listo');
+    await expect(page.locator('#nickState')).toHaveText('Pendiente');
+    // Sin confirmar, no se crea el pedido aunque todo lo demás esté completo: el botón dice qué
+    // falta y lleva al jugador.
     await page.locator('#customerName').fill('Cliente E2E');
     await page.locator('#customerEmail').fill('e2e-lookup@example.com');
     await page.locator('#paymentMethod').selectOption('mercadopago');
     await page.locator('#acceptTerms').check();
+    await page.locator('#payBtn').click();
+    await expect(page.locator('.toast').last()).toContainText('Sí, es mi cuenta');
+    await expect(page.locator('#invoiceRef')).not.toHaveText(/^TGS-/);
+    await page.locator('#confirmLookup').click();
+    await expect(page.locator('#playerResult')).toContainText('Jugador5678 ✓');
+    await expect(page.locator('#nickState')).toHaveText('Listo');
+    await expect(page.locator('#invoiceNick')).toHaveText('Jugador5678');
     await page.locator('#payBtn').click();
     await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
     // Sin esperar al operador: directo a "Confirmar y pagar".
