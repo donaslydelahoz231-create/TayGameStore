@@ -37,6 +37,8 @@ export const runtime = {
   paymentBusy: false,
   orderBusy: false,
   pollTimer: null,
+  /** Sube con cada cambio de la orden: una lectura que empezó antes llega vieja y se descarta. */
+  orderGeneration: 0,
   pollStartedAt: 0,
   /** Clave de idempotencia del checkout en curso (misma clave en cada reintento). */
   checkoutKey: null,

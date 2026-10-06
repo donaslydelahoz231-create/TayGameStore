@@ -417,6 +417,51 @@ test.describe('búsqueda y navegación', () => {
 });
 
 test.describe('compra completa (invitado)', () => {
+  test('una consulta vieja del pedido nunca deshace la confirmación del cliente', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    const ref = await createOrder(page, '765432555');
+    expect(
+      (
+        await operator(page, 'verify', { ref, nickname: 'JugadorCarrera', region: 'Colombia' })
+      ).ok(),
+    ).toBe(true);
+    await page.locator('#refreshOrderBtn').click();
+    await expect(page.locator('#playerResult')).toContainText('Vas a recargar a: JugadorCarrera');
+
+    // El sondeo automático (cada 5 s) lee el pedido ANTES de que el cliente confirme, pero su
+    // respuesta llega DESPUÉS (red lenta): no debe volver a mostrar "Confirma tu cuenta".
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let held = () => {};
+    const pollHeld = new Promise<void>((resolve) => (held = resolve));
+    await page.route(
+      `**/api/orders/${ref}`,
+      async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        const stale = await route.fetch();
+        held();
+        await gate;
+        await route.fulfill({ response: stale });
+      },
+      { times: 1 },
+    );
+    await pollHeld;
+    await page.locator('#confirmPlayer').click();
+    await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+    const staleDelivered = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/orders/${ref}`) && r.request().method() === 'GET',
+    );
+    release();
+    await staleDelivered;
+    // Sin reintentos: justo después de llegar la respuesta vieja el estado sigue siendo el nuevo.
+    await page.waitForTimeout(300);
+    expect(await page.locator('#invoiceState').textContent()).toBe('Pago pendiente');
+    expect(await page.locator('#confirmPlayer').count()).toBe(0);
+  });
+
   test('UID → pedido → verificación → "Sí, es mi cuenta" → Confirmar y pagar → Mercado Pago → entrega', async ({
     page,
   }) => {

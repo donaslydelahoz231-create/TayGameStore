@@ -15,6 +15,7 @@ function accessHeaders(reference) {
 }
 
 export function setCurrentOrder(order) {
+  runtime.orderGeneration += 1;
   const previous = state.currentOrder;
   state.currentOrder = order || null;
   // Celebración visual solo al ver la transición a entregado (no al abrir un pedido antiguo).
@@ -31,10 +32,14 @@ export function setCurrentOrder(order) {
 
 /** Carga una orden por referencia. Devuelve null si no existe o no es de este navegador. */
 export async function loadOrder(reference) {
+  const generation = runtime.orderGeneration;
   try {
     const j = await api('/api/orders/' + encodeURIComponent(reference), {
       headers: accessHeaders(reference),
     });
+    // Mientras esta consulta viajaba, otra acción (confirmar, pagar, actualizar) cambió la
+    // orden: esta respuesta es anterior y no debe pisar el estado nuevo.
+    if (runtime.orderGeneration !== generation) return state.currentOrder;
     setCurrentOrder(j.order);
     return j.order;
   } catch (err) {

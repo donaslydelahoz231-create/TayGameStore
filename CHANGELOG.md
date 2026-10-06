@@ -47,6 +47,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Seguimiento del pedido: una consulta automática que llegaba tarde (red lenta) podía volver a
+  mostrar «Confirma tu cuenta» justo después de que el cliente confirmaba; ahora una respuesta
+  anterior a un cambio se descarta (prueba que reproduce la carrera).
+- Safari: al volver al inicio tras un desplazamiento largo, la portada podía quedar con las
+  animaciones en pausa; se recalcula la visibilidad al detenerse el desplazamiento.
 - Base de datos: `sslmode=require` (y `prefer`/`verify-ca`) se fija como `verify-full`, el
   comportamiento que `pg` 8 ya aplicaba. Quita el aviso de seguridad en cada arranque de Render
   y evita que `pg` 9 debilite la verificación del certificado.
