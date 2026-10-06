@@ -300,3 +300,17 @@ label {
     height: 22px;
   }
 }
+
+/* Inventario de PIN: nota de uso y código legible. */
+.adm-note {
+  max-width: 520px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.adm-detail code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}

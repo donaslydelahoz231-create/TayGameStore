@@ -174,6 +174,7 @@ document.querySelectorAll('.adm-tabs button').forEach((button) =>
     const loaders = {
       orders: loadOrdersTab,
       products: loadProducts,
+      inventory: loadInventory,
       blocklist: loadBlocks,
       audit: loadAudit,
     };
@@ -270,12 +271,17 @@ async function loadAlerts() {
     ['mfaLocks24h', 'Cuentas admin con MFA bloqueado (24 h)', 'bad'],
     ['notificationsFailed', 'Avisos sin enviar (correo/Telegram/n8n)', 'bad'],
   ];
-  $('admAlerts').innerHTML = items
-    .map(
-      ([key, label, level]) =>
-        `<div class="adm-alert ${a[key] ? level : ''}"><b>${Number(a[key])}</b>${esc(label)}</div>`,
-    )
-    .join('');
+  const lowStock = Array.isArray(a.lowStock) ? a.lowStock : [];
+  $('admAlerts').innerHTML =
+    items
+      .map(
+        ([key, label, level]) =>
+          `<div class="adm-alert ${a[key] ? level : ''}"><b>${Number(a[key])}</b>${esc(label)}</div>`,
+      )
+      .join('') +
+    (lowStock.length
+      ? `<div class="adm-alert warn"><b>${lowStock.length}</b>Inventario bajo: ${lowStock.map(esc).join(', ')}</div>`
+      : '');
   // Después de pintar: un fallo del aviso nunca deja el panel sin datos.
   announcePaid(Number(a.paidToDeliver) || 0);
 }
@@ -343,6 +349,7 @@ function renderDetail(d) {
       <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.evidence ? ' · ' + esc(f.evidence) : '') : '—'}</dd>
     </dl>
     <div id="admDetailActions"></div>
+    ${inventoryBlock(d)}
     <h3>Pagos (Mercado Pago)</h3>
     <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: pagos de Mercado Pago"><table class="adm-table"><thead><tr><th>ID MP</th><th>Estado</th><th>MP</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
       d.payments
@@ -360,6 +367,55 @@ function renderDetail(d) {
       )
       .join('')}</tbody></table></div>`;
   renderActions(d);
+  bindInventoryBlock();
+}
+
+/** PIN del inventario reservados para el pedido: copiar, liberar (sin usar) o anular. */
+function inventoryBlock(d) {
+  const codes = d.inventory || [];
+  if (!codes.length) return '';
+  return `<h3>PIN reservados del inventario</h3>
+    <p class="adm-note">Canjéalos en el canal oficial al UID del pedido y luego marca «Entregar».</p>
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: PIN del pedido"><table class="adm-table"><tbody>${codes
+      .map(
+        (c) =>
+          `<tr><td>${esc(c.sku)}</td><td><code>${esc(c.code)}</code></td><td>${pill(c.status)}</td><td>${
+            c.status === 'ASSIGNED'
+              ? `<button class="adm-btn ghost" type="button" data-copy="${esc(c.code)}">Copiar</button> <button class="adm-btn ghost" type="button" data-inv="${esc(c.id)}" data-inv-action="release">Liberar</button> <button class="adm-btn ghost" type="button" data-inv="${esc(c.id)}" data-inv-action="void">Anular</button>`
+              : ''
+          }</td></tr>`,
+      )
+      .join('')}</tbody></table></div>`;
+}
+
+function bindInventoryBlock() {
+  document.querySelectorAll('#admDetail [data-copy]').forEach((button) => {
+    button.onclick = () =>
+      navigator.clipboard?.writeText(button.dataset.copy).then(
+        () => message('PIN copiado.', 'good'),
+        () => message('No se pudo copiar; selecciónalo a mano.', 'bad'),
+      );
+  });
+  document.querySelectorAll('#admDetail [data-inv]').forEach((button) => {
+    button.onclick = () => {
+      const action = button.dataset.invAction;
+      const question =
+        action === 'void'
+          ? '¿Anular este PIN? Úsalo solo si ya no sirve (canjeado o ilegible).'
+          : '¿Devolver este PIN al inventario? Solo si NO lo canjeaste.';
+      if (!confirm(question)) return;
+      run(
+        async () => {
+          await call('/api/admin/inventory/' + button.dataset.inv, {
+            method: 'POST',
+            body: { action },
+          });
+          await selectOrder(selectedOrderId);
+        },
+        action === 'void' ? 'PIN anulado.' : 'PIN devuelto al inventario.',
+      );
+    };
+  });
 }
 
 function input(id, label, attrs = '') {
@@ -496,6 +552,54 @@ $('admProductForm').onsubmit = (e) => {
     fillProduct(null);
     await loadProducts();
   }, 'Producto guardado.');
+};
+
+// ── Inventario ──
+
+async function loadInventory() {
+  await run(async () => {
+    const j = await call('/api/admin/inventory');
+    $('admInventory').innerHTML =
+      j.lines
+        .map(
+          (l) =>
+            `<tr><td>${esc(l.name)} <small>${esc(l.sku)}</small></td><td>${l.lowStock ? pill('LOW', `${l.available} · reponer`) : Number(l.available)}</td><td>${Number(l.assigned)}</td><td>${Number(l.used)}</td><td>${Number(l.void)}</td></tr>`,
+        )
+        .join('') || '<tr><td colspan="5">Sin paquetes activos.</td></tr>';
+    const select = $('iProduct');
+    const current = select.value;
+    select.innerHTML = j.lines
+      .map((l) => `<option value="${esc(l.productId)}">${esc(l.name)} (${esc(l.sku)})</option>`)
+      .join('');
+    if (current) select.value = current;
+  });
+}
+
+$('admInventoryForm').onsubmit = (e) => {
+  e.preventDefault();
+  const codes = $('iCodes')
+    .value.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const cost = Number($('iCost').value);
+  const source = $('iSource').value.trim();
+  run(async () => {
+    const r = await call('/api/admin/inventory', {
+      method: 'POST',
+      body: {
+        productId: $('iProduct').value,
+        codes,
+        ...(cost > 0 ? { costCop: cost } : {}),
+        ...(source ? { source } : {}),
+      },
+    });
+    $('iCodes').value = '';
+    message(
+      `${r.added} PIN cargados${r.duplicates ? `, ${r.duplicates} repetidos ignorados` : ''}.`,
+      'good',
+    );
+    await loadInventory();
+  });
 };
 
 // ── Bloqueos ──

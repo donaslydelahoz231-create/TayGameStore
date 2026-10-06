@@ -742,11 +742,26 @@ test.describe('panel de administración', () => {
     await expect(
       admin.locator('.adm-alert', { hasText: 'Pagados por entregar' }).locator('b'),
     ).toHaveText(String(pending));
+
+    // Inventario: el dueño carga un PIN del paquete; al empezar la entrega se reserva para
+    // este pedido y al entregarlo queda usado.
+    await admin.locator('[data-tab="inventory"]').click();
+    await admin.locator('#iProduct').selectOption({ label: '100 + 10 Diamantes (ff-110)' });
+    await admin.locator('#iCodes').fill('PINE2E0001ABCD');
+    await admin.locator('#admInventoryForm button[type="submit"]').click();
+    await expect(admin.locator('#admMessage')).toHaveText('1 PIN cargados.');
+    await expect(admin.locator('#admInventory tr', { hasText: 'ff-110' })).toContainText('1');
+    await admin.locator('[data-tab="orders"]').click();
+    await admin.locator('#admOrders tr', { hasText: ref }).click();
+
     await admin.locator('[data-f="claim"]').click();
     await admin.locator('[data-f="start"]').click();
-    await admin.locator('#fEvidence').fill('Recarga hecha en el panel del proveedor');
+    await expect(admin.locator('#admDetail')).toContainText('PIN reservados del inventario');
+    await expect(admin.locator('#admDetail code')).toHaveText('PINE2E0001ABCD');
+    await admin.locator('#fEvidence').fill('PIN canjeado al UID del pedido');
     await admin.locator('[data-f="deliver"]').click();
     await expect(admin.locator('#admDetail h2')).toContainText('Entregado');
+    await expect(admin.locator('#admDetail')).toContainText('USED');
     await page.locator('#refreshOrderBtn').click();
     await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
   });

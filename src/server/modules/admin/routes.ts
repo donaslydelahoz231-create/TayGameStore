@@ -20,6 +20,13 @@ import {
   verifySchema,
 } from '../../services/admin.js';
 import {
+  addInventory,
+  addInventorySchema,
+  inventoryAction,
+  inventoryActionSchema,
+  inventorySummary,
+} from '../../services/inventory.js';
+import {
   createProduct,
   listAllProducts,
   productSchema,
@@ -113,6 +120,25 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
     const { deps, actor } = ctx(request);
     const { id } = idParams.parse(request.params);
     return { product: await updateProduct(deps, id, productSchema.parse(request.body), actor) };
+  });
+
+  app.get('/api/admin/inventory', guarded, async (request) => {
+    const { deps } = ctx(request);
+    return { lines: await inventorySummary(deps) };
+  });
+
+  app.post('/api/admin/inventory', guarded, async (request, reply) => {
+    const { deps, actor } = ctx(request);
+    const result = await addInventory(deps, addInventorySchema.parse(request.body), actor);
+    reply.code(201);
+    return result;
+  });
+
+  app.post('/api/admin/inventory/:id', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await inventoryAction(deps, id, inventoryActionSchema.parse(request.body), actor);
+    return { ok: true };
   });
 
   app.get('/api/admin/blocklist', guarded, async (request) => {

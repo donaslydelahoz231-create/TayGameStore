@@ -15,6 +15,12 @@ import { AppError } from '../plugins/errors.js';
 import { isUniqueViolation, toPublicOrder, transitionOrder } from './orders.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
+import {
+  assignInventory,
+  inventoryForOrder,
+  inventorySummary,
+  markInventoryUsed,
+} from './inventory.js';
 
 // ── Órdenes ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +60,7 @@ export async function listOrdersForAdmin(
 export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
   const [order] = await deps.db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) throw notFound();
-  const [view, paymentRows, attempts, fulfillment, history] = await Promise.all([
+  const [view, paymentRows, attempts, fulfillment, history, inventory] = await Promise.all([
     toPublicOrder(deps, deps.db, order),
     deps.db
       .select()
@@ -79,6 +85,7 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
       .where(and(eq(auditEvents.entityType, 'order'), eq(auditEvents.entityId, order.id)))
       .orderBy(desc(auditEvents.id))
       .limit(50),
+    inventoryForOrder(deps, order.id),
   ]);
   return {
     id: order.id,
@@ -107,6 +114,8 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
     attempts,
     fulfillment: fulfillment[0] ?? null,
     history,
+    /** PIN del inventario asignados a este pedido (solo administradores con doble factor). */
+    inventory,
   };
 }
 
@@ -291,9 +300,21 @@ export async function fulfillmentAction(
       toStatus: to,
       data: { orderId },
     });
-    if (to === 'DELIVERING' && order.status === 'PAID')
+    if (to === 'DELIVERING' && order.status === 'PAID') {
       await transitionOrder(tx, actor, order, 'DELIVERING');
+      // Reserva los PIN del inventario para este pedido (los que haya).
+      const stock = await assignInventory(tx, order.id, now);
+      if (stock.assigned || stock.missing) {
+        await audit(tx, actor, {
+          entityType: 'inventory',
+          entityId: order.id,
+          action: 'inventory.assigned',
+          data: { orderId: order.id, assigned: stock.assigned, missing: stock.missing },
+        });
+      }
+    }
     if (to === 'DELIVERED') {
+      await markInventoryUsed(tx, order.id, now);
       await transitionOrder(tx, actor, order, 'DELIVERED');
       await enqueueOrderNotifications(deps, tx, order.id, 'delivered');
     }
@@ -464,6 +485,7 @@ export async function alertSummary(deps: ServiceDeps) {
     [mfaLocks],
     [activeIpBlocks],
     [notificationsFailed],
+    stock,
   ] = await Promise.all([
     deps.db.select({ n: count() }).from(orders).where(eq(orders.status, 'NEEDS_REVIEW')),
     deps.db.select({ n: count() }).from(payments).where(eq(payments.status, 'NEEDS_REFUND')),
@@ -516,6 +538,7 @@ export async function alertSummary(deps: ServiceDeps) {
         ),
       ),
     deps.db.select({ n: count() }).from(notifications).where(eq(notifications.status, 'FAILED')),
+    inventorySummary(deps),
   ]);
   return {
     needsReview: review?.n ?? 0,
@@ -529,6 +552,8 @@ export async function alertSummary(deps: ServiceDeps) {
     mfaLocks24h: mfaLocks?.n ?? 0,
     activeIpBlocks: activeIpBlocks?.n ?? 0,
     notificationsFailed: notificationsFailed?.n ?? 0,
+    /** Paquetes con inventario de PIN por debajo del mínimo (reponer). */
+    lowStock: stock.filter((line) => line.lowStock).map((line) => line.sku),
   };
 }
 

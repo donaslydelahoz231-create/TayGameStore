@@ -142,7 +142,7 @@ test('accesibilidad del panel con sesión: todas las pestañas y el detalle de u
   await page.locator('#admOrders tr', { hasText: 'TGS-' }).first().click();
   await expect(page.locator('#admDetail h2')).toBeVisible();
   expect(await axe(page), 'pedidos y detalle').toEqual([]);
-  for (const tab of ['products', 'blocklist', 'audit']) {
+  for (const tab of ['products', 'inventory', 'blocklist', 'audit']) {
     await page.locator(`[data-tab="${tab}"]`).click();
     expect(await axe(page), tab).toEqual([]);
   }
@@ -372,7 +372,7 @@ test('panel y páginas legales: texto legible y controles táctiles de 44 px', a
     await touch.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     await page.goto(ADMIN_PATH);
     await expect(page.locator('#admApp')).toBeVisible();
-    for (const tab of ['orders', 'products', 'blocklist', 'audit']) {
+    for (const tab of ['orders', 'products', 'inventory', 'blocklist', 'audit']) {
       await page.locator(`[data-tab="${tab}"]`).click();
       expect(await audit(), `panel: ${tab}`).toEqual({ tiny: 0, small: [] });
     }

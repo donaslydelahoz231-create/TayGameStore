@@ -71,6 +71,13 @@
       "when": 1791323500491,
       "tag": "0009_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791324982745,
+      "tag": "0010_inventory",
+      "breakpoints": true
     }
   ]
 }

@@ -486,6 +486,52 @@ export const paymentEvents = pgTable(
   ],
 );
 
+export const INVENTORY_STATUSES = ['AVAILABLE', 'ASSIGNED', 'USED', 'VOID'] as const;
+export type InventoryStatus = (typeof INVENTORY_STATUSES)[number];
+
+/**
+ * Inventario de recargas: PIN comprados por el dueño a una red autorizada, uno por unidad de un
+ * paquete. El código va cifrado (AES-256-GCM); `code_hash` (HMAC) evita cargar dos veces el
+ * mismo PIN sin guardarlo en claro. Al empezar una entrega se asigna al pedido; al entregarla
+ * queda usado.
+ */
+export const inventoryCodes = pgTable(
+  'inventory_codes',
+  {
+    id: id(),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    codeEnc: text('code_enc').notNull(),
+    codeHash: text('code_hash').notNull(),
+    status: text('status').$type<InventoryStatus>().notNull().default('AVAILABLE'),
+    orderId: uuid('order_id').references(() => orders.id),
+    costCop: cop('cost_cop'),
+    source: text('source'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    assignedAt: timestamp('assigned_at', { withTimezone: true }),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('inventory_codes_hash_key').on(t.codeHash),
+    index('inventory_codes_stock_idx').on(t.productId, t.status, t.createdAt),
+    index('inventory_codes_order_idx')
+      .on(t.orderId)
+      .where(sql`${t.orderId} is not null`),
+    index('inventory_codes_created_by_idx')
+      .on(t.createdBy)
+      .where(sql`${t.createdBy} is not null`),
+    check('inventory_codes_status_check', inList('status', INVENTORY_STATUSES)),
+    check('inventory_codes_cost_check', sql`${t.costCop} is null or ${t.costCop} > 0`),
+    // Asignado o usado ⇔ ligado a un pedido.
+    check(
+      'inventory_codes_order_check',
+      sql`(${t.status} in ('ASSIGNED', 'USED')) = (${t.orderId} is not null)`,
+    ),
+  ],
+);
+
 export const fulfillments = pgTable(
   'fulfillments',
   {

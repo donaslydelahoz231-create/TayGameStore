@@ -79,6 +79,7 @@
         <nav class="adm-tabs" aria-label="Secciones">
           <button type="button" data-tab="orders" class="active">Pedidos</button>
           <button type="button" data-tab="products">Catálogo</button>
+          <button type="button" data-tab="inventory">Inventario</button>
           <button type="button" data-tab="blocklist">Bloqueos</button>
           <button type="button" data-tab="audit">Auditoría</button>
         </nav>
@@ -159,6 +160,45 @@
               <button class="adm-btn" type="submit">Guardar</button
               ><button id="pReset" class="adm-btn ghost" type="button">Nuevo</button>
             </div>
+          </form>
+        </section>
+
+        <section id="tab-inventory" class="adm-tab" hidden>
+          <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: Inventario">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Paquete</th>
+                  <th>Disponibles</th>
+                  <th>Reservados</th>
+                  <th>Usados</th>
+                  <th>Anulados</th>
+                </tr>
+              </thead>
+              <tbody id="admInventory"></tbody>
+            </table>
+          </div>
+          <form id="admInventoryForm" class="adm-card adm-form">
+            <h2>Cargar PIN</h2>
+            <p class="adm-note">
+              Un PIN por línea, del paquete exacto, comprados a una red autorizada. Se guardan
+              cifrados; al empezar la entrega de un pedido pagado se le reserva uno por unidad.
+            </p>
+            <label for="iProduct">Paquete</label
+            ><select id="iProduct" required></select>
+            <label for="iCodes">PIN (uno por línea)</label
+            ><textarea
+              id="iCodes"
+              rows="6"
+              required
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+            <label for="iCost">Costo por PIN en COP (opcional)</label
+            ><input id="iCost" type="number" min="1" max="1000000" />
+            <label for="iSource">Origen del lote (opcional)</label
+            ><input id="iSource" maxlength="80" placeholder="Red y número de factura" />
+            <div class="adm-actions"><button class="adm-btn" type="submit">Cargar</button></div>
           </form>
         </section>
 
