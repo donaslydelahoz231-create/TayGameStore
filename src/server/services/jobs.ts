@@ -25,6 +25,8 @@ const JOB_LOCKS = {
   cleanup: 7305,
 } as const;
 export type JobName = keyof typeof JOB_LOCKS;
+/** Todas las tareas, en el orden en que conviene ejecutarlas en una pasada. */
+export const JOB_NAMES = Object.keys(JOB_LOCKS) as JobName[];
 
 /** Expira órdenes vencidas sin pagos en curso. Antes concilia con Mercado Pago. */
 export async function expireOrders(deps: ServiceDeps): Promise<number> {

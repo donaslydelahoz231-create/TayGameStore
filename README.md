@@ -43,6 +43,9 @@ las variables secretas (Mercado Pago, Google, `ADMIN_EMAILS`…); ninguna está 
 Render debe tener acceso a este repositorio privado (conecta tu cuenta de GitHub en Render).
 Después configura la vigilancia: [`docs/autorreparacion.md`](docs/autorreparacion.md).
 
+**Alternativa sin Render:** Vercel (gratis para probar; para vender, plan Pro). Ver
+[`docs/deployment-vercel.md`](docs/deployment-vercel.md).
+
 ## Probar la tienda sin servidor (entorno de prueba)
 
 ```bash

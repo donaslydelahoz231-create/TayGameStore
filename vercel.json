@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "sh tools/vercel/build.sh",
+  "outputDirectory": ".vercel-static",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "dist/**",
+      "maxDuration": 30
+    }
+  },
+  "crons": [{ "path": "/api/internal/jobs", "schedule": "17 6 * * *" }]
+}
