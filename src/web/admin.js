@@ -255,7 +255,7 @@ function renderDetail(d) {
     </dl>
     <div id="admDetailActions"></div>
     <h3>Pagos (Mercado Pago)</h3>
-    <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>ID MP</th><th>Estado</th><th>MP</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: pagos de Mercado Pago"><table class="adm-table"><thead><tr><th>ID MP</th><th>Estado</th><th>MP</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
       d.payments
         .map(
           (p) =>
@@ -264,7 +264,7 @@ function renderDetail(d) {
         .join('') || '<tr><td colspan="5">Sin pagos.</td></tr>'
     }</tbody></table></div>
     <h3>Historial</h3>
-    <div class="adm-table-wrap"><table class="adm-table"><tbody>${d.history
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: historial del pedido"><table class="adm-table"><tbody>${d.history
       .map(
         (h) =>
           `<tr><td>${fmtDate(h.createdAt)}</td><td>${esc(h.action)}</td><td>${esc(h.fromStatus || '')} → ${esc(h.toStatus || '')}</td><td>${esc(h.actorType)}</td></tr>`,

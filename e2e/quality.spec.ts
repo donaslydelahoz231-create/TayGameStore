@@ -96,6 +96,55 @@ test('accesibilidad: sin violaciones críticas ni graves (entrada, acceso, tiend
   await page.keyboard.press('Escape');
   await page.locator('#playerFinderBtn').click();
   expect(await axe(page, '#playerFinderModal'), 'buscar jugador').toEqual([]);
+  await page.keyboard.press('Escape');
+  for (const [button, dialog] of [
+    ['#howBtn', '#howModal'],
+    ['#securityBtn', '#securityModal'],
+    ['#favoritesBtn', '#favoritesModal'],
+  ] as const) {
+    await page.locator(button).click();
+    await expect(page.locator(dialog)).toBeVisible();
+    expect(await axe(page, dialog), dialog).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(page.locator(dialog)).toBeHidden();
+  }
+  await page.locator('#searchBtn').click();
+  await page.locator('#searchInput').fill('100');
+  expect(await axe(page, '#searchPanel'), 'búsqueda').toEqual([]);
+});
+
+test('accesibilidad del panel con sesión: todas las pestañas y el detalle de un pedido', async ({
+  page,
+  context,
+}) => {
+  // Pedido de ejemplo para que la tabla y el detalle tengan contenido.
+  await page.goto('/');
+  await enterAsGuest(page);
+  await page.locator('#products .product .add-btn').first().click();
+  await page.locator('#playerUid').fill('765432555');
+  await page.locator('#verifyBtn').click();
+  await page.locator('#customerName').fill('Cliente Axe');
+  await page.locator('#customerEmail').fill('axe-panel@example.com');
+  await page.locator('#paymentMethod').selectOption('mercadopago');
+  await page.locator('#acceptTerms').check();
+  await page.locator('#payBtn').click();
+  await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-/);
+
+  const session = await page.request.post('/__e2e__/admin-session', {
+    data: {},
+    headers: { 'x-tgs-csrf': '1' },
+  });
+  const { token } = (await session.json()) as { token: string };
+  await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
+  await page.goto('/admin.html');
+  await expect(page.locator('#admApp')).toBeVisible();
+  await page.locator('#admOrders tr', { hasText: 'TGS-' }).first().click();
+  await expect(page.locator('#admDetail h2')).toBeVisible();
+  expect(await axe(page), 'pedidos y detalle').toEqual([]);
+  for (const tab of ['products', 'blocklist', 'audit']) {
+    await page.locator(`[data-tab="${tab}"]`).click();
+    expect(await axe(page), tab).toEqual([]);
+  }
 });
 
 test('accesibilidad del panel de administración (acceso)', async ({ page }) => {

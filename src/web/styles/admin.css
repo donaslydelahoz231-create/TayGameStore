@@ -96,6 +96,7 @@ pre {
   cursor: not-allowed;
 }
 .adm-btn:focus-visible,
+.adm-table-wrap:focus-visible,
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
