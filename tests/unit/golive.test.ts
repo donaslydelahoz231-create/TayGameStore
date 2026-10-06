@@ -67,6 +67,22 @@ describe('golive:check — variables del servidor', () => {
     expect(failures(checkEnvironment(PRODUCTION, webRoot('Razón social: [COMPLETAR]')))).toEqual([
       expect.stringContaining('terminos.html'),
     ]);
+    expect(
+      failures(
+        checkEnvironment(
+          PRODUCTION,
+          webRoot('Vende [COMPLETAR:LEGAL_NAME] ([COMPLETAR:SUPPORT_EMAIL])'),
+        ),
+      ),
+    ).toEqual(['Textos legales pendientes (configura en el hosting): terminos.html: LEGAL_NAME']);
+    expect(
+      failures(
+        checkEnvironment(
+          { ...PRODUCTION, LEGAL_NAME: 'Tienda Ejemplo' },
+          webRoot('Vende [COMPLETAR:LEGAL_NAME]'),
+        ),
+      ),
+    ).toEqual([]);
     const invalid = checkEnvironment({ ...PRODUCTION, ADMIN_PATH: '' }, webRoot());
     expect(invalid.at(-1)?.level).toBe('aviso');
     expect(failures(invalid)).toEqual([expect.stringContaining('ADMIN_PATH')]);

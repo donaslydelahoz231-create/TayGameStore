@@ -3,11 +3,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { assertLegalPagesReady, LEGAL_PAGES } from '../../src/server/app.js';
+import { pendingLegalFields, renderLegalPage } from '../../src/server/legal.js';
 import { loadConfig } from '../../src/server/config/env.js';
 
 const KEY = Buffer.alloc(32, 3).toString('base64');
-const production = (checkout: boolean, mode: 'production' | 'sandbox' = 'production') =>
+const production = (
+  checkout: boolean,
+  mode: 'production' | 'sandbox' = 'production',
+  extra: Record<string, string> = {},
+) =>
   loadConfig({
+    ...extra,
     NODE_ENV: 'production',
     PUBLIC_BASE_URL: 'https://tienda.example',
     DATABASE_URL: 'postgres://user:pass@db.example:5432/app',
@@ -53,5 +59,47 @@ describe('textos legales antes de vender', () => {
       const html = await readFile(new URL(`../../src/web/${page}`, import.meta.url), 'utf8');
       expect(html, page).toContain('[COMPLETAR');
     }
+  });
+
+  it('los datos del vendedor salen de la configuración del hosting, no del repositorio', async () => {
+    const legal = {
+      LEGAL_NAME: 'Tienda Ejemplo <S.A.S.>',
+      LEGAL_ID: 'NIT 900.000.000-0',
+      LEGAL_ADDRESS: 'Calle 1 # 2-3, Bogotá',
+      LEGAL_DELIVERY_TIME: '24 horas',
+      LEGAL_REFUND_TIME: '5 días hábiles',
+      LEGAL_RESPONSE_TIME: '3 días hábiles',
+      LEGAL_TAX_NOTE: 'Los precios incluyen los impuestos aplicables',
+      LEGAL_RETENTION: '10 años',
+      SUPPORT_EMAIL: 'soporte@example.com',
+      SUPPORT_WHATSAPP: '+573000000000',
+    };
+    const root = new URL('../../src/web/', import.meta.url).pathname;
+    const complete = production(true, 'production', legal);
+    expect(pendingLegalFields(complete, root).size).toBe(0);
+    expect(() => assertLegalPagesReady(complete, root)).not.toThrow();
+    const terms = renderLegalPage(await readFile(join(root, 'terminos.html'), 'utf8'), complete);
+    expect(terms).not.toContain('[COMPLETAR');
+    // El valor se escapa: nunca se inyecta HTML desde una variable.
+    expect(terms).toContain('Tienda Ejemplo &lt;S.A.S.&gt;');
+    expect(terms).toContain('correo soporte@example.com y WhatsApp +573000000000');
+    expect(terms).toContain('2026-10-05');
+
+    // Sin los datos del vendedor, el servidor dice exactamente qué variable falta.
+    const partial = production(true, 'production', { SUPPORT_EMAIL: 'soporte@example.com' });
+    const pending = pendingLegalFields(partial, root);
+    expect(pending.get('terminos.html')).toContain('LEGAL_NAME');
+    expect(pending.get('privacidad.html')).toEqual([
+      'LEGAL_NAME',
+      'LEGAL_ID',
+      'LEGAL_ADDRESS',
+      'LEGAL_RETENTION',
+    ]);
+    expect(() => assertLegalPagesReady(partial, root)).toThrow(/LEGAL_NAME/);
+  });
+
+  it('una variable legal no admite saltos de línea ni caracteres invisibles', () => {
+    expect(() => production(true, 'production', { LEGAL_NAME: 'Ana\n<script>' })).toThrow();
+    expect(() => production(true, 'production', { LEGAL_NAME: 'Ana\u202eX' })).toThrow();
   });
 });

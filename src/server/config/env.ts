@@ -69,6 +69,16 @@ const emailList = z
   )
   .pipe(z.array(z.email()));
 
+/** Texto de una línea para las páginas legales: sin saltos ni caracteres de control. */
+const legalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(2)
+    .max(max)
+    .regex(/^[^\p{Cc}\p{Cf}]+$/u, 'una sola línea, sin caracteres de control')
+    .optional();
+
 const minutes = (fallback: number, max = 60 * 24 * 30) =>
   z.coerce.number().int().min(1).max(max).default(fallback);
 
@@ -165,6 +175,19 @@ const envSchema = z
       .regex(/^\+?\d{8,15}$/)
       .optional(),
     SUPPORT_EMAIL: z.email().optional(),
+
+    /**
+     * Datos del vendedor para términos y privacidad. El dueño los escribe en el hosting (no en
+     * el repositorio ni en un chat); el servidor los pone en las páginas al servirlas.
+     */
+    LEGAL_NAME: legalText(120),
+    LEGAL_ID: legalText(40),
+    LEGAL_ADDRESS: legalText(160),
+    LEGAL_DELIVERY_TIME: legalText(160),
+    LEGAL_REFUND_TIME: legalText(160),
+    LEGAL_RESPONSE_TIME: legalText(160),
+    LEGAL_TAX_NOTE: legalText(200),
+    LEGAL_RETENTION: legalText(160),
 
     /** Aviso al dueño por Telegram cuando un pedido queda pagado (opcional). */
     TELEGRAM_BOT_TOKEN: z
@@ -336,6 +359,16 @@ export interface AppConfig {
     termsVersion: string;
   };
   support: { whatsapp: string | undefined; email: string | undefined };
+  legal: {
+    name?: string;
+    id?: string;
+    address?: string;
+    deliveryTime?: string;
+    refundTime?: string;
+    responseTime?: string;
+    taxNote?: string;
+    retention?: string;
+  };
   /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
   ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
   /** Eventos de pedidos hacia una automatización externa (n8n). */
@@ -461,6 +494,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       termsVersion: env.TERMS_VERSION,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
+    legal: {
+      name: env.LEGAL_NAME,
+      id: env.LEGAL_ID,
+      address: env.LEGAL_ADDRESS,
+      deliveryTime: env.LEGAL_DELIVERY_TIME,
+      refundTime: env.LEGAL_REFUND_TIME,
+      responseTime: env.LEGAL_RESPONSE_TIME,
+      taxNote: env.LEGAL_TAX_NOTE,
+      retention: env.LEGAL_RETENTION,
+    },
     ownerNotify: {
       telegram:
         env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID

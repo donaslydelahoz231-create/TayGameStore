@@ -69,16 +69,43 @@ test.describe('entrada y acceso', () => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
     await expect(page.locator('#loginModal input[type="password"]')).toHaveCount(0);
-    await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(3);
     await expect(page.locator('[data-provider="vk"]')).toHaveCount(0);
-    // El servidor de pruebas configura Discord y Facebook (dobles), no Google.
+    // El servidor de pruebas configura Discord y Facebook (dobles), no Google: el cliente
+    // solo ve los accesos que funcionan.
+    await expect(page.locator('#loginModal .oauth-btn:visible')).toHaveCount(2);
     await expect(page.locator('#discordState')).toHaveText('Disponible');
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
-    await expect(page.locator('#googleState')).toHaveText('No configurado');
-    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega.
+    await expect(page.locator('[data-provider="google"]')).toBeHidden();
+    await expect(page.locator('#authSubtitle')).toHaveText(
+      'Entra con Facebook o Discord para conservar tu historial de pedidos.',
+    );
+    // Un acceso no configurado sigue deshabilitado y, aun forzando el clic, no navega.
     await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
-    await page.locator('[data-provider="google"]').click({ force: true });
+    await page.locator('[data-provider="google"]').dispatchEvent('click');
     await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('#guestBtn')).toBeVisible();
+  });
+
+  test('sin accesos configurados, comprar como invitado es la opción principal', async ({
+    page,
+  }) => {
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const json = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: { ...json, auth: { google: false, discord: false, facebook: false } },
+      });
+    });
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#loginModal .oauth-btn:visible')).toHaveCount(0);
+    await expect(page.locator('#oauthGrid')).toBeHidden();
+    await expect(page.locator('#authSubtitle')).toContainText('Compra sin crear cuenta');
+    await expect(page.locator('#guestBtn')).toHaveClass(/btn primary/);
+    await page.locator('#guestBtn').click();
+    await expect(page.locator('#loginModal')).toBeHidden();
+    await expect(page.locator('#products .product')).toHaveCount(6);
   });
 
   test('entrar con Discord y vincular Facebook desde Mi cuenta', async ({ page }) => {

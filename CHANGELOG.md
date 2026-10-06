@@ -7,6 +7,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Comprobante de pago por correo: al confirmarse el pago el cliente recibe «Comprobante de pago ·
+  Pedido …» con código, fecha y operación de Mercado Pago, jugador, detalle con precio unitario,
+  descuento y total (aclara que no reemplaza una factura electrónica).
+- Acceso: la ventana de inicio de sesión muestra solo los accesos configurados en el servidor;
+  si no hay ninguno, «Continuar como invitado» pasa a ser el botón principal.
+- Textos legales configurables: los datos del vendedor (`LEGAL_*`), los canales de soporte y la
+  versión se ponen en `/terminos.html` y `/privacidad.html` al servirlas, sin guardarlos en Git.
+  `golive:check` y el arranque dicen exactamente qué variable falta.
 - Eventos de pedidos hacia n8n (`EVENTS_WEBHOOK_URL` + `EVENTS_WEBHOOK_SECRET`): pagado,
   entregado y reembolsado salen por la cola de avisos con id estable, llave Bearer, sin
   redirecciones y sin correo ni nombre del cliente. Flujos de n8n de tareas, vigilancia y

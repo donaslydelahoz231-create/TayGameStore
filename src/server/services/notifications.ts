@@ -4,6 +4,7 @@ import {
   notifications,
   orderItems,
   orders,
+  payments,
   type NotificationChannel,
   type NotificationKind,
 } from '../db/schema.js';
@@ -92,11 +93,25 @@ interface OrderSnapshot {
   reference: string;
   status: string;
   expiresAt: Date | null;
+  subtotalCop: number;
+  discountCop: number;
   totalCop: number;
   playerUid: string;
   nickname: string | null;
+  region: string | null;
   customerEmail: string;
-  items: { name: string; quantity: number }[];
+  receiptCode: string;
+  items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
+  /** El pago de Mercado Pago que pagó el pedido (si ya existe). */
+  payment: { providerPaymentId: string; approvedAt: Date | null } | null;
+}
+
+/** Comprobante: datos que la tienda generó o que confirmó Mercado Pago (nada de texto libre). */
+interface Receipt {
+  rows: [label: string, value: string][];
+  lines: { label: string; detail: string; amount: string }[];
+  totals: [label: string, value: string][];
+  note: string;
 }
 
 const cop = new Intl.NumberFormat('es-CO', {
@@ -122,15 +137,22 @@ function compose(
   to: string[],
   subject: string,
   title: string,
-  paragraphs: string[],
+  paragraphs: (string | Receipt)[],
 ): MailMessage {
   const footer = [
     'TayGameStore nunca te pedirá la contraseña de tu juego ni códigos de verificación.',
     ...supportLines(deps),
   ];
-  const text = [title, '', ...paragraphs.flatMap((p) => [p, '']), ...footer].join('\n');
-  const block = (p: string) =>
-    `<p style="margin:0 0 14px;line-height:1.55">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`;
+  const text = [
+    title,
+    '',
+    ...paragraphs.flatMap((p) => [typeof p === 'string' ? p : receiptText(p), '']),
+    ...footer,
+  ].join('\n');
+  const block = (p: string | Receipt) =>
+    typeof p === 'string'
+      ? `<p style="margin:0 0 14px;line-height:1.55">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`
+      : receiptHtml(p);
   const html = `<!doctype html><html lang="es"><body style="margin:0;background:#f4f5fb;font-family:Arial,Helvetica,sans-serif;color:#1b1f3a">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e3e5f2">
@@ -142,6 +164,88 @@ ${paragraphs.map(block).join('\n')}
 <tr><td style="padding:16px 24px;background:#f7f8fc;font-size:12px;line-height:1.5;color:#4a4f6e">${footer.map(escapeHtml).join('<br>')}</td></tr>
 </table></td></tr></table></body></html>`;
   return { to, subject, text, html, replyTo: deps.config.support.email };
+}
+
+function receiptText(r: Receipt): string {
+  return [
+    'COMPROBANTE DE PAGO',
+    ...r.rows.map(([label, value]) => `${label}: ${value}`),
+    '',
+    ...r.lines.map((l) => `${l.label} (${l.detail}) … ${l.amount}`),
+    '',
+    ...r.totals.map(([label, value]) => `${label}: ${value}`),
+    '',
+    r.note,
+  ].join('\n');
+}
+
+function receiptHtml(r: Receipt): string {
+  const cell = 'padding:6px 0;border-bottom:1px solid #eceef7;vertical-align:top';
+  const rows = r.rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="${cell};color:#4a4f6e">${escapeHtml(label)}</td><td align="right" style="${cell};font-weight:bold">${escapeHtml(value)}</td></tr>`,
+    )
+    .join('');
+  const lines = r.lines
+    .map(
+      (l) =>
+        `<tr><td style="${cell}">${escapeHtml(l.label)}<br><span style="font-size:12px;color:#4a4f6e">${escapeHtml(l.detail)}</span></td><td align="right" style="${cell}">${escapeHtml(l.amount)}</td></tr>`,
+    )
+    .join('');
+  const totals = r.totals
+    .map(
+      ([label, value], i, all) =>
+        `<tr><td style="padding:6px 0;${i === all.length - 1 ? 'font-size:16px;font-weight:bold' : 'color:#4a4f6e'}">${escapeHtml(label)}</td><td align="right" style="padding:6px 0;${i === all.length - 1 ? 'font-size:16px;font-weight:bold;color:#5b2fd6' : ''}">${escapeHtml(value)}</td></tr>`,
+    )
+    .join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border:1px solid #e3e5f2;border-radius:12px;padding:14px 16px;font-size:14px">
+<tr><td colspan="2" style="padding:0 0 8px;font-size:12px;letter-spacing:1px;font-weight:bold;color:#5b2fd6">COMPROBANTE DE PAGO</td></tr>
+${rows}${lines}${totals}
+<tr><td colspan="2" style="padding:10px 0 0;font-size:12px;line-height:1.5;color:#4a4f6e">${escapeHtml(r.note)}</td></tr>
+</table>`;
+}
+
+const bogota = new Intl.DateTimeFormat('es-CO', {
+  dateStyle: 'long',
+  timeStyle: 'short',
+  timeZone: 'America/Bogota',
+});
+
+function paymentReceipt(order: OrderSnapshot): Receipt {
+  const player = [order.playerUid, order.nickname, order.region].filter(Boolean).join(' · ');
+  return {
+    rows: [
+      ['Comprobante', order.receiptCode],
+      ['Pedido', order.reference],
+      ...(order.payment?.approvedAt
+        ? [
+            ['Fecha de pago', `${bogota.format(order.payment.approvedAt)} (hora de Colombia)`] as [
+              string,
+              string,
+            ],
+          ]
+        : []),
+      ['Medio', 'Mercado Pago'],
+      ...(order.payment
+        ? [['Operación de Mercado Pago', order.payment.providerPaymentId] as [string, string]]
+        : []),
+      ['Jugador', player],
+    ],
+    lines: order.items.map((item) => ({
+      label: `${item.quantity} × ${item.name}`,
+      detail: `${cop.format(item.unitPriceCop)} c/u`,
+      amount: cop.format(item.lineTotalCop),
+    })),
+    totals: [
+      ['Subtotal', cop.format(order.subtotalCop)],
+      ...(order.discountCop > 0
+        ? [['Descuento', `− ${cop.format(order.discountCop)}`] as [string, string]]
+        : []),
+      ['Total pagado', cop.format(order.totalCop)],
+    ],
+    note: 'Este comprobante confirma tu pago a TayGameStore. No reemplaza una factura electrónica. Guárdalo: con la referencia del pedido te atendemos en soporte.',
+  };
 }
 
 function itemsText(order: OrderSnapshot): string {
@@ -171,13 +275,13 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
       return compose(
         deps,
         [order.customerEmail],
-        `Pago confirmado · Pedido ${order.reference}`,
+        `Comprobante de pago · Pedido ${order.reference}`,
         'Recibimos tu pago',
         [
           hello,
           `Mercado Pago confirmó tu pago de ${cop.format(order.totalCop)} para el pedido ${order.reference}.`,
-          `Tu recarga:\n${itemsText(order)}\nID de jugador: ${playerText(order)}`,
-          'Ya la estamos preparando. Te escribiremos de nuevo cuando esté hecha.',
+          paymentReceipt(order),
+          `Tu recarga va al ID de jugador ${playerText(order)}. Ya la estamos preparando y te escribiremos de nuevo cuando esté hecha.`,
           `Puedes ver el estado en ${base}/#seguimiento desde el navegador con el que compraste.`,
         ],
       );
@@ -190,6 +294,7 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         [
           hello,
           `Entregamos tu pedido ${order.reference} en el ID de jugador ${playerText(order)}:\n${itemsText(order)}`,
+          `Comprobante de pago: ${order.receiptCode}.`,
           'Si todavía no ves los diamantes, cierra y vuelve a abrir el juego.',
           `¿Algo no cuadra? Responde a este correo o escríbenos con la referencia ${order.reference}.`,
         ],
@@ -217,19 +322,32 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
       reference: orders.publicRef,
       status: orders.status,
       expiresAt: orders.expiresAt,
+      subtotalCop: orders.subtotalCop,
+      discountCop: orders.discountCop,
       totalCop: orders.totalCop,
       playerUid: orders.playerUid,
       nickname: orders.verifiedNickname,
+      region: orders.verifiedRegion,
       customerEmail: orders.customerEmail,
+      receiptCode: orders.receiptCode,
     })
     .from(orders)
     .where(eq(orders.id, orderId));
   if (!order) return null;
   const items = await deps.db
-    .select({ name: orderItems.name, quantity: orderItems.quantity })
+    .select({
+      name: orderItems.name,
+      quantity: orderItems.quantity,
+      unitPriceCop: orderItems.unitPriceCop,
+      lineTotalCop: orderItems.lineTotalCop,
+    })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
-  return { ...order, items };
+  const [payment] = await deps.db
+    .select({ providerPaymentId: payments.providerPaymentId, approvedAt: payments.approvedAt })
+    .from(payments)
+    .where(and(eq(payments.orderId, orderId), eq(payments.isOrderPayment, true)));
+  return { ...order, items, payment: payment ?? null };
 }
 
 /** Solo datos de la operación: ni correo ni nombre del cliente. */
@@ -250,7 +368,7 @@ function eventPayload(
       expiresAt: order.expiresAt?.toISOString() ?? null,
       playerUid: order.playerUid,
       nickname: order.nickname,
-      items: order.items,
+      items: order.items.map(({ name, quantity }) => ({ name, quantity })),
     },
   };
 }

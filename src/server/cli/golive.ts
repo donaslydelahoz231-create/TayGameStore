@@ -1,6 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { LEGAL_PAGES, LEGAL_PLACEHOLDER } from '../app.js';
+import { describePending, pendingLegalFields } from '../legal.js';
 import { ConfigError, loadConfig } from '../config/env.js';
 
 /**
@@ -88,14 +86,11 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
     'Configura GOOGLE_CLIENT_ID/SECRET, ADMIN_EMAILS y ADMIN_PATH para poder entregar pedidos',
   );
 
-  const pending = LEGAL_PAGES.filter((page) => {
-    const file = path.join(webRoot, page);
-    return !existsSync(file) || readFileSync(file, 'utf8').includes(LEGAL_PLACEHOLDER);
-  });
+  const pending = pendingLegalFields(config, webRoot);
   need(
-    pending.length === 0,
+    pending.size === 0,
     'Términos y privacidad completos',
-    `Completa los campos "${LEGAL_PLACEHOLDER}" de: ${pending.join(', ')}`,
+    `Textos legales pendientes (configura en el hosting): ${describePending(pending)}`,
   );
 
   checks.push(
@@ -105,7 +100,9 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
   );
   checks.push(
     config.smtp
-      ? ok('Correo activo: el cliente recibe "Pago confirmado" y "Recarga completada"')
+      ? ok(
+          'Correo activo: el cliente recibe su comprobante de pago y el aviso de "Recarga completada"',
+        )
       : warn(
           'Sin SMTP_HOST/SMTP_USER/SMTP_PASS: los clientes no reciben correos de su pedido ' +
             '(solo lo ven en la tienda)',

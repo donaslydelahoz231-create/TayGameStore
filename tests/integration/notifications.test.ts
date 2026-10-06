@@ -145,12 +145,35 @@ describe('aviso de pago confirmado', () => {
     const paymentId = await payOrder(order);
 
     const [customer] = mailsTo(order.email);
-    expect(customer?.subject).toBe(`Pago confirmado · Pedido ${order.reference}`);
+    expect(customer?.subject).toBe(`Comprobante de pago · Pedido ${order.reference}`);
     expect(customer?.text).toContain('Mercado Pago confirmó tu pago');
     expect(customer?.text).toContain('2 × ');
     expect(customer?.text).toContain('NickAvisos');
     expect(customer?.text).toContain('nunca te pedirá la contraseña');
     expect(customer?.replyTo).toBe('soporte@example.com');
+    // El correo es el comprobante: código, pedido, operación de Mercado Pago, detalle y total.
+    const [saved] = await h.database.db
+      .select({ receiptCode: orders.receiptCode, subtotal: orders.subtotalCop })
+      .from(orders)
+      .where(eq(orders.publicRef, order.reference));
+    const money = (n: number) => `$ ${n.toLocaleString('es-CO')}`.replace(/\s/g, ' ');
+    const plain = (customer?.text ?? '').replace(/\s/g, ' ');
+    for (const expected of [
+      'COMPROBANTE DE PAGO',
+      `Comprobante: ${saved?.receiptCode}`,
+      `Pedido: ${order.reference}`,
+      `Operación de Mercado Pago: ${paymentId}`,
+      'Fecha de pago:',
+      'Medio: Mercado Pago',
+      'NickAvisos · Colombia',
+      `Total pagado: ${money(order.totalCop)}`,
+      'No reemplaza una factura electrónica',
+    ]) {
+      expect(plain, expected).toContain(expected);
+    }
+    expect(plain).toMatch(/2 × .+ \(\$ [\d.]+ c\/u\)/);
+    expect(customer?.html).toContain('COMPROBANTE DE PAGO');
+    expect(customer?.html).toContain(saved?.receiptCode ?? '—');
     const owner = h.mailer.sent.filter((m) => m.to.includes(ADMIN_EMAIL));
     expect(owner.length).toBe(ownerBefore + 1);
     expect(owner.at(-1)?.subject).toBe(`Pedido pagado por entregar · ${order.reference}`);
@@ -303,7 +326,7 @@ describe('entrega y reembolso', () => {
     }
     const mails = mailsTo(order.email);
     expect(mails.map((m) => m.subject)).toEqual([
-      `Pago confirmado · Pedido ${order.reference}`,
+      `Comprobante de pago · Pedido ${order.reference}`,
       `Recarga completada · Pedido ${order.reference}`,
     ]);
     expect(mails[1]?.text).toContain('NickAvisos');
@@ -320,7 +343,7 @@ describe('entrega y reembolso', () => {
     });
     await webhook(paymentId);
     expect(mailsTo(order.email).map((m) => m.subject)).toEqual([
-      `Pago confirmado · Pedido ${order.reference}`,
+      `Comprobante de pago · Pedido ${order.reference}`,
       `Reembolso registrado · Pedido ${order.reference}`,
     ]);
   });

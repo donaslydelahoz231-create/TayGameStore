@@ -85,6 +85,23 @@ services:
         sync: false
       - key: SUPPORT_WHATSAPP
         sync: false
+      # Datos del vendedor para términos y privacidad (los escribes tú en Render, nunca en Git).
+      - key: LEGAL_NAME
+        sync: false
+      - key: LEGAL_ID
+        sync: false
+      - key: LEGAL_ADDRESS
+        sync: false
+      - key: LEGAL_DELIVERY_TIME
+        sync: false
+      - key: LEGAL_REFUND_TIME
+        sync: false
+      - key: LEGAL_RESPONSE_TIME
+        sync: false
+      - key: LEGAL_TAX_NOTE
+        sync: false
+      - key: LEGAL_RETENTION
+        sync: false
       # Eventos de pedidos hacia n8n (opcional; ver docs/n8n.md).
       - key: EVENTS_WEBHOOK_URL
         sync: false

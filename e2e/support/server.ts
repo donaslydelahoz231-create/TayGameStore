@@ -71,6 +71,7 @@ const config = loadConfig({
   MP_WEBHOOK_SECRET: 'secreto-e2e-sin-uso',
   JOBS_ENABLED: 'false',
   SUPPORT_EMAIL: 'soporte@example.com',
+  LEGAL_NAME: 'Tienda de Pruebas',
   // Credenciales ficticias SOLO para habilitar la allowlist en pruebas; no hay cliente Google.
   GOOGLE_CLIENT_ID: 'e2e-sin-uso.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'e2e-sin-uso-secreto',

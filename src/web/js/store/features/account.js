@@ -86,8 +86,22 @@ export function openAccountMenu() {
   $('accountBtn').setAttribute('aria-expanded', String(open));
 }
 
+/** "Google, Facebook o Discord" con solo las redes disponibles. */
+function providerList(providers) {
+  const names = providers.map((p) => PROVIDER_NAMES[p]);
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} o ${names.at(-1)}` : names[0] || '';
+}
+
+/**
+ * Solo se ofrecen los accesos que el servidor tiene configurados (un cliente no debe ver
+ * botones apagados). Si no hay ninguno, la compra como invitado pasa a ser la opción principal.
+ */
 export function updateOAuthUI() {
-  const auth = state.serverConfig?.auth || {};
+  const cfg = state.serverConfig;
+  const auth = cfg?.auth || {};
+  // Sin respuesta del servidor (o en vista previa) no se sabe qué hay: se muestran todos.
+  const known = !!cfg && !state.previewOnly;
+  const available = OAUTH_PROVIDERS.filter((p) => auth[p]);
   for (const prov of OAUTH_PROVIDERS) {
     const el = $(prov + 'State'),
       link = document.querySelector(`[data-provider="${prov}"]`);
@@ -97,12 +111,35 @@ export function updateOAuthUI() {
         ? 'Servidor requerido'
         : ok
           ? 'Disponible'
-          : 'No configurado';
+          : 'No disponible';
     if (link) {
       link.classList.toggle('disabled', !ok);
       link.setAttribute('aria-disabled', String(!ok));
+      link.hidden = known && !ok;
     }
   }
+  const grid = $('oauthGrid');
+  if (grid) grid.dataset.count = String(known ? available.length : OAUTH_PROVIDERS.length);
+  const guestOnly = known && available.length === 0;
+  const shown = known ? available : OAUTH_PROVIDERS;
+  document
+    .querySelectorAll('#loginModal [data-oauth-only]')
+    .forEach((node) => (node.hidden = guestOnly));
+  const guest = $('guestBtn');
+  if (guest) guest.className = guestOnly ? 'btn primary full' : 'text-btn inline';
+  const mailNote = cfg?.emailUpdates ? ' y te enviamos el comprobante a tu correo' : '';
+  setText(
+    'authSubtitle',
+    guestOnly
+      ? `Compra sin crear cuenta: solo necesitas tu ID de jugador y tu correo. Tu pedido queda guardado en este navegador${mailNote}.`
+      : `Entra con ${providerList(shown)} para conservar tu historial de pedidos.`,
+  );
+  setText(
+    'authNote',
+    guestOnly
+      ? 'No necesitas contraseña. TayGameStore no guarda datos de tarjetas: pagas en Mercado Pago.'
+      : `Entra con ${providerList(shown)}, o compra como invitado. TayGameStore no guarda contraseñas ni datos de tarjetas: pagas en Mercado Pago.`,
+  );
 }
 
 export async function bootstrapSession() {

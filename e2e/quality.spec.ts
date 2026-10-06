@@ -262,6 +262,10 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
   for (const path of ['/terminos.html', '/privacidad.html']) {
     await page.goto(path);
     await expect(page.locator('h1')).toBeVisible();
+    // Los datos del vendedor llegan desde la configuración del servidor (LEGAL_*, SUPPORT_*).
+    await expect(page.locator('main')).toContainText('Tienda de Pruebas');
+    await expect(page.locator('main')).toContainText('soporte@example.com');
+    await expect(page.locator('main')).not.toContainText('[COMPLETAR:LEGAL_NAME]');
     expect(await axe(page), path).toEqual([]);
     const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
     const narrow = await context.newPage();

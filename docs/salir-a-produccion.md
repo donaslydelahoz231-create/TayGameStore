@@ -13,7 +13,7 @@ llega cada pedido pagado hasta el jugador.
 | Mercado Pago avisa al servidor (webhook firmado), el servidor **consulta el pago a Mercado Pago** y comprueba monto, moneda y `live_mode` | Servidor | Sí. El navegador nunca puede marcar un pedido como pagado |
 | Si el webhook no llega: al volver el cliente a la tienda se consulta su pago; además la conciliación revisa los pendientes (Render: cada 2 minutos dentro del servidor; Vercel: cada 10 minutos con el flujo `tareas.yml`, ver `deployment-vercel.md`) | Servidor | Sí |
 | El pedido pasa a **Pagado** y queda "listo para entregar" | Servidor | Sí, una sola vez por pedido |
-| **Correo al cliente** "Pago confirmado" (con su pedido, ID y paquetes) | Servidor | Sí, con correo configurado (sección 1) |
+| **Correo al cliente** "Comprobante de pago" (código, operación de Mercado Pago, ID, paquetes y total) | Servidor | Sí, con correo configurado (sección 1) |
 | **Aviso al dueño**: notificación + sonido + contador en el panel; correo y Telegram si los configuras | Servidor / panel | Sí |
 | Recargar los diamantes al ID del jugador | **Tú**, con tu canal de recarga | **No**: entrega manual (ver abajo) |
 | Marcar el pedido como entregado con la evidencia | Tú, en el panel | — |
@@ -32,7 +32,7 @@ puerto de verificación de jugador); se integra con su documentación oficial, n
 
 ## 1. Correos al cliente y a ti (recomendado)
 
-Con correo configurado, el cliente recibe **"Pago confirmado"** cuando Mercado Pago confirma el
+Con correo configurado, el cliente recibe su **"Comprobante de pago"** cuando Mercado Pago confirma el
 pago, **"Recarga completada"** cuando marcas la entrega y **"Reembolso registrado"** si hay un
 reembolso; tú recibes **"Pedido pagado por entregar"** en los correos de `ADMIN_EMAILS`. La
 tienda le dice al cliente, junto al campo de correo, que le escribiremos allí (solo si el correo
@@ -107,9 +107,24 @@ producción: va a revisión.
 
 ## 4. Textos legales
 
-`src/web/terminos.html` y `src/web/privacidad.html` tienen campos `[COMPLETAR…]` (razón social,
-NIT o cédula, domicilio, plazo de entrega, canales oficiales…). Son datos tuyos: nadie más
-puede escribirlos. Con ventas en producción el servidor **no arranca** mientras queden.
+Los datos del vendedor se escriben en **Render → Environment** (nunca en Git ni en un chat); la
+tienda los pone en `/terminos.html` y `/privacidad.html` al servirlas:
+
+| Variable | Qué va |
+|---|---|
+| `LEGAL_NAME` | nombre o razón social |
+| `LEGAL_ID` | NIT o cédula |
+| `LEGAL_ADDRESS` | dirección y ciudad |
+| `LEGAL_DELIVERY_TIME` | plazo de entrega de la recarga |
+| `LEGAL_REFUND_TIME` | plazo de reembolso si no se puede entregar |
+| `LEGAL_RESPONSE_TIME` | plazo de respuesta a peticiones y reclamos |
+| `LEGAL_TAX_NOTE` | frase sobre IVA u otros impuestos en los precios |
+| `LEGAL_RETENTION` | tiempo que se conservan pedidos y pagos |
+
+Los canales (`SUPPORT_EMAIL`, `SUPPORT_WHATSAPP`) y la versión (`TERMS_VERSION`) se toman solos.
+Son datos tuyos: nadie más puede escribirlos. Con ventas en producción el servidor **no arranca**
+mientras falte alguno, y `golive:check` dice cuál. Haz revisar el texto por un abogado (las notas
+«REVISAR CON ABOGADO» siguen en el borrador).
 
 ## 5. Comprobar antes de abrir
 
@@ -127,7 +142,7 @@ pedidos, no paga y nunca imprime valores de variables.
 
 1. Compra tú mismo el paquete más barato con una tarjeta real.
 2. Comprueba: llega el aviso, el pedido está **Pagado** en el panel, el pago aparece en tu
-   cuenta de Mercado Pago con la misma referencia y te llega el correo **"Pago confirmado"**
+   cuenta de Mercado Pago con la misma referencia y te llega el correo **"Comprobante de pago"**
    (revisa también la carpeta de spam la primera vez).
 3. Entrega la recarga y márcala como entregada; el seguimiento debe decir "Recarga completada"
    y te llega ese correo.

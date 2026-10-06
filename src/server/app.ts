@@ -5,6 +5,7 @@ import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import type { AppConfig } from './config/env.js';
 import type { Db } from './db/client.js';
 import { registerRequestContext } from './http/context.js';
+import { describePending, LEGAL_PAGES, pendingLegalFields, renderLegalPage } from './legal.js';
 import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
@@ -65,27 +66,24 @@ function toTrustProxyOption(
   return (_address, hop) => hop < value;
 }
 
-/** Documentos legales enlazados desde la casilla de aceptación del checkout. */
-export const LEGAL_PAGES = ['terminos.html', 'privacidad.html'] as const;
-export const LEGAL_PLACEHOLDER = '[COMPLETAR';
+export { LEGAL_PAGES, LEGAL_PLACEHOLDER } from './legal.js';
 
 /**
  * En producción no se vende con los textos legales a medio hacer: si las ventas están activas
- * y falta una página o conserva marcadores "[COMPLETAR", el servidor no arranca.
+ * y falta una página o conserva marcadores "[COMPLETAR" sin valor en la configuración, el
+ * servidor no arranca.
  */
 export function assertLegalPagesReady(config: AppConfig, root: string): void {
   if (config.env !== 'production' || !config.flags.checkoutEnabled) return;
   // Sandbox de Mercado Pago: ningún pago es real (los de producción van a revisión, nunca a
   // entrega), así que se puede probar la compra completa antes de terminar los textos legales.
   if (config.flags.paymentsEnabled && config.mercadoPago?.mode === 'sandbox') return;
-  const pending = LEGAL_PAGES.filter((page) => {
-    const file = path.join(root, page);
-    return !existsSync(file) || readFileSync(file, 'utf8').includes(LEGAL_PLACEHOLDER);
-  });
-  if (pending.length) {
+  const pending = pendingLegalFields(config, root);
+  if (pending.size) {
     throw new Error(
-      `Textos legales incompletos (${pending.join(', ')}): completa los campos "[COMPLETAR" ` +
-        'en src/web antes de activar CHECKOUT_ENABLED en producción.',
+      `Textos legales incompletos (${describePending(pending)}): configura esas variables en ` +
+        'el hosting (o completa los campos "[COMPLETAR" en src/web) antes de activar ' +
+        'CHECKOUT_ENABLED en producción.',
     );
   }
 }
@@ -186,6 +184,15 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
       throw new Error(`No existe el build del frontend en ${root}. Ejecuta "npm run build".`);
     }
     assertLegalPagesReady(config, root);
+    // Términos y privacidad con los datos del vendedor tomados de la configuración.
+    for (const page of LEGAL_PAGES) {
+      const file = path.join(root, page);
+      if (!existsSync(file)) continue;
+      const html = renderLegalPage(readFileSync(file, 'utf8'), config);
+      app.get(`/${page}`, (_request, reply) =>
+        reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache').send(html),
+      );
+    }
     await app.register(fastifyStatic, {
       root,
       // Debe ser un array: con preCompressed, @fastify/static solo resuelve índices en array
