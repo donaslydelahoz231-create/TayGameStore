@@ -71,7 +71,6 @@ interface OrderSnapshot {
   totalCop: number;
   playerUid: string;
   nickname: string | null;
-  customerName: string;
   customerEmail: string;
   items: { name: string; quantity: number }[];
 }
@@ -135,7 +134,10 @@ export function renderEmail(
   order: OrderSnapshot,
 ): MailMessage {
   const base = deps.config.publicBaseUrl ?? '';
-  const hello = `Hola ${order.customerName},`;
+  // Sin el nombre que escribió el cliente: es texto libre de un formulario y, si alguien paga
+  // un pedido con el correo de otra persona, no puede usar este correo legítimo para colarle
+  // un mensaje de engaño. El correo solo lleva datos que la tienda generó o verificó.
+  const hello = 'Hola,';
   switch (kind) {
     case 'order_paid_owner':
       return compose(
@@ -196,7 +198,6 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
       totalCop: orders.totalCop,
       playerUid: orders.playerUid,
       nickname: orders.verifiedNickname,
-      customerName: orders.customerName,
       customerEmail: orders.customerEmail,
     })
     .from(orders)

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Request } from '@playwright/test';
 
 /**
  * Preparación común de las pruebas e2e: servidor real (e2e/support/server.ts), sin red
@@ -30,6 +30,25 @@ export async function preparePage(page: Page, options: PrepareOptions = {}): Pro
     consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
+
+  // Diagnóstico (Firefox en CI 39/40/43: navegaciones que nunca llegan a "load"): al cerrar la
+  // página se registran las peticiones que llevaban más de 5 s sin respuesta.
+  const inFlight = new Map<Request, number>();
+  page.on('request', (request) => inFlight.set(request, Date.now()));
+  page.on('requestfinished', (request) => inFlight.delete(request));
+  page.on('requestfailed', (request) => inFlight.delete(request));
+  page.on('close', () => {
+    const now = Date.now();
+    const stuck = [...inFlight].filter(([, started]) => now - started > 5_000);
+    if (stuck.length) {
+      console.warn(
+        `[e2e] peticiones sin respuesta al cerrar ${page.url()}: ` +
+          stuck
+            .map(([r, t]) => `${r.method()} ${r.url()} (${Math.round((now - t) / 1000)} s)`)
+            .join(', '),
+      );
+    }
+  });
 
   if (options.deterministic) {
     await page.clock.setFixedTime(new Date('2026-01-15T10:30:00-05:00'));

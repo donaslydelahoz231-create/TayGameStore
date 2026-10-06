@@ -252,7 +252,14 @@ export const checkoutSchema = z.strictObject({
   checkoutKey: z.uuid(),
   game: z.literal('freefire'),
   playerUid: z.string().regex(/^\d{6,12}$/),
-  customerName: z.string().trim().min(2).max(80),
+  customerName: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    // Sin saltos de línea ni caracteres invisibles (ancho cero, inversión de dirección):
+    // se muestran en el panel y en la factura y no deben poder disfrazar texto.
+    .regex(/^[^\p{Cc}\p{Cf}]+$/u, 'El nombre tiene caracteres no permitidos.'),
   customerEmail: z
     .email()
     .max(160)

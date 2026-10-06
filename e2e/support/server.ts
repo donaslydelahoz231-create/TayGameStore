@@ -182,6 +182,25 @@ app.post('/__e2e__/admin-session', async () => {
   return { token };
 });
 
+// Diagnóstico: peticiones que el servidor tarda más de 10 s en responder (nunca deberían).
+const inFlight = new Map<string, { url: string; method: string; started: number }>();
+app.addHook('onRequest', async (request) => {
+  inFlight.set(request.id, { url: request.url, method: request.method, started: Date.now() });
+});
+app.addHook('onResponse', async (request) => {
+  inFlight.delete(request.id);
+});
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, r] of inFlight) {
+    if (now - r.started > 10_000) {
+      console.warn(
+        `[e2e-server] ${r.method} ${r.url} sin responder hace ${Math.round((now - r.started) / 1000)} s (${id})`,
+      );
+    }
+  }
+}, 10_000).unref();
+
 await app.listen({ host: '127.0.0.1', port: PORT });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

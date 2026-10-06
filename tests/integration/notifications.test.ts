@@ -177,12 +177,61 @@ describe('aviso de pago confirmado', () => {
     expect(await rowsOf(order.id)).toEqual([]);
   });
 
-  it('el nombre del cliente se escapa en el HTML del correo', async () => {
-    const order = await readyOrder('<img src=x onerror=alert(1)>');
+  it('el texto libre del cliente nunca entra en su correo (no sirve para colar engaños)', async () => {
+    // Alguien paga un pedido con el correo de otra persona y un "nombre" que es un engaño.
+    const lure = 'Ganaste un premio <a href=https://evil.example>entra aquí</a>';
+    const order = await readyOrder(lure);
     await payOrder(order);
     const [mail] = mailsTo(order.email);
-    expect(mail?.html).not.toContain('<img src=x');
-    expect(mail?.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(mail?.text.startsWith('Recibimos tu pago\n\nHola,')).toBe(true);
+    for (const part of [mail?.text ?? '', mail?.html ?? '', mail?.subject ?? '']) {
+      expect(part).not.toContain('Ganaste');
+      expect(part).not.toContain('evil.example');
+    }
+  });
+});
+
+describe('nombre del pedido', () => {
+  it('rechaza saltos de línea y caracteres invisibles (ancho cero, inversión de dirección)', async () => {
+    for (const customerName of [
+      'Ana\nVisita evil.example',
+      'Ana\u200bLópez',
+      'Ana \u202egpj.exe',
+    ]) {
+      const res = await inject({
+        method: 'POST',
+        url: '/api/checkout',
+        headers: CSRF,
+        payload: {
+          checkoutKey: randomUUID(),
+          game: 'freefire',
+          playerUid: String((uid += 1)),
+          customerName,
+          customerEmail: 'nombre@example.com',
+          acceptTerms: true,
+          termsVersion: '2026-10-05',
+          items: [{ sku: 'ff-110', quantity: 1 }],
+        },
+      });
+      expect(res.statusCode, JSON.stringify(customerName)).toBe(400);
+    }
+    // Nombres normales con tildes, eñes, emojis y espacios siguen funcionando.
+    const ok = await inject({
+      method: 'POST',
+      url: '/api/checkout',
+      headers: CSRF,
+      payload: {
+        checkoutKey: randomUUID(),
+        game: 'freefire',
+        playerUid: String((uid += 1)),
+        customerName: 'María José Peña 🎮',
+        customerEmail: 'nombre@example.com',
+        acceptTerms: true,
+        termsVersion: '2026-10-05',
+        items: [{ sku: 'ff-110', quantity: 1 }],
+      },
+    });
+    expect(ok.statusCode).toBe(201);
   });
 });
 

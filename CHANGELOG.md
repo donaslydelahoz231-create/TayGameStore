@@ -19,6 +19,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Salida a producción
 
+- Seguridad de los correos: no incluyen el nombre que escribe el cliente (texto libre); así
+  nadie puede pagar un pedido con el correo de otra persona para colarle un engaño en un
+  correo legítimo de la tienda. El nombre del pedido rechaza saltos de línea y caracteres
+  invisibles (ancho cero, inversión de dirección).
+
 - Correos al cliente ("Pago confirmado", "Recarga completada", "Reembolso registrado") y al
   dueño ("Pedido pagado por entregar") por SMTP (Gmail con contraseña de aplicación u otro
   servidor). Cola `notifications` en la misma transacción que el cambio de estado, envío
