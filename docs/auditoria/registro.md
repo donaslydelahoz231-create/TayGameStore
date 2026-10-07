@@ -140,3 +140,17 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **n8n · Vigilancia**: consulta `/api/health` cada 5 min y `/api/ready` solo en la pasada del
   minuto 0-4 de cada hora (hora Colombia); la confirmación a los 90 s sigue usando `/api/ready`.
   Ejecución manual 353 correcta. Publicada.
+
+### Rutina: de auditoría a mantenimiento automático diario
+
+- **Autorizó**: el dueño («quiero que elabores todas las tareas… por tu cuenta propia a diario y no
+  quiero que dejes nada pendiente y te doy acceso a todos los permisos»).
+- **Cambió**: la rutina `trig_01QLzzMWBdigg5oXyt51qgsD` pasa a llamarse «Mantenimiento automático
+  diario», corre todos los días a las 7:52, 11:52, 15:52 y 19:52 (Bogotá) sin fecha de fin y ya
+  puede corregir y publicar por su cuenta (con pruebas en verde y registro). Incluye la vigilancia
+  del consumo de Neon.
+- **Sigue prohibido sin autorización aparte**: activar pagos, rollback, reescribir historial,
+  tocar secretos o credenciales, datos legales o del dueño, visibilidad del repositorio, borrar
+  proyectos o datos, servicios de pago y desactivar la guardia.
+- **Evidencia**: `update_trigger` → `enabled: true`, `updated_at` 17:58:29 UTC, próxima ronda
+  20:52 UTC.
