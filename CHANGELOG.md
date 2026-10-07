@@ -13,6 +13,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Privacidad del vendedor: términos y privacidad muestran el documento solo como «documento
+  terminado en XXXX» (`LEGAL_ID` se guarda completo en el hosting, nunca en el repositorio) y
+  piden a los buscadores no indexarlas (`<meta name="robots">` y cabecera `X-Robots-Tag`:
+  `noindex, noarchive, nosnippet`). El documento completo se entrega solo a la autoridad o ante
+  un reclamo formal por correo. Comprobantes y correos no llevan nombre ni documento del vendedor.
 - Aviso de marcas visible en el pie de la tienda (y ampliado en los términos): Free Fire, Garena,
   Roblox, PUBG y Mobile Legends se nombran solo para indicar el juego; TayGameStore es
   independiente y no usa sus logos ni imágenes.

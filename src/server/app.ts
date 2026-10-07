@@ -5,7 +5,13 @@ import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import type { AppConfig } from './config/env.js';
 import type { Db } from './db/client.js';
 import { registerRequestContext } from './http/context.js';
-import { describePending, LEGAL_PAGES, pendingLegalFields, renderLegalPage } from './legal.js';
+import {
+  describePending,
+  LEGAL_PAGES,
+  LEGAL_ROBOTS,
+  pendingLegalFields,
+  renderLegalPage,
+} from './legal.js';
 import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
@@ -190,7 +196,11 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
       if (!existsSync(file)) continue;
       const html = renderLegalPage(readFileSync(file, 'utf8'), config);
       app.get(`/${page}`, (_request, reply) =>
-        reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache').send(html),
+        reply
+          .type('text/html; charset=utf-8')
+          .header('cache-control', 'no-cache')
+          .header('x-robots-tag', LEGAL_ROBOTS)
+          .send(html),
       );
     }
     await app.register(fastifyStatic, {

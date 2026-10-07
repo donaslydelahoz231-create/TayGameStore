@@ -274,7 +274,9 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
   browser,
 }) => {
   for (const path of ['/terminos.html', '/privacidad.html']) {
-    await page.goto(path);
+    const response = await page.goto(path);
+    // Los datos del vendedor no deben aparecer en buscadores.
+    expect(response?.headers()['x-robots-tag'], path).toBe('noindex, noarchive, nosnippet');
     await expect(page.locator('h1')).toBeVisible();
     // Los datos del vendedor llegan desde la configuración del servidor (LEGAL_*, SUPPORT_*).
     await expect(page.locator('main')).toContainText('Tienda de Pruebas');

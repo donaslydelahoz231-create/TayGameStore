@@ -8,7 +8,20 @@ import type { AppConfig } from './config/env.js';
  * configuración del hosting (variables LEGAL_*, SUPPORT_* y TERMS_VERSION). Así la cédula, el
  * NIT o la dirección del dueño nunca quedan en el historial de Git ni pasan por un chat.
  * Un marcador sin valor sigue visible como pendiente y bloquea las ventas en producción.
+ *
+ * Privacidad del dueño: el documento se publica solo con sus últimos 4 dígitos (el completo se
+ * entrega ante un reclamo formal o a una autoridad, por el correo de soporte) y las páginas
+ * piden a los buscadores no indexarlas ni guardar copias (meta robots + X-Robots-Tag).
  */
+
+/** Cabecera para que Google y otros buscadores no muestren ni guarden estas páginas. */
+export const LEGAL_ROBOTS = 'noindex, noarchive, nosnippet';
+
+/** «documento terminado en 7890»: el número completo nunca se publica. */
+export function maskDocument(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 4 ? `documento terminado en ${digits.slice(-4)}` : 'documento reservado';
+}
 
 export const LEGAL_PAGES = ['terminos.html', 'privacidad.html'] as const;
 export const LEGAL_PLACEHOLDER = '[COMPLETAR';
@@ -34,7 +47,7 @@ function legalValues(config: AppConfig): Record<string, string | undefined> {
   return {
     TERMS_VERSION: config.orders.termsVersion,
     LEGAL_NAME: legal.name,
-    LEGAL_ID: legal.id,
+    LEGAL_ID: legal.id ? maskDocument(legal.id) : undefined,
     LEGAL_ADDRESS: legal.address,
     LEGAL_DELIVERY_TIME: legal.deliveryTime,
     LEGAL_REFUND_TIME: legal.refundTime,
