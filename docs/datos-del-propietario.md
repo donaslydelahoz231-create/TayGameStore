@@ -27,6 +27,18 @@ Este documento no contiene ningún dato personal.
 11. Solo se publica lo que exige la norma; nada adicional por iniciativa propia.
 12. No se vuelve a pedir ni a mostrar el número completo.
 
+### Autorización explícita del propietario
+
+13. No se modifica producción sin su autorización explícita. Cuentan: un push a la rama
+    desplegada (Render despliega cada commit), cambiar variables y reiniciar servicios.
+14. No se hace ningún rollback sin su autorización explícita.
+15. No se activan los pagos (`PAYMENTS_ENABLED`, `CHECKOUT_ENABLED`) sin su autorización explícita.
+16. No se muestran ni se vuelven a escribir datos personales o secretos en informes, comandos,
+    commits, registros ni archivos. Las pruebas usan solo valores ficticios.
+17. Si una comprobación no puede hacerse, se marca como **NO VERIFICADO**.
+18. No se afirma que algo fue publicado, eliminado o verificado sin evidencia técnica.
+19. Se pide su autorización antes de cualquier cambio que pueda aumentar la exposición de datos.
+
 ## Cómo se cumple (controles técnicos)
 
 | Dato      | Dónde vive                                   | Qué ve un visitante                          |
