@@ -5,9 +5,13 @@ import { AppError } from './errors.js';
 /** Nunca se bloquean: Mercado Pago (firma propia) y las sondas de salud del hosting. */
 const EXEMPT_PREFIXES = ['/api/webhooks/', '/api/health', '/api/ready'];
 
-function isExempt(request: FastifyRequest): boolean {
+function isExemptPath(request: FastifyRequest): boolean {
   const path = request.url.split('?')[0] ?? '';
-  if (EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix))) return true;
+  return EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function isExempt(request: FastifyRequest): boolean {
+  if (isExemptPath(request)) return true;
   // Un administrador con MFA nunca se queda fuera de su propio panel (podría desbloquearse).
   const session = request.auth.session;
   return Boolean(session?.isAdmin && session.mfaVerified);
@@ -30,6 +34,9 @@ export function registerShield(app: FastifyInstance, shield: AbuseShield): void 
 
   // Contención: una huella bloqueada no llega a ninguna ruta (tampoco a los estáticos).
   app.addHook('onRequest', async (request) => {
+    // Las rutas exentas no consultan la lista: la sonda de salud cada pocos minutos despertaría
+    // la base de datos (Neon cobra por tiempo encendido) sin que el resultado cambie nada.
+    if (isExemptPath(request)) return;
     try {
       await shield.refresh();
     } catch (error) {

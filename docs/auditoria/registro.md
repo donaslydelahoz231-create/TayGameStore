@@ -171,3 +171,16 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   bloqueos que corregir.
 - **Evidencia local**: unitarias y API 177/177, integración 174/174, e2e 67, build, formato y
   escáner 0.
+
+### Neon seguía sin dormir: el escudo consultaba la base en las sondas de salud
+
+- **Medición** (18:41-18:55 UTC, sin visitas): el compute de Neon seguía activo; nunca se había
+  suspendido desde su creación (`started_at` 2026-10-06 17:01). `pg_stat_activity` mostró la
+  conexión de la tienda consultando `blocklist` a las 18:55:37, un segundo después de la
+  Vigilancia (cada 5 min, `/api/health`); el `last_active` anterior (18:50:36) coincidía igual.
+- **Causa**: el gancho `onRequest` del escudo anti-abuso recargaba la lista de bloqueos (como mucho
+  cada 30 s) en **toda** petición, incluso en las rutas exentas (`/api/health`, `/api/ready`,
+  webhooks). Con una sonda cada 5 min, Neon nunca llegaba a 5 min sin consultas.
+- **Corrección**: `src/server/plugins/shield.ts` — las rutas exentas salen antes de recargar.
+  Prueba nueva en `tests/integration/security.test.ts` (falla sin la corrección, pasa con ella).
+- **Evidencia local**: lint, typecheck, formato, unitarias 177/177, integración 175/175, e2e 67.

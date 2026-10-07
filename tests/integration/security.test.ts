@@ -103,6 +103,18 @@ describe('escudo anti-abuso: escáneres', () => {
     expect(webhook.statusCode).toBe(401); // llega a la ruta: la rechaza la firma, no el escudo
   });
 
+  it('las sondas de salud no recargan la lista de bloqueos (la base de datos puede dormir)', async () => {
+    const refresh = vi.spyOn(h.shield, 'refresh');
+    try {
+      expect((await from(freshIp(), { method: 'GET', url: '/api/health' })).statusCode).toBe(200);
+      expect(refresh).not.toHaveBeenCalled();
+      await from(freshIp(), { method: 'GET', url: '/api/catalog' });
+      expect(refresh).toHaveBeenCalled();
+    } finally {
+      refresh.mockRestore();
+    }
+  });
+
   it('el bloqueo caduca solo', async () => {
     const attacker = freshIp();
     await from(attacker, { method: 'GET', url: '/xmlrpc.php' });
