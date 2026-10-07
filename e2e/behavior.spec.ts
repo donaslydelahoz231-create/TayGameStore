@@ -77,10 +77,52 @@ test.describe('entrada y acceso', () => {
     // El servidor de pruebas configura Facebook (doble), no Google.
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
     await expect(page.locator('#googleState')).toHaveText('No configurado');
-    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega.
+    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega: ni
+    // siquiera sale la petición (la URL sola no basta: el servidor redirige de vuelta a "/").
+    const intentos: string[] = [];
+    page.on('request', (r) => {
+      if (new URL(r.url()).pathname.startsWith('/auth/')) intentos.push(r.url());
+    });
     await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
     await page.locator('[data-provider="google"]').click({ force: true });
+    await expect(page.locator('#toastStack')).toContainText('no está disponible');
     await expect(page).toHaveURL(/\/$/);
+    expect(intentos).toEqual([]);
+  });
+
+  test('mientras se comprueba el acceso, un clic en Google o Facebook no navega', async ({
+    page,
+  }) => {
+    // Configuración lenta (servidor recién despertado): los botones arrancan deshabilitados.
+    let liberar = () => {};
+    const configLista = new Promise<void>((resolve) => (liberar = resolve));
+    await page.route('**/api/config', async (route) => {
+      await configLista;
+      await route.continue();
+    });
+    const intentos: string[] = [];
+    page.on('request', (r) => {
+      if (new URL(r.url()).pathname.startsWith('/auth/')) intentos.push(r.url());
+    });
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#facebookState')).toHaveText('Comprobando…');
+    for (const proveedor of ['google', 'facebook']) {
+      await expect(page.locator(`[data-provider="${proveedor}"]`)).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+      await page.locator(`[data-provider="${proveedor}"]`).click({ force: true });
+    }
+    await expect(page.locator('#toastStack')).toContainText('Comprobando el acceso');
+    expect(intentos).toEqual([]);
+    // Cuando llega la configuración, el proveedor configurado se habilita.
+    liberar();
+    await expect(page.locator('#facebookState')).toHaveText('Disponible');
+    await expect(page.locator('[data-provider="facebook"]')).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
   });
 
   test('entrar con Facebook y ver la red vinculada en Mi cuenta', async ({ page }) => {

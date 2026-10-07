@@ -136,9 +136,12 @@ function bindEntryAndAccount() {
   };
   document.querySelectorAll('.oauth-btn').forEach((a) =>
     a.addEventListener('click', (e) => {
+      // Hasta que /api/config confirma el proveedor, el botón no navega (antes, un clic
+      // durante «Comprobando…» llegaba a /auth/* y volvía con «acceso no configurado»).
       if (a.getAttribute('aria-disabled') === 'true') {
         e.preventDefault();
-        toast('Este acceso no está disponible por ahora.', 'bad');
+        if (state.serverConfig) toast('Este acceso no está disponible por ahora.', 'bad');
+        else toast('Comprobando el acceso… inténtalo en un momento.');
       }
     }),
   );

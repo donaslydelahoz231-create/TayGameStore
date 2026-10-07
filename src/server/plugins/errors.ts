@@ -81,7 +81,7 @@ export function registerErrorHandling(app: FastifyInstance): void {
     }
 
     if (error instanceof ZodError) {
-      request.log.info({ issues: error.issues.length }, 'validation error');
+      request.log.info({ issues: error.issues.length }, 'entrada rechazada por validación');
       return sendError(reply, request, 400, 'VALIDATION_ERROR');
     }
 

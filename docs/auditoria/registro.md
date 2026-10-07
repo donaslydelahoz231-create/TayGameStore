@@ -49,6 +49,17 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Evidencia**: e2e 66/66 (incluye las capturas visuales, sin cambios en la tienda), 160 pruebas
   unitarias y de API, 174 de integración, guardia 27/27, escáner 0.
 
+### Render y n8n: análisis y corrección del acceso social
+
+- **Render**: sin fallos vigentes (un solo despliegue fallido, el primero del 06-oct 16:54). Las
+  líneas en rojo eran: 9 «validation error» de nivel info (formularios del panel) y 3 visitas a
+  `?acceso=error&motivo=no_configurado` por un clic en Google/Facebook antes de cargar la
+  configuración. Corregido (botones deshabilitados de inicio; prueba que falla sin la corrección).
+- **n8n** (solo lectura): Vigilancia 166/166 ejecuciones exitosas hoy; Errores activo; Tareas y
+  Pedidos sin publicar (Tareas es respaldo opcional: la tienda ya ejecuta sus tareas). Diagnóstico
+  integral 13:02: 0 fallas, 4 pendientes (compras, Google OAuth, SMTP_PASS, flujo Pedidos).
+  Ejecuciones manuales de 13:02–13:05 no las hizo esta sesión.
+
 ### Correcciones de auditorías anteriores
 
 - El patrón de búsqueda del documento usado antes de las 12:15 exigía los 4 últimos dígitos

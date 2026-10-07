@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Corregido
+
+- Botones de Google y Facebook: arrancan deshabilitados hasta que la configuración del servidor
+  confirma el proveedor. Antes, un clic durante «Comprobando…» (servidor lento o recién
+  despertado) navegaba a `/auth/*` y volvía con «acceso no configurado»; Render mostraba esas
+  visitas como errores. La prueba e2e ahora comprueba que no sale ninguna petición a `/auth/*`
+  (antes solo miraba la URL final, que el servidor devolvía a «/»).
+- Registro del servidor: «entrada rechazada por validación» en lugar de «validation error» (nivel
+  info; Render lo pintaba en rojo por la palabra «error»).
+
 ### Retirado
 
 - Acceso de clientes con Discord (a pedido del dueño): sin botón, sin rutas `/auth/discord*` ni
