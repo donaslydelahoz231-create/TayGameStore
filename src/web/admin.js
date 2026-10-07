@@ -524,7 +524,7 @@ function renderDetail(d) {
     <dl>
       <dt>Cliente</dt><dd>${esc(o.customerName)} · ${esc(o.customerEmail)}</dd>
       <dt>UID</dt><dd>${esc(o.playerUid)}</dd>
-      <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}</dd>
+      <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}${v.note === 'cliente' ? ' · ID confirmado por el cliente (escrito dos veces): entrégalo a este UID' : ''}</dd>
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
       <dt>Total</dt><dd>${money(o.totalCop)}</dd>
       <dt>Vence</dt><dd>${fmtDate(o.expiresAt)}</dd>

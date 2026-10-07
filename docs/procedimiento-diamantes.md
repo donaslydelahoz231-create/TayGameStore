@@ -19,8 +19,9 @@ anular las recargas y bloquear al cliente.
 
 ## El ciclo de un pedido (inventario de PIN)
 
-1. **Cliente:** elige el paquete, escribe su ID y paga en Mercado Pago (tarjeta, PSE, Efecty o
-   saldo). La promo de fin de semana aplica sola.
+1. **Cliente:** elige el paquete, escribe su ID, **lo repite y lo confirma** («Sí, es mi ID») y
+   paga al instante en Mercado Pago (tarjeta, PSE, Efecty o saldo), sin esperar a que el dueño
+   verifique nada (`PLAYER_VERIFICATION=customer`). La promo de fin de semana aplica sola.
 2. **Tienda:** Mercado Pago confirma el pago → el pedido queda «Pagado (entregar)», el cliente
    recibe su **comprobante de pago** por correo y al dueño le llega el aviso (panel, Telegram,
    correo o n8n, según lo configurado).

@@ -7,15 +7,20 @@ import { runtime, state } from '../state.js';
 import { modal, toast } from '../ui.js';
 import { setCurrentOrder } from './orders.js';
 
-// Verificación del jugador. Dos caminos, decididos por el servidor (`/api/config`):
+// Verificación del jugador. Tres caminos, decididos por el servidor (`/api/config`):
 //   • Consulta instantánea (como LootBar): solo si hay un proveedor autorizado configurado.
 //     UID → nickname y región → "Sí, es mi cuenta" → el pedido nace listo para pagar.
-//   • Manual: UID válido → pedido → el equipo verifica → el cliente confirma → pago.
+//   • Confirmación del cliente (`playerVerification: 'customer'`): escribe su ID dos veces,
+//     pulsa "Sí, es mi ID" y paga al instante; la recarga se envía a ese ID.
+//   • Manual (`operator`): UID válido → pedido → el equipo verifica → el cliente confirma → pago.
 // Si la consulta no está disponible o falla, se pasa al camino manual automáticamente.
 // NO se hace scraping ni se consultan fuentes no oficiales desde el navegador.
 
 const PENDING_TEXT =
   'Nuestro equipo verificará el nickname y la región después de crear tu pedido. No pagarás nada hasta que confirmes que es tu cuenta.';
+
+const SELF_CONFIRM_TEXT =
+  'Escríbelo otra vez para confirmar que es tu cuenta: la recarga se envía a este ID y no se puede revertir.';
 
 const LOOKUP_TIMEOUT_MS = 12000;
 /** Errores con los que se pasa al flujo manual (el operador verifica después). */
@@ -34,6 +39,11 @@ export function lookupEnabled() {
   return Boolean(cfg && cfg.playerLookup && cfg.checkoutEnabled && !cfg.maintenanceMode);
 }
 
+/** Sin consulta de proveedor, el cliente confirma su propio ID y paga sin esperar al equipo. */
+export function selfConfirmMode() {
+  return state.serverConfig?.playerVerification === 'customer';
+}
+
 function hasOpenOrder() {
   return Boolean(state.currentOrder && !OPEN_ORDER_DONE.includes(state.currentOrder.status));
 }
@@ -45,6 +55,42 @@ function bubble() {
 function showResult(html) {
   setHtml('playerResult', html);
   $('playerResult').hidden = false;
+}
+
+/** Modo `customer`: pide repetir el ID antes de aceptarlo. */
+function renderSelfConfirm(uid) {
+  showResult(
+    `<div class="player-main">${bubble()}<div><b>Vas a recargar al ID ${esc(uid)}</b><small>${esc(SELF_CONFIRM_TEXT)}</small></div></div><div class="player-confirm"><label for="playerUidConfirm">Repite tu ID</label><input id="playerUidConfirm" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="Repite tu ID"></div><div class="player-buttons"><button class="btn primary" id="confirmUid" type="button">Sí, es mi ID</button><button class="btn glass" id="changePlayer" type="button">Cambiar</button></div>`,
+  );
+  const input = $('playerUidConfirm');
+  const confirm = () => confirmOwnUid(uid, input.value);
+  $('confirmUid').onclick = confirm;
+  input.onkeydown = (event) => {
+    if (event.key === 'Enter') confirm();
+  };
+  $('changePlayer').onclick = () => resetPlayer(true);
+  input.focus({ preventScroll: true });
+}
+
+function renderSelfConfirmed(uid) {
+  showResult(
+    `<div class="player-main">${bubble()}<div><b>ID ${esc(uid)} confirmado ✓</b><small>Completa tus datos, crea el pedido y paga: la recarga se envía a este ID.</small></div></div><div class="player-buttons"><button class="btn glass" id="changePlayer" type="button">Cambiar</button></div>`,
+  );
+  $('changePlayer').onclick = () => resetPlayer(true);
+}
+
+function confirmOwnUid(uid, typed) {
+  if (uid !== state.playerUid) return;
+  if (cleanUid(typed) !== uid) {
+    toast('Los ID no coinciden. Revisa tu ID y escríbelo otra vez.', 'bad');
+    $('playerUidConfirm')?.focus();
+    return;
+  }
+  state.uidConfirmed = uid;
+  state.uidAccepted = true;
+  renderSelfConfirmed(uid);
+  renderAll();
+  toast('ID confirmado.', 'good');
 }
 
 function renderUidAccepted() {
@@ -116,6 +162,10 @@ export function renderPlayer() {
     showResult(
       `<div class="player-main">${bubble()}<div><b>${esc(v.nickname)} ✓</b><small>ID ${esc(order.playerUid)} · ${esc(v.region || '')}</small></div></div>`,
     );
+  else if (v.status === 'CONFIRMED')
+    showResult(
+      `<div class="player-main">${bubble()}<div><b>ID ${esc(order.playerUid)} ✓</b><small>Confirmado por ti. La recarga se envía a este ID.</small></div></div>`,
+    );
   else if (order.status === 'REJECTED')
     renderMessage('No pudimos confirmar ese jugador. Revisa el UID y crea un nuevo pedido.');
 }
@@ -146,6 +196,7 @@ async function confirmPlayer(confirm) {
 function clearPlayerChoice() {
   state.uidAccepted = false;
   state.playerLookup = null;
+  state.uidConfirmed = null;
   const r = $('playerResult');
   if (r) {
     r.hidden = true;
@@ -213,8 +264,15 @@ async function lookupUid(uid) {
 function acceptManually(uid) {
   state.playerUid = uid;
   state.playerLookup = null;
-  state.uidAccepted = true;
-  renderUidAccepted();
+  if (selfConfirmMode()) {
+    // Hasta que lo repita y confirme, el ID no cuenta como aceptado.
+    state.uidAccepted = false;
+    state.uidConfirmed = null;
+    renderSelfConfirm(uid);
+  } else {
+    state.uidAccepted = true;
+    renderUidAccepted();
+  }
   renderAll();
 }
 
@@ -228,7 +286,11 @@ function applyLookupResult(uid, result) {
     renderAll();
   } else if (result.fallback) {
     acceptManually(uid);
-    toast('No pudimos consultar el ID ahora. Nuestro equipo lo verificará al crear tu pedido.');
+    toast(
+      selfConfirmMode()
+        ? 'No pudimos consultar el ID ahora. Confírmalo escribiéndolo otra vez.'
+        : 'No pudimos consultar el ID ahora. Nuestro equipo lo verificará al crear tu pedido.',
+    );
   } else {
     clearPlayerChoice();
     state.playerUid = uid;
@@ -322,10 +384,11 @@ export async function finderSearch() {
   }
   const head = found
     ? `<small>JUGADOR ENCONTRADO</small><strong>${esc(found.nickname)}</strong><div class="finder-tags"><span class="finder-tag">ID ${esc(id)}</span><span class="finder-tag">${esc(found.region)}</span></div>`
-    : `<small>ID VÁLIDO</small><strong>UID ${esc(id)}</strong><div class="finder-tags"><span class="finder-tag">Verificación por el equipo</span></div>`;
-  const note = found
-    ? 'Confirmarás que es tu cuenta antes de pagar.'
-    : 'El nickname y la región se confirman con una fuente oficial al crear el pedido.';
+    : `<small>ID VÁLIDO</small><strong>UID ${esc(id)}</strong><div class="finder-tags"><span class="finder-tag">${selfConfirmMode() ? 'Lo confirmas tú' : 'Verificación por el equipo'}</span></div>`;
+  const note =
+    found || selfConfirmMode()
+      ? 'Confirmarás que es tu cuenta antes de pagar.'
+      : 'El nickname y la región se confirman con una fuente oficial al crear el pedido.';
   setHtml(
     'finderResult',
     `<div class="finder-live"><span class="finder-avatar"><svg><use href="#icon-user"></use></svg></span><div>${head}</div><div class="finder-source"><button class="btn primary" id="finderUseBtn" type="button">Usar este ID</button><small>${esc(note)}</small></div></div>`,
@@ -335,7 +398,19 @@ export async function finderSearch() {
 
 /** Textos de ayuda según el modo de verificación que ofrece el servidor. */
 export function renderPlayerMode() {
-  if (!lookupEnabled()) return;
+  if (!lookupEnabled()) {
+    if (!selfConfirmMode()) return;
+    setText(
+      'playerHint',
+      'Escribe tu ID, pulsa Verificar y confírmalo: pagas al instante y la recarga llega a ese ID.',
+    );
+    setText('finderLead', 'Valida el ID y confírmalo: pagas al instante, sin esperas.');
+    setText(
+      'finderNoteText',
+      'Revisa bien tu ID: la recarga se envía a ese ID. Nunca te pediremos la contraseña del juego.',
+    );
+    return;
+  }
   setText(
     'playerHint',
     'Escribe tu ID y pulsa Verificar: verás el nickname y la región al instante para confirmar tu cuenta.',

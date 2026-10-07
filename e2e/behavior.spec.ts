@@ -448,6 +448,52 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#historyList')).toContainText('Recarga completada');
   });
 
+  test('estilo LootBar: ID → lo repito y confirmo → pedido listo → pago → entrega, sin esperar al equipo', async ({
+    page,
+  }) => {
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567812');
+      await page.locator('#verifyBtn').click();
+      await expect(page.locator('#playerResult')).toContainText('Vas a recargar al ID 734567812');
+      await expect(page.locator('#nickState')).toHaveText('Pendiente');
+
+      // Repetirlo mal no lo acepta; bien, sí.
+      await page.locator('#playerUidConfirm').fill('734567813');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('Vas a recargar al ID');
+      await page.locator('#playerUidConfirm').fill('734567812');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567812 confirmado ✓');
+      await expect(page.locator('#nickState')).toHaveText('Listo');
+
+      await page.locator('#customerName').fill('Cliente Directo');
+      await page.locator('#customerEmail').fill('directo-e2e@example.com');
+      await page.locator('#paymentMethod').selectOption('mercadopago');
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      // Sin esperar al equipo: el pedido ya se puede pagar.
+      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+
+      await page.locator('#payBtn').click();
+      await expect(page.locator('#paymentModal')).toBeVisible();
+      await page.locator('#startPayment').click();
+      await page.waitForURL(/\/#seguimiento$/);
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+
+      expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
+      await page.locator('#refreshOrderBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
   test('el pedido se recupera tras recargar la página', async ({ page }) => {
     await page.goto('/');
     await enterAsGuest(page);

@@ -24,7 +24,10 @@ export function renderChecks() {
   const found = state.playerLookup?.uid === state.playerUid;
   const uidOk = order ? true : validUid(state.playerUid) && (state.uidAccepted || found);
   const lookup = !order && state.playerLookup?.confirmed ? state.playerLookup : null;
-  const playerOk = order ? order.verification?.status === 'CONFIRMED' : Boolean(lookup);
+  const selfConfirmed = !order && state.uidConfirmed === state.playerUid && state.uidAccepted;
+  const playerOk = order
+    ? order.verification?.status === 'CONFIRMED'
+    : Boolean(lookup) || selfConfirmed;
   const cartOk = order ? true : cartItems().length > 0;
   [
     ['uidState', uidOk],
@@ -40,7 +43,7 @@ export function renderChecks() {
   const paid = ['PAID', 'DELIVERING', 'DELIVERED'].includes(status);
   $('trackPlayer').classList.toggle('done', playerOk);
   $('trackPlayer').querySelector('small').textContent = playerOk
-    ? (order ? order.verification.region : lookup.region) || 'Confirmado'
+    ? (order ? order.verification.region : lookup?.region) || 'Confirmado'
     : order
       ? 'Verificando'
       : 'Esperando UID';

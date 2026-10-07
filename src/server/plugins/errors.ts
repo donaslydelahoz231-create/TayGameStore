@@ -45,6 +45,7 @@ const GENERIC_MESSAGES: Record<ErrorCode, string> = {
   PLAYER_LOOKUP_UNAVAILABLE: 'La consulta de jugadores no está disponible ahora.',
   PLAYER_NOT_FOUND: 'No encontramos ese ID de jugador.',
   PLAYER_LOOKUP_EXPIRED: 'La verificación del jugador caducó. Vuelve a consultar el ID.',
+  PLAYER_CONFIRMATION_REQUIRED: 'Confirma tu ID de jugador.',
   MFA_REQUIRED: 'Se requiere verificación en dos pasos.',
   MFA_INVALID: 'Código de verificación inválido.',
   INVALID_SIGNATURE: 'Firma inválida.',

@@ -270,6 +270,14 @@ export const checkoutSchema = z.strictObject({
   expectedTotalCop: z.number().int().positive().optional(),
   /** Consulta automática del jugador ya confirmada por el cliente (flujo con proveedor). */
   playerLookup: playerLookupRefSchema.optional(),
+  /**
+   * El ID escrito por segunda vez por el cliente (PLAYER_VERIFICATION=customer): confirma que
+   * es su cuenta y el pedido nace listo para pagar, sin esperar al equipo.
+   */
+  confirmedPlayerUid: z
+    .string()
+    .regex(/^\d{6,12}$/)
+    .optional(),
   items: z
     .array(
       z.strictObject({
@@ -462,6 +470,14 @@ export async function createOrder(
             now,
           })
         : undefined;
+      const selfConfirmed = !lookup && config.orders.playerVerification === 'customer';
+      if (selfConfirmed && input.confirmedPlayerUid !== input.playerUid) {
+        throw new AppError(
+          'PLAYER_CONFIRMATION_REQUIRED',
+          400,
+          'Escribe tu ID otra vez para confirmar que es tu cuenta.',
+        );
+      }
       const verified = lookup
         ? {
             status: 'AWAITING_PAYMENT' as const,
@@ -473,11 +489,19 @@ export async function createOrder(
             confirmedAt: now,
             expiresAt: new Date(now.getTime() + config.orders.paymentTtlMinutes * 60_000),
           }
-        : {
-            status: 'AWAITING_VERIFICATION' as const,
-            verificationStatus: 'PENDING' as const,
-            expiresAt: new Date(now.getTime() + config.orders.verificationTtlMinutes * 60_000),
-          };
+        : selfConfirmed
+          ? {
+              status: 'AWAITING_PAYMENT' as const,
+              verificationStatus: 'CONFIRMED' as const,
+              verificationNote: 'cliente',
+              confirmedAt: now,
+              expiresAt: new Date(now.getTime() + config.orders.paymentTtlMinutes * 60_000),
+            }
+          : {
+              status: 'AWAITING_VERIFICATION' as const,
+              verificationStatus: 'PENDING' as const,
+              expiresAt: new Date(now.getTime() + config.orders.verificationTtlMinutes * 60_000),
+            };
 
       const [created] = await tx
         .insert(orders)
@@ -526,7 +550,11 @@ export async function createOrder(
         data: {
           totalCop: created.totalCop,
           items: lines.length,
-          verification: lookup ? `proveedor:${lookup.provider}` : 'manual',
+          verification: lookup
+            ? `proveedor:${lookup.provider}`
+            : selfConfirmed
+              ? 'cliente'
+              : 'manual',
         },
       });
       // Verificación manual: el operador debe saberlo enseguida (aviso a su automatización).

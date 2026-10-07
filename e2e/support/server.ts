@@ -60,6 +60,8 @@ const config = loadConfig({
   WEB_DIST_DIR: 'dist/web',
   CHECKOUT_ENABLED: 'true',
   PROMO_SCHEDULE: 'always',
+  // Las pruebas de la verificación por el equipo; el modo del cliente se activa por prueba.
+  PLAYER_VERIFICATION: 'operator',
   PAYMENTS_ENABLED: 'true',
   MP_MODE: 'sandbox',
   // Todas las pruebas salen de 127.0.0.1: el límite global por IP se mide en tests/integration.
@@ -169,6 +171,13 @@ app.post('/__e2e__/deliver', async (request) => {
     await fulfillmentAction(deps, id, action, actor);
   }
   await fulfillmentAction(deps, id, { action: 'deliver', evidence: 'Entrega e2e' }, actor);
+  return { ok: true };
+});
+
+/** Cambia el modo de verificación del jugador (los workers de Playwright van de uno en uno). */
+app.post('/__e2e__/player-verification', async (request) => {
+  const { mode } = request.body as { mode: 'customer' | 'operator' };
+  config.orders.playerVerification = mode;
   return { ok: true };
 });
 

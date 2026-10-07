@@ -140,6 +140,15 @@ select:focus {
 .player-buttons .btn {
   flex: 1;
 }
+.player-confirm {
+  margin-top: 9px;
+}
+.player-confirm label {
+  margin-top: 0;
+}
+.player-confirm input {
+  width: 100%;
+}
 .check-line {
   display: grid;
   grid-template-columns: 29px 1fr auto;

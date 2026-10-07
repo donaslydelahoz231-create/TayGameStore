@@ -84,6 +84,8 @@ describe('GET /api/config', () => {
       paymentMethod: 'mercadopago',
       auth: { google: false, discord: false, facebook: false },
       playerLookup: false,
+      // Sin proveedor de consulta, el cliente confirma su propio ID (valor por defecto).
+      playerVerification: 'customer',
       emailUpdates: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',

@@ -9,7 +9,7 @@ import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
 import { modal, toast } from '../ui.js';
 import { loadCatalog } from './catalog.js';
-import { lookupExpired } from './player.js';
+import { lookupExpired, verifyPlayer } from './player.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
 // Checkout con Mercado Pago (Checkout Pro):
@@ -59,6 +59,8 @@ function missingRequirement() {
   if (!cartItems().length) return ['Agrega una recarga.', 'catalogo'];
   if (!state.uidAccepted && state.playerLookup?.uid === state.playerUid)
     return ['Confirma el jugador: pulsa "Sí, es mi cuenta".', 'verificacion'];
+  if (!state.uidAccepted && $('playerUidConfirm'))
+    return ['Confirma tu ID: escríbelo otra vez y pulsa "Sí, es mi ID".', 'verificacion'];
   if (!state.uidAccepted || !validUid(state.playerUid))
     return ['Escribe y verifica el UID del jugador.', 'verificacion'];
   if (!state.customerName.trim()) return ['Escribe el nombre del cliente.', 'factura'];
@@ -73,8 +75,14 @@ function missingRequirement() {
 /** Consulta instantánea confirmada por el cliente para este UID (si la hay). */
 function confirmedLookup() {
   const found = state.playerLookup;
-  if (!found || !found.confirmed || found.uid !== state.playerUid) return {};
-  return { playerLookup: { ref: found.ref, nickname: found.nickname } };
+  if (found?.confirmed && found.uid === state.playerUid) {
+    return { playerLookup: { ref: found.ref, nickname: found.nickname } };
+  }
+  // ID escrito dos veces y confirmado por el cliente (modo `customer`).
+  if (state.uidConfirmed && state.uidConfirmed === state.playerUid) {
+    return { confirmedPlayerUid: state.uidConfirmed };
+  }
+  return {};
 }
 
 async function createOrder() {
@@ -122,6 +130,11 @@ async function createOrder() {
       await loadCatalog(state.game);
     }
     if (err instanceof ApiError && err.code === 'IDEMPOTENCY_CONFLICT') resetCheckoutKey();
+    if (err instanceof ApiError && err.code === 'PLAYER_CONFIRMATION_REQUIRED') {
+      // El servidor exige la confirmación (p. ej. cambió de modo): se vuelve a pedir.
+      verifyPlayer();
+      scrollToSection('verificacion');
+    }
     if (err instanceof ApiError && err.code === 'PLAYER_LOOKUP_EXPIRED') {
       lookupExpired();
       scrollToSection('verificacion');

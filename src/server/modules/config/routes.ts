@@ -29,6 +29,8 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       paymentMethod: 'mercadopago',
       auth: { google: options.googleAvailable, ...options.socialAvailable },
       playerLookup: options.playerLookupAvailable,
+      /** Sin consulta de proveedor: `customer` (el cliente confirma su ID) u `operator`. */
+      playerVerification: config.orders.playerVerification,
       /** El cliente recibe por correo el pago confirmado y la entrega (SMTP configurado). */
       emailUpdates: options.emailUpdatesAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },

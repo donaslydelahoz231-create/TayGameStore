@@ -19,6 +19,8 @@ export const state = {
    * { ref, nickname, region, uid, expiresAt, confirmed }. No se persiste.
    */
   playerLookup: null,
+  /** UID que el cliente escribió dos veces y confirmó como suyo (modo `customer`). */
+  uidConfirmed: null,
   customerName: '',
   customerEmail: '',
   session: null,

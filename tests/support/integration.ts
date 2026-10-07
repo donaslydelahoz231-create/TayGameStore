@@ -101,6 +101,8 @@ export async function createHarness(
     PUBLIC_BASE_URL: 'http://localhost:3000',
     CHECKOUT_ENABLED: 'true',
     PROMO_SCHEDULE: 'always',
+    // Las pruebas existentes cubren la verificación por el equipo; la del cliente se pide aparte.
+    PLAYER_VERIFICATION: 'operator',
     PAYMENTS_ENABLED: 'true',
     MP_MODE: 'sandbox',
     MP_ACCESS_TOKEN: 'TEST-token-de-prueba',

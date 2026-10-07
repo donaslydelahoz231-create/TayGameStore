@@ -50,6 +50,9 @@ services:
       # sandbox hasta completar docs/sandbox-mercadopago.md; luego production.
       - key: MP_MODE
         value: sandbox
+      # El cliente confirma su ID (escrito dos veces) y paga sin esperar al equipo.
+      - key: PLAYER_VERIFICATION
+        value: customer
       # ── Se escriben en el panel de Render (secretos o datos del propietario) ──
       - key: PUBLIC_BASE_URL
         sync: false

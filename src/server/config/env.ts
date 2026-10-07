@@ -187,6 +187,12 @@ const envSchema = z
     TERMS_VERSION: z.string().min(1).max(40).default('2026-10-05'),
     /** Precio promocional: `weekends` (sábado y domingo, hora de Colombia) o `always`. */
     PROMO_SCHEDULE: z.enum(['always', 'weekends']).default('weekends'),
+    /**
+     * Sin proveedor de consulta de ID: `customer` (el cliente escribe su ID dos veces, lo
+     * confirma y paga al instante, como en LootBar) u `operator` (el equipo verifica el
+     * nickname antes de que el cliente pueda pagar).
+     */
+    PLAYER_VERIFICATION: z.enum(['customer', 'operator']).default('customer'),
     SUPPORT_WHATSAPP: z
       .string()
       .regex(/^\+?\d{8,15}$/)
@@ -386,6 +392,7 @@ export interface AppConfig {
     maxOpenOrdersPerEmail: number;
     maxOpenOrdersPerUid: number;
     termsVersion: string;
+    playerVerification: 'customer' | 'operator';
   };
   support: { whatsapp: string | undefined; email: string | undefined };
   promoSchedule: PromoSchedule;
@@ -539,6 +546,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       maxOpenOrdersPerEmail: env.LIMIT_MAX_OPEN_ORDERS_PER_EMAIL,
       maxOpenOrdersPerUid: env.LIMIT_MAX_OPEN_ORDERS_PER_UID,
       termsVersion: env.TERMS_VERSION,
+      playerVerification: env.PLAYER_VERIFICATION,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
     promoSchedule: env.PROMO_SCHEDULE,

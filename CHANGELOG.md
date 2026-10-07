@@ -7,6 +7,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Compra estilo LootBar sin proveedor de consulta (`PLAYER_VERIFICATION=customer`, por
+  defecto): el cliente escribe su ID, lo **repite** y pulsa «Sí, es mi ID»; el pedido nace
+  listo para pagar y paga al instante, sin esperar a que el dueño verifique el nickname. El
+  servidor exige que el ID repetido coincida y deja constancia («confirmado por el cliente»).
+  `operator` mantiene la verificación previa del equipo; con proveedor autorizado sigue la
+  consulta instantánea de nickname y región.
 - Inventario de recargas (Panel → Inventario): el dueño carga los PIN que compra a una red
   autorizada, cifrados y sin duplicados; al empezar la entrega de un pedido pagado se reserva
   el más antiguo por unidad, al entregarlo queda usado; liberar/anular, alerta de stock bajo y
