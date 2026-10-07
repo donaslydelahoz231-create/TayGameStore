@@ -81,17 +81,14 @@ found").
 
 En n8n → **Credentials** → **Add credential**:
 
-1. **Gmail · taygamerstore** — tipo _Gmail OAuth2_ → **Sign in with Google** con
-   `taygamerstore@gmail.com`. Nunca escribas la contraseña de Gmail en n8n.
+1. Gmail (_Gmail OAuth2_, cuenta `taygamerstore@gmail.com`): **hecho** (credencial «Gmail
+   account»), conectada en Pedidos, Vigilancia y Errores.
 2. **TayGameStore · Llave de tareas** — tipo _Custom Auth_ con plantilla (la que pide el nodo).
    Encabezado `Authorization` con el valor `Bearer ` seguido de `CRON_SECRET`.
 
 Después:
 
-- **Pedidos**: ya publicado. Elige la credencial 1 en su nodo de Gmail, actívalo → **Publish**.
 - **Tareas**: elige la credencial 2 → **Publish**.
-- **Vigilancia** y **Errores**: elige la credencial 1 en el nodo de Gmail, actívalo (clic
-  derecho → _Activate_) → **Publish**.
 
 > No publiques _Tareas_ sin la llave correcta: la tienda responde 404 a llaves equivocadas y su
 > escudo anti-abuso puede bloquear temporalmente a quien insiste.

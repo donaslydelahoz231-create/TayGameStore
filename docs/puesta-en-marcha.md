@@ -56,20 +56,12 @@ Usa la cuenta de la tienda (la de `SUPPORT_EMAIL`), no una personal.
 
 Las tres primeras van juntas: con una sola, el servidor no arranca y lo dice en el registro.
 
-## 4. n8n: avisos por correo
+## 4. n8n: avisos por correo (hecho)
 
-Los eventos de pedidos ya están conectados: `EVENTS_WEBHOOK_URL` y `EVENTS_WEBHOOK_SECRET` están en
-Render y el flujo **Pedidos** está publicado (reconoce la llave por su huella; no necesita
-credencial). Falta solo el correo:
-
-1. En `taygamestore.app.n8n.cloud` → **Credentials** → **Add credential** → **Gmail OAuth2** →
-   nombre **Gmail · taygamerstore** → **Sign in with Google** con la cuenta de la tienda. Nunca
-   escribas la contraseña de Gmail en n8n.
-2. Opcional: **TayGameStore · Llave de tareas** (respaldo; la tienda ya ejecuta sus tareas sola)
-   con `Bearer ` + el valor de `CRON_SECRET` de Render.
-
-Cuando exista, avísame: activo los nodos de Gmail de **Pedidos**, **Vigilancia** y **Errores**.
-Detalle en [`n8n.md`](n8n.md).
+Conectado el 07-oct: eventos de pedidos (Render ↔ flujo **Pedidos**) y correo con la credencial
+de Gmail de la cuenta de la tienda en **Pedidos**, **Vigilancia** y **Errores**. El correo de
+prueba llegó a la bandeja de la tienda. Opcional: **TayGameStore · Llave de tareas** (respaldo;
+la tienda ya ejecuta sus tareas sola) con `Bearer ` + el valor de `CRON_SECRET` de Render.
 
 ## 5. Acceso con Google
 

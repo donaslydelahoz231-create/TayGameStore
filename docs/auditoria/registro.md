@@ -110,3 +110,15 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   n8n.
 - **NO VERIFICADO**: un evento real de la tienda llegando a n8n (llegará con el próximo pedido; el
   proxy de esta sesión bloquea `onrender.com` y `n8n.cloud`).
+
+### Avisos por correo en n8n
+
+- **Autorizó**: el dueño («comprueba si ya está hecho»; confirmó que la credencial de Gmail es de
+  la cuenta de la tienda, no una personal).
+- **Cambió**: credencial «Gmail account» (Gmail OAuth2, creada por el dueño) conectada y nodo de
+  correo activado en Pedidos, Vigilancia y Errores; los tres publicados.
+- **Evidencia**: flujo temporal de prueba (ejecución 341) envió un correo a la bandeja de la
+  tienda; Gmail lo devolvió con etiquetas `SENT` e `INBOX` (misma cuenta). Flujo temporal
+  archivado. Sin ejecuciones con error desde las 16:00.
+- **Pendiente del dueño**: la credencial «Header Auth account» creada por el dueño no la usa
+  ningún flujo; puede borrarse.
