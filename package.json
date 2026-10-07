@@ -48,6 +48,7 @@
     "mercadopago": "3.6.1",
     "nodemailer": "10.0.15",
     "pg": "8.23.1",
+    "qrcode-generator": "2.0.4",
     "zod": "4.6.5"
   },
   "devDependencies": {

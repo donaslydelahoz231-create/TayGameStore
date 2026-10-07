@@ -140,6 +140,16 @@ describe('MFA de administración (TOTP + códigos de recuperación)', () => {
       secret,
     );
 
+    // Pedir la clave otra vez (doble clic, recarga) devuelve la MISMA clave pendiente: la que
+    // ya se añadió a la app autenticadora sigue sirviendo.
+    const again = await inject({
+      method: 'POST',
+      url: '/api/admin/mfa/setup',
+      headers: CSRF,
+      cookies: session,
+    });
+    expect(again.json<{ secret: string }>().secret).toBe(secret);
+
     const wrong = await inject({
       method: 'POST',
       url: '/api/admin/mfa/enable',
@@ -153,7 +163,8 @@ describe('MFA de administración (TOTP + códigos de recuperación)', () => {
       url: '/api/admin/mfa/enable',
       headers: CSRF,
       cookies: session,
-      payload: { code: totp(secret, h.clock.now.getTime()) },
+      // Tal como lo muestra la app («123 456»).
+      payload: { code: totp(secret, h.clock.now.getTime()).replace(/^(\d{3})/, '$1 ') },
     });
     expect(enabled.statusCode).toBe(200);
     const { recoveryCodes } = enabled.json<{ recoveryCodes: string[] }>();

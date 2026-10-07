@@ -91,19 +91,29 @@
 
       <section id="admMfaSetup" class="adm-card" hidden>
         <h1>Configura la verificación en dos pasos</h1>
-        <p>
-          Añade esta clave en tu app autenticadora (Google Authenticator, Authy…) y escribe el
-          código de 6 dígitos.
-        </p>
-        <button id="admMfaStart" class="adm-btn" type="button">Generar clave</button>
+        <ol class="adm-steps">
+          <li>Pulsa «Mostrar mi clave».</li>
+          <li>
+            En tu app autenticadora (Google Authenticator, Microsoft Authenticator, Authy…) añade
+            una cuenta y <strong>escanea el código QR</strong>. Si estás en el celular, toca «Abrir
+            en mi app autenticadora» o escribe la clave a mano.
+          </li>
+          <li>Escribe el código de 6 dígitos que muestra la app para «TayGameStore».</li>
+        </ol>
+        <button id="admMfaStart" class="adm-btn" type="button">Mostrar mi clave</button>
         <div id="admMfaSecretBox" hidden>
-          <p>Clave: <code id="admMfaSecret"></code></p>
-          <p class="adm-small">URI: <code id="admMfaUri"></code></p>
-          <label for="admMfaEnableCode">Código</label>
+          <img id="admMfaQr" class="adm-qr" alt="Código QR de tu clave de verificación" />
+          <p><a id="admMfaOpen" class="adm-btn ghost" href="#">Abrir en mi app autenticadora</a></p>
+          <p>Clave para escribir a mano: <code id="admMfaSecret" class="adm-secret"></code></p>
+          <p class="adm-small">
+            Es siempre la misma clave hasta que la actives: si ya la añadiste, no la añadas otra
+            vez. Si en la app tienes varias entradas «TayGameStore», borra las viejas.
+          </p>
+          <label for="admMfaEnableCode">Código de 6 dígitos</label>
           <input
             id="admMfaEnableCode"
             inputmode="numeric"
-            maxlength="6"
+            maxlength="9"
             autocomplete="one-time-code"
           />
           <button id="admMfaEnable" class="adm-btn" type="button">Activar</button>
@@ -121,7 +131,7 @@
       <section id="admMfaVerify" class="adm-card" hidden>
         <h1>Verificación en dos pasos</h1>
         <label for="admMfaCode">Código de 6 dígitos</label>
-        <input id="admMfaCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+        <input id="admMfaCode" inputmode="numeric" maxlength="9" autocomplete="one-time-code" />
         <button id="admMfaVerifyBtn" class="adm-btn" type="button">Verificar</button>
         <details>
           <summary>Usar un código de recuperación</summary>

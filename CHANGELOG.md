@@ -49,6 +49,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Configurar la app autenticadora del panel: el dueño no lograba activar el código (secreto
+  solo en texto, que había que teclear; cada clic en «Generar clave» lo cambiaba e invalidaba
+  lo ya añadido en la app; el campo cortaba «123 456» en 6 caracteres). Ahora hay **código QR**
+  (generado en el navegador) y enlace «Abrir en mi app autenticadora», la clave pendiente es
+  siempre la misma, los códigos se aceptan con espacios y los botones de acceso se bloquean
+  mientras procesan (el doble clic mostraba «Frase incorrecta» tras crear la contraseña).
 - Google: la cuenta del dueño creada con contraseña o huella se vincula a su Google (mismo correo
   verificado y en ADMIN_EMAILS) en vez de crear otra; los correos de Google se guardan en
   minúsculas.

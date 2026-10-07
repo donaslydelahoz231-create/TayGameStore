@@ -260,11 +260,17 @@ export async function rotateSession(
 export async function beginMfaSetup(deps: ServiceDeps, user: AuthUser) {
   if (user.mfaEnabled)
     throw new AppError('CONFLICT', 409, 'La verificación en dos pasos ya está activa.');
-  const secret = generateTotpSecret();
+  // Pulsar «Generar clave» otra vez (o recargar) devuelve la misma clave pendiente: si ya se
+  // añadió a la app autenticadora, sus códigos siguen sirviendo. Solo se crea si no hay ninguna
+  // (y si dos peticiones compiten, ambas devuelven la que quedó guardada).
   await deps.db
     .update(users)
-    .set({ mfaSecretEnc: encrypt(deps.config.secrets.mfaKeys, secret), updatedAt: sql`now()` })
-    .where(and(eq(users.id, user.id), isNull(users.mfaEnabledAt)));
+    .set({
+      mfaSecretEnc: encrypt(deps.config.secrets.mfaKeys, generateTotpSecret()),
+      updatedAt: sql`now()`,
+    })
+    .where(and(eq(users.id, user.id), isNull(users.mfaEnabledAt), isNull(users.mfaSecretEnc)));
+  const secret = await storedSecret(deps, user.id);
   return { secret, otpauthUri: otpauthUri(secret, user.email ?? user.id) };
 }
 

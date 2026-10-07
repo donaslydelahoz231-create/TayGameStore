@@ -319,3 +319,25 @@ label {
   letter-spacing: 0.04em;
   word-break: break-all;
 }
+
+/* Configurar la app autenticadora: pasos, QR (fondo blanco para que la cámara lo lea) y clave. */
+.adm-steps {
+  margin: 0 0 12px;
+  padding-left: 1.3em;
+  line-height: 1.5;
+}
+.adm-qr {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin: 12px 0;
+  padding: 8px;
+  background: #fff;
+  border-radius: 8px;
+  image-rendering: pixelated;
+}
+.adm-secret {
+  word-break: break-all;
+  letter-spacing: 0.08em;
+  user-select: all;
+}

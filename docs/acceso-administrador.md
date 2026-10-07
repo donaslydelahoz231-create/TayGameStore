@@ -23,14 +23,24 @@ servidor).
    (frase de activación, mínimo 20 caracteres).
 2. Abre `https://taygamestore.onrender.com` + `ADMIN_PATH` → «Primera vez»:
    - escribe la frase y **tu** contraseña (mínimo 12 caracteres) → «Crear contraseña»;
-   - el panel te pide configurar la app autenticadora (escanea la clave y guarda los códigos de
-     recuperación);
+   - el panel te pide configurar la app autenticadora: «Mostrar mi clave» → escanea el **código
+     QR** (o, en el celular, «Abrir en mi app autenticadora», o escribe la clave) → escribe el
+     código de 6 dígitos (con o sin espacio) → guarda los códigos de recuperación. La clave es la
+     misma aunque pulses el botón otra vez; si la app tiene varias entradas «TayGameStore»,
+     borra las viejas;
    - opcional: «Activar huella» con la misma frase en tu celular o computador.
 3. La frase deja de servir para la contraseña cuando ya existe una, y para la huella cuando ya
    hay una registrada. Puedes borrarla de Render cuando termines.
 
 Después: «Seguridad de mi acceso» → cambiar contraseña; «Añadir huella de este equipo» para
 otro dispositivo.
+
+## Si el código no funciona
+
+- Usa la entrada «TayGameStore» añadida con la clave que muestra **ahora** el panel.
+- La hora del celular debe ser automática (los códigos dependen de la hora; se aceptan ±30 s).
+- Tras varios códigos erróneos el escudo anti-abuso bloquea tu IP unos minutos y la cuenta 15
+  minutos: espera y vuelve a intentar con calma (o entra con la huella, si ya la activaste).
 
 ## Seguridad
 

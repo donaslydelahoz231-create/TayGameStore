@@ -5,6 +5,7 @@ import {
   startAuthentication,
   startRegistration,
 } from '@simplewebauthn/browser';
+import qrcode from 'qrcode-generator';
 import { api, ApiError, errorMessage } from './js/store/api.js';
 import { $, esc } from './js/store/dom.js';
 import { money } from './js/store/format.js';
@@ -77,6 +78,20 @@ async function run(action, success) {
     return undefined;
   }
 }
+
+/** Evita el doble clic: el botón queda inactivo mientras su acción está en curso. */
+async function busy(button, task) {
+  if (!button || button.disabled) return undefined;
+  button.disabled = true;
+  try {
+    return await task();
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/** Los códigos de la app se leen con espacios («123 456»): solo cuentan los dígitos. */
+const digits = (value) => value.replace(/\D/g, '');
 
 // ── Sesión y MFA ──
 
@@ -159,55 +174,63 @@ async function passkeyRun(task, success) {
   }
 }
 
-$('admPasskeyLogin').onclick = () =>
-  passkeyRun(async () => {
-    const { options } = await api('/api/auth/admin/passkey/login/options', {
-      method: 'POST',
-      body: {},
-    });
-    const response = await startAuthentication({ optionsJSON: options });
-    await api('/api/auth/admin/passkey/login/verify', { method: 'POST', body: { response } });
-    await boot();
-  });
+$('admPasskeyLogin').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    passkeyRun(async () => {
+      const { options } = await api('/api/auth/admin/passkey/login/options', {
+        method: 'POST',
+        body: {},
+      });
+      const response = await startAuthentication({ optionsJSON: options });
+      await api('/api/auth/admin/passkey/login/verify', { method: 'POST', body: { response } });
+      await boot();
+    }),
+  );
 
 $('admPasswordForm').onsubmit = (e) => {
   e.preventDefault();
-  run(async () => {
-    await api('/api/auth/admin/password/login', {
-      method: 'POST',
-      body: { email: $('admEmail').value.trim(), password: $('admPassword').value },
-    });
-    $('admPassword').value = '';
-    await boot();
-  });
+  busy(e.currentTarget.querySelector('button[type="submit"]'), () =>
+    run(async () => {
+      await api('/api/auth/admin/password/login', {
+        method: 'POST',
+        body: { email: $('admEmail').value.trim(), password: $('admPassword').value },
+      });
+      $('admPassword').value = '';
+      await boot();
+    }),
+  );
 };
 
-$('admPasswordSetupBtn').onclick = () => {
+$('admPasswordSetupBtn').onclick = (e) => {
+  const button = e.currentTarget;
+  if (!$('admSetupCode').value.trim()) return message('Escribe la frase de activación.', 'bad');
   const password = $('admNewPassword').value;
   if (password.length < 12)
     return message('La contraseña debe tener al menos 12 caracteres.', 'bad');
   if (password !== $('admNewPassword2').value) {
     return message('Las contraseñas no coinciden.', 'bad');
   }
-  run(async () => {
-    try {
-      await api('/api/auth/admin/password/setup', {
-        method: 'POST',
-        body: { code: $('admSetupCode').value, password },
-      });
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'NOT_FOUND') {
-        throw new ApiError(
-          'SETUP_REJECTED',
-          'Frase de activación incorrecta, o la contraseña ya estaba creada.',
-        );
+  busy(button, () =>
+    run(async () => {
+      try {
+        await api('/api/auth/admin/password/setup', {
+          method: 'POST',
+          body: { code: $('admSetupCode').value.trim(), password },
+        });
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+          throw new ApiError(
+            'SETUP_REJECTED',
+            'Frase de activación incorrecta, o la contraseña ya estaba creada.',
+          );
+        }
+        throw err;
       }
-      throw err;
-    }
-    $('admNewPassword').value = '';
-    $('admNewPassword2').value = '';
-    await boot();
-  }, 'Contraseña creada. Ahora configura el código de tu app autenticadora.');
+      $('admNewPassword').value = '';
+      $('admNewPassword2').value = '';
+      await boot();
+    }, 'Contraseña creada. Ahora configura el código de tu app autenticadora.'),
+  );
 };
 
 $('admChangePassword').onsubmit = (e) => {
@@ -222,18 +245,22 @@ $('admChangePassword').onsubmit = (e) => {
   }, 'Contraseña cambiada.');
 };
 
-$('admPasskeySetupBtn').onclick = () =>
-  passkeyRun(async () => {
-    const code = $('admSetupCode').value;
-    const { options } = await api('/api/auth/admin/passkey/setup/options', {
-      method: 'POST',
-      body: { code },
-    });
-    const response = await startRegistration({ optionsJSON: options });
-    await api('/api/auth/admin/passkey/register/verify', { method: 'POST', body: { response } });
-    $('admSetupCode').value = '';
-    await boot();
-  }, 'Huella activada. La próxima vez entra con «Entrar con huella o llave».');
+$('admPasskeySetupBtn').onclick = (e) => {
+  const code = $('admSetupCode').value.trim();
+  if (!code) return message('Escribe la frase de activación.', 'bad');
+  busy(e.currentTarget, () =>
+    passkeyRun(async () => {
+      const { options } = await api('/api/auth/admin/passkey/setup/options', {
+        method: 'POST',
+        body: { code },
+      });
+      const response = await startRegistration({ optionsJSON: options });
+      await api('/api/auth/admin/passkey/register/verify', { method: 'POST', body: { response } });
+      $('admSetupCode').value = '';
+      await boot();
+    }, 'Huella activada. La próxima vez entra con «Entrar con huella o llave».'),
+  );
+};
 
 $('admPasskeyAdd').onclick = () =>
   passkeyRun(async () => {
@@ -250,44 +277,71 @@ $('admLogout').onclick = async () => {
   location.reload();
 };
 
-$('admMfaStart').onclick = () =>
-  run(async () => {
-    const j = await call('/api/admin/mfa/setup', { method: 'POST' });
-    $('admMfaSecret').textContent = j.secret;
-    $('admMfaUri').textContent = j.otpauthUri;
-    $('admMfaSecretBox').hidden = false;
-  });
+/** QR de la clave, generado en el navegador: la clave nunca sale hacia otro servicio. */
+function qrDataUrl(text) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  return qr.createDataURL(6, 2);
+}
 
-$('admMfaEnable').onclick = () =>
-  run(async () => {
-    const j = await call('/api/admin/mfa/enable', {
-      method: 'POST',
-      body: { code: $('admMfaEnableCode').value.trim() },
-    });
-    $('admRecoveryCodes').textContent = j.recoveryCodes.join('\n');
-    $('admRecovery').hidden = false;
-    $('admMfaSecretBox').hidden = true;
-  }, 'Verificación en dos pasos activada.');
+$('admMfaStart').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    run(async () => {
+      const j = await call('/api/admin/mfa/setup', { method: 'POST' });
+      $('admMfaSecret').textContent = j.secret;
+      $('admMfaQr').src = qrDataUrl(j.otpauthUri);
+      $('admMfaOpen').href = j.otpauthUri;
+      $('admMfaSecretBox').hidden = false;
+      $('admMfaEnableCode').focus();
+    }),
+  );
+
+$('admMfaEnable').onclick = (e) =>
+  busy(e.currentTarget, async () => {
+    const code = digits($('admMfaEnableCode').value);
+    if (code.length !== 6) return message('Escribe los 6 dígitos que muestra la app.', 'bad');
+    try {
+      const j = await call('/api/admin/mfa/enable', { method: 'POST', body: { code } });
+      $('admRecoveryCodes').textContent = j.recoveryCodes.join('\n');
+      $('admRecovery').hidden = false;
+      $('admMfaSecretBox').hidden = true;
+      message('Verificación en dos pasos activada.', 'good');
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'MFA_INVALID') {
+        return message(
+          'Código incorrecto. Usa la entrada «TayGameStore» que añadiste con ESTA clave, ' +
+            'escribe el código antes de que cambie y revisa que la hora del celular sea automática.',
+          'bad',
+        );
+      }
+      message(errorMessage(err), 'bad');
+    }
+  });
 
 $('admRecoveryDone').onclick = () => boot();
 
-$('admMfaVerifyBtn').onclick = () =>
-  run(async () => {
-    await call('/api/admin/mfa/verify', {
-      method: 'POST',
-      body: { code: $('admMfaCode').value.trim() },
-    });
-    await boot();
-  });
+$('admMfaVerifyBtn').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    run(async () => {
+      await call('/api/admin/mfa/verify', {
+        method: 'POST',
+        body: { code: digits($('admMfaCode').value) },
+      });
+      await boot();
+    }),
+  );
 
-$('admRecoveryBtn').onclick = () =>
-  run(async () => {
-    await call('/api/admin/mfa/verify', {
-      method: 'POST',
-      body: { recoveryCode: $('admRecoveryInput').value.trim() },
-    });
-    await boot();
-  }, 'Código de recuperación usado. Genera nuevos si te quedan pocos.');
+$('admRecoveryBtn').onclick = (e) =>
+  busy(e.currentTarget, () =>
+    run(async () => {
+      await call('/api/admin/mfa/verify', {
+        method: 'POST',
+        body: { recoveryCode: $('admRecoveryInput').value.trim() },
+      });
+      await boot();
+    }, 'Código de recuperación usado. Genera nuevos si te quedan pocos.'),
+  );
 
 // ── Pestañas ──
 

@@ -90,6 +90,12 @@ const authenticationBody = z.object({
     }),
   }),
 });
+/** Código de la app autenticadora; se aceptan los espacios con que la app lo muestra (123 456). */
+const totpCode = z
+  .string()
+  .max(20)
+  .transform((v) => v.replace(/[\s-]/g, ''))
+  .pipe(z.string().regex(/^\d{6}$/, 'El código tiene 6 dígitos.'));
 const setupCodeBody = z.object({ code: z.string().min(1).max(200) });
 const passwordSetupBody = z.object({
   code: z.string().min(1).max(200),
@@ -536,7 +542,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     async (request, reply) => {
       const deps = requireDeps(options.deps);
       const user = requireAdmin(deps, request, { mfa: false });
-      const { code } = z.strictObject({ code: z.string().regex(/^\d{6}$/) }).parse(request.body);
+      const { code } = z.strictObject({ code: totpCode }).parse(request.body);
       const recoveryCodes = await enableMfa(deps, user, code, actorOf(request, 'admin'));
       const session = request.auth.session;
       if (!session) throw new AppError('UNAUTHORIZED', 401, 'Debes iniciar sesión.');
@@ -561,10 +567,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       const user = requireAdmin(deps, request, { mfa: false });
       const input = z
         .strictObject({
-          code: z
-            .string()
-            .regex(/^\d{6}$/)
-            .optional(),
+          code: totpCode.optional(),
           recoveryCode: z.string().min(10).max(20).optional(),
         })
         .refine(

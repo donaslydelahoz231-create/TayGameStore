@@ -619,10 +619,22 @@ test.describe('panel de administración', () => {
     await page.locator('#admMfaStart').click();
     await expect(page.locator('#admMfaSecret')).toHaveText(/^[A-Z2-7]{16,}$/);
     const secret = (await page.locator('#admMfaSecret').textContent()) ?? '';
+    // QR para escanear (generado en el navegador) y enlace directo para la app del celular.
+    await expect(page.locator('#admMfaQr')).toHaveAttribute('src', /^data:image\//);
+    await expect(page.locator('#admMfaOpen')).toHaveAttribute(
+      'href',
+      new RegExp(`^otpauth://totp/.*secret=${secret}`),
+    );
+    // Pedir la clave otra vez no la cambia (lo ya añadido en la app sigue sirviendo).
+    await page.locator('#admMfaStart').click();
+    await expect(page.locator('#admMfaSecret')).toHaveText(secret);
     await page.locator('#admMfaEnableCode').fill('000000');
     await page.locator('#admMfaEnable').click();
-    await expect(page.locator('#admMessage')).toContainText('inválido');
-    await page.locator('#admMfaEnableCode').fill(totp(secret, Date.now()));
+    await expect(page.locator('#admMessage')).toContainText('Código incorrecto');
+    // Escrito tal como lo muestra la app, con espacio.
+    await page
+      .locator('#admMfaEnableCode')
+      .fill(totp(secret, Date.now()).replace(/^(\d{3})/, '$1 '));
     await page.locator('#admMfaEnable').click();
     // Códigos de recuperación (un solo uso) antes de entrar.
     await expect(page.locator('#admRecoveryCodes')).toContainText(/[A-Z2-7]{5}-[A-Z2-7]{5}/);
