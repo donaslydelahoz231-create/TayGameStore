@@ -1,0 +1,212 @@
+{
+  "id": "qzFErn1c65T4OckP",
+  "name": "TayGameStore · Tareas (respaldo, apagado a propósito)",
+  "description": "NO PUBLICAR: la tienda ya ejecuta sus tareas sola. Cada 10 min despertaría Neon (~90 de 100 CU-h/mes) y necesita credencial con CRON_SECRET. Solo para uso manual de emergencia.",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate",
+    "errorWorkflow": "S1NuGJNsbVpSP6aG",
+    "timezone": "America/Bogota"
+  },
+  "nodes": [
+    {
+      "id": "9aced4a5-1708-4f8d-8671-f344c87a0fe4",
+      "name": "Cada 10 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        },
+        "misfirePolicy": "skip"
+      }
+    },
+    {
+      "id": "fd26c84c-0472-4994-a3eb-a08fa2d31b80",
+      "name": "Ejecutar tareas de la tienda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [224, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://taygamestore.onrender.com/api/internal/jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpTemplatedCustomAuth",
+        "options": {
+          "timeout": 90000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "55b24595-caba-42ad-89a0-8bb5493bd001",
+      "name": "Describir incidente",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [496, 128],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "flujo",
+              "name": "flujo",
+              "value": "Tareas cada 10 min",
+              "type": "string"
+            },
+            {
+              "id": "comprobacion",
+              "name": "comprobacion",
+              "value": "/api/internal/jobs",
+              "type": "string"
+            },
+            {
+              "id": "detalle",
+              "name": "detalle",
+              "value": "={{ String($json.error?.message ?? $json.error ?? $json.message ?? \"Fallo sin detalle\").slice(0, 500) }}",
+              "type": "string"
+            },
+            {
+              "id": "ocurrioEn",
+              "name": "ocurrioEn",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bffff2e5-5057-47f1-8c7d-d8885d097eec",
+      "name": "Guardar incidente",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [720, 128],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lYXf7Oz7Mpv1kNMf",
+          "cachedResultName": "TayGameStore · Incidentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "flujo": "={{ $json.flujo }}",
+            "comprobacion": "={{ $json.comprobacion }}",
+            "detalle": "={{ $json.detalle }}",
+            "ocurrioEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "flujo",
+              "displayName": "flujo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ocurrioEn",
+              "displayName": "ocurrioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9923c222-d0e5-45be-bf23-e49078692ed7",
+      "name": "Sticky Note b7e1a75d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [288, 128],
+      "parameters": {
+        "content": "## Tareas cada 10 minutos (RESPALDO OPCIONAL)\nLa tienda **ya ejecuta sus tareas sola** (programador interno: concilia pagos, reintenta correos y eventos, vence pedidos) y la **Vigilancia** la mantiene despierta. Este flujo es solo un respaldo.\n\nPara activarlo: crea la credencial **\"TayGameStore · Llave de tareas\"** (encabezado `Authorization` = `Bearer ` + `CRON_SECRET` de Render), asígnala al nodo y pulsa Publish.\n\n⚠️ Sin esa credencial cada ejecución da \"Credentials not found\": no lo pruebes ni lo publiques sin ella.",
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Cada 10 minutos": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar tareas de la tienda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar tareas de la tienda": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Describir incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describir incidente": {
+      "main": [
+        [
+          {
+            "node": "Guardar incidente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "5d20bded-0167-4b23-b692-adaffbfbf64f",
+      "name": "Registrar incidente",
+      "nodeNames": ["Describir incidente", "Guardar incidente"],
+      "description": "Si la tienda no responde o una tarea falla, guarda qué pasó en TayGameStore · Incidentes"
+    }
+  ]
+}

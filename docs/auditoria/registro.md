@@ -184,3 +184,26 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Corrección**: `src/server/plugins/shield.ts` — las rutas exentas salen antes de recargar.
   Prueba nueva en `tests/integration/security.test.ts` (falla sin la corrección, pasa con ella).
 - **Evidencia local**: lint, typecheck, formato, unitarias 177/177, integración 175/175, e2e 67.
+
+### Respaldos, n8n y endurecimiento de seguridad
+
+- **Autorizó**: el dueño («soluciona las tareas del flujo n8n… que todo el trabajo no esté en
+  peligro… seguridad, ciberseguridad y vulnerabilidad»).
+- **n8n · Tareas**: se deja apagado a propósito y renombrado «Tareas (respaldo, apagado a
+  propósito)». La tienda ya ejecuta sus tareas; publicarlo despertaría Neon cada 10 min (~90 de
+  100 CU-h/mes) y exige una credencial con `CRON_SECRET`. Ningún flujo falla en producción: los 13
+  errores desde el 06-oct son ejecuciones manuales de prueba.
+- **n8n · Pedidos**: la versión guardada difiere de la publicada solo por un autoguardado de la
+  interfaz (18:37, al abrir el flujo): normaliza valores por defecto; sin cambio funcional.
+- **Respaldos**: snapshot de Neon `respaldo-2026-10-07` (`snap-bold-hat-b5t3zfog`, 19:07 UTC; el
+  plan Free admite uno manual); copia de los 5 flujos de n8n en `infra/n8n/` (sin secretos: huella
+  de la llave reemplazada, 0 coincidencias de hex64 y escáner 0) con instrucciones de
+  restauración; punto de restauración del código: commit `41f93a5`. **NO VERIFICADO**: la etiqueta
+  Git `respaldo-2026-10-07` no se pudo subir (el proxy de la sesión solo permite la rama de
+  trabajo).
+- **Seguridad**: exención del escudo por ruta exacta para `/api/health` y `/api/ready` (antes por
+  prefijo: `/api/health-x` quedaba fuera del escudo); prueba nueva que falla sin el cambio.
+  Escaneo de secretos de GitHub no disponible (el repositorio no tiene GitHub Advanced Security);
+  cubren gitleaks en CI y el escáner propio. `npm audit`: 0 vulnerabilidades.
+- **Riesgo residual anotado**: cualquiera puede despertar la base pidiendo `/api/*` (consumo de
+  CU-horas); lo limitan el límite global por IP y el escudo. La rutina diaria vigila la proyección.

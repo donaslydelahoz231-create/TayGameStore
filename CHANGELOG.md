@@ -7,6 +7,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- Escudo anti-abuso: las sondas de salud no consultan la lista de bloqueos (la Vigilancia cada
+  5 min impedía que Neon se suspendiera) y su exención es por ruta exacta, no por prefijo.
+- `infra/n8n/`: copia de los flujos de n8n (sin secretos) con instrucciones de restauración.
 - Tareas internas en **modo reposo** (`JOBS_IDLE_MINUTES`, 30 por defecto): sin visitas a la API
   ni trabajo pendiente, corren una vez cada 30 min en vez de cada 1-2 min, para que la base de
   datos (Neon, plan gratuito: 100 CU-horas al mes) pueda suspenderse. Antes la mantenían siempre

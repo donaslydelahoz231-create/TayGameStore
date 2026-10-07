@@ -115,6 +115,16 @@ describe('escudo anti-abuso: escáneres', () => {
     }
   });
 
+  it('la exención de las sondas es exacta: una ruta parecida sigue bloqueada', async () => {
+    const attacker = freshIp();
+    await from(attacker, { method: 'GET', url: '/.git/config' });
+    await from(attacker, { method: 'GET', url: '/phpmyadmin/' });
+    expect((await from(attacker, { method: 'GET', url: '/api/catalog' })).statusCode).toBe(403);
+    expect((await from(attacker, { method: 'GET', url: '/api/health' })).statusCode).toBe(200);
+    expect((await from(attacker, { method: 'GET', url: '/api/health-x' })).statusCode).toBe(403);
+    expect((await from(attacker, { method: 'GET', url: '/api/readyz' })).statusCode).toBe(403);
+  });
+
   it('el bloqueo caduca solo', async () => {
     const attacker = freshIp();
     await from(attacker, { method: 'GET', url: '/xmlrpc.php' });

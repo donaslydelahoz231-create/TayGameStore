@@ -1,0 +1,213 @@
+{
+  "id": "S1NuGJNsbVpSP6aG",
+  "name": "TayGameStore · Errores",
+  "description": "Flujo de error central: cuando Tareas, Vigilancia o Pedidos fallan en producción, lo anota en Incidentes y avisa por Gmail con el enlace a la ejecución.",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Bogota",
+    "binaryMode": "separate"
+  },
+  "nodes": [
+    {
+      "id": "022c8013-f01a-41e1-93e1-bffdc7926328",
+      "name": "Cuando un flujo falla",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "6a0442a9-4828-4209-8067-0feef01d5970",
+      "name": "Describir el fallo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [272, 128],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "flujo",
+              "name": "flujo",
+              "value": "={{ $json.workflow?.name ?? \"Flujo desconocido\" }}",
+              "type": "string"
+            },
+            {
+              "id": "comprobacion",
+              "name": "comprobacion",
+              "value": "={{ \"Falló en: \" + ($json.execution?.lastNodeExecuted ?? \"nodo desconocido\") }}",
+              "type": "string"
+            },
+            {
+              "id": "detalle",
+              "name": "detalle",
+              "value": "={{ String($json.execution?.error?.message ?? $json.trigger?.error?.message ?? \"sin detalle\").slice(0, 400) }}",
+              "type": "string"
+            },
+            {
+              "id": "enlace",
+              "name": "enlace",
+              "value": "={{ $json.execution?.url ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "ocurrioEn",
+              "name": "ocurrioEn",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3d489d90-0e65-4ba8-a8d4-10bd95f3f229",
+      "name": "Anotar en Incidentes",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [496, 128],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lYXf7Oz7Mpv1kNMf",
+          "cachedResultName": "TayGameStore · Incidentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "flujo": "={{ $json.flujo }}",
+            "comprobacion": "={{ $json.comprobacion }}",
+            "detalle": "={{ $json.detalle }}",
+            "ocurrioEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "flujo",
+              "displayName": "flujo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ocurrioEn",
+              "displayName": "ocurrioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "disabled": false
+    },
+    {
+      "id": "9c9bb941-ecd4-436f-85ec-b2c7c08bec0c",
+      "name": "Avisar al dueño del fallo",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [720, 128],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "taygamerstore@gmail.com",
+        "subject": "={{ \"Fallo en n8n · \" + $(\"Describir el fallo\").item.json.flujo }}",
+        "emailType": "text",
+        "message": "=El flujo \"{{ $(\"Describir el fallo\").item.json.flujo }}\" falló.\n\n{{ $(\"Describir el fallo\").item.json.comprobacion }}\nDetalle: {{ $(\"Describir el fallo\").item.json.detalle }}\nEjecución: {{ $(\"Describir el fallo\").item.json.enlace }}\n\nSi era un evento de la tienda, la tienda lo reintentará sola. Revisa la ejecución si el aviso se repite.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "onError": "continueRegularOutput",
+      "webhookId": "eeae7269-22e0-4343-9f82-5ef25556680a",
+      "disabled": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zcavkgsdukzqKtxq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "id": "cefae3d5-ca1f-4876-8eaf-1d1d4440a821",
+      "name": "Sticky Note 796450be",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [288, 128],
+      "parameters": {
+        "content": "## Errores (flujo central)\nTareas, Vigilancia y Pedidos lo usan como **flujo de error**: si una ejecución en producción falla, se anota en **TayGameStore · Incidentes** y se avisa por Gmail con el enlace a la ejecución.\n\nNo hace falta publicarlo: n8n lo ejecuta solo cuando otro flujo falla.",
+        "color": 3
+      }
+    }
+  ],
+  "connections": {
+    "Cuando un flujo falla": {
+      "main": [
+        [
+          {
+            "node": "Describir el fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Describir el fallo": {
+      "main": [
+        [
+          {
+            "node": "Anotar en Incidentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anotar en Incidentes": {
+      "main": [
+        [
+          {
+            "node": "Avisar al dueño del fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "84e1432e-8530-44f5-b0af-0654d4887491",
+      "name": "Registrar y avisar",
+      "nodeNames": ["Describir el fallo", "Anotar en Incidentes", "Avisar al dueño del fallo"],
+      "description": "Describe el fallo, lo anota en TayGameStore · Incidentes y avisa por Gmail con el enlace a la ejecución"
+    }
+  ]
+}

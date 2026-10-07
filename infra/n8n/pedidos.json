@@ -1,0 +1,1336 @@
+{
+  "id": "Nw7V66LLMhU18Hvb",
+  "name": "TayGameStore · Pedidos",
+  "description": "Recibe cada cambio de un pedido (por verificar, pagado, entregado, reembolsado), descarta duplicados, mantiene una fila por pedido con su etapa, guarda el historial y avisa al dueño por Gmail.",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Bogota",
+    "errorWorkflow": "S1NuGJNsbVpSP6aG",
+    "binaryMode": "separate"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taygamestore-pedidos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7176dcee-904e-4bd3-8f1c-10cbc1c52c8a",
+      "name": "Recibir evento de la tienda",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [-448, 384],
+      "webhookId": "3f7d9112-8f60-41db-a85d-27c8a53b119e"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eventId",
+              "name": "eventId",
+              "value": "={{ String($json.body?.id ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "evento",
+              "name": "evento",
+              "value": "={{ String($json.body?.event ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "referencia",
+              "name": "referencia",
+              "value": "={{ String($json.body?.order?.reference ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "estado",
+              "name": "estado",
+              "value": "={{ String($json.body?.order?.status ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "etapa",
+              "name": "etapa",
+              "value": "={{ ({ AWAITING_VERIFICATION: \"1 · Por verificar ID\", AWAITING_PAYMENT: \"2 · Esperando pago\", PAID: \"3 · Pagado: por entregar\", DELIVERING: \"3 · Entregando\", NEEDS_REVIEW: \"! Revisar en el panel\", DELIVERED: \"4 · Entregado\", REFUNDED: \"✕ Reembolsado\", REJECTED: \"✕ Rechazado\", EXPIRED: \"✕ Vencido\" })[$json.body?.order?.status] ?? String($json.body?.order?.status ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "totalCop",
+              "name": "totalCop",
+              "value": "={{ Number($json.body?.order?.totalCop ?? 0) }}",
+              "type": "number"
+            },
+            {
+              "id": "playerUid",
+              "name": "playerUid",
+              "value": "={{ String($json.body?.order?.playerUid ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "nickname",
+              "name": "nickname",
+              "value": "={{ String($json.body?.order?.nickname ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "paquetes",
+              "name": "paquetes",
+              "value": "={{ ($json.body?.order?.items ?? []).map(i => i.quantity + \" × \" + i.name).join(\", \") }}",
+              "type": "string"
+            },
+            {
+              "id": "venceEn",
+              "name": "venceEn",
+              "value": "={{ $json.body?.order?.expiresAt ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "venceTexto",
+              "name": "venceTexto",
+              "value": "={{ $json.body?.order?.expiresAt ? DateTime.fromISO($json.body.order.expiresAt).setZone(\"America/Bogota\").toFormat(\"dd/MM/yyyy HH:mm\") + \" (hora Colombia)\" : \"sin plazo\" }}",
+              "type": "string"
+            },
+            {
+              "id": "ocurrioEn",
+              "name": "ocurrioEn",
+              "value": "={{ $json.body?.occurredAt ?? $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "ultimoEvento",
+              "name": "ultimoEvento",
+              "value": "={{ String($json.body?.event ?? \"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f0043e1-6950-408c-b624-00ebc273d772",
+      "name": "Normalizar evento",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 384]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.eventId }}",
+              "rightValue": "^[0-9a-f-]{36}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "leftValue": "={{ $json.evento }}",
+              "rightValue": "^order\\.(awaiting_verification|paid|delivered|refunded)$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "leftValue": "={{ $json.referencia }}",
+              "rightValue": "^TGS-",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "37cf06a4-e334-48ae-b722-5b19bdc00bc1",
+      "name": "¿Evento válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 384]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "460kEMQMr55hkan3",
+          "cachedResultName": "TayGameStore · Eventos"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "eventId",
+              "keyValue": "={{ $json.eventId }}"
+            }
+          ]
+        }
+      },
+      "id": "bfa34ff0-31ec-4d14-8e95-c11e10caacde",
+      "name": "¿Evento nuevo?",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [672, 288]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.evento }}",
+                    "rightValue": "order.awaiting_verification",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "order.awaiting_verification"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.evento }}",
+                    "rightValue": "order.paid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "order.paid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.evento }}",
+                    "rightValue": "order.delivered",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "order.delivered"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.evento }}",
+                    "rightValue": "order.refunded",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "order.refunded"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b53bcc8-3a90-4955-866f-fc2a963abcb2",
+      "name": "Según el evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [896, 256]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SMQEAQim4CNpfs6F",
+          "cachedResultName": "TayGameStore · Pedidos"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "referencia",
+              "keyValue": "={{ $json.referencia }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "referencia": "={{ $json.referencia }}",
+            "estado": "={{ $json.estado }}",
+            "etapa": "={{ $json.etapa }}",
+            "totalCop": "={{ $json.totalCop }}",
+            "playerUid": "={{ $json.playerUid }}",
+            "nickname": "={{ $json.nickname }}",
+            "paquetes": "={{ $json.paquetes }}",
+            "venceEn": "={{ $json.venceEn || null }}",
+            "ultimoEvento": "={{ $json.ultimoEvento }}",
+            "porVerificarEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "etapa",
+              "displayName": "etapa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalCop",
+              "displayName": "totalCop",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playerUid",
+              "displayName": "playerUid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nickname",
+              "displayName": "nickname",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paquetes",
+              "displayName": "paquetes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "venceEn",
+              "displayName": "venceEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimoEvento",
+              "displayName": "ultimoEvento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "porVerificarEn",
+              "displayName": "porVerificarEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "420a4b9b-ff51-493a-bcbb-90aad30e4227",
+      "name": "Guardar pedido · por verificar",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1120, 0]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "460kEMQMr55hkan3",
+          "cachedResultName": "TayGameStore · Eventos"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "eventId": "={{ $(\"Normalizar evento\").item.json.eventId }}",
+            "evento": "={{ $(\"Normalizar evento\").item.json.evento }}",
+            "referencia": "={{ $(\"Normalizar evento\").item.json.referencia }}",
+            "estado": "={{ $(\"Normalizar evento\").item.json.estado }}",
+            "totalCop": "={{ $(\"Normalizar evento\").item.json.totalCop }}",
+            "playerUid": "={{ $(\"Normalizar evento\").item.json.playerUid }}",
+            "nickname": "={{ $(\"Normalizar evento\").item.json.nickname }}",
+            "paquetes": "={{ $(\"Normalizar evento\").item.json.paquetes }}",
+            "ocurrioEn": "={{ $(\"Normalizar evento\").item.json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "eventId",
+              "displayName": "eventId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evento",
+              "displayName": "evento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalCop",
+              "displayName": "totalCop",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playerUid",
+              "displayName": "playerUid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nickname",
+              "displayName": "nickname",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paquetes",
+              "displayName": "paquetes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ocurrioEn",
+              "displayName": "ocurrioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a5f404e1-a648-4f16-8fb0-03facc7aa9d7",
+      "name": "Registrar en el historial",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1344, 192]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SMQEAQim4CNpfs6F",
+          "cachedResultName": "TayGameStore · Pedidos"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "referencia",
+              "keyValue": "={{ $json.referencia }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "referencia": "={{ $json.referencia }}",
+            "estado": "={{ $json.estado }}",
+            "etapa": "={{ $json.etapa }}",
+            "totalCop": "={{ $json.totalCop }}",
+            "playerUid": "={{ $json.playerUid }}",
+            "nickname": "={{ $json.nickname }}",
+            "paquetes": "={{ $json.paquetes }}",
+            "venceEn": "={{ $json.venceEn || null }}",
+            "ultimoEvento": "={{ $json.ultimoEvento }}",
+            "pagadoEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "etapa",
+              "displayName": "etapa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalCop",
+              "displayName": "totalCop",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playerUid",
+              "displayName": "playerUid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nickname",
+              "displayName": "nickname",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paquetes",
+              "displayName": "paquetes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "venceEn",
+              "displayName": "venceEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimoEvento",
+              "displayName": "ultimoEvento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "pagadoEn",
+              "displayName": "pagadoEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "db074a4d-0588-42b5-82ea-5724d00f8e38",
+      "name": "Guardar pedido · pagado",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1120, 192]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SMQEAQim4CNpfs6F",
+          "cachedResultName": "TayGameStore · Pedidos"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "referencia",
+              "keyValue": "={{ $json.referencia }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "referencia": "={{ $json.referencia }}",
+            "estado": "={{ $json.estado }}",
+            "etapa": "={{ $json.etapa }}",
+            "totalCop": "={{ $json.totalCop }}",
+            "playerUid": "={{ $json.playerUid }}",
+            "nickname": "={{ $json.nickname }}",
+            "paquetes": "={{ $json.paquetes }}",
+            "venceEn": "={{ $json.venceEn || null }}",
+            "ultimoEvento": "={{ $json.ultimoEvento }}",
+            "entregadoEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "etapa",
+              "displayName": "etapa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalCop",
+              "displayName": "totalCop",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playerUid",
+              "displayName": "playerUid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nickname",
+              "displayName": "nickname",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paquetes",
+              "displayName": "paquetes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "venceEn",
+              "displayName": "venceEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimoEvento",
+              "displayName": "ultimoEvento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "entregadoEn",
+              "displayName": "entregadoEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6b621e43-0e38-415a-a396-0203733913d4",
+      "name": "Guardar pedido · entregado",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1120, 384]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SMQEAQim4CNpfs6F",
+          "cachedResultName": "TayGameStore · Pedidos"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "referencia",
+              "keyValue": "={{ $json.referencia }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "referencia": "={{ $json.referencia }}",
+            "estado": "={{ $json.estado }}",
+            "etapa": "={{ $json.etapa }}",
+            "totalCop": "={{ $json.totalCop }}",
+            "playerUid": "={{ $json.playerUid }}",
+            "nickname": "={{ $json.nickname }}",
+            "paquetes": "={{ $json.paquetes }}",
+            "venceEn": "={{ $json.venceEn || null }}",
+            "ultimoEvento": "={{ $json.ultimoEvento }}",
+            "reembolsadoEn": "={{ $json.ocurrioEn }}"
+          },
+          "schema": [
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "etapa",
+              "displayName": "etapa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "totalCop",
+              "displayName": "totalCop",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playerUid",
+              "displayName": "playerUid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nickname",
+              "displayName": "nickname",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paquetes",
+              "displayName": "paquetes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "venceEn",
+              "displayName": "venceEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ultimoEvento",
+              "displayName": "ultimoEvento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reembolsadoEn",
+              "displayName": "reembolsadoEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "04f06282-c12b-4cd5-bfc1-3a61277ef10a",
+      "name": "Guardar pedido · reembolsado",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1120, 576]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lYXf7Oz7Mpv1kNMf",
+          "cachedResultName": "TayGameStore · Incidentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "flujo": "Pedidos",
+            "comprobacion": "Evento con formato inválido",
+            "detalle": "={{ (\"evento=\" + $json.evento + \" id=\" + $json.eventId + \" ref=\" + $json.referencia).slice(0, 300) }}",
+            "ocurrioEn": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "flujo",
+              "displayName": "flujo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ocurrioEn",
+              "displayName": "ocurrioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f3f3c597-3b94-4172-a45b-6863f8b60fc9",
+      "name": "Registrar evento rechazado",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [672, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $(\"Normalizar evento\").item.json.evento }}",
+              "rightValue": "^order\\.(awaiting_verification|paid)$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "688ed317-eea7-4ce2-9631-35bf322b8393",
+      "name": "¿Necesita acción del dueño?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1568, 192]
+    },
+    {
+      "parameters": {
+        "sendTo": "taygamerstore@gmail.com",
+        "subject": "={{ $(\"Normalizar evento\").item.json.evento === \"order.awaiting_verification\" ? \"Verifica el ID \" + $(\"Normalizar evento\").item.json.playerUid + \" · Pedido \" + $(\"Normalizar evento\").item.json.referencia : \"Pedido pagado por entregar · \" + $(\"Normalizar evento\").item.json.referencia }}",
+        "emailType": "text",
+        "message": "={{ $(\"Normalizar evento\").item.json.evento === \"order.awaiting_verification\" ? \"Nuevo pedido esperando que verifiques el ID del jugador. Abre tu panel, busca el pedido, comprueba el ID en una fuente legítima y registra nickname y región (o recházalo). Después el cliente confirma y paga.\" : \"Mercado Pago confirmó el pago. Entrega la recarga desde tu panel y registra la evidencia.\" }}\n\nPedido: {{ $(\"Normalizar evento\").item.json.referencia }}\nID de jugador: {{ $(\"Normalizar evento\").item.json.playerUid }}\nNickname: {{ $(\"Normalizar evento\").item.json.nickname || \"por verificar\" }}\nPaquetes: {{ $(\"Normalizar evento\").item.json.paquetes }}\nTotal: {{ Number($(\"Normalizar evento\").item.json.totalCop).toLocaleString(\"es-CO\") }} COP\nPlazo: {{ $(\"Normalizar evento\").item.json.venceTexto }}\n\nNunca pidas al cliente la contraseña de su cuenta.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "05e0128a-be8f-44c5-be25-de3df47dcd82",
+      "name": "Avisar al dueño por Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1792, 192],
+      "webhookId": "b43fa50f-d073-4807-965b-122817cb9748",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zcavkgsdukzqKtxq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Pedidos: inicio → proceso → fin\nLa tienda envía cada cambio de un pedido: **por verificar → pagado → entregado** (o reembolsado).\n\n0. **¿Llave correcta?** compara la huella SHA-256 del encabezado `Authorization` con la guardada. La llave en claro solo está en Render (`EVENTS_WEBHOOK_SECRET`). Si no coincide: error, la tienda reintenta y lo marca en el panel.\n1. Se valida el formato y se descartan duplicados (por `eventId`).\n2. **TayGameStore · Pedidos**: una fila por pedido con su etapa actual y la hora de cada paso.\n3. **TayGameStore · Eventos**: historial completo.\n4. Por verificar o pagado → Gmail al dueño (desactivado hasta conectar la credencial \"Gmail · taygamerstore\").\n\nCambiar la llave: nueva en Render y su huella aquí (sha256 de `Bearer ` + llave).",
+        "color": 6
+      },
+      "id": "a9847ddb-0cab-44ca-ba06-eb0b8ad1c57e",
+      "name": "Sticky Note 07e2633c",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [832, 576]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.headers?.authorization ?? \"\").hash(\"sha256\") }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "<huella sha256 de 'Bearer ' + EVENTS_WEBHOOK_SECRET — no se publica>"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "b97b2806-c250-4e4f-b942-eabd2cb788b9",
+      "name": "¿Llave correcta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-224, 384]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "e824cfe9-ab98-4576-bc58-1cf604697cd6",
+      "name": "Responder 401 (llave incorrecta)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [0, 576]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "02a2b5c1-6736-4a42-9230-c5481be8e062",
+      "name": "Responder 200 (recibido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [0, 240]
+    }
+  ],
+  "connections": {
+    "Normalizar evento": {
+      "main": [
+        [
+          {
+            "node": "¿Evento válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Evento nuevo?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar evento rechazado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Evento nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Según el evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Según el evento": {
+      "main": [
+        [
+          {
+            "node": "Guardar pedido · por verificar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar pedido · pagado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar pedido · entregado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guardar pedido · reembolsado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido · por verificar": {
+      "main": [
+        [
+          {
+            "node": "Registrar en el historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar en el historial": {
+      "main": [
+        [
+          {
+            "node": "¿Necesita acción del dueño?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido · pagado": {
+      "main": [
+        [
+          {
+            "node": "Registrar en el historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido · entregado": {
+      "main": [
+        [
+          {
+            "node": "Registrar en el historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido · reembolsado": {
+      "main": [
+        [
+          {
+            "node": "Registrar en el historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Necesita acción del dueño?": {
+      "main": [
+        [
+          {
+            "node": "Avisar al dueño por Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recibir evento de la tienda": {
+      "main": [
+        [
+          {
+            "node": "¿Llave correcta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Llave correcta?": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 (recibido)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 401 (llave incorrecta)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 200 (recibido)": {
+      "main": [
+        [
+          {
+            "node": "Normalizar evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "77e4a425-296e-4a82-9f51-c2bd3fe220f5",
+      "name": "1 · Validar y descartar duplicados",
+      "nodeNames": [
+        "Normalizar evento",
+        "¿Evento válido?",
+        "Registrar evento rechazado",
+        "¿Evento nuevo?"
+      ],
+      "description": "Normaliza el evento, rechaza formatos inválidos (Incidentes) y deja pasar solo eventos que no estén ya en el historial"
+    },
+    {
+      "id": "5ef3d2d7-ef0d-40f3-9280-16d0c820b987",
+      "name": "2 · Actualizar el pedido",
+      "nodeNames": [
+        "Según el evento",
+        "Guardar pedido · por verificar",
+        "Guardar pedido · pagado",
+        "Guardar pedido · entregado",
+        "Guardar pedido · reembolsado",
+        "Registrar en el historial"
+      ],
+      "description": "Una fila por pedido en TayGameStore · Pedidos con su etapa y la hora del paso; luego guarda el evento en el historial"
+    },
+    {
+      "id": "50df5b0f-e206-4302-b5f0-091aad12b305",
+      "name": "3 · Avisar al dueño",
+      "nodeNames": ["¿Necesita acción del dueño?", "Avisar al dueño por Gmail"],
+      "description": "Por verificar o pagado: Gmail a taygamerstore@gmail.com con ID, paquetes, total y plazo"
+    }
+  ]
+}

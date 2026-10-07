@@ -3,11 +3,13 @@ import { isProbePath, type AbuseShield, type StrikeKind } from '../services/shie
 import { AppError } from './errors.js';
 
 /** Nunca se bloquean: Mercado Pago (firma propia) y las sondas de salud del hosting. */
-const EXEMPT_PREFIXES = ['/api/webhooks/', '/api/health', '/api/ready'];
+const EXEMPT_PREFIXES = ['/api/webhooks/'];
+/** Rutas exactas: con un prefijo, `/api/health-loquesea` también quedaría fuera del escudo. */
+const EXEMPT_PATHS = new Set(['/api/health', '/api/ready']);
 
 function isExemptPath(request: FastifyRequest): boolean {
   const path = request.url.split('?')[0] ?? '';
-  return EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix));
+  return EXEMPT_PATHS.has(path) || EXEMPT_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 function isExempt(request: FastifyRequest): boolean {

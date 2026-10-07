@@ -1,0 +1,466 @@
+{
+  "id": "jjwOGr3s6rHGOGo9",
+  "name": "TayGameStore · Diagnóstico integral",
+  "description": "Comprueba todo el sistema junto (tienda, base de datos, catálogo, pagos, login, correos, soporte, verificación de ID, webhook de Pedidos, latidos) y devuelve OK / PENDIENTE / FALLA. Herramienta de los agentes.",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "motivo"
+            }
+          ]
+        }
+      },
+      "id": "e04c6a9b-a868-4386-97c3-59e74d6b3c09",
+      "name": "Cuando el agente lo pide",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://taygamestore.onrender.com/api/ready",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "be51ac7b-1f73-428e-ba50-7c12bdbfeb85",
+      "name": "Tienda · estado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [272, 128],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://taygamestore.onrender.com/api/config",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "894a652b-03bd-4543-b0ce-d5fe4d35fc94",
+      "name": "Tienda · configuración",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [496, 128],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://taygamestore.onrender.com/api/catalog?game=freefire",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "517e62b4-e6bc-4870-935e-f943ff6dbfde",
+      "name": "Tienda · catálogo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [720, 128],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://taygamestore.app.n8n.cloud/webhook/taygamestore-pedidos",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "2d336f88-ec41-479f-8012-02475c6da561",
+      "name": "n8n · webhook de Pedidos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [944, 128],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "drmUzTtj1WqRCiua",
+          "cachedResultName": "TayGameStore · Estado"
+        },
+        "returnAll": true
+      },
+      "id": "3e2c0fcf-9892-4b39-bb6c-962c4ff871fc",
+      "name": "Leer latidos y estados",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1168, 128],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tienda",
+              "name": "tienda",
+              "value": "={{ (() => { const r = $(\"Tienda · estado\").first().json; return r.statusCode === 200 && r.body?.status === \"ready\" ? \"OK: tienda y base de datos responden\" : \"FALLA: \" + (r.statusCode ? \"HTTP \" + r.statusCode + \" \" + JSON.stringify(r.body ?? {}).slice(0, 120) : \"sin respuesta (\" + String(r.error?.message ?? r.error ?? \"desconocido\").slice(0, 120) + \")\"); })() }}",
+              "type": "string"
+            },
+            {
+              "id": "catalogo",
+              "name": "catalogo",
+              "value": "={{ (() => { const n = ($(\"Tienda · catálogo\").first().json.products ?? []).length; return n > 0 ? \"OK: \" + n + \" paquetes activos\" : \"FALLA: el catálogo está vacío o no responde\"; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "compras",
+              "name": "compras",
+              "value": "={{ (() => { const c = $(\"Tienda · configuración\").first().json; if (c.maintenanceMode) return \"PENDIENTE: la tienda está en mantenimiento\"; if (c.checkoutEnabled && c.paymentsEnabled) return c.paymentsMode === \"sandbox\" ? \"PENDIENTE: pagos en modo de PRUEBA (sandbox)\" : \"OK: compras y pagos activos\"; return \"PENDIENTE: compras/pagos apagados (faltan credenciales de Mercado Pago y textos legales)\"; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "login",
+              "name": "login",
+              "value": "={{ $(\"Tienda · configuración\").first().json.auth?.google ? \"OK: acceso con Google activo\" : \"PENDIENTE: configurar Google OAuth (GOOGLE_CLIENT_ID/SECRET y ADMIN_EMAILS en Render)\" }}",
+              "type": "string"
+            },
+            {
+              "id": "correos",
+              "name": "correos",
+              "value": "={{ $(\"Tienda · configuración\").first().json.emailUpdates ? \"OK: correos a clientes activos\" : \"PENDIENTE: correo de la tienda (SMTP_PASS en Render)\" }}",
+              "type": "string"
+            },
+            {
+              "id": "soporte",
+              "name": "soporte",
+              "value": "={{ (() => { const s = $(\"Tienda · configuración\").first().json.support ?? {}; return s.whatsapp || s.email ? \"OK: WhatsApp \" + (s.whatsapp ? \"+\" + s.whatsapp : \"—\") + \" · \" + (s.email ?? \"—\") : \"PENDIENTE: canales de soporte\"; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "verificacionId",
+              "name": "verificacionId",
+              "value": "={{ $(\"Tienda · configuración\").first().json.playerLookup ? \"OK: consulta automática de ID activa\" : \"OK (manual): el dueño verifica ID, nickname y región desde el panel\" }}",
+              "type": "string"
+            },
+            {
+              "id": "pedidosN8n",
+              "name": "pedidosN8n",
+              "value": "={{ (() => { const w = $(\"n8n · webhook de Pedidos\").first().json; if (w.statusCode === 403 || w.statusCode === 401) return \"OK: webhook de Pedidos activo y protegido con llave\"; if (w.statusCode === 404) return \"PENDIENTE: publicar el flujo Pedidos (credenciales)\"; return \"REVISAR: el webhook de Pedidos respondió \" + (w.statusCode ?? \"sin respuesta\"); })() }}",
+              "type": "string"
+            },
+            {
+              "id": "tareas",
+              "name": "tareas",
+              "value": "={{ (() => { const r = $(\"Leer latidos y estados\").all().map(i => i.json).find(x => x.comprobacion === \"tareas\"); if (!r) return \"OK (interno): la tienda ejecuta sus tareas con su programador interno; el respaldo de n8n está sin publicar\"; const min = Math.round(($now.toMillis() - DateTime.fromISO(String(r.cambioEn)).toMillis()) / 60000); return r.ok && min <= 25 ? \"OK: última ejecución hace \" + min + \" min\" : \"FALLA: \" + (r.ok ? \"sin ejecutarse hace \" + min + \" min\" : String(r.detalle ?? \"\").slice(0, 150)); })() }}",
+              "type": "string"
+            },
+            {
+              "id": "vigilancia",
+              "name": "vigilancia",
+              "value": "={{ (() => { const r = $(\"Leer latidos y estados\").all().map(i => i.json).find(x => x.comprobacion === \"vigilancia\"); if (!r) return \"PENDIENTE: la vigilancia aún no registra latidos\"; const min = Math.round(($now.toMillis() - DateTime.fromISO(String(r.cambioEn)).toMillis()) / 60000); return min <= 15 ? \"OK: última revisión hace \" + min + \" min\" : \"FALLA: sin revisar hace \" + min + \" min\"; })() }}",
+              "type": "string"
+            },
+            {
+              "id": "revisadoEn",
+              "name": "revisadoEn",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5bbb722d-ec31-4f11-b533-05c356028997",
+      "name": "Evaluar el sistema",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [800, 128],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fallas",
+              "name": "fallas",
+              "value": "={{ [\"tienda\",\"catalogo\",\"compras\",\"login\",\"correos\",\"soporte\",\"verificacionId\",\"pedidosN8n\",\"tareas\",\"vigilancia\"].filter(k => /^(FALLA|REVISAR)/.test($json[k])).length }}",
+              "type": "number"
+            },
+            {
+              "id": "pendientes",
+              "name": "pendientes",
+              "value": "={{ [\"tienda\",\"catalogo\",\"compras\",\"login\",\"correos\",\"soporte\",\"verificacionId\",\"pedidosN8n\",\"tareas\",\"vigilancia\"].filter(k => /^PENDIENTE/.test($json[k])).length }}",
+              "type": "number"
+            },
+            {
+              "id": "ok",
+              "name": "ok",
+              "value": "={{ ![\"tienda\",\"catalogo\",\"compras\",\"login\",\"correos\",\"soporte\",\"verificacionId\",\"pedidosN8n\",\"tareas\",\"vigilancia\"].some(k => /^(FALLA|REVISAR)/.test($json[k])) }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "5fee28f8-42b5-49ce-9ff8-2093e6474c82",
+      "name": "Resumir diagnóstico",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [1024, 128],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "drmUzTtj1WqRCiua",
+          "cachedResultName": "TayGameStore · Estado"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "comprobacion",
+              "keyValue": "diagnostico"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "comprobacion": "diagnostico",
+            "ok": "={{ $json.ok }}",
+            "detalle": "={{ ($json.fallas + \" fallas, \" + $json.pendientes + \" pendientes\") }}",
+            "cambioEn": "={{ $json.revisadoEn }}"
+          },
+          "schema": [
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ok",
+              "displayName": "ok",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cambioEn",
+              "displayName": "cambioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "19912940-7d6e-43d0-b729-f59700fa6d3b",
+      "name": "Guardar último diagnóstico",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1248, 128],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify($(\"Resumir diagnóstico\").first().json) }}",
+        "options": {}
+      },
+      "id": "3dd228e0-dadf-4741-9b9c-82c2cd5a21a3",
+      "name": "Resultado para el agente",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [1472, 128],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "content": "## Diagnóstico integral\nComprueba **todo el sistema junto**: tienda y base de datos, catálogo, compras/pagos, login, correos, soporte, verificación de ID, webhook de Pedidos en n8n y los latidos de Tareas y Vigilancia.\n\nCada punto sale como **OK**, **PENDIENTE** (falta configurar algo tuyo) o **FALLA/REVISAR** (algo se rompió). Lo usan los agentes de TayGameStore (herramienta `diagnostico_integral`) y el informe diario.",
+        "color": 4
+      },
+      "id": "aff1321e-6b26-4a34-a927-18ccf09619dd",
+      "name": "Sticky Note 113c8ed9",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [416, 160]
+    }
+  ],
+  "connections": {
+    "Cuando el agente lo pide": {
+      "main": [
+        [
+          {
+            "node": "Tienda · estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tienda · estado": {
+      "main": [
+        [
+          {
+            "node": "Tienda · configuración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tienda · configuración": {
+      "main": [
+        [
+          {
+            "node": "Tienda · catálogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tienda · catálogo": {
+      "main": [
+        [
+          {
+            "node": "n8n · webhook de Pedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n · webhook de Pedidos": {
+      "main": [
+        [
+          {
+            "node": "Leer latidos y estados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer latidos y estados": {
+      "main": [
+        [
+          {
+            "node": "Evaluar el sistema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluar el sistema": {
+      "main": [
+        [
+          {
+            "node": "Resumir diagnóstico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumir diagnóstico": {
+      "main": [
+        [
+          {
+            "node": "Guardar último diagnóstico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar último diagnóstico": {
+      "main": [
+        [
+          {
+            "node": "Resultado para el agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "82a170e4-18bb-46fc-ada7-c27921fec2b4",
+      "name": "1 · Consultar cada pieza",
+      "nodeNames": [
+        "Tienda · estado",
+        "Tienda · configuración",
+        "Tienda · catálogo",
+        "n8n · webhook de Pedidos",
+        "Leer latidos y estados"
+      ],
+      "description": "Tienda (estado, configuración, catálogo), webhook de Pedidos en n8n y latidos de Tareas y Vigilancia"
+    },
+    {
+      "id": "aafce1bb-4291-426f-ab24-6b8893c7f42f",
+      "name": "2 · Evaluar y responder",
+      "nodeNames": [
+        "Evaluar el sistema",
+        "Resumir diagnóstico",
+        "Guardar último diagnóstico",
+        "Resultado para el agente"
+      ],
+      "description": "Marca cada punto OK / PENDIENTE / FALLA, guarda el resultado en Estado y lo devuelve al agente"
+    }
+  ]
+}

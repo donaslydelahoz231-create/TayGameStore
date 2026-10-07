@@ -1,0 +1,657 @@
+{
+  "id": "wOqFUIwk4GEINrVc",
+  "name": "TayGameStore · Vigilancia cada 5 min",
+  "description": "Cada 5 min consulta /api/health (y /api/ready una vez por hora, para que Neon pueda dormir). Solo si la tienda cae o se recupera (confirmado a los 90 s): guarda el estado, registra incidente y avisa por Gmail.",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Bogota",
+    "errorWorkflow": "S1NuGJNsbVpSP6aG",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "id": "ed906746-3fdf-4674-bf41-4e0e5f283626",
+      "name": "Cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, 192],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        },
+        "misfirePolicy": "skip"
+      }
+    },
+    {
+      "id": "13ae133e-97ba-4cea-9ef1-ec79262f2e20",
+      "name": "Consultar estado de la tienda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [272, 320],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ \"https://taygamestore.onrender.com\" + ($now.setZone(\"America/Bogota\").minute < 5 ? \"/api/ready\" : \"/api/health\") }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "35b6e5cc-e861-461f-bd1d-85c96d4985ea",
+      "name": "Resumir resultado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [496, 320],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok",
+              "name": "ok",
+              "value": "={{ $json.statusCode === 200 && [\"ready\", \"ok\"].includes($json.body?.status) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "detalle",
+              "name": "detalle",
+              "value": "={{ $json.statusCode ? (\"HTTP \" + $json.statusCode + \" \" + JSON.stringify($json.body ?? {})).slice(0, 300) : (\"Sin respuesta: \" + String($json.error?.message ?? $json.error ?? \"desconocido\")).slice(0, 300) }}",
+              "type": "string"
+            },
+            {
+              "id": "revisadoEn",
+              "name": "revisadoEn",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9a400848-c7c7-4976-aecc-6fb9e11d5983",
+      "name": "Leer estado anterior",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [720, 320],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "drmUzTtj1WqRCiua",
+          "cachedResultName": "TayGameStore · Estado"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "comprobacion",
+              "condition": "eq",
+              "keyValue": "tienda"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f621932e-ebbb-473f-9e5d-d9f50a3acd43",
+      "name": "¿Cambió el estado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [752, 192],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok === undefined ? !$(\"Resumir resultado\").first().json.ok : $json.ok !== $(\"Resumir resultado\").first().json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5f834578-ea8d-4d48-a588-e967d9af81ad",
+      "name": "Preparar aviso de cambio",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [976, 192],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok",
+              "name": "ok",
+              "value": "={{ $(\"Resumir resultado\").first().json.ok }}",
+              "type": "boolean"
+            },
+            {
+              "id": "detalle",
+              "name": "detalle",
+              "value": "={{ $(\"Resumir resultado\").first().json.detalle }}",
+              "type": "string"
+            },
+            {
+              "id": "cambioEn",
+              "name": "cambioEn",
+              "value": "={{ $(\"Resumir resultado\").first().json.revisadoEn }}",
+              "type": "string"
+            },
+            {
+              "id": "titulo",
+              "name": "titulo",
+              "value": "={{ $(\"Resumir resultado\").first().json.ok ? \"TayGameStore volvió a funcionar\" : \"TayGameStore no responde\" }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ea6c2008-c563-4190-8d15-85f2e7cc7e17",
+      "name": "Guardar estado actual",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1200, 0],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "drmUzTtj1WqRCiua",
+          "cachedResultName": "TayGameStore · Estado"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "comprobacion",
+              "condition": "eq",
+              "keyValue": "tienda"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "comprobacion": "tienda",
+            "ok": "={{ $json.ok }}",
+            "detalle": "={{ $json.detalle }}",
+            "cambioEn": "={{ $json.cambioEn }}"
+          },
+          "schema": [
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ok",
+              "displayName": "ok",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cambioEn",
+              "displayName": "cambioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7481967c-06f5-41a0-b1ef-af2d16121bf7",
+      "name": "Registrar incidente",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [1200, 192],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lYXf7Oz7Mpv1kNMf",
+          "cachedResultName": "TayGameStore · Incidentes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "flujo": "Vigilancia cada 5 min",
+            "comprobacion": "={{ $json.titulo }}",
+            "detalle": "={{ $json.detalle }}",
+            "ocurrioEn": "={{ $json.cambioEn }}"
+          },
+          "schema": [
+            {
+              "id": "flujo",
+              "displayName": "flujo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comprobacion",
+              "displayName": "comprobacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "detalle",
+              "displayName": "detalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ocurrioEn",
+              "displayName": "ocurrioEn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "291137dc-d1a8-4e9f-a4ef-a56e3c6f2d6a",
+      "name": "Avisar al dueño por correo",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1200, 384],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "taygamerstore@gmail.com",
+        "subject": "={{ $json.titulo }}",
+        "emailType": "text",
+        "message": "={{ $json.titulo }}.\n\nDetalle: {{ $json.detalle }}\nHora: {{ $json.cambioEn }}\n\nRevisa https://taygamestore.onrender.com/api/ready y los registros en Render. Este aviso solo llega cuando el estado cambia.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "onError": "continueRegularOutput",
+      "webhookId": "fdf9f438-73e8-4195-9750-d2339b8f63ff",
+      "disabled": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zcavkgsdukzqKtxq",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "id": "f4fb8bce-7573-4392-92e6-a0e45fbdb3db",
+      "name": "Sticky Note 3cd63fb4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [528, 384],
+      "parameters": {
+        "content": "## Vigilancia cada 5 minutos\nConsulta `/api/ready` (espera hasta 60 s por si la tienda estaba dormida). Solo cuando el estado **cambia** (cae o se recupera) guarda el cambio, lo registra en **Incidentes** y te escribe a taygamerstore@gmail.com.\n\n**Credencial** \"Gmail · taygamerstore\": conéctala con *Sign in with Google* (nunca con la contraseña).",
+        "color": 5
+      }
+    },
+    {
+      "id": "12d3a1aa-b953-471c-aeb4-1d8b35b01d25",
+      "name": "Registrar latido",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [672, 320],
+      "parameters": {
+        "columns": {
+          "mappingMode": "defineBelow",
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "comprobacion",
+              "id": "comprobacion",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "ok",
+              "id": "ok",
+              "required": false,
+              "type": "boolean"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "detalle",
+              "id": "detalle",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "cambioEn",
+              "id": "cambioEn",
+              "required": false,
+              "type": "dateTime"
+            }
+          ],
+          "value": {
+            "cambioEn": "={{ $json.revisadoEn }}",
+            "comprobacion": "vigilancia",
+            "detalle": "={{ $json.detalle }}",
+            "ok": "={{ $json.ok }}"
+          }
+        },
+        "dataTableId": {
+          "__rl": true,
+          "cachedResultName": "TayGameStore · Estado",
+          "mode": "id",
+          "value": "drmUzTtj1WqRCiua"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "condition": "eq",
+              "keyName": "comprobacion",
+              "keyValue": "vigilancia"
+            }
+          ]
+        },
+        "matchType": "allConditions",
+        "operation": "upsert",
+        "resource": "row"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "8494eb07-db8a-4cfd-973e-ed161da02d54",
+      "name": "¿Respondió bien?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [400, 480],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.statusCode === 200 && [\"ready\", \"ok\"].includes($json.body?.status) }}",
+              "operator": {
+                "operation": "true",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          }
+        }
+      }
+    },
+    {
+      "id": "5dce7ff7-e054-488e-9b1a-80db56fe4841",
+      "name": "Esperar 90 s antes de confirmar",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [400, 640],
+      "parameters": {
+        "amount": 90,
+        "resume": "timeInterval",
+        "unit": "seconds"
+      },
+      "webhookId": "b96e758d-7698-4cd3-b105-b05a3e3a095a"
+    },
+    {
+      "id": "b38066ae-b787-4278-b819-ec974d683f52",
+      "name": "Confirmar estado de la tienda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [560, 640],
+      "parameters": {
+        "method": "GET",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        },
+        "url": "https://taygamestore.onrender.com/api/ready"
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Consultar estado de la tienda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumir resultado": {
+      "main": [
+        [
+          {
+            "node": "Leer estado anterior",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar latido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer estado anterior": {
+      "main": [
+        [
+          {
+            "node": "¿Cambió el estado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cambió el estado?": {
+      "main": [
+        [
+          {
+            "node": "Preparar aviso de cambio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar aviso de cambio": {
+      "main": [
+        [
+          {
+            "node": "Guardar estado actual",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar incidente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Avisar al dueño por correo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar estado de la tienda": {
+      "main": [
+        [
+          {
+            "node": "¿Respondió bien?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Respondió bien?": {
+      "main": [
+        [
+          {
+            "node": "Resumir resultado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Esperar 90 s antes de confirmar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 90 s antes de confirmar": {
+      "main": [
+        [
+          {
+            "node": "Confirmar estado de la tienda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar estado de la tienda": {
+      "main": [
+        [
+          {
+            "node": "Resumir resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "id": "7914a073-eaa1-4a51-bb4e-fda403299919",
+      "name": "1 · Comprobar la tienda",
+      "nodeNames": [
+        "Consultar estado de la tienda",
+        "¿Respondió bien?",
+        "Esperar 90 s antes de confirmar",
+        "Confirmar estado de la tienda",
+        "Resumir resultado",
+        "Registrar latido",
+        "Leer estado anterior"
+      ],
+      "description": "Pide /api/ready; si falla, espera 90 s y confirma antes de dar la tienda por caída. Registra el latido y lee el último estado"
+    },
+    {
+      "id": "bd8b3bb2-afbb-49d3-a00e-ebaaacc0a642",
+      "name": "2 · Si cambió: guardar y avisar",
+      "nodeNames": [
+        "¿Cambió el estado?",
+        "Preparar aviso de cambio",
+        "Guardar estado actual",
+        "Registrar incidente",
+        "Avisar al dueño por correo"
+      ],
+      "description": "Solo si la tienda cayó o se recuperó: guarda el estado, lo anota en Incidentes y avisa al dueño"
+    }
+  ]
+}
