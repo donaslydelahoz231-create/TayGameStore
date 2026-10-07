@@ -79,10 +79,12 @@ export function scrollToSection(id) {
   );
   const stop = () => userEvents.forEach((type) => window.removeEventListener(type, cancel));
 
-  // Dónde dejó la página este desplazamiento: si cambia, otro la movió (la barra de
+  // Dónde debe quedar la página: si está en otro sitio, otro la movió (la barra de
   // desplazamiento, otro código, la persona) y ya no se corrige. Los cambios de altura del
-  // contenido mueven el destino, no la posición de la página.
-  let leftAt = 0;
+  // contenido mueven el destino, no la posición de la página. Se fija al pedirlo (no al
+  // terminar): en Firefox el aviso de fin llega tarde, cuando la persona ya puede haberse ido.
+  const requested = Math.max(0, window.scrollY + offsetFromTarget(target));
+  let leftAt = requested;
   const correct = () => {
     if (cancelled || request !== latestRequest) return;
     if (Math.abs(window.scrollY - leftAt) > TOLERANCE_PX) {
@@ -97,14 +99,15 @@ export function scrollToSection(id) {
   // Tras el salto se pintan otras secciones y el destino puede volver a moverse: se vigila un
   // momento después de asentarse.
   const watch = () => {
-    leftAt = window.scrollY;
+    // Al final de la página el navegador se detiene antes del punto pedido.
+    if (atPageEnd() && window.scrollY < requested) leftAt = window.scrollY;
     requestAnimationFrame(() => requestAnimationFrame(correct));
     CHECKS_AFTER_SETTLE_MS.forEach((ms) => setTimeout(correct, ms));
     setTimeout(stop, CHECKS_AFTER_SETTLE_MS[CHECKS_AFTER_SETTLE_MS.length - 1] + 50);
   };
 
   window.scrollTo({
-    top: Math.max(0, window.scrollY + offsetFromTarget(target)),
+    top: requested,
     behavior: reducedMotion() ? 'auto' : 'smooth',
   });
   afterScroll(watch);
