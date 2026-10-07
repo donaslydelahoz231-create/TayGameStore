@@ -125,32 +125,3 @@
     font-size: 0.6875rem;
   }
 }
-
-/* Llave de acceso (passkey): entrar o crear la cuenta con huella, rostro o PIN. */
-.passkey-box {
-  display: grid;
-  gap: 9px;
-  margin: 2px 0 13px;
-}
-.passkey-create label {
-  display: block;
-  margin: 2px 0 6px;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-.passkey-row {
-  display: flex;
-  gap: 7px;
-}
-.passkey-row input {
-  flex: 1;
-  min-width: 0;
-}
-.passkey-row .btn {
-  flex: none;
-}
-@media (max-width: 380px) {
-  .passkey-row {
-    flex-direction: column;
-  }
-}

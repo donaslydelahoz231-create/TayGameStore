@@ -19,6 +19,7 @@ import {
   verifyPlayer,
   verifySchema,
 } from '../../services/admin.js';
+import { changeAdminPassword, changePasswordSchema } from '../../services/admin-password.js';
 import {
   addInventory,
   addInventorySchema,
@@ -120,6 +121,13 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
     const { deps, actor } = ctx(request);
     const { id } = idParams.parse(request.params);
     return { product: await updateProduct(deps, id, productSchema.parse(request.body), actor) };
+  });
+
+  app.post('/api/admin/password', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const admin = requireAdmin(deps, request);
+    await changeAdminPassword(deps, admin, changePasswordSchema.parse(request.body), actor);
+    return { ok: true };
   });
 
   app.get('/api/admin/inventory', guarded, async (request) => {

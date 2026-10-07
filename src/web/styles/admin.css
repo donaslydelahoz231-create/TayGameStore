@@ -72,6 +72,11 @@ pre {
   padding: 18px;
   margin-bottom: 16px;
 }
+/* `hidden` siempre gana: sin esto, .adm-btn (inline-block) mostraba botones ocultos como
+   «Cerrar sesión» o «Ver tienda como cliente» a quien no tenía sesión. */
+[hidden] {
+  display: none !important;
+}
 .adm-btn {
   display: inline-block;
   border: 0;

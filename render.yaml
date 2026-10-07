@@ -81,6 +81,9 @@ services:
         sync: false
       - key: MP_WEBHOOK_SECRET
         sync: false
+      # Frase de activación del dueño (contraseña y primera huella del panel).
+      - key: ADMIN_SETUP_CODE
+        sync: false
       - key: SUPPORT_EMAIL
         sync: false
       - key: SUPPORT_WHATSAPP

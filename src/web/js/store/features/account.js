@@ -5,7 +5,6 @@ import { renderAll } from '../render.js';
 import { state } from '../state.js';
 import { closeMenus, toast } from '../ui.js';
 import { revealStore } from './entry.js';
-import { passkeysAvailable } from './passkey.js';
 
 // Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
 // habilitado (no hay recuperación segura sin proveedor de correo): el formulario no envía nada.
@@ -72,8 +71,6 @@ export function renderAccount() {
   setText('menuName', state.session?.name || 'Invitado');
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
   $('menuLogin').hidden = !guest;
-  const addPasskey = $('menuPasskey');
-  if (addPasskey) addPasskey.hidden = guest || !passkeysAvailable();
   const admin = $('menuAdmin');
   if (admin) admin.hidden = !state.session?.adminEntry;
   $('menuLogout').hidden = false;
@@ -89,22 +86,8 @@ export function openAccountMenu() {
   $('accountBtn').setAttribute('aria-expanded', String(open));
 }
 
-/** "Google, Facebook o Discord" con solo las redes disponibles. */
-function providerList(providers) {
-  const names = providers.map((p) => PROVIDER_NAMES[p]);
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} o ${names.at(-1)}` : names[0] || '';
-}
-
-/**
- * Solo se ofrecen los accesos que el servidor tiene configurados (un cliente no debe ver
- * botones apagados). Si no hay ninguno, la compra como invitado pasa a ser la opción principal.
- */
 export function updateOAuthUI() {
-  const cfg = state.serverConfig;
-  const auth = cfg?.auth || {};
-  // Sin respuesta del servidor (o en vista previa) no se sabe qué hay: se muestran todos.
-  const known = !!cfg && !state.previewOnly;
-  const available = OAUTH_PROVIDERS.filter((p) => auth[p]);
+  const auth = state.serverConfig?.auth || {};
   for (const prov of OAUTH_PROVIDERS) {
     const el = $(prov + 'State'),
       link = document.querySelector(`[data-provider="${prov}"]`);
@@ -114,45 +97,12 @@ export function updateOAuthUI() {
         ? 'Servidor requerido'
         : ok
           ? 'Disponible'
-          : 'No disponible';
+          : 'No configurado';
     if (link) {
       link.classList.toggle('disabled', !ok);
       link.setAttribute('aria-disabled', String(!ok));
-      link.hidden = known && !ok;
     }
   }
-  const grid = $('oauthGrid');
-  if (grid) grid.dataset.count = String(known ? available.length : OAUTH_PROVIDERS.length);
-  const passkey = passkeysAvailable();
-  const passkeyBox = $('passkeyBox');
-  if (passkeyBox) passkeyBox.hidden = !passkey;
-  const noOAuth = known && available.length === 0;
-  const guestOnly = noOAuth && !passkey;
-  const shown = known ? available : OAUTH_PROVIDERS;
-  document
-    .querySelectorAll('#loginModal [data-oauth-only]')
-    .forEach((node) => (node.hidden = noOAuth));
-  const divider = $('authDivider');
-  if (divider) divider.hidden = guestOnly;
-  const guest = $('guestBtn');
-  if (guest) guest.className = guestOnly ? 'btn primary full' : 'text-btn inline';
-  const mailNote = cfg?.emailUpdates ? ' y te enviamos el comprobante a tu correo' : '';
-  setText(
-    'authSubtitle',
-    guestOnly
-      ? `Compra sin crear cuenta: solo necesitas tu ID de jugador y tu correo. Tu pedido queda guardado en este navegador${mailNote}.`
-      : noOAuth
-        ? 'Entra o crea tu cuenta con tu llave de acceso (huella, rostro o PIN de tu dispositivo) para conservar tu historial, o compra como invitado.'
-        : `Entra con ${passkey ? 'tu llave de acceso o con ' : ''}${providerList(shown)} para conservar tu historial de pedidos.`,
-  );
-  setText(
-    'authNote',
-    guestOnly
-      ? 'No necesitas contraseña. TayGameStore no guarda datos de tarjetas: pagas en Mercado Pago.'
-      : passkey
-        ? 'Tu llave de acceso queda en tu dispositivo: TayGameStore no guarda contraseñas ni datos de tarjetas (pagas en Mercado Pago).'
-        : `Entra con ${providerList(shown)}, o compra como invitado. TayGameStore no guarda contraseñas ni datos de tarjetas: pagas en Mercado Pago.`,
-  );
 }
 
 export async function bootstrapSession() {

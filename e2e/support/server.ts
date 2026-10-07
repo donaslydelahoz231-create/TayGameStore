@@ -80,6 +80,8 @@ const config = loadConfig({
   GOOGLE_CLIENT_ID: 'e2e-sin-uso.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'e2e-sin-uso-secreto',
   ADMIN_EMAILS: 'operador@example.com',
+  // Frase de activación del dueño (solo pruebas): crear su contraseña y su primera huella.
+  ADMIN_SETUP_CODE: 'frase-de-activacion-e2e-del-dueno',
   ADMIN_PATH,
 });
 const { app, deps } = await buildAppWithDeps({

@@ -19,6 +19,8 @@
         ><span id="admWho">Comprobando sesión…</span
         ><button id="admNotify" class="adm-btn ghost" type="button" hidden>
           Activar avisos de pedidos pagados</button
+        ><button id="admPasskeyAdd" class="adm-btn ghost" type="button" hidden>
+          Añadir huella de este equipo</button
         ><button id="admAsCustomer" class="adm-btn ghost" type="button" hidden>
           Ver tienda como cliente</button
         ><button id="admLogout" class="adm-btn ghost" type="button" hidden>Cerrar sesión</button>
@@ -30,8 +32,61 @@
 
       <section id="admLogin" class="adm-card" hidden>
         <h1>Acceso de administración</h1>
-        <p>Requiere una cuenta de Google autorizada y verificación en dos pasos.</p>
-        <a class="adm-btn" href="/auth/google?modo=admin">Entrar con Google</a>
+        <form id="admPasswordForm" class="adm-form-inline">
+          <label for="admEmail">Correo</label>
+          <input id="admEmail" type="email" autocomplete="username" required maxlength="254" />
+          <label for="admPassword">Contraseña</label>
+          <input
+            id="admPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+            maxlength="128"
+          />
+          <div class="adm-actions">
+            <button class="adm-btn" type="submit">Entrar</button
+            ><button id="admPasskeyLogin" class="adm-btn ghost" type="button">
+              Entrar con huella o llave</button
+            ><a id="admGoogleLogin" class="adm-btn ghost" href="/auth/google?modo=admin" hidden
+              >Entrar con Google</a
+            >
+          </div>
+        </form>
+        <p class="adm-note">
+          Después de la contraseña se pide el código de tu app autenticadora. La huella o llave ya
+          es de dos pasos.
+        </p>
+        <details id="admFirstTime">
+          <summary>Primera vez: crear mi contraseña y activar mi huella</summary>
+          <p class="adm-note">
+            Usa la frase de activación (ADMIN_SETUP_CODE) que está en Render. Solo sirve una vez
+            para la contraseña y una vez para la primera huella.
+          </p>
+          <label for="admSetupCode">Frase de activación</label>
+          <input id="admSetupCode" type="password" autocomplete="off" maxlength="200" />
+          <label for="admNewPassword">Nueva contraseña (mínimo 12 caracteres)</label>
+          <input
+            id="admNewPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            maxlength="128"
+          />
+          <label for="admNewPassword2">Repite la contraseña</label>
+          <input
+            id="admNewPassword2"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            maxlength="128"
+          />
+          <div class="adm-actions">
+            <button id="admPasswordSetupBtn" class="adm-btn" type="button">Crear contraseña</button
+            ><button id="admPasskeySetupBtn" class="adm-btn ghost" type="button">
+              Activar huella
+            </button>
+          </div>
+        </details>
       </section>
 
       <section id="admMfaSetup" class="adm-card" hidden>
@@ -76,6 +131,31 @@
       </section>
 
       <div id="admApp" hidden>
+        <details id="admSecurity" class="adm-card">
+          <summary>Seguridad de mi acceso</summary>
+          <form id="admChangePassword" class="adm-form">
+            <label for="admCurrentPassword">Contraseña actual</label>
+            <input
+              id="admCurrentPassword"
+              type="password"
+              autocomplete="current-password"
+              maxlength="128"
+              required
+            />
+            <label for="admNextPassword">Nueva contraseña (mínimo 12 caracteres)</label>
+            <input
+              id="admNextPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="12"
+              maxlength="128"
+              required
+            />
+            <div class="adm-actions">
+              <button class="adm-btn" type="submit">Cambiar contraseña</button>
+            </div>
+          </form>
+        </details>
         <nav class="adm-tabs" aria-label="Secciones">
           <button type="button" data-tab="orders" class="active">Pedidos</button>
           <button type="button" data-tab="products">Catálogo</button>

@@ -159,7 +159,13 @@ export function toAuthUser(user: typeof users.$inferSelect): AuthUser {
 export async function createSession(
   deps: ServiceDeps,
   userId: string,
-  options: { isAdmin: boolean; ipHash: string | undefined; userAgent: string | undefined },
+  options: {
+    isAdmin: boolean;
+    ipHash: string | undefined;
+    userAgent: string | undefined;
+    /** La autenticación ya fue de dos factores (llave de acceso con verificación del usuario). */
+    mfaVerified?: boolean;
+  },
 ): Promise<{ token: string; maxAgeSeconds: number }> {
   const token = randomToken();
   const ttlMs = options.isAdmin
@@ -169,6 +175,7 @@ export async function createSession(
     tokenHash: sha256(token),
     userId,
     isAdmin: options.isAdmin,
+    mfaVerifiedAt: options.mfaVerified ? deps.now() : null,
     expiresAt: new Date(deps.now().getTime() + ttlMs),
     ipHash: options.ipHash ?? null,
     userAgent: options.userAgent?.slice(0, 200) ?? null,

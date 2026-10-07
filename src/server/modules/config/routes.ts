@@ -6,7 +6,6 @@ export interface ConfigRoutesOptions {
   config: AppConfig;
   paymentsAvailable: boolean;
   googleAvailable: boolean;
-  passkeyAvailable: boolean;
   socialAvailable: { discord: boolean; facebook: boolean };
   playerLookupAvailable: boolean;
   emailUpdatesAvailable: boolean;
@@ -28,14 +27,7 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
           ? (config.mercadoPago?.mode ?? null)
           : null,
       paymentMethod: 'mercadopago',
-      auth: {
-        google: options.googleAvailable,
-        ...options.socialAvailable,
-        /** Llaves de acceso (huella, rostro o PIN): no necesitan credenciales externas. */
-        passkey: options.passkeyAvailable,
-      },
-      /** Origen exacto en el que funcionan las llaves (en otra dirección no se ofrecen). */
-      passkeyOrigin: options.passkeyAvailable ? (config.passkey?.origin ?? null) : null,
+      auth: { google: options.googleAvailable, ...options.socialAvailable },
       playerLookup: options.playerLookupAvailable,
       /** El cliente recibe por correo el pago confirmado y la entrega (SMTP configurado). */
       emailUpdates: options.emailUpdatesAvailable,

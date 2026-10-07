@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppConfig } from '../../config/env.js';
 import { z } from 'zod';
 import { actorOf, requireAdmin, requireDeps, SESSION_COOKIE } from '../../http/context.js';
@@ -21,11 +21,13 @@ import {
   verifyMfa,
 } from '../../services/auth.js';
 import { audit, type ServiceDeps } from '../../services/context.js';
+import { loginAdminPassword, setupAdminPassword } from '../../services/admin-password.js';
 import {
-  beginPasskeyLogin,
-  beginPasskeyRegistration,
-  finishPasskeyLogin,
-  finishPasskeyRegistration,
+  beginAdminPasskeyLogin,
+  beginAdminPasskeyRegistration,
+  beginAdminPasskeySetup,
+  finishAdminPasskeyLogin,
+  finishAdminPasskeyRegistration,
 } from '../../services/passkeys.js';
 import {
   linkGoogleIdentity,
@@ -88,15 +90,14 @@ const authenticationBody = z.object({
     }),
   }),
 });
-const passkeyNameBody = z.object({
-  /** Cómo llamar al cliente (opcional). Sin saltos ni caracteres invisibles. */
-  name: z
-    .string()
-    .trim()
-    .min(2)
-    .max(60)
-    .regex(/^[^\p{Cc}\p{Cf}]+$/u)
-    .optional(),
+const setupCodeBody = z.object({ code: z.string().min(1).max(200) });
+const passwordSetupBody = z.object({
+  code: z.string().min(1).max(200),
+  password: z.string().min(1).max(128),
+});
+const passwordLoginBody = z.object({
+  email: z.string().trim().min(3).max(254),
+  password: z.string().min(1).max(128),
 });
 
 /**
@@ -320,22 +321,72 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     );
   }
 
-  // ── Llaves de acceso (passkeys) ────────────────────────────────────────────
-  // Crear cuenta o añadir una llave (con sesión de cliente) y entrar. Solo sesiones de cliente.
+  // ── Huella o llave de acceso del administrador (passkeys) ──────────────────
+  // Nunca para clientes. Activación con ADMIN_SETUP_CODE; entrar cuenta como doble factor.
+
+  const startAdminSession = async (
+    deps: ServiceDeps,
+    request: FastifyRequest,
+    reply: FastifyReply,
+    userId: string,
+  ) => {
+    if (request.auth.session) await revokeSession(deps, request.auth.session.id);
+    const session = await createSession(deps, userId, {
+      isAdmin: true,
+      mfaVerified: true,
+      ipHash: request.auth.ipHash,
+      userAgent: request.headers['user-agent'],
+    });
+    setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+  };
+
+  // Contraseña del dueño: primer factor. La sesión queda pendiente del código TOTP del panel.
+  const startPasswordSession = async (
+    deps: ServiceDeps,
+    request: FastifyRequest,
+    reply: FastifyReply,
+    userId: string,
+  ) => {
+    if (request.auth.session) await revokeSession(deps, request.auth.session.id);
+    const session = await createSession(deps, userId, {
+      isAdmin: true,
+      ipHash: request.auth.ipHash,
+      userAgent: request.headers['user-agent'],
+    });
+    setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+  };
 
   app.post(
-    '/api/auth/passkey/register/options',
-    { config: { rateLimit: RATE_LIMITS.auth } },
+    '/api/auth/admin/password/setup',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
     async (request, reply) => {
       const deps = requireDeps(options.deps);
-      if (request.auth.session?.isAdmin) {
-        throw new AppError('FORBIDDEN', 403, 'Usa la tienda como cliente para crear una llave.');
-      }
-      const body = passkeyNameBody.parse(request.body ?? {});
-      const { token, options: creation } = await beginPasskeyRegistration(deps, {
-        userId: request.auth.user?.id,
-        displayName: body.name ?? null,
-      });
+      const body = passwordSetupBody.parse(request.body);
+      const admin = await setupAdminPassword(deps, body, actorOf(request, 'admin'));
+      await startPasswordSession(deps, request, reply, admin.id);
+      return { ok: true };
+    },
+  );
+
+  app.post(
+    '/api/auth/admin/password/login',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const body = passwordLoginBody.parse(request.body);
+      const admin = await loginAdminPassword(deps, body, actorOf(request, 'admin'));
+      await startPasswordSession(deps, request, reply, admin.id);
+      return { ok: true };
+    },
+  );
+
+  app.post(
+    '/api/auth/admin/passkey/setup/options',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { code } = setupCodeBody.parse(request.body);
+      const { token, options: creation } = await beginAdminPasskeySetup(deps, code);
       setCookie(deps.config, reply, PASSKEY_COOKIE, token, PASSKEY_COOKIE_SECONDS);
       reply.header('cache-control', 'no-store');
       return { options: creation };
@@ -343,39 +394,49 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   );
 
   app.post(
-    '/api/auth/passkey/register/verify',
-    { config: { rateLimit: RATE_LIMITS.auth } },
+    '/api/auth/admin/passkey/add/options',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const admin = requireAdmin(deps, request);
+      const { token, options: creation } = await beginAdminPasskeyRegistration(deps, admin);
+      setCookie(deps.config, reply, PASSKEY_COOKIE, token, PASSKEY_COOKIE_SECONDS);
+      reply.header('cache-control', 'no-store');
+      return { options: creation };
+    },
+  );
+
+  app.post(
+    '/api/auth/admin/passkey/register/verify',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
     async (request, reply) => {
       const deps = requireDeps(options.deps);
       const body = registrationBody.parse(request.body);
       const token = readCookie(deps.config, request, PASSKEY_COOKIE);
       clearCookie(deps.config, reply, PASSKEY_COOKIE);
-      const sessionUserId = request.auth.session?.isAdmin ? undefined : request.auth.user?.id;
-      const user = await finishPasskeyRegistration(
-        deps,
-        { token, response: body.response, sessionUserId },
-        actorOf(request, 'customer'),
-      );
-      // Cuenta nueva: se abre su sesión. Llave añadida: la sesión actual sigue igual.
-      if (!sessionUserId) {
-        if (request.auth.session) await revokeSession(deps, request.auth.session.id);
-        const session = await createSession(deps, user.id, {
-          isAdmin: false,
-          ipHash: request.auth.ipHash,
-          userAgent: request.headers['user-agent'],
-        });
-        setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
+      // Con sesión de administrador se añade una llave; sin ella, es la activación inicial.
+      let adminUserId: string | undefined;
+      try {
+        adminUserId = requireAdmin(deps, request).id;
+      } catch {
+        adminUserId = undefined;
       }
-      return { ok: true, added: Boolean(sessionUserId) };
+      const admin = await finishAdminPasskeyRegistration(
+        deps,
+        { token, response: body.response, adminUserId },
+        actorOf(request, 'admin'),
+      );
+      if (!adminUserId) await startAdminSession(deps, request, reply, admin.id);
+      return { ok: true, added: Boolean(adminUserId) };
     },
   );
 
   app.post(
-    '/api/auth/passkey/login/options',
-    { config: { rateLimit: RATE_LIMITS.auth } },
+    '/api/auth/admin/passkey/login/options',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
     async (_request, reply) => {
       const deps = requireDeps(options.deps);
-      const { token, options: request } = await beginPasskeyLogin(deps);
+      const { token, options: request } = await beginAdminPasskeyLogin(deps);
       setCookie(deps.config, reply, PASSKEY_COOKIE, token, PASSKEY_COOKIE_SECONDS);
       reply.header('cache-control', 'no-store');
       return { options: request };
@@ -383,26 +444,20 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   );
 
   app.post(
-    '/api/auth/passkey/login/verify',
-    { config: { rateLimit: RATE_LIMITS.auth } },
+    '/api/auth/admin/passkey/login/verify',
+    { config: { rateLimit: RATE_LIMITS.mfa } },
     async (request, reply) => {
       const deps = requireDeps(options.deps);
       const body = authenticationBody.parse(request.body);
       const token = readCookie(deps.config, request, PASSKEY_COOKIE);
       clearCookie(deps.config, reply, PASSKEY_COOKIE);
-      const user = await finishPasskeyLogin(
+      const admin = await finishAdminPasskeyLogin(
         deps,
         { token, response: body.response },
-        actorOf(request, 'customer'),
+        actorOf(request, 'admin'),
       );
-      if (request.auth.session) await revokeSession(deps, request.auth.session.id);
-      const session = await createSession(deps, user.id, {
-        isAdmin: false,
-        ipHash: request.auth.ipHash,
-        userAgent: request.headers['user-agent'],
-      });
-      setCookie(deps.config, reply, SESSION_COOKIE, session.token, session.maxAgeSeconds);
-      return { ok: true };
+      await startAdminSession(deps, request, reply, admin.id);
+      return { ok: true, panel: deps.config.adminPath };
     },
   );
 

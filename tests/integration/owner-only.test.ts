@@ -43,6 +43,8 @@ const APPROVED_ADMIN_ROUTES = [
   'POST /api/admin/orders/:id/reconcile',
   'POST /api/admin/orders/:id/review',
   'POST /api/admin/orders/:id/verification',
+  // Cambiar la contraseña del dueño (exige la contraseña actual y sesión verificada).
+  'POST /api/admin/password',
   'POST /api/admin/products',
   // Baja la propia sesión a cliente ("Ver tienda como cliente"); nunca sube privilegios.
   'POST /api/admin/sesion/cliente',

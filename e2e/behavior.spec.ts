@@ -69,86 +69,16 @@ test.describe('entrada y acceso', () => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
     await expect(page.locator('#loginModal input[type="password"]')).toHaveCount(0);
+    await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(3);
     await expect(page.locator('[data-provider="vk"]')).toHaveCount(0);
-    // El servidor de pruebas configura Discord y Facebook (dobles), no Google: el cliente
-    // solo ve los accesos que funcionan.
-    await expect(page.locator('#loginModal .oauth-btn:visible')).toHaveCount(2);
+    // El servidor de pruebas configura Discord y Facebook (dobles), no Google.
     await expect(page.locator('#discordState')).toHaveText('Disponible');
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
-    await expect(page.locator('[data-provider="google"]')).toBeHidden();
-    await expect(page.locator('#authSubtitle')).toHaveText(
-      'Entra con Facebook o Discord para conservar tu historial de pedidos.',
-    );
-    // Un acceso no configurado sigue deshabilitado y, aun forzando el clic, no navega.
+    await expect(page.locator('#googleState')).toHaveText('No configurado');
+    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega.
     await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
-    await page.locator('[data-provider="google"]').dispatchEvent('click');
+    await page.locator('[data-provider="google"]').click({ force: true });
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('#guestBtn')).toBeVisible();
-  });
-
-  test('sin accesos configurados, comprar como invitado es la opción principal', async ({
-    page,
-  }) => {
-    await page.route('**/api/config', async (route) => {
-      const response = await route.fetch();
-      const json = (await response.json()) as Record<string, unknown>;
-      await route.fulfill({
-        response,
-        json: { ...json, auth: { google: false, discord: false, facebook: false } },
-      });
-    });
-    await page.goto('/');
-    await page.locator('#enterStoreBtn').click();
-    await expect(page.locator('#loginModal .oauth-btn:visible')).toHaveCount(0);
-    await expect(page.locator('#oauthGrid')).toBeHidden();
-    await expect(page.locator('#authSubtitle')).toContainText('Compra sin crear cuenta');
-    await expect(page.locator('#guestBtn')).toHaveClass(/btn primary/);
-    await page.locator('#guestBtn').click();
-    await expect(page.locator('#loginModal')).toBeHidden();
-    await expect(page.locator('#products .product')).toHaveCount(6);
-  });
-
-  test('llave de acceso: crear la cuenta con huella/PIN, salir y volver a entrar', async ({
-    page,
-    browserName,
-  }) => {
-    test.skip(browserName !== 'chromium', 'el autenticador virtual es de Chrome DevTools (CDP)');
-    // Autenticador virtual de Chrome: hace lo que la huella o el PIN de un celular real.
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send('WebAuthn.enable');
-    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: {
-        protocol: 'ctap2',
-        transport: 'internal',
-        hasResidentKey: true,
-        hasUserVerification: true,
-        isUserVerified: true,
-        automaticPresenceSimulation: true,
-      },
-    });
-    // WebAuthn exige un dominio: la prueba usa localhost (el resto de la suite, 127.0.0.1).
-    await page.goto('http://localhost:4173/');
-    await page.locator('#enterStoreBtn').click();
-    await expect(page.locator('#passkeyBox')).toBeVisible();
-    await page.locator('#passkeyName').fill('Gamer Llave');
-    await page.locator('#passkeyCreateBtn').click();
-    await expect(page.locator('#loginModal')).toBeHidden();
-    await expect(page.locator('#accountName')).toHaveText('Gamer Llave');
-    // La llave quedó guardada en el dispositivo (no en la tienda).
-    const { credentials } = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
-    expect(credentials).toHaveLength(1);
-    expect(credentials[0]?.isResidentCredential).toBe(true);
-
-    await page.locator('#accountBtn').click();
-    await expect(page.locator('#menuPasskey')).toBeVisible();
-    await page.locator('#menuLogout').click();
-    await expect(page.locator('#accountName')).toHaveText('Invitado');
-
-    await page.goto('http://localhost:4173/');
-    await page.locator('#enterStoreBtn').click();
-    await page.locator('#passkeyLoginBtn').click();
-    await expect(page.locator('#loginModal')).toBeHidden();
-    await expect(page.locator('#accountName')).toHaveText('Gamer Llave');
   });
 
   test('entrar con Discord y vincular Facebook desde Mi cuenta', async ({ page }) => {
@@ -646,10 +576,70 @@ test.describe('comprobante', () => {
 });
 
 test.describe('panel de administración', () => {
-  test('sin sesión muestra el acceso con Google', async ({ page }) => {
+  test('sin sesión muestra el acceso: correo y contraseña, huella y Google si está activo', async ({
+    page,
+  }) => {
     await page.goto(ADMIN_PATH);
     await expect(page.locator('#admLogin')).toBeVisible();
     await expect(page.locator('#admApp')).toBeHidden();
+    await expect(page.locator('#admEmail')).toBeVisible();
+    await expect(page.locator('#admPassword')).toHaveAttribute('type', 'password');
+    await expect(page.locator('#admPasskeyLogin')).toBeVisible();
+    // El servidor de pruebas no tiene cliente de Google: su botón no se ofrece.
+    await expect(page.locator('#admGoogleLogin')).toBeHidden();
+  });
+
+  test('el dueño crea su contraseña con la frase de activación y el panel pide el código', async ({
+    page,
+  }) => {
+    await page.goto(ADMIN_PATH);
+    await page.locator('#admFirstTime summary').click();
+    await page.locator('#admSetupCode').fill('frase-equivocada-de-veinte-caracteres');
+    await page.locator('#admNewPassword').fill('Contraseña-del-dueño-e2e-1');
+    await page.locator('#admNewPassword2').fill('Contraseña-del-dueño-e2e-1');
+    await page.locator('#admPasswordSetupBtn').click();
+    await expect(page.locator('#admMessage')).toContainText('Frase de activación incorrecta');
+    await page.locator('#admSetupCode').fill('frase-de-activacion-e2e-del-dueno');
+    await page.locator('#admPasswordSetupBtn').click();
+    // Contraseña creada: el segundo paso (app autenticadora) es obligatorio antes del panel.
+    await expect(page.locator('#admMfaSetup')).toBeVisible();
+    await expect(page.locator('#admApp')).toBeHidden();
+
+    await page.locator('#admLogout').click();
+    await page.locator('#admEmail').fill('operador@example.com');
+    await page.locator('#admPassword').fill('contraseña-incorrecta');
+    await page.locator('#admPasswordForm button[type="submit"]').click();
+    await expect(page.locator('#admMessage')).toHaveText('Correo o contraseña incorrectos.');
+    await page.locator('#admPassword').fill('Contraseña-del-dueño-e2e-1');
+    await page.locator('#admPasswordForm button[type="submit"]').click();
+    await expect(page.locator('#admMfaSetup')).toBeVisible();
+  });
+
+  test('el dueño activa su huella y entra al panel con ella', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'el autenticador virtual es de Chrome DevTools (CDP)');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    // WebAuthn exige un dominio: esta prueba usa localhost (el resto de la suite, 127.0.0.1).
+    await page.goto(`http://localhost:4173${ADMIN_PATH}`);
+    await page.locator('#admFirstTime summary').click();
+    await page.locator('#admSetupCode').fill('frase-de-activacion-e2e-del-dueno');
+    await page.locator('#admPasskeySetupBtn').click();
+    await expect(page.locator('#admApp')).toBeVisible();
+    await page.locator('#admLogout').click();
+    await expect(page.locator('#admLogin')).toBeVisible();
+    await page.locator('#admPasskeyLogin').click();
+    await expect(page.locator('#admApp')).toBeVisible();
+    await expect(page.locator('#admPasskeyAdd')).toBeVisible();
   });
 
   test('el dueño pasa a ver la tienda como cliente y vuelve al panel autenticándose', async ({

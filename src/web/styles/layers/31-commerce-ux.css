@@ -84,14 +84,9 @@
   color: #b9f5dc;
 }
 
-/* Tres accesos: Google ocupa la fila completa en el formato de dos columnas. Con dos o uno
-   (solo se muestran los configurados) cada botón ocupa su celda o la fila entera. */
-.oauth-grid .oauth-btn.google,
-.oauth-grid[data-count='1'] .oauth-btn {
+/* Tres accesos: Google ocupa la fila completa en el formato de dos columnas. */
+.oauth-grid .oauth-btn.google {
   grid-column: 1 / -1;
-}
-.oauth-grid[data-count='2'] .oauth-btn.google {
-  grid-column: auto;
 }
 
 /* Cabecera de escritorio: el menú no se recorta (con un nombre de cuenta largo "Soporte"

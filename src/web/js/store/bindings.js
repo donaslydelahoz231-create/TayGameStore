@@ -18,7 +18,6 @@ import {
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderPromo, weekendPromo } from './features/promo.js';
-import { createPasskey, loginWithPasskey } from './features/passkey.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
@@ -127,15 +126,6 @@ function bindEntryAndAccount() {
     e.stopPropagation();
     if (state.session) openAccountMenu();
     else modal('loginModal', true);
-  };
-  $('passkeyLoginBtn').onclick = loginWithPasskey;
-  $('passkeyCreateBtn').onclick = createPasskey;
-  $('passkeyName').onkeydown = (e) => {
-    if (e.key === 'Enter') createPasskey();
-  };
-  $('menuPasskey').onclick = () => {
-    closeMenus();
-    createPasskey();
   };
   $('guestBtn').onclick = () => {
     state.session = null;

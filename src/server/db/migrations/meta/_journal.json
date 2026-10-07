@@ -78,6 +78,20 @@
       "when": 1791324982745,
       "tag": "0010_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791325689662,
+      "tag": "0011_admin_passkeys",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791339005352,
+      "tag": "0012_admin_password",
+      "breakpoints": true
     }
   ]
 }

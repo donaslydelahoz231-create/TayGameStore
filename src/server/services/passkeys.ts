@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -12,26 +11,32 @@ import {
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 import { and, count, eq, gt, lt } from 'drizzle-orm';
 import { passkeys, users, webauthnChallenges } from '../db/schema.js';
-import { randomToken, sha256 } from '../lib/crypto.js';
+import { randomToken, safeEqual, sha256 } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
-import { toAuthUser, type AuthUser } from './auth.js';
+import { isAllowlistedAdmin, toAuthUser, type AuthUser } from './auth.js';
 import { isUniqueViolation } from './orders.js';
 import { audit, type Actor, type ServiceDeps } from './context.js';
 
 /**
- * Llaves de acceso (passkeys, estándar WebAuthn) para clientes: la cuenta se crea y se abre con
- * la huella, el rostro o el PIN del dispositivo. La tienda solo guarda la clave pública; no hay
- * contraseña que filtrar ni proveedor externo que configurar.
+ * Huella o llave de acceso (passkeys, estándar WebAuthn) del ADMINISTRADOR. No se ofrece al
+ * público: los clientes compran como invitados (o con Google/Facebook/Discord si se activan).
  *
- * Seguridad:
- * - Cada operación usa un reto de un solo uso (5 min) ligado a una cookie del navegador.
- * - El servidor comprueba origen y dominio exactos (config.passkey) y el contador de firmas.
- * - Una llave nunca da acceso de administración (el panel sigue exigiendo Google + TOTP).
+ * - Activación: la primera llave se registra en el panel con ADMIN_SETUP_CODE (frase que solo
+ *   conoce el dueño, escrita en el hosting). Cuando ya existe una, la frase deja de servir.
+ * - Entrar: el dispositivo firma un reto con verificación del usuario (huella, rostro o PIN):
+ *   posesión + biometría/PIN, por eso la sesión cuenta como verificada en dos pasos.
+ * - Otra llave (otro equipo): solo desde una sesión de administrador ya abierta.
+ *
+ * Seguridad: retos de un solo uso (5 min) ligados a cookie; origen y dominio exactos; contador
+ * de firmas (detecta llaves clonadas); la cuenta debe seguir en ADMIN_EMAILS en cada uso.
  */
 
 const RP_NAME = 'TayGameStore';
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const MAX_PASSKEYS_PER_USER = 10;
+const OWNER_NAME = 'Dueño de TayGameStore';
+
+type Purpose = 'setup' | 'register' | 'login';
 
 const invalid = () =>
   new AppError(
@@ -45,22 +50,18 @@ const expired = () =>
     400,
     'La solicitud de llave de acceso venció. Inténtalo de nuevo.',
   );
+/** Para quien no es el dueño, la activación no existe (misma respuesta que una ruta inexistente). */
+const hidden = () => new AppError('NOT_FOUND', 404, 'Recurso no encontrado.');
 
 function requireRp(deps: ServiceDeps) {
   const rp = deps.config.passkey;
-  if (!rp) throw new AppError('NOT_FOUND', 404, 'Recurso no encontrado.');
+  if (!rp || !deps.config.adminEmails.length) throw hidden();
   return rp;
 }
 
 async function storeChallenge(
   deps: ServiceDeps,
-  values: {
-    challenge: string;
-    purpose: 'register' | 'login';
-    userId?: string | undefined;
-    webauthnUserId?: string | undefined;
-    displayName?: string | null | undefined;
-  },
+  values: { challenge: string; purpose: Purpose; userId?: string | undefined },
 ): Promise<string> {
   const token = randomToken();
   const now = deps.now();
@@ -71,18 +72,12 @@ async function storeChallenge(
     challenge: values.challenge,
     purpose: values.purpose,
     userId: values.userId ?? null,
-    webauthnUserId: values.webauthnUserId ?? null,
-    displayName: values.displayName ?? null,
     expiresAt: new Date(now.getTime() + CHALLENGE_TTL_MS),
   });
   return token;
 }
 
-async function consumeChallenge(
-  deps: ServiceDeps,
-  token: string | undefined,
-  purpose: 'register' | 'login',
-) {
+async function consumeChallenge(deps: ServiceDeps, token: string | undefined, purpose: Purpose) {
   if (!token) throw expired();
   const [row] = await deps.db
     .delete(webauthnChallenges)
@@ -99,73 +94,106 @@ async function consumeChallenge(
 
 const transportsOf = (value: string | null) => (value ? value.split(',') : undefined);
 
-// ── Registro ─────────────────────────────────────────────────────────────────
+/** Cuenta de administrador del dueño (primer correo de ADMIN_EMAILS); se crea si no existe. */
+export async function ownerAccount(deps: ServiceDeps) {
+  const email = deps.config.adminEmails[0];
+  if (!email) throw hidden();
+  const [existing] = await deps.db
+    .select()
+    .from(users)
+    .where(and(eq(users.email, email), eq(users.role, 'admin')))
+    .limit(1);
+  if (existing) return existing;
+  const [created] = await deps.db
+    .insert(users)
+    .values({ email, emailVerified: false, name: OWNER_NAME, role: 'admin' })
+    .returning();
+  if (!created) throw new Error('no se creó la cuenta del dueño');
+  return created;
+}
 
-/**
- * Opciones para crear una llave. Sin `userId` se prepara una cuenta nueva; con `userId`
- * (sesión de cliente abierta) se añade una llave más a esa cuenta.
- */
-export async function beginPasskeyRegistration(
+async function passkeysOf(deps: ServiceDeps, userId: string) {
+  return deps.db
+    .select({ credentialId: passkeys.credentialId, transports: passkeys.transports })
+    .from(passkeys)
+    .where(eq(passkeys.userId, userId));
+}
+
+async function registrationOptions(
   deps: ServiceDeps,
-  input: { userId?: string | undefined; displayName: string | null },
-): Promise<{ token: string; options: PublicKeyCredentialCreationOptionsJSON }> {
+  user: { id: string; email: string | null; name: string | null },
+  purpose: 'setup' | 'register',
+) {
   const rp = requireRp(deps);
-  let existing: { credentialId: string; transports: string | null }[] = [];
-  let label = input.displayName;
-  if (input.userId) {
-    existing = await deps.db
-      .select({ credentialId: passkeys.credentialId, transports: passkeys.transports })
-      .from(passkeys)
-      .where(eq(passkeys.userId, input.userId));
-    if (existing.length >= MAX_PASSKEYS_PER_USER) {
-      throw new AppError('LIMIT_EXCEEDED', 429, 'Esta cuenta ya tiene el máximo de llaves.');
-    }
-    const [user] = await deps.db
-      .select({ name: users.name })
-      .from(users)
-      .where(eq(users.id, input.userId));
-    label = user?.name ?? label;
+  const existing = await passkeysOf(deps, user.id);
+  if (existing.length >= MAX_PASSKEYS_PER_USER) {
+    throw new AppError('LIMIT_EXCEEDED', 429, 'Esta cuenta ya tiene el máximo de llaves.');
   }
-  // El id WebAuthn de una cuenta nueva es el id que tendrá el usuario en la tienda.
-  const webauthnUserId = input.userId ?? randomUUID();
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: rp.rpId,
-    userName: label ?? 'Cliente TayGameStore',
-    userDisplayName: label ?? 'Cliente TayGameStore',
-    userID: new TextEncoder().encode(webauthnUserId),
+    userName: user.email ?? OWNER_NAME,
+    userDisplayName: user.name ?? OWNER_NAME,
+    userID: new TextEncoder().encode(user.id),
     attestationType: 'none',
     excludeCredentials: existing.map((p) => ({
       id: p.credentialId,
       transports: transportsOf(p.transports),
     })),
-    // Llave guardada en el dispositivo (sirve para entrar sin escribir nada).
-    authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+    // Llave guardada en el dispositivo y con huella, rostro o PIN obligatorios.
+    authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
     timeout: 120_000,
   });
   const token = await storeChallenge(deps, {
     challenge: options.challenge,
-    purpose: 'register',
-    userId: input.userId,
-    webauthnUserId,
-    displayName: input.displayName,
+    purpose,
+    userId: user.id,
   });
   return { token, options };
 }
 
-export async function finishPasskeyRegistration(
+// ── Activación inicial (frase del dueño) ─────────────────────────────────────
+
+export async function beginAdminPasskeySetup(
+  deps: ServiceDeps,
+  code: string,
+): Promise<{ token: string; options: PublicKeyCredentialCreationOptionsJSON }> {
+  requireRp(deps);
+  const expected = deps.config.adminSetupCode;
+  if (!expected || !safeEqual(code, expected)) throw hidden();
+  const owner = await ownerAccount(deps);
+  // Con una llave ya registrada, la frase deja de servir: las demás se añaden con sesión.
+  const [row] = await deps.db
+    .select({ n: count() })
+    .from(passkeys)
+    .where(eq(passkeys.userId, owner.id));
+  if ((row?.n ?? 0) > 0) throw hidden();
+  return registrationOptions(deps, owner, 'setup');
+}
+
+/** Otra llave (otro equipo) para el administrador con sesión abierta. */
+export async function beginAdminPasskeyRegistration(
+  deps: ServiceDeps,
+  admin: AuthUser,
+): Promise<{ token: string; options: PublicKeyCredentialCreationOptionsJSON }> {
+  return registrationOptions(deps, admin, 'register');
+}
+
+export async function finishAdminPasskeyRegistration(
   deps: ServiceDeps,
   input: {
     token: string | undefined;
     response: RegistrationResponseJSON;
-    sessionUserId: string | undefined;
+    /** Administrador con sesión (para añadir una llave); vacío en la activación inicial. */
+    adminUserId: string | undefined;
   },
   actor: Actor,
 ): Promise<AuthUser> {
   const rp = requireRp(deps);
-  const challenge = await consumeChallenge(deps, input.token, 'register');
-  // Añadir una llave a una cuenta exige seguir con la sesión de esa misma cuenta.
-  if (challenge.userId && challenge.userId !== input.sessionUserId) {
+  const purpose = input.adminUserId ? 'register' : 'setup';
+  const challenge = await consumeChallenge(deps, input.token, purpose);
+  if (!challenge.userId) throw invalid();
+  if (purpose === 'register' && challenge.userId !== input.adminUserId) {
     throw new AppError('FORBIDDEN', 403, 'Inicia sesión de nuevo para añadir la llave.');
   }
   let verification;
@@ -175,77 +203,66 @@ export async function finishPasskeyRegistration(
       expectedChallenge: challenge.challenge,
       expectedOrigin: rp.origin,
       expectedRPID: rp.rpId,
-      requireUserVerification: false,
+      requireUserVerification: true,
     });
   } catch {
     throw invalid();
   }
   if (!verification.verified) throw invalid();
   const info = verification.registrationInfo;
-  const now = deps.now();
+  const userId = challenge.userId;
   try {
-    const userId = await deps.db.transaction(async (tx) => {
-      let id = challenge.userId;
-      if (!id) {
-        if (!challenge.webauthnUserId) throw invalid();
-        const [created] = await tx
-          .insert(users)
-          .values({
-            id: challenge.webauthnUserId,
-            googleSub: null,
-            email: null,
-            emailVerified: false,
-            name: challenge.displayName,
-            role: 'customer',
-            lastLoginAt: now,
-          })
-          .returning({ id: users.id });
-        if (!created) throw new Error('no se creó el usuario');
-        id = created.id;
+    await deps.db.transaction(async (tx) => {
+      if (purpose === 'setup') {
+        // Dos activaciones a la vez: solo la primera llave se acepta.
+        const [row] = await tx
+          .select({ n: count() })
+          .from(passkeys)
+          .where(eq(passkeys.userId, userId));
+        if ((row?.n ?? 0) > 0) throw hidden();
       }
       await tx.insert(passkeys).values({
-        userId: id,
+        userId,
         credentialId: info.credential.id,
         publicKey: isoBase64URL.fromBuffer(info.credential.publicKey),
         counter: info.credential.counter,
         transports: info.credential.transports?.join(',') ?? null,
         deviceType: info.credentialDeviceType,
         backedUp: info.credentialBackedUp,
-        lastUsedAt: now,
+        lastUsedAt: deps.now(),
       });
       await audit(tx, actor, {
         entityType: 'user',
-        entityId: id,
-        action: challenge.userId ? 'customer.passkey_added' : 'customer.passkey_signup',
+        entityId: userId,
+        action: purpose === 'setup' ? 'admin.passkey_setup' : 'admin.passkey_added',
       });
-      return id;
     });
-    return await activeUser(deps, userId);
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError('CONFLICT', 409, 'Esa llave de acceso ya está registrada.');
     }
     throw error;
   }
+  return activeAdmin(deps, userId);
 }
 
-// ── Inicio de sesión ─────────────────────────────────────────────────────────
+// ── Entrar ───────────────────────────────────────────────────────────────────
 
 /** Opciones para entrar: el dispositivo ofrece las llaves que tenga para esta tienda. */
-export async function beginPasskeyLogin(
+export async function beginAdminPasskeyLogin(
   deps: ServiceDeps,
 ): Promise<{ token: string; options: PublicKeyCredentialRequestOptionsJSON }> {
   const rp = requireRp(deps);
   const options = await generateAuthenticationOptions({
     rpID: rp.rpId,
-    userVerification: 'preferred',
+    userVerification: 'required',
     timeout: 120_000,
   });
   const token = await storeChallenge(deps, { challenge: options.challenge, purpose: 'login' });
   return { token, options };
 }
 
-export async function finishPasskeyLogin(
+export async function finishAdminPasskeyLogin(
   deps: ServiceDeps,
   input: { token: string | undefined; response: AuthenticationResponseJSON },
   actor: Actor,
@@ -270,41 +287,32 @@ export async function finishPasskeyLogin(
         counter: stored.counter,
         transports: transportsOf(stored.transports),
       },
-      requireUserVerification: false,
+      requireUserVerification: true,
     });
   } catch {
     // Incluye un contador de firmas que no avanza: posible llave clonada.
     throw invalid();
   }
   if (!verification.verified) throw invalid();
-  const user = await activeUser(deps, stored.userId);
+  const admin = await activeAdmin(deps, stored.userId);
   const now = deps.now();
   await deps.db
     .update(passkeys)
     .set({ counter: verification.authenticationInfo.newCounter, lastUsedAt: now })
     .where(eq(passkeys.id, stored.id));
-  await deps.db.update(users).set({ lastLoginAt: now }).where(eq(users.id, user.id));
+  await deps.db.update(users).set({ lastLoginAt: now }).where(eq(users.id, admin.id));
   await audit(deps.db, actor, {
     entityType: 'user',
-    entityId: user.id,
-    action: 'customer.passkey_login',
+    entityId: admin.id,
+    action: 'admin.passkey_login',
   });
-  return user;
+  return admin;
 }
 
-export async function countPasskeys(deps: ServiceDeps, userId: string): Promise<number> {
-  const [row] = await deps.db
-    .select({ n: count() })
-    .from(passkeys)
-    .where(eq(passkeys.userId, userId));
-  return row?.n ?? 0;
-}
-
-async function activeUser(deps: ServiceDeps, userId: string): Promise<AuthUser> {
+/** La llave solo abre el panel si la cuenta sigue siendo administradora y está en la lista. */
+async function activeAdmin(deps: ServiceDeps, userId: string): Promise<AuthUser> {
   const [user] = await deps.db.select().from(users).where(eq(users.id, userId));
-  if (!user) throw invalid();
-  if (user.status !== 'active') {
-    throw new AppError('FORBIDDEN', 403, 'Esta cuenta está deshabilitada.');
-  }
+  if (!user || user.status !== 'active' || user.role !== 'admin') throw invalid();
+  if (!isAllowlistedAdmin(deps, user.email)) throw invalid();
   return toAuthUser(user);
 }

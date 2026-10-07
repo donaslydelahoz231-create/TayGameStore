@@ -1,5 +1,10 @@
 // Panel de administración de TayGameStore. Toda la autorización ocurre en el servidor:
 // ocultar o mostrar un botón aquí no concede ningún permiso.
+import {
+  browserSupportsWebAuthn,
+  startAuthentication,
+  startRegistration,
+} from '@simplewebauthn/browser';
 import { api, ApiError, errorMessage } from './js/store/api.js';
 import { $, esc } from './js/store/dom.js';
 import { money } from './js/store/format.js';
@@ -79,6 +84,8 @@ async function run(action, success) {
 async function showPaymentsMode() {
   try {
     const cfg = await api('/api/config');
+    // Google solo se ofrece si el servidor lo tiene configurado.
+    $('admGoogleLogin').hidden = !cfg.auth?.google;
     const mode = $('admMode');
     if (!cfg.paymentsMode) return;
     mode.hidden = false;
@@ -102,10 +109,11 @@ async function boot() {
   }
   $('admLogout').hidden = !me.authenticated;
   $('admAsCustomer').hidden = !(me.admin && me.admin.mfaVerified);
+  $('admPasskeyAdd').hidden = !(me.admin && me.admin.mfaVerified && passkeySupported());
   $('admWho').textContent = me.authenticated ? me.user.email : 'Sin sesión';
   if (!me.authenticated || !me.admin) return show('admLogin');
-  if (!me.admin.mfaEnabled) return show('admMfaSetup');
-  if (!me.admin.mfaVerified) return show('admMfaVerify');
+  // Entrar con huella o llave ya es verificación en dos pasos (dispositivo + huella/PIN).
+  if (!me.admin.mfaVerified) return show(me.admin.mfaEnabled ? 'admMfaVerify' : 'admMfaSetup');
   show('admApp');
   updateNotifyButton();
   await loadOrdersTab();
@@ -116,6 +124,126 @@ $('admAsCustomer').onclick = async () => {
   const done = await run(() => api('/api/admin/sesion/cliente', { method: 'POST' }));
   if (done) location.assign(done.redirect || '/');
 };
+
+// ── Huella o llave de acceso (solo administrador) ──
+
+function passkeySupported() {
+  try {
+    return browserSupportsWebAuthn();
+  } catch {
+    return false;
+  }
+}
+
+/** Cancelar en el diálogo del sistema no es un error. */
+const cancelled = (err) => err && (err.name === 'NotAllowedError' || err.name === 'AbortError');
+
+async function passkeyRun(task, success) {
+  if (!passkeySupported()) {
+    message('Este navegador no admite huella o llave de acceso.', 'bad');
+    return;
+  }
+  try {
+    await task();
+    if (success) message(success, 'good');
+  } catch (err) {
+    if (cancelled(err)) return message('Operación cancelada.', '');
+    if (err?.name === 'InvalidStateError') {
+      return message('Este dispositivo ya tiene una llave de esta cuenta.', 'bad');
+    }
+    // Frase incorrecta o huella ya activada: el servidor responde como si no existiera (404).
+    if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+      return message('Frase de activación incorrecta, o la huella ya estaba activada.', 'bad');
+    }
+    message(errorMessage(err, 'No se pudo usar la llave de acceso.'), 'bad');
+  }
+}
+
+$('admPasskeyLogin').onclick = () =>
+  passkeyRun(async () => {
+    const { options } = await api('/api/auth/admin/passkey/login/options', {
+      method: 'POST',
+      body: {},
+    });
+    const response = await startAuthentication({ optionsJSON: options });
+    await api('/api/auth/admin/passkey/login/verify', { method: 'POST', body: { response } });
+    await boot();
+  });
+
+$('admPasswordForm').onsubmit = (e) => {
+  e.preventDefault();
+  run(async () => {
+    await api('/api/auth/admin/password/login', {
+      method: 'POST',
+      body: { email: $('admEmail').value.trim(), password: $('admPassword').value },
+    });
+    $('admPassword').value = '';
+    await boot();
+  });
+};
+
+$('admPasswordSetupBtn').onclick = () => {
+  const password = $('admNewPassword').value;
+  if (password.length < 12)
+    return message('La contraseña debe tener al menos 12 caracteres.', 'bad');
+  if (password !== $('admNewPassword2').value) {
+    return message('Las contraseñas no coinciden.', 'bad');
+  }
+  run(async () => {
+    try {
+      await api('/api/auth/admin/password/setup', {
+        method: 'POST',
+        body: { code: $('admSetupCode').value, password },
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+        throw new ApiError(
+          'SETUP_REJECTED',
+          'Frase de activación incorrecta, o la contraseña ya estaba creada.',
+        );
+      }
+      throw err;
+    }
+    $('admNewPassword').value = '';
+    $('admNewPassword2').value = '';
+    await boot();
+  }, 'Contraseña creada. Ahora configura el código de tu app autenticadora.');
+};
+
+$('admChangePassword').onsubmit = (e) => {
+  e.preventDefault();
+  run(async () => {
+    await call('/api/admin/password', {
+      method: 'POST',
+      body: { current: $('admCurrentPassword').value, password: $('admNextPassword').value },
+    });
+    $('admCurrentPassword').value = '';
+    $('admNextPassword').value = '';
+  }, 'Contraseña cambiada.');
+};
+
+$('admPasskeySetupBtn').onclick = () =>
+  passkeyRun(async () => {
+    const code = $('admSetupCode').value;
+    const { options } = await api('/api/auth/admin/passkey/setup/options', {
+      method: 'POST',
+      body: { code },
+    });
+    const response = await startRegistration({ optionsJSON: options });
+    await api('/api/auth/admin/passkey/register/verify', { method: 'POST', body: { response } });
+    $('admSetupCode').value = '';
+    await boot();
+  }, 'Huella activada. La próxima vez entra con «Entrar con huella o llave».');
+
+$('admPasskeyAdd').onclick = () =>
+  passkeyRun(async () => {
+    const { options } = await api('/api/auth/admin/passkey/add/options', {
+      method: 'POST',
+      body: {},
+    });
+    const response = await startRegistration({ optionsJSON: options });
+    await api('/api/auth/admin/passkey/register/verify', { method: 'POST', body: { response } });
+  }, 'Huella de este equipo añadida.');
 
 $('admLogout').onclick = async () => {
   await run(() => api('/api/auth/logout', { method: 'POST' }));

@@ -93,6 +93,9 @@ export const users = pgTable(
     /** Secreto TOTP cifrado (AES-256-GCM) con prefijo de versión de clave. */
     mfaSecretEnc: text('mfa_secret_enc'),
     mfaEnabledAt: timestamp('mfa_enabled_at', { withTimezone: true }),
+    /** Solo administradores: contraseña con scrypt (`scrypt$N$r$p$sal$hash`); nunca en claro. */
+    passwordHash: text('password_hash'),
+    passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -189,8 +192,8 @@ export const userIdentities = pgTable(
 );
 
 /**
- * Llaves de acceso (passkeys, WebAuthn) de clientes: huella, rostro o PIN del dispositivo, sin
- * contraseña ni proveedor externo. Solo se guarda la clave PÚBLICA de cada credencial.
+ * Llaves de acceso (passkeys, WebAuthn) del ADMINISTRADOR: huella, rostro o PIN del dispositivo,
+ * sin contraseña ni proveedor externo. Solo se guarda la clave PÚBLICA de cada credencial.
  */
 export const passkeys = pgTable(
   'passkeys',
@@ -226,7 +229,7 @@ export const webauthnChallenges = pgTable(
     idHash: text('id_hash').primaryKey(),
     challenge: text('challenge').notNull(),
     purpose: text('purpose').notNull(),
-    /** Registro de una llave más para una cuenta con sesión abierta. */
+    /** Cuenta a la que se añade la llave (activación inicial o sesión de administrador). */
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
     /** Id WebAuthn (base64url) de la cuenta nueva que se está creando. */
     webauthnUserId: text('webauthn_user_id'),
@@ -239,7 +242,7 @@ export const webauthnChallenges = pgTable(
       .on(t.userId)
       .where(sql`${t.userId} is not null`),
     index('webauthn_challenges_expires_idx').on(t.expiresAt),
-    check('webauthn_challenges_purpose_check', inList('purpose', ['register', 'login'])),
+    check('webauthn_challenges_purpose_check', inList('purpose', ['setup', 'register', 'login'])),
   ],
 );
 

@@ -156,6 +156,11 @@ const envSchema = z
       .string()
       .regex(/^\/[A-Za-z0-9_-]{12,64}$/, '"/" seguido de 12 a 64 letras, números, "-" o "_"')
       .optional(),
+    /**
+     * Frase de activación (solo la conoce el dueño) para registrar la PRIMERA huella o llave de
+     * administrador en el panel. Cuando ya hay una registrada deja de servir.
+     */
+    ADMIN_SETUP_CODE: z.string().min(20).max(200).optional(),
 
     MP_ACCESS_TOKEN: z.string().min(10).optional(),
     MP_WEBHOOK_SECRET: z.string().min(10).optional(),
@@ -265,8 +270,17 @@ const envSchema = z
     if (Boolean(env.GOOGLE_CLIENT_ID) !== Boolean(env.GOOGLE_CLIENT_SECRET)) {
       issue('GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET van juntos');
     }
-    if (env.ADMIN_EMAILS.length && !env.GOOGLE_CLIENT_ID) {
-      issue('ADMIN_EMAILS', 'el acceso de administración requiere Google OAuth configurado');
+    // El dueño entra con Google o con su huella/llave (WebAuthn, que exige dirección pública).
+    if (
+      env.ADMIN_EMAILS.length &&
+      !env.GOOGLE_CLIENT_ID &&
+      !env.PUBLIC_BASE_URL &&
+      !env.PASSKEY_ORIGIN
+    ) {
+      issue(
+        'ADMIN_EMAILS',
+        'el acceso de administración requiere Google OAuth o PUBLIC_BASE_URL (huella/llave)',
+      );
     }
     if (env.PAYMENTS_ENABLED) {
       if (!env.MP_ACCESS_TOKEN) issue('MP_ACCESS_TOKEN', 'obligatoria con PAYMENTS_ENABLED');
@@ -352,6 +366,7 @@ export interface AppConfig {
   adminEmails: readonly string[];
   /** Ruta del panel. Sin ADMIN_PATH (desarrollo y pruebas) es /admin.html. */
   adminPath: string;
+  adminSetupCode: string | undefined;
   mercadoPago:
     | {
         accessToken: string;
@@ -504,6 +519,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         : undefined,
     adminEmails: env.ADMIN_EMAILS,
     adminPath: env.ADMIN_PATH ?? '/admin.html',
+    adminSetupCode: env.ADMIN_SETUP_CODE,
     mercadoPago:
       env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET
         ? {

@@ -1,0 +1,2 @@
+ALTER TABLE "webauthn_challenges" DROP CONSTRAINT "webauthn_challenges_purpose_check";--> statement-breakpoint
+ALTER TABLE "webauthn_challenges" ADD CONSTRAINT "webauthn_challenges_purpose_check" CHECK (purpose in ('setup', 'register', 'login'));

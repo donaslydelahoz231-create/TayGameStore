@@ -11,18 +11,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   autorizada, cifrados y sin duplicados; al empezar la entrega de un pedido pagado se reserva
   el más antiguo por unidad, al entregarlo queda usado; liberar/anular, alerta de stock bajo y
   costo por PIN. Procedimiento completo: `docs/procedimiento-diamantes.md`.
-- Llaves de acceso (passkeys, WebAuthn): los clientes crean su cuenta y entran con la huella,
-  el rostro o el PIN del dispositivo, sin contraseña ni credenciales de terceros. Solo se guarda
-  la clave pública; retos de un solo uso, origen exacto, contador anti-clonado, CSRF y límite
-  por IP. Nunca dan acceso de administración. Guía: `docs/acceso-clientes.md`.
+- Acceso del dueño sin Google (`docs/acceso-administrador.md`): contraseña propia creada con
+  la frase `ADMIN_SETUP_CODE` (scrypt, bloqueo tras 5 fallos) + código de la app autenticadora,
+  o huella/llave de acceso (WebAuthn) que ya es de dos pasos. Cambiar contraseña y añadir otra
+  huella desde el panel. Nada de esto se muestra al público.
 - Promo de fin de semana automática (`PROMO_SCHEDULE=weekends`, por defecto): el precio
   promocional rige de sábado 00:00 a domingo 23:59, hora de Colombia, en el catálogo y en lo que
   cobra el servidor. «Radar promo» muestra el horario en hora de Colombia, del visitante y UTC.
 - Comprobante de pago por correo: al confirmarse el pago el cliente recibe «Comprobante de pago ·
   Pedido …» con código, fecha y operación de Mercado Pago, jugador, detalle con precio unitario,
   descuento y total (aclara que no reemplaza una factura electrónica).
-- Acceso: la ventana de inicio de sesión muestra solo los accesos configurados en el servidor;
-  si no hay ninguno, «Continuar como invitado» pasa a ser el botón principal.
 - Textos legales configurables: los datos del vendedor (`LEGAL_*`), los canales de soporte y la
   versión se ponen en `/terminos.html` y `/privacidad.html` al servirlas, sin guardarlos en Git.
   `golive:check` y el arranque dicen exactamente qué variable falta.
@@ -51,6 +49,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Panel: los botones ocultos («Cerrar sesión», «Ver tienda como cliente»…) se mostraban a
+  quien no tenía sesión porque el estilo del botón anulaba `hidden`.
 - Seguimiento del pedido: una consulta automática que llegaba tarde (red lenta) podía volver a
   mostrar «Confirma tu cuenta» justo después de que el cliente confirmaba; ahora una respuesta
   anterior a un cambio se descarta (prueba que reproduce la carrera).

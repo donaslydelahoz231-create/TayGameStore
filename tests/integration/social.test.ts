@@ -251,6 +251,6 @@ describe('vinculación de cuentas', () => {
     const config = (await inject({ method: 'GET', url: '/api/config' })).json<{
       auth: Record<string, boolean>;
     }>();
-    expect(config.auth).toEqual({ google: true, discord: true, facebook: true, passkey: true });
+    expect(config.auth).toEqual({ google: true, discord: true, facebook: true });
   });
 });

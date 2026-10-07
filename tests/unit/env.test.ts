@@ -139,13 +139,22 @@ describe('loadConfig', () => {
     ).toEqual({ rpId: 'tienda.example', origin: 'https://www.tienda.example' });
   });
 
-  it('Google OAuth: id y secreto juntos; ADMIN_EMAILS requiere Google', () => {
+  it('Google OAuth: id y secreto juntos; ADMIN_EMAILS requiere Google o huella/contraseña', () => {
     expect(configError({ GOOGLE_CLIENT_ID: 'id-de-cliente-google' }).issues.join()).toContain(
       'GOOGLE_CLIENT_SECRET',
     );
     expect(configError({ ADMIN_EMAILS: 'admin@example.com' }).issues.join()).toContain(
       'ADMIN_EMAILS',
     );
+    // Sin Google, el dueño entra con contraseña + código o con su huella (dirección pública).
+    expect(
+      loadConfig({
+        ADMIN_EMAILS: 'taygamerstore@gmail.com',
+        PUBLIC_BASE_URL: 'https://taygamestore.onrender.com',
+        ADMIN_SETUP_CODE: 'frase-larga-de-activacion-del-dueno',
+      }).adminSetupCode,
+    ).toBe('frase-larga-de-activacion-del-dueno');
+    expect(configError({ ADMIN_SETUP_CODE: 'corta' }).issues.join()).toContain('ADMIN_SETUP_CODE');
     const config = loadConfig({
       GOOGLE_CLIENT_ID: 'id-de-cliente-google',
       GOOGLE_CLIENT_SECRET: 'secreto-de-google',
