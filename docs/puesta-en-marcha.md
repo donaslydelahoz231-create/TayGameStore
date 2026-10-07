@@ -56,22 +56,20 @@ Usa la cuenta de la tienda (la de `SUPPORT_EMAIL`), no una personal.
 
 Las tres primeras van juntas: con una sola, el servidor no arranca y lo dice en el registro.
 
-## 4. n8n: avisos por correo y eventos de pedidos
+## 4. n8n: avisos por correo
 
-En `taygamestore.app.n8n.cloud` → **Credentials** → **Add credential**:
+Los eventos de pedidos ya están conectados: `EVENTS_WEBHOOK_URL` y `EVENTS_WEBHOOK_SECRET` están en
+Render y el flujo **Pedidos** está publicado (reconoce la llave por su huella; no necesita
+credencial). Falta solo el correo:
 
-1. **Gmail · taygamerstore** — tipo *Gmail OAuth2* → **Sign in with Google** con la cuenta de la
-   tienda. Nunca escribas la contraseña de Gmail en n8n.
-2. **TayGameStore · Llave de eventos** — tipo *Header Auth*. Name: `Authorization`. Value:
-   `Bearer ` + una llave nueva de 32 caracteres o más.
-3. Render → **Environment**: `EVENTS_WEBHOOK_SECRET` = **esa misma llave** y
-   `EVENTS_WEBHOOK_URL` = `https://taygamestore.app.n8n.cloud/webhook/taygamestore-pedidos`
-   (las dos juntas).
-4. Opcional: **TayGameStore · Llave de tareas** (respaldo; la tienda ya ejecuta sus tareas sola)
+1. En `taygamestore.app.n8n.cloud` → **Credentials** → **Add credential** → **Gmail OAuth2** →
+   nombre **Gmail · taygamerstore** → **Sign in with Google** con la cuenta de la tienda. Nunca
+   escribas la contraseña de Gmail en n8n.
+2. Opcional: **TayGameStore · Llave de tareas** (respaldo; la tienda ya ejecuta sus tareas sola)
    con `Bearer ` + el valor de `CRON_SECRET` de Render.
 
-Cuando existan, avísame: conecto las credenciales a los nodos, activo el nodo de Gmail de
-**Vigilancia** y **Errores** y publico **Pedidos**. Detalle en [`n8n.md`](n8n.md).
+Cuando exista, avísame: activo los nodos de Gmail de **Pedidos**, **Vigilancia** y **Errores**.
+Detalle en [`n8n.md`](n8n.md).
 
 ## 5. Acceso con Google
 

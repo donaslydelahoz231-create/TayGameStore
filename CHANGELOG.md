@@ -24,6 +24,8 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Eventos de pedidos hacia n8n conectados en producción: el flujo Pedidos reconoce la llave por
+  su huella SHA-256 (la llave solo vive en Render) y está publicado.
 - Guía `docs/puesta-en-marcha.md`: los pasos que solo hace el dueño (rotar claves expuestas,
   webhook de Mercado Pago, SMTP, credenciales de n8n, Google OAuth, privacidad en GitHub, Neon) con
   el lugar exacto donde va cada credencial.

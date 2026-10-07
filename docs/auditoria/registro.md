@@ -91,3 +91,22 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   proyecto), guardia 27/27, escáner 0, typecheck y build correctos.
 - **NO VERIFICADO**: la tienda desde fuera (el proxy de esta sesión bloquea `onrender.com`), la
   base de datos en Neon (conector sin autorizar) y Mercado Pago (sin conector).
+
+### Eventos de pedidos hacia n8n conectados
+
+- **Autorizó**: el dueño («entonces hazlo por tu cuenta»; «sigue con Render», aprobando las
+  solicitudes de permiso para leer la llave y escribirla en Render).
+- **n8n · Pedidos** (`Nw7V66LLMhU18Hvb`): el webhook ya no usa credencial Header Auth; el nodo
+  **¿Llave correcta?** compara la huella SHA-256 de `Authorization` con la guardada (la llave en
+  claro no está en n8n). Llave incorrecta → error. Gmail desactivado hasta conectar su
+  credencial. Pruebas manuales 331 (llave ficticia correcta: pasa, sin escrituras) y 332 (llave
+  incorrecta: rechazada). Publicado (versión `c353ab30`).
+- **Render**: `EVENTS_WEBHOOK_URL` y `EVENTS_WEBHOOK_SECRET` (llave aleatoria de 256 bits creada
+  en la sesión, comprobada contra la huella antes de guardarla y borrada después con `shred`).
+  Despliegue `dep-db3719ajnfac738tqkmg` en `live` 16:18, arranque sin errores de configuración.
+- **Exposición**: la llave pasó una vez por los comandos de esta sesión (registro de la
+  conversación). Las ejecuciones de producción de n8n guardan los encabezados de la petición,
+  como con la credencial anterior. Si se sospecha filtración, se cambia en Render y su huella en
+  n8n.
+- **NO VERIFICADO**: un evento real de la tienda llegando a n8n (llegará con el próximo pedido; el
+  proxy de esta sesión bloquea `onrender.com` y `n8n.cloud`).

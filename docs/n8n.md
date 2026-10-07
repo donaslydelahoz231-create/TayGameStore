@@ -83,27 +83,36 @@ En n8n → **Credentials** → **Add credential**:
 
 1. **Gmail · taygamerstore** — tipo _Gmail OAuth2_ → **Sign in with Google** con
    `taygamerstore@gmail.com`. Nunca escribas la contraseña de Gmail en n8n.
-2. **TayGameStore · Llave de eventos** — tipo _Header Auth_. Name: `Authorization`. Value:
-   `Bearer ` seguido de `EVENTS_WEBHOOK_SECRET`.
-3. **TayGameStore · Llave de tareas** — tipo _Custom Auth_ con plantilla (la que pide el nodo).
+2. **TayGameStore · Llave de tareas** — tipo _Custom Auth_ con plantilla (la que pide el nodo).
    Encabezado `Authorization` con el valor `Bearer ` seguido de `CRON_SECRET`.
 
 Después:
 
-- **Pedidos**: elige las credenciales 1 y 2 en sus nodos → **Publish**.
-- **Tareas**: elige la credencial 3 → **Publish**.
+- **Pedidos**: ya publicado. Elige la credencial 1 en su nodo de Gmail, actívalo → **Publish**.
+- **Tareas**: elige la credencial 2 → **Publish**.
 - **Vigilancia** y **Errores**: elige la credencial 1 en el nodo de Gmail, actívalo (clic
   derecho → _Activate_) → **Publish**.
 
 > No publiques _Tareas_ sin la llave correcta: la tienda responde 404 a llaves equivocadas y su
 > escudo anti-abuso puede bloquear temporalmente a quien insiste.
 
+## Llave de eventos (Pedidos)
+
+Pedidos no usa una credencial de n8n: el nodo **¿Llave correcta?** compara la huella SHA-256 del
+encabezado `Authorization` con la huella guardada en el flujo. La llave en claro solo está en
+Render (`EVENTS_WEBHOOK_SECRET`); en n8n queda solo su huella, que no permite reconstruirla. Una
+llave incorrecta termina en error: la tienda reintenta y, si sigue fallando, lo muestra en
+**Avisos sin enviar**.
+
+Para cambiar la llave: genera una nueva en Render, calcula en tu equipo
+`printf 'Bearer %s' "<llave>" | sha256sum` y pon esa huella en el nodo **¿Llave correcta?**.
+
 ## Lado de la tienda (Render)
 
 | Variable | Valor |
 |---|---|
 | `EVENTS_WEBHOOK_URL` | `https://taygamestore.app.n8n.cloud/webhook/taygamestore-pedidos` (https obligatorio en producción) |
-| `EVENTS_WEBHOOK_SECRET` | llave aleatoria de 32+ caracteres (la misma de la credencial de eventos) |
+| `EVENTS_WEBHOOK_SECRET` | llave aleatoria de 32+ caracteres; solo vive en Render |
 | `CRON_SECRET` | la misma de la credencial de tareas |
 
 El evento que envía la tienda (`POST`, `Authorization: Bearer …`, `x-tgs-event-id`):
