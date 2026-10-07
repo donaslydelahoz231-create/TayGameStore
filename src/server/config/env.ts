@@ -114,6 +114,12 @@ const envSchema = z
     FULFILLMENT_ENABLED: z.stringbool().default(true),
     FULFILLMENT_MODE: z.enum(['manual']).default('manual'),
     JOBS_ENABLED: z.stringbool().optional(),
+    /**
+     * Modo reposo de las tareas: sin visitas a la API ni trabajo pendiente durante estos minutos,
+     * las tareas corren solo una vez por ese intervalo para que la base de datos (Neon) pueda
+     * suspenderse. 0 lo desactiva (tareas siempre cada 1-2 min).
+     */
+    JOBS_IDLE_MINUTES: z.coerce.number().int().min(0).max(240).default(30),
 
     ORDER_TOKEN_KEYS: keyringSchema(32),
     MFA_ENCRYPTION_KEYS: keyringSchema(32),
@@ -359,6 +365,7 @@ export interface AppConfig {
   serveWeb: boolean;
   webDistDir: string;
   jobsEnabled: boolean;
+  jobsIdleMinutes: number;
   flags: FeatureFlags;
   fulfillmentMode: 'manual';
   secrets: {
@@ -492,6 +499,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     serveWeb: env.SERVE_WEB ?? isProduction,
     webDistDir: env.WEB_DIST_DIR,
     jobsEnabled: env.JOBS_ENABLED ?? env.NODE_ENV !== 'test',
+    jobsIdleMinutes: env.JOBS_IDLE_MINUTES,
     flags: {
       maintenanceMode: env.MAINTENANCE_MODE,
       checkoutEnabled: env.CHECKOUT_ENABLED,

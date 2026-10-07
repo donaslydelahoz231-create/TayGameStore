@@ -1,6 +1,6 @@
 import { buildServer } from './bootstrap.js';
 import { ConfigError, loadConfig, type AppConfig } from './config/env.js';
-import { startScheduler, type Scheduler } from './services/jobs.js';
+import { isActivityRequest, startScheduler, type Scheduler } from './services/jobs.js';
 
 let config: AppConfig;
 try {
@@ -13,7 +13,14 @@ try {
 const { app, deps, database } = await buildServer(config);
 
 let scheduler: Scheduler | undefined;
-if (deps && config.jobsEnabled) scheduler = startScheduler(deps);
+if (deps && config.jobsEnabled) {
+  const jobs = startScheduler(deps, { idleMs: config.jobsIdleMinutes * 60_000 });
+  scheduler = jobs;
+  // Evento del servidor HTTP: ve todas las peticiones, antes de cualquier hook de Fastify.
+  app.server.on('request', (request: { url?: string }) => {
+    if (isActivityRequest(request.url)) jobs.markActivity();
+  });
+}
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 let shuttingDown = false;

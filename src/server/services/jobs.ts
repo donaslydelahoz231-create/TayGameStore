@@ -174,6 +174,20 @@ export async function runJob(deps: ServiceDeps, name: JobName): Promise<number |
 
 export interface Scheduler {
   stop(): void;
+  /** Hubo actividad de clientes: las tareas vuelven a su ritmo normal. */
+  markActivity(): void;
+}
+
+export interface SchedulerOptions {
+  /**
+   * Modo reposo: tras este tiempo sin actividad ni trabajo pendiente, cada tarea corre como mucho
+   * una vez por intervalo, para que la base de datos pueda suspenderse (Neon cobra por tiempo
+   * encendido). 0 lo desactiva.
+   */
+  idleMs?: number;
+  now?: () => number;
+  /** Para pruebas: ejecuta una tarea (por defecto, `runJob`). */
+  run?: (deps: ServiceDeps, name: JobName) => Promise<number | null>;
 }
 
 const SCHEDULE: [JobName, number][] = [
@@ -185,16 +199,30 @@ const SCHEDULE: [JobName, number][] = [
   ['sendNotifications', 60_000],
 ];
 
-export function startScheduler(deps: ServiceDeps): Scheduler {
+export function startScheduler(deps: ServiceDeps, options: SchedulerOptions = {}): Scheduler {
+  const idleMs = options.idleMs ?? 0;
+  const now = options.now ?? Date.now;
+  const run = options.run ?? runJob;
   const timers: NodeJS.Timeout[] = [];
   const running = new Set<JobName>();
+  const lastRun = new Map<JobName, number>();
+  let lastActivity = now();
   for (const [name, every] of SCHEDULE) {
     const tick = () => {
       if (running.has(name)) return; // Sin solapamiento dentro del proceso.
+      const at = now();
+      // En reposo no se toca la base de datos más de una vez por intervalo. Cualquier petición de
+      // un cliente o un aviso de Mercado Pago devuelve el ritmo normal, y el pago vuelve a
+      // comprobar el vencimiento del pedido por su cuenta.
+      const idle = idleMs > 0 && at - lastActivity >= idleMs;
+      if (idle && at - (lastRun.get(name) ?? Number.NEGATIVE_INFINITY) < idleMs) return;
+      lastRun.set(name, at);
       running.add(name);
-      runJob(deps, name)
+      run(deps, name)
         .then((result) => {
-          if (result) deps.log.info({ job: name, result }, 'job finished');
+          if (!result) return;
+          deps.log.info({ job: name, result }, 'job finished');
+          lastActivity = now(); // Hubo trabajo: puede haber más enseguida.
         })
         .catch((error: unknown) =>
           deps.log.error({ err: error, job: name, alert: 'job_failed' }, 'job failed'),
@@ -208,5 +236,23 @@ export function startScheduler(deps: ServiceDeps): Scheduler {
     timer.unref();
     timers.push(first, timer);
   }
-  return { stop: () => timers.forEach((timer) => clearTimeout(timer)) };
+  return {
+    stop: () => timers.forEach((timer) => clearTimeout(timer)),
+    markActivity: () => {
+      lastActivity = now();
+    },
+  };
+}
+
+const QUIET_PATHS = new Set(['/api/health', '/api/ready']);
+
+/**
+ * ¿La petición indica actividad real? Cuenta la API y el inicio de sesión (clientes, panel y
+ * avisos de Mercado Pago); no cuentan las sondas de salud ni los archivos estáticos.
+ */
+export function isActivityRequest(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.split('?', 1)[0] ?? '';
+  if (QUIET_PATHS.has(path)) return false;
+  return path.startsWith('/api/') || path.startsWith('/auth/');
 }

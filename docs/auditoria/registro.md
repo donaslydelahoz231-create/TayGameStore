@@ -122,3 +122,18 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   archivado. Sin ejecuciones con error desde las 16:00.
 - **Pendiente del dueño**: la credencial «Header Auth account» creada por el dueño no la usa
   ningún flujo; puede borrarse.
+
+### Ahorro de Neon: tareas internas en modo reposo
+
+- **Autorizó**: el dueño («ejecuta otros que tienes prioridades… que esté funcionando siempre y
+  operando sin ningún problema»).
+- **Hallazgo**: Neon (plan Free, 100 CU-horas/proyecto/mes; al agotarse suspende la base hasta el
+  mes siguiente) llevaba 20 558 CU-segundos en ~24 h (5,7 CU-h/día) porque las tareas internas
+  consultaban la base cada minuto y nunca llegaba a los 5 min de inactividad para suspenderse.
+  A ese ritmo el cupo se agotaba hacia el 24-oct.
+- **Cambió**: `src/server/services/jobs.ts` (modo reposo y `isActivityRequest`),
+  `src/server/index.ts` (la actividad de la API y del inicio de sesión reactiva el ritmo normal),
+  `src/server/config/env.ts` y `.env.example` (`JOBS_IDLE_MINUTES`, 30 por defecto), pruebas en
+  `tests/unit/scheduler.test.ts` y `tests/unit/env.test.ts`.
+- **Evidencia local**: unitarias y API 177/177, integración 174/174, e2e 67 aprobadas, build y
+  arranque local con tareas activas sin errores.

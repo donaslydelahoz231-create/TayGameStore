@@ -68,6 +68,12 @@ describe('loadConfig', () => {
     expect(configError({ TRUST_PROXY: '10.0.0.0/8' }).issues.join()).toContain('TRUST_PROXY');
   });
 
+  it('modo reposo de las tareas: 30 min por defecto, 0 lo desactiva, rechaza negativos', () => {
+    expect(loadConfig({}).jobsIdleMinutes).toBe(30);
+    expect(loadConfig({ JOBS_IDLE_MINUTES: '0' }).jobsIdleMinutes).toBe(0);
+    expect(configError({ JOBS_IDLE_MINUTES: '-5' }).message).toContain('JOBS_IDLE_MINUTES');
+  });
+
   it('rechaza un puerto inválido', () => {
     expect(configError({ PORT: '70000' }).issues.join()).toContain('PORT');
   });
