@@ -7,6 +7,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Aviso de marcas visible en el pie de la tienda (y ampliado en los términos): Free Fire, Garena,
+  Roblox, PUBG y Mobile Legends se nombran solo para indicar el juego; TayGameStore es
+  independiente y no usa sus logos ni imágenes.
 - Entrega automática con el inventario (`PIN_AUTO_DELIVERY=true`): al aprobar Mercado Pago el
   pago, si hay PIN para todas las unidades, el pedido queda entregado en la misma transacción;
   el comprador pulsa «Ver mi PIN» en su pedido (solo él: misma autorización que ver el pedido) y

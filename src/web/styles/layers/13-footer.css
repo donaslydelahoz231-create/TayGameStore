@@ -42,3 +42,13 @@
   font-size: 0.6875rem;
   text-align: right;
 }
+
+/* Aviso de marcas de terceros (uso solo descriptivo). */
+.footer-legal {
+  margin: 0 auto;
+  padding-bottom: 18px;
+  color: var(--muted2);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  text-align: center;
+}
