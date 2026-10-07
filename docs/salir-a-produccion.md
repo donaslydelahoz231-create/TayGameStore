@@ -113,7 +113,7 @@ tienda los pone en `/terminos.html` y `/privacidad.html` al servirlas:
 | Variable | Qué va |
 |---|---|
 | `LEGAL_NAME` | nombre o razón social |
-| `LEGAL_ID` | NIT o cédula |
+| `LEGAL_ID` | solo los 4 últimos dígitos del NIT o la cédula (la tienda rechaza el número completo) |
 | `LEGAL_ADDRESS` | dirección y ciudad |
 | `LEGAL_DELIVERY_TIME` | plazo de entrega de la recarga |
 | `LEGAL_REFUND_TIME` | plazo de reembolso si no se puede entregar |

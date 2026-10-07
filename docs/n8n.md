@@ -63,7 +63,7 @@ inventan datos. Están publicados; se usan desde la pantalla de Agentes de n8n.
 
 | Situación | Qué pasa |
 |---|---|
-| La tienda se durmió (Render Free) | La Vigilancia la despierta cada 5 min (60 s de espera y un reintento) |
+| La tienda se durmió (Render Free) | La Vigilancia la despierta cada 5 min (60 s de espera y un reintento). Si aun así falla, espera 90 s y vuelve a consultar antes de avisar: un arranque lento no genera falsa alarma |
 | Un evento de pedido no llegó a n8n | La tienda lo reintenta sola (1, 5, 15, 60 min) |
 | Un aviso de Mercado Pago no llegó | La conciliación interna consulta el pago cada 2 min |
 | Un flujo falla en producción | El flujo **Errores** lo anota en *Incidentes* y avisa (Gmail al conectarlo) |

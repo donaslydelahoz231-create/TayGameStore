@@ -7,6 +7,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Guías: `LEGAL_ID` lleva solo los 4 últimos dígitos (la tabla decía «NIT o cédula»).
 - Botones de Google y Facebook: arrancan deshabilitados hasta que la configuración del servidor
   confirma el proveedor. Antes, un clic durante «Comprobando…» (servidor lento o recién
   despertado) navegaba a `/auth/*` y volvía con «acceso no configurado»; Render mostraba esas
@@ -23,6 +24,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Guía `docs/puesta-en-marcha.md`: los pasos que solo hace el dueño (rotar claves expuestas,
+  webhook de Mercado Pago, SMTP, credenciales de n8n, Google OAuth, privacidad en GitHub, Neon) con
+  el lugar exacto donde va cada credencial.
+- n8n · Vigilancia: antes de avisar de una caída, espera 90 s y confirma con una segunda consulta.
 - Vista previa al compartir el enlace (WhatsApp, Facebook, X): etiquetas Open Graph y Twitter con
   imagen propia de la marca (`og-image.png`, 1200×630) y direcciones absolutas tomadas de
   `PUBLIC_BASE_URL` en el build; favicon (SVG e ICO) e ícono para iPhone; datos estructurados

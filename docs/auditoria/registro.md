@@ -72,3 +72,22 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   mañana y se volvió a escanear: 0.
 - Siguen conteniendo el documento, sin poder borrarlo desde aquí: el registro de la conversación en
   el contenedor y el historial de la conversación en Anthropic (NO VERIFICADO su borrado).
+
+### Implementación completa: lo que no depende de credenciales
+
+- **Autorizó**: el dueño («quiero que ejecutes la implementación completa… configura todo lo que
+  puedas»), sin activar cobros ni servicios de pago.
+- **Render**: textos legales `LEGAL_DELIVERY_TIME`, `LEGAL_REFUND_TIME`, `LEGAL_RESPONSE_TIME`,
+  `LEGAL_TAX_NOTE` y `LEGAL_RETENTION` según las respuestas del dueño. Despliegue
+  `dep-db34j2jbc2fs73cjf290` en `live` 13:31, arranque sin errores de configuración.
+  `LEGAL_TAX_NOTE` es un texto neutro que el dueño debe confirmar.
+- **n8n · Vigilancia** (`wOqFUIwk4GEINrVc`): si `/api/ready` no responde bien, espera 90 s y
+  vuelve a consultar antes de avisar (evita falsas alarmas por arranques lentos de Render).
+  Publicado (versión `298d4c9b`); ejecución manual 318 correcta. El nodo de Gmail sigue
+  desactivado: falta la credencial del dueño.
+- **Documentación**: `docs/puesta-en-marcha.md` (dónde va cada credencial, en orden); corregidas
+  la fila de `LEGAL_ID` (solo 4 dígitos) y la descripción de la Vigilancia.
+- **Evidencia**: unitarias y API 160/160, integración 174/174, e2e 67 aprobadas (128 omitidas por
+  proyecto), guardia 27/27, escáner 0, typecheck y build correctos.
+- **NO VERIFICADO**: la tienda desde fuera (el proxy de esta sesión bloquea `onrender.com`), la
+  base de datos en Neon (conector sin autorizar) y Mercado Pago (sin conector).
