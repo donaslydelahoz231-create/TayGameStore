@@ -32,7 +32,7 @@ y avisa**: nunca cambia un pedido ni confirma un pago.
 |---|---|---|---|
 | **TayGameStore · Pedidos** | Cada evento de la tienda | 1) Valida el formato (si no, lo anota en *Incidentes*) y descarta duplicados por `eventId`. 2) Actualiza **una fila por pedido** en *Pedidos* con su etapa y la hora del paso, y guarda el evento en *Eventos*. 3) Si está por verificar o pagado, te escribe por Gmail con ID, paquetes, total y plazo. Si algo falla responde error y la tienda reintenta sola. | Probado: ciclo completo y duplicado. Necesita credenciales para publicarse. |
 | **TayGameStore · Tareas cada 10 min** | Cada 10 min | Llama a `/api/internal/jobs`: concilia pagos de Mercado Pago cuyo aviso no llegó, reintenta correos y eventos y mantiene despierta la tienda (Render Free). | Respaldo opcional (la tienda ya lo hace sola). Necesita su llave para publicarse. |
-| **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/ready` (60 s de espera y un reintento). Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe. | **Publicado.** Gmail en pausa hasta conectarlo. |
+| **TayGameStore · Vigilancia cada 5 min** | Cada 5 min | Consulta `/api/health` (no toca la base de datos) y, una vez por hora (minuto 0-4, hora Colombia), `/api/ready`, que sí la comprueba; así Neon puede suspenderse. Si falla, confirma a los 90 s con `/api/ready`. Solo cuando la tienda **cae o se recupera**: guarda el estado, lo anota en *Incidentes* y te escribe. | **Publicado**, con Gmail. |
 | **TayGameStore · Errores** | Cuando otro flujo falla | Flujo de error de los tres anteriores: anota el fallo en *Incidentes* y te escribe con el enlace a la ejecución. | **Publicado.** Gmail en pausa hasta conectarlo. |
 
 ## Tablas (Data tables)
@@ -63,9 +63,10 @@ inventan datos. Están publicados; se usan desde la pantalla de Agentes de n8n.
 
 | Situación | Qué pasa |
 |---|---|
-| La tienda se durmió (Render Free) | La Vigilancia la despierta cada 5 min (60 s de espera y un reintento). Si aun así falla, espera 90 s y vuelve a consultar antes de avisar: un arranque lento no genera falsa alarma |
+| La tienda se durmió (Render Free) | La Vigilancia la mantiene despierta con `/api/health` cada 5 min (60 s de espera y un reintento). Si aun así falla, espera 90 s y vuelve a consultar antes de avisar: un arranque lento no genera falsa alarma |
 | Un evento de pedido no llegó a n8n | La tienda lo reintenta sola (1, 5, 15, 60 min) |
 | Un aviso de Mercado Pago no llegó | La conciliación interna consulta el pago cada 2 min |
+| La base de datos (Neon Free, 100 CU-horas/mes) | Se suspende sola tras 5 min sin consultas: la tienda pone sus tareas en reposo (`JOBS_IDLE_MINUTES`) y la Vigilancia solo la consulta una vez por hora |
 | Un flujo falla en producción | El flujo **Errores** lo anota en *Incidentes* y avisa (Gmail al conectarlo) |
 | Falta una credencial o variable | No se repara sola: el **Diagnóstico integral** la marca como PENDIENTE y el agente de Infraestructura dice dónde configurarla |
 

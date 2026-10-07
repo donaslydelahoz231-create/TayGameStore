@@ -137,3 +137,6 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   `tests/unit/scheduler.test.ts` y `tests/unit/env.test.ts`.
 - **Evidencia local**: unitarias y API 177/177, integración 174/174, e2e 67 aprobadas, build y
   arranque local con tareas activas sin errores.
+- **n8n · Vigilancia**: consulta `/api/health` cada 5 min y `/api/ready` solo en la pasada del
+  minuto 0-4 de cada hora (hora Colombia); la confirmación a los 90 s sigue usando `/api/ready`.
+  Ejecución manual 353 correcta. Publicada.
