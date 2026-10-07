@@ -19,7 +19,7 @@ try {
     .values(EXAMPLE_FREEFIRE_PRODUCTS)
     .onConflictDoNothing()
     .returning({ sku: products.sku });
-  console.log(`Productos de ejemplo insertados: ${inserted.length}`);
+  console.warn(`Productos de ejemplo insertados: ${inserted.length}`);
 } finally {
   await database.close();
 }

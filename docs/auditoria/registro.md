@@ -154,3 +154,20 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   proyectos o datos, servicios de pago y desactivar la guardia.
 - **Evidencia**: `update_trigger` → `enabled: true`, `updated_at` 17:58:29 UTC, próxima ronda
   20:52 UTC.
+
+### Pedidos: llave incorrecta sin alarmas; dependencias y salud de la base
+
+- **n8n · Pedidos**: una petición sin llave terminaba en error y disparaba el flujo Errores
+  (incidente y correo al dueño por cada bot o sondeo). Ahora el webhook responde con nodos
+  «Responder»: 401 sin error si la llave no coincide; 200 al recibir con llave correcta y sigue
+  procesando (un fallo posterior queda en Errores). Quitado el filtro de bots, que podía descartar
+  las peticiones de la tienda. Pruebas manuales 366 (401) y 367 (200 y procesamiento, con huella
+  ficticia y sin escrituras); huella real restaurada y publicado. El Diagnóstico integral ya lo
+  marca «OK: protegido con llave».
+- **Dependencias**: `npm audit` 0 vulnerabilidades; parches nodemailer 10.0.16 y vite 8.3.3.
+  Sin actualizar a propósito: TypeScript 7 y Playwright 1.63 (cambios mayores, requieren su propia
+  migración). Lint sin avisos (`seed-dev.ts` usa `console.warn`).
+- **Neon (solo lectura)**: base < 1 MB de 1 GB, pocas filas muertas, sin consultas lentas ni
+  bloqueos que corregir.
+- **Evidencia local**: unitarias y API 177/177, integración 174/174, e2e 67, build, formato y
+  escáner 0.
