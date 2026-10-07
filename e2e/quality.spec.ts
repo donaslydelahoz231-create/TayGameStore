@@ -217,6 +217,20 @@ test('los enlaces del menú dejan cada sección justo bajo la cabecera', async (
   }
 });
 
+test('ir a una sección no te devuelve a ella si ya te desplazaste a otra parte', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await enterAsGuest(page);
+  await page.locator('.nav a[href="#factura"]').click();
+  await expect(page).toHaveURL(/#factura$/);
+  // Enseguida la persona vuelve arriba con la barra de desplazamiento (sin rueda ni teclado):
+  // las correcciones de posición posteriores no deben llevarla otra vez a la factura.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x)', async ({
   browser,
 }) => {

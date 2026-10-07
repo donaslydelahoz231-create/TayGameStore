@@ -60,6 +60,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Ir a una sección (menú, «Revisar factura», crear pedido) seguía corrigiendo la posición
+  durante ~1 s aunque la persona ya se hubiera ido con la barra de desplazamiento o un clic: la
+  devolvía a la sección y su clic caía en otro botón (p. ej. «Actualizar estado»). Ahora deja de
+  corregir si algo más mueve la página o hay un clic.
 - Configurar la app autenticadora del panel: el dueño no lograba activar el código (secreto
   solo en texto, que había que teclear; cada clic en «Generar clave» lo cambiaba e invalidaba
   lo ya añadido en la app; el campo cortaba «123 456» en 6 caracteres). Ahora hay **código QR**

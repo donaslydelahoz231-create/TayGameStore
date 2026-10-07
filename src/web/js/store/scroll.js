@@ -6,8 +6,9 @@ import { $ } from './dom.js';
  * aparece, y `scrollIntoView` apuntaba a esa posición transformada; además, imágenes y
  * contenido que se completan durante el desplazamiento cambian alturas. Por eso se usa la
  * posición de maquetación (`offsetTop`, sin transformaciones) y, al terminar, se mide de nuevo
- * y se corrige sin animación. Si la persona toma el control (rueda, toque,
- * teclado) no se corrige.
+ * y se corrige sin animación. Si la persona toma el control (rueda, toque, teclado, clic o
+ * barra de desplazamiento) o algo más mueve la página, deja de corregir: nunca la devuelve a
+ * una sección de la que ya se fue (un clic en otro botón caería en otro sitio).
  */
 const TOLERANCE_PX = 4;
 const CHECKS_AFTER_SETTLE_MS = [150, 400, 800, 1200];
@@ -72,21 +73,31 @@ export function scrollToSection(id) {
   const cancel = () => {
     cancelled = true;
   };
-  const userEvents = ['wheel', 'touchstart', 'keydown'];
+  const userEvents = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
   userEvents.forEach((type) =>
     window.addEventListener(type, cancel, { once: true, passive: true }),
   );
   const stop = () => userEvents.forEach((type) => window.removeEventListener(type, cancel));
 
+  // Dónde dejó la página este desplazamiento: si cambia, otro la movió (la barra de
+  // desplazamiento, otro código, la persona) y ya no se corrige. Los cambios de altura del
+  // contenido mueven el destino, no la posición de la página.
+  let leftAt = 0;
   const correct = () => {
     if (cancelled || request !== latestRequest) return;
+    if (Math.abs(window.scrollY - leftAt) > TOLERANCE_PX) {
+      cancelled = true;
+      return;
+    }
     const offset = offsetFromTarget(target);
     const reached = Math.abs(offset) <= TOLERANCE_PX || (offset > 0 && atPageEnd());
     if (!reached) jumpBy(offset);
+    leftAt = window.scrollY;
   };
   // Tras el salto se pintan otras secciones y el destino puede volver a moverse: se vigila un
   // momento después de asentarse.
   const watch = () => {
+    leftAt = window.scrollY;
     requestAnimationFrame(() => requestAnimationFrame(correct));
     CHECKS_AFTER_SETTLE_MS.forEach((ms) => setTimeout(correct, ms));
     setTimeout(stop, CHECKS_AFTER_SETTLE_MS[CHECKS_AFTER_SETTLE_MS.length - 1] + 50);

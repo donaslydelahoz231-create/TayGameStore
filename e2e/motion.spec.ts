@@ -51,12 +51,24 @@ test('las animaciones se conservan y solo se pausan donde no se ven', async ({ p
   // La pantalla de entrada ya oculta deja de animarse.
   await expect.poll(async () => (await animationsIn(page, '#entryExperience')).running).toBe(0);
 
-  // Lejos de la portada, sus animaciones se pausan…
+  // Lejos de la portada, sus animaciones se pausan… (el desplazamiento es suave: se espera a
+  // que llegue, como haría una persona, antes de volver; si no, se encadenan dos animaciones de
+  // desplazamiento y la prueba mide la carrera entre ellas, no las animaciones de la portada).
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Math.ceil(window.scrollY + window.innerHeight) >=
+          document.documentElement.scrollHeight - 2,
+      ),
+    )
+    .toBe(true);
   await expect(page.locator('main > section.hero')).toHaveClass(/tgs-offscreen/);
   await expect.poll(async () => (await animationsIn(page, '.hero')).running).toBe(0);
   // …y continúan al volver.
   await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await expect(page.locator('main > section.hero')).not.toHaveClass(/tgs-offscreen/);
   await expect.poll(async () => (await animationsIn(page, '.hero')).running).toBeGreaterThan(0);
 });
