@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import { totp } from '../src/server/lib/totp.js';
 import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
 import { ADMIN_PATH } from './support/admin-path.js';
 
@@ -613,6 +614,36 @@ test.describe('panel de administración', () => {
     await page.locator('#admPassword').fill('Contraseña-del-dueño-e2e-1');
     await page.locator('#admPasswordForm button[type="submit"]').click();
     await expect(page.locator('#admMfaSetup')).toBeVisible();
+
+    // Segundo paso: se configura la app autenticadora con la clave que muestra el panel.
+    await page.locator('#admMfaStart').click();
+    await expect(page.locator('#admMfaSecret')).toHaveText(/^[A-Z2-7]{16,}$/);
+    const secret = (await page.locator('#admMfaSecret').textContent()) ?? '';
+    await page.locator('#admMfaEnableCode').fill('000000');
+    await page.locator('#admMfaEnable').click();
+    await expect(page.locator('#admMessage')).toContainText('inválido');
+    await page.locator('#admMfaEnableCode').fill(totp(secret, Date.now()));
+    await page.locator('#admMfaEnable').click();
+    // Códigos de recuperación (un solo uso) antes de entrar.
+    await expect(page.locator('#admRecoveryCodes')).toContainText(/[A-Z2-7]{5}-[A-Z2-7]{5}/);
+    await page.locator('#admRecoveryDone').click();
+    await expect(page.locator('#admApp')).toBeVisible();
+
+    // Siguiente acceso: contraseña y luego el código de la app; sin él no hay panel.
+    await page.locator('#admLogout').click();
+    await page.locator('#admEmail').fill('operador@example.com');
+    await page.locator('#admPassword').fill('Contraseña-del-dueño-e2e-1');
+    await page.locator('#admPasswordForm button[type="submit"]').click();
+    await expect(page.locator('#admMfaVerify')).toBeVisible();
+    await expect(page.locator('#admApp')).toBeHidden();
+    expect((await page.request.get('/api/admin/orders')).status()).toBe(403);
+    await page.locator('#admMfaCode').fill('123456');
+    await page.locator('#admMfaVerifyBtn').click();
+    await expect(page.locator('#admMessage')).toContainText('inválido');
+    await page.locator('#admMfaCode').fill(totp(secret, Date.now()));
+    await page.locator('#admMfaVerifyBtn').click();
+    await expect(page.locator('#admApp')).toBeVisible();
+    expect((await page.request.get('/api/admin/orders')).status()).toBe(200);
   });
 
   test('el dueño activa su huella y entra al panel con ella', async ({ page, browserName }) => {
