@@ -193,6 +193,12 @@ const envSchema = z
      * nickname antes de que el cliente pueda pagar).
      */
     PLAYER_VERIFICATION: z.enum(['customer', 'operator']).default('customer'),
+    /**
+     * Entrega automática con el inventario: al aprobarse el pago, si hay PIN para todas las
+     * unidades, el pedido queda entregado y el cliente ve sus PIN (pedido y correo) para
+     * canjearlos en el sitio oficial (pagostore.com). Si falta alguno, se entrega a mano.
+     */
+    PIN_AUTO_DELIVERY: z.stringbool().default(false),
     SUPPORT_WHATSAPP: z
       .string()
       .regex(/^\+?\d{8,15}$/)
@@ -393,6 +399,7 @@ export interface AppConfig {
     maxOpenOrdersPerUid: number;
     termsVersion: string;
     playerVerification: 'customer' | 'operator';
+    pinAutoDelivery: boolean;
   };
   support: { whatsapp: string | undefined; email: string | undefined };
   promoSchedule: PromoSchedule;
@@ -547,6 +554,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       maxOpenOrdersPerUid: env.LIMIT_MAX_OPEN_ORDERS_PER_UID,
       termsVersion: env.TERMS_VERSION,
       playerVerification: env.PLAYER_VERIFICATION,
+      pinAutoDelivery: env.PIN_AUTO_DELIVERY,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
     promoSchedule: env.PROMO_SCHEDULE,

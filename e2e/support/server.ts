@@ -15,6 +15,7 @@ import { orders, products, sessions, users } from '../../src/server/db/schema.js
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-example.js';
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
+import { addInventory, addInventorySchema } from '../../src/server/services/inventory.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
 import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
 import { FakeSocialClient } from '../../tests/support/fake-social.js';
@@ -178,6 +179,21 @@ app.post('/__e2e__/deliver', async (request) => {
 app.post('/__e2e__/player-verification', async (request) => {
   const { mode } = request.body as { mode: 'customer' | 'operator' };
   config.orders.playerVerification = mode;
+  return { ok: true };
+});
+
+/** Entrega automática con PIN del inventario (y carga de PIN de prueba para un paquete). */
+app.post('/__e2e__/pin-auto', async (request) => {
+  const { on, sku, codes } = request.body as { on: boolean; sku?: string; codes?: string[] };
+  config.orders.pinAutoDelivery = on;
+  if (sku && codes?.length) {
+    const [product] = await database.db.select().from(products).where(eq(products.sku, sku));
+    if (!product) throw new Error('paquete inexistente');
+    await addInventory(deps, addInventorySchema.parse({ productId: product.id, codes }), {
+      type: 'admin',
+      userId: operator.id,
+    });
+  }
   return { ok: true };
 });
 

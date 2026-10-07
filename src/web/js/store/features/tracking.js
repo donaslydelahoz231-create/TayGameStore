@@ -56,14 +56,18 @@ export function renderChecks() {
   $('trackDelivery').classList.toggle('done', status === 'DELIVERED');
   $('trackDelivery').querySelector('small').textContent =
     status === 'DELIVERED'
-      ? 'Recarga entregada'
+      ? order.fulfillment?.pins
+        ? 'PIN entregado'
+        : 'Recarga entregada'
       : status === 'DELIVERING'
         ? 'En proceso'
         : 'Pendiente';
   setText(
     'trackingMessage',
     order
-      ? MESSAGES[status] || 'Consultando el estado del pedido…'
+      ? status === 'DELIVERED' && order.fulfillment?.pins
+        ? 'Pago confirmado y PIN entregado: ábrelo abajo y canjéalo en pagostore.com.'
+        : MESSAGES[status] || 'Consultando el estado del pedido…'
       : !cartOk
         ? 'Selecciona una recarga para comenzar.'
         : !uidOk

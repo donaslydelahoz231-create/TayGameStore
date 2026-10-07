@@ -12,6 +12,7 @@ import {
   createOrder,
   listOrdersForOwner,
   loadOrderForAccess,
+  pinsForOrder,
   toPublicOrder,
   type OrderAccess,
 } from '../../services/orders.js';
@@ -114,6 +115,20 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
       const order = await loadOrderForAccess(deps, deps.db, ref, accessOf(request));
       reply.header('cache-control', 'no-store');
       return { order: await toPublicOrder(deps, deps.db, order) };
+    },
+  );
+
+  /** PIN entregados del pedido (entrega automática con inventario). */
+  app.get(
+    '/api/orders/:ref/pins',
+    { config: { rateLimit: RATE_LIMITS.orderWrite } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { ref } = refParams.parse(request.params);
+      reply.header('cache-control', 'no-store');
+      return {
+        pins: await pinsForOrder(deps, ref, accessOf(request), actorOf(request, 'customer')),
+      };
     },
   );
 

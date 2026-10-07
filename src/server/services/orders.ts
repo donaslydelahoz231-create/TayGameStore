@@ -24,6 +24,7 @@ import {
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
+import { deliveredPinCounts, deliveredPins } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -127,7 +128,8 @@ export interface PublicOrder {
     region: string | null;
   };
   payment: { status: string | null; canPay: boolean; checkoutAvailable: boolean };
-  fulfillment: { status: string | null; deliveredAt: string | null };
+  /** `pins`: cantidad de PIN entregados (el cliente los abre con «Ver mi PIN»). */
+  fulfillment: { status: string | null; deliveredAt: string | null; pins: number };
 }
 
 type OrderItemRow = typeof orderItems.$inferSelect;
@@ -135,6 +137,7 @@ interface OrderRelations {
   items: OrderItemRow[];
   payments: Pick<typeof payments.$inferSelect, 'status' | 'isOrderPayment'>[];
   fulfillment: Pick<typeof fulfillments.$inferSelect, 'status' | 'deliveredAt'> | undefined;
+  pins: number;
 }
 
 /**
@@ -146,11 +149,11 @@ async function loadOrderRelations(
   orderIds: readonly string[],
 ): Promise<Map<string, OrderRelations>> {
   const relations = new Map<string, OrderRelations>(
-    orderIds.map((id) => [id, { items: [], payments: [], fulfillment: undefined }]),
+    orderIds.map((id) => [id, { items: [], payments: [], fulfillment: undefined, pins: 0 }]),
   );
   if (!orderIds.length) return relations;
   const ids = [...orderIds];
-  const [itemRows, paymentRows, fulfillmentRows] = await Promise.all([
+  const [itemRows, paymentRows, fulfillmentRows, pinCounts] = await Promise.all([
     db
       .select()
       .from(orderItems)
@@ -173,7 +176,12 @@ async function loadOrderRelations(
       })
       .from(fulfillments)
       .where(inArray(fulfillments.orderId, ids)),
+    deliveredPinCounts(db, ids),
   ]);
+  for (const [orderId, n] of pinCounts) {
+    const entry = relations.get(orderId);
+    if (entry) entry.pins = n;
+  }
   for (const item of itemRows) relations.get(item.orderId)?.items.push(item);
   for (const { orderId, ...payment } of paymentRows) relations.get(orderId)?.payments.push(payment);
   for (const { orderId, ...fulfillment } of fulfillmentRows) {
@@ -243,6 +251,7 @@ function buildPublicOrder(
     fulfillment: {
       status: fulfillment?.status ?? null,
       deliveredAt: fulfillment?.deliveredAt?.toISOString() ?? null,
+      pins: order.status === 'DELIVERED' ? (relations?.pins ?? 0) : 0,
     },
   };
 }
@@ -588,6 +597,32 @@ export function isUniqueViolation(error: unknown, constraint?: string): boolean 
     current = candidate.cause;
   }
   return false;
+}
+
+// ── PIN entregados ───────────────────────────────────────────────────────────
+
+/**
+ * PIN del pedido para su comprador (misma autorización que ver el pedido). Solo de un pedido
+ * entregado; cada consulta queda en la auditoría (sin los PIN).
+ */
+export async function pinsForOrder(
+  deps: ServiceDeps,
+  publicRef: string,
+  access: OrderAccess,
+  actor: Actor,
+): Promise<{ name: string; code: string }[]> {
+  const order = await loadOrderForAccess(deps, deps.db, publicRef, access);
+  if (order.status !== 'DELIVERED') return [];
+  const pins = await deliveredPins(deps, order.id);
+  if (pins.length) {
+    await audit(deps.db, actor, {
+      entityType: 'order',
+      entityId: order.id,
+      action: 'order.pins_viewed',
+      data: { pins: pins.length },
+    });
+  }
+  return pins;
 }
 
 // ── Listado del cliente ──────────────────────────────────────────────────────

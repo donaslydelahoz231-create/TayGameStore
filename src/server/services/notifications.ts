@@ -12,6 +12,7 @@ import { paidOrderText } from '../integrations/notify/owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
 import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
 import type { ServiceDeps } from './context.js';
+import { deliveredPinCounts, deliveredPins } from './inventory.js';
 
 /**
  * Avisos de un pedido (cola `notifications`):
@@ -104,6 +105,10 @@ interface OrderSnapshot {
   items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
   /** El pago de Mercado Pago que pagó el pedido (si ya existe). */
   payment: { providerPaymentId: string; approvedAt: Date | null } | null;
+  /** PIN entregados (entrega automática): solo se cargan para el correo de entrega. */
+  pins?: { name: string; code: string }[];
+  /** Cantidad de PIN entregados (aviso al dueño). */
+  pinCount?: number;
 }
 
 /** Comprobante: datos que la tienda generó o que confirmó Mercado Pago (nada de texto libre). */
@@ -267,9 +272,16 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
       return compose(
         deps,
         [...deps.config.adminEmails],
-        `Pedido pagado por entregar · ${order.reference}`,
+        order.pinCount
+          ? `Pedido pagado y entregado con PIN · ${order.reference}`
+          : `Pedido pagado por entregar · ${order.reference}`,
         `Pedido pagado ${order.reference}`,
-        [paidOrderText(order), 'Entra a tu panel para tomarlo y entregarlo.'],
+        [
+          paidOrderText(order),
+          order.pinCount
+            ? 'No tienes que hacer nada. Repón el inventario cuando el panel lo pida.'
+            : 'Entra a tu panel para tomarlo y entregarlo.',
+        ],
       );
     case 'order_paid_customer':
       return compose(
@@ -286,6 +298,22 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         ],
       );
     case 'order_delivered_customer':
+      if (order.pins?.length) {
+        return compose(
+          deps,
+          [order.customerEmail],
+          `Tu PIN de diamantes · Pedido ${order.reference}`,
+          'Tu PIN de diamantes está listo',
+          [
+            hello,
+            `Estos son los PIN de tu pedido ${order.reference}:\n${order.pins.map((p) => `• ${p.name}: ${p.code}`).join('\n')}`,
+            `Cómo canjearlos (sitio oficial de Garena):\n1. Entra a https://www.pagostore.com y elige Free Fire.\n2. Ingresa con tu ID de jugador ${order.playerUid}.\n3. Elige «Tarjetas de Regalo y Pines Digitales» y pega el PIN. Repite con cada PIN.`,
+            'Cada PIN se puede canjear una sola vez. No lo compartas con nadie.',
+            `Comprobante de pago: ${order.receiptCode}. También los ves en ${base}/#seguimiento con «Ver mi PIN».`,
+            `¿Algo no cuadra? Responde a este correo o escríbenos con la referencia ${order.reference}.`,
+          ],
+        );
+      }
       return compose(
         deps,
         [order.customerEmail],
@@ -390,6 +418,10 @@ async function sendOne(
     if (!deps.events) throw new Error('el webhook de eventos no está configurado');
     await deps.events.send(eventPayload(row, row.kind, order));
     return;
+  }
+  if (row.kind === 'order_delivered_customer') order.pins = await deliveredPins(deps, row.orderId);
+  if (row.kind === 'order_paid_owner' || row.channel === 'telegram') {
+    order.pinCount = (await deliveredPinCounts(deps.db, [row.orderId])).get(row.orderId) ?? 0;
   }
   if (row.channel === 'telegram') {
     if (!deps.notifier) throw new Error('Telegram no está configurado');

@@ -7,6 +7,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Entrega automática con el inventario (`PIN_AUTO_DELIVERY=true`): al aprobar Mercado Pago el
+  pago, si hay PIN para todas las unidades, el pedido queda entregado en la misma transacción;
+  el comprador pulsa «Ver mi PIN» en su pedido (solo él: misma autorización que ver el pedido) y
+  lo recibe por correo con los pasos de canje en pagostore.com. Sin PIN suficientes o con las
+  entregas pausadas, sigue la entrega manual. El dueño recibe «pagado y entregado con PIN».
 - Compra estilo LootBar sin proveedor de consulta (`PLAYER_VERIFICATION=customer`, por
   defecto): el cliente escribe su ID, lo **repite** y pulsa «Sí, es mi ID»; el pedido nace
   listo para pagar y paga al instante, sin esperar a que el dueño verifique el nickname. El

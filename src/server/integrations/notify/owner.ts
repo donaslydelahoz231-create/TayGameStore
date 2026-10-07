@@ -13,6 +13,8 @@ export interface PaidOrderNotice {
   playerUid: string;
   nickname: string | null;
   items: readonly { name: string; quantity: number }[];
+  /** PIN del inventario ya entregados automáticamente (0: hay que entregarlo a mano). */
+  pinCount?: number;
 }
 
 export interface OwnerNotifier {
@@ -41,7 +43,9 @@ export function paidOrderText(notice: PaidOrderNotice): string {
     `Total: ${cop.format(notice.totalCop)}`,
     `ID de jugador: ${player}`,
     items,
-    'Mercado Pago confirmó el pago. Entrégalo desde el panel.',
+    notice.pinCount
+      ? `Mercado Pago confirmó el pago y se entregó automáticamente con ${notice.pinCount} PIN de tu inventario.`
+      : 'Mercado Pago confirmó el pago. Entrégalo desde el panel.',
   ].join('\n');
 }
 

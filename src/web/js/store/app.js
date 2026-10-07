@@ -13,6 +13,7 @@ import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
+import { renderPins } from './features/pins.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
@@ -30,6 +31,7 @@ registerRenderers([
   renderDrawer,
   renderInvoice,
   renderChecks,
+  renderPins,
   renderPlayer,
   renderPlayerMode,
   renderSupport,

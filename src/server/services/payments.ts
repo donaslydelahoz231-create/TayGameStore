@@ -17,6 +17,7 @@ import {
 } from '../integrations/payments/gateway.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
+import { deliverFromInventory } from './inventory.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   closeOpenAttempts,
@@ -296,6 +297,58 @@ export async function applyProviderPayment(
   return result;
 }
 
+const PIN_EVIDENCE =
+  'PIN del inventario entregado automáticamente al cliente (canje en pagostore.com).';
+
+/**
+ * PIN_AUTO_DELIVERY: con PIN para todas las unidades, el pedido recién pagado queda entregado
+ * en la misma transacción (nunca dos veces: la orden y la entrega cambian con CAS). Sin PIN
+ * suficientes, o con las entregas pausadas, sigue en la cola manual.
+ */
+async function autoDeliverPins(
+  deps: ServiceDeps,
+  tx: Tx,
+  actor: Actor,
+  order: typeof orders.$inferSelect,
+): Promise<void> {
+  if (!deps.config.orders.pinAutoDelivery || !deps.config.flags.fulfillmentEnabled) return;
+  // La entrega debe seguir en cola y bloqueada para esta transacción; si no, no se toca nada
+  // (el pago ya quedó registrado y el pedido sigue el camino manual).
+  const [ready] = await tx
+    .select({ id: fulfillments.id })
+    .from(fulfillments)
+    .where(
+      and(eq(fulfillments.orderId, order.id), eq(fulfillments.status, 'READY_FOR_FULFILLMENT')),
+    )
+    .for('update');
+  if (!ready) return;
+  const now = deps.now();
+  const pins = await deliverFromInventory(tx, order.id, now);
+  if (!pins) return;
+  await transitionOrder(tx, actor, order, 'DELIVERING');
+  await tx
+    .update(fulfillments)
+    .set({
+      status: 'DELIVERED',
+      startedAt: now,
+      deliveredAt: now,
+      evidence: PIN_EVIDENCE,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(fulfillments.id, ready.id));
+  await audit(tx, actor, {
+    entityType: 'fulfillment',
+    entityId: ready.id,
+    action: 'fulfillment.auto_pin',
+    fromStatus: 'READY_FOR_FULFILLMENT',
+    toStatus: 'DELIVERED',
+    // Solo la cantidad: nunca los PIN.
+    data: { orderId: order.id, pins },
+  });
+  await transitionOrder(tx, actor, order, 'DELIVERED', {}, { method: 'pin' });
+  await enqueueOrderNotifications(deps, tx, order.id, 'delivered');
+}
+
 async function applyOrderEffects(
   deps: ServiceDeps,
   tx: Tx,
@@ -366,6 +419,7 @@ async function applyOrderEffects(
       });
       // Aviso al dueño y al cliente: existe si y solo si el pago quedó guardado.
       await enqueueOrderNotifications(deps, tx, order.id, 'paid');
+      await autoDeliverPins(deps, tx, actor, order);
       return 'PAID';
     }
     // Pago aprobado de una orden que no lo esperaba (expirada, rechazada…): revisión humana.

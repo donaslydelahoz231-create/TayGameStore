@@ -10,6 +10,7 @@ autorizado y los entrega al ID del cliente. El catálogo de la tienda es lo que 
 | Forma | Cómo se consiguen los diamantes | Cuándo usarla | En la tienda |
 |---|---|---|---|
 | **1. Inventario de PIN** (recomendada para empezar) | El dueño compra PIN de Free Fire por paquete a una red autorizada (MOViiRED, Practi, Refácil, RedCo, PTM, Full Carga, Multipagas; ver `docs/specs/contacto-proveedores.md`) y los carga en **Panel → Inventario** | Ventas diarias; entrega en minutos | Al empezar la entrega se reserva un PIN por unidad; el dueño lo canjea al ID del cliente en el canal oficial y marca «Entregar» |
+| **1b. Entrega automática de PIN** (`PIN_AUTO_DELIVERY=true`) | Los mismos PIN del inventario | Para vender las 24 horas sin intervenir | Al aprobarse el pago, si hay PIN para todas las unidades, el pedido queda **entregado solo**: el cliente ve «Ver mi PIN» en su pedido, lo recibe por correo y lo canjea en **pagostore.com** (oficial de Garena) → Free Fire → su ID → «Tarjetas de Regalo y Pines Digitales». Sin PIN suficientes, pasa a la forma 1 o 2 |
 | **2. Recarga manual por ID** | Por cada pedido pagado, el dueño compra la recarga al ID del cliente en un canal oficial con su propio medio de pago | Sin stock de PIN o paquete agotado | Igual que hoy: «Reclamar → Empezar → Entregar» con la evidencia |
 | **3. API de un proveedor** (fase 2) | Contrato de revendedor con API: valida el ID y recarga automáticamente | Cuando haya contrato y documentación oficial | Se conecta al código ya preparado (`docs/specs/proveedores-recargas.md`) |
 
@@ -46,8 +47,11 @@ anular las recargas y bloquear al cliente.
 ## Seguridad del inventario
 
 - Los PIN se guardan **cifrados** (AES-256-GCM); un PIN repetido no se puede cargar dos veces.
-- Solo el dueño (Google + doble factor) los ve, y solo en el pedido al que se reservaron.
-- Nunca salen en la auditoría, en los registros del servidor, en n8n ni en correos.
+- Solo el dueño (con doble factor) los ve, y solo en el pedido al que se reservaron. Con la
+  entrega automática, el **comprador** ve los PIN de su propio pedido (misma autorización que
+  ver el pedido) y los recibe en su correo: es lo que compró.
+- Nunca salen en la auditoría (solo la cantidad), en los registros del servidor ni en n8n, ni en
+  los avisos al dueño.
 - Dos entregas a la vez nunca reciben el mismo PIN (bloqueo de filas en la base de datos).
 
 ## Antes de vender con dinero real

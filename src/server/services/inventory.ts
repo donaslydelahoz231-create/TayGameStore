@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Tx } from '../db/client.js';
+import type { DbOrTx, Tx } from '../db/client.js';
 import { inventoryCodes, orderItems, products } from '../db/schema.js';
 import { decrypt, encrypt, keyedHash } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
@@ -191,6 +191,69 @@ export async function assignInventory(
     missing += needed - free.length;
   }
   return { assigned, missing };
+}
+
+/**
+ * Entrega automática (PIN_AUTO_DELIVERY), dentro de la transacción que confirma el pago: si hay
+ * PIN para TODAS las unidades del pedido, se le asignan ya usados (el cliente los ve y los canjea
+ * en el sitio oficial). Si falta alguno no toca nada y devuelve 0: el pedido se entrega a mano.
+ */
+export async function deliverFromInventory(tx: Tx, orderId: string, now: Date): Promise<number> {
+  const items = await tx
+    .select({ productId: orderItems.productId, quantity: orderItems.quantity })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+  const picked: string[] = [];
+  for (const item of items) {
+    const free = await tx
+      .select({ id: inventoryCodes.id })
+      .from(inventoryCodes)
+      .where(
+        and(eq(inventoryCodes.productId, item.productId), eq(inventoryCodes.status, 'AVAILABLE')),
+      )
+      .orderBy(asc(inventoryCodes.createdAt))
+      .limit(item.quantity)
+      .for('update', { skipLocked: true });
+    if (free.length < item.quantity) return 0;
+    picked.push(...free.map((f) => f.id));
+  }
+  if (!picked.length) return 0;
+  await tx
+    .update(inventoryCodes)
+    .set({ status: 'USED', orderId, assignedAt: now, usedAt: now })
+    .where(inArray(inventoryCodes.id, picked));
+  return picked.length;
+}
+
+/** PIN entregados a cada pedido (solo la cantidad: para la vista del pedido). */
+export async function deliveredPinCounts(
+  db: DbOrTx,
+  orderIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (!orderIds.length) return new Map();
+  const rows = await db
+    .select({ orderId: inventoryCodes.orderId, n: sql<number>`count(*)::int` })
+    .from(inventoryCodes)
+    .where(and(inArray(inventoryCodes.orderId, [...orderIds]), eq(inventoryCodes.status, 'USED')))
+    .groupBy(inventoryCodes.orderId);
+  return new Map(rows.flatMap((r) => (r.orderId ? [[r.orderId, r.n] as const] : [])));
+}
+
+/** PIN entregados al pedido, descifrados, para su comprador (vista del pedido y correo). */
+export async function deliveredPins(
+  deps: ServiceDeps,
+  orderId: string,
+): Promise<{ name: string; code: string }[]> {
+  const rows = await deps.db
+    .select({ name: products.name, codeEnc: inventoryCodes.codeEnc })
+    .from(inventoryCodes)
+    .innerJoin(products, eq(products.id, inventoryCodes.productId))
+    .where(and(eq(inventoryCodes.orderId, orderId), eq(inventoryCodes.status, 'USED')))
+    .orderBy(asc(products.sortOrder), asc(inventoryCodes.assignedAt), asc(inventoryCodes.id));
+  return rows.map((row) => ({
+    name: row.name,
+    code: decrypt(deps.config.secrets.mfaKeys, row.codeEnc).plaintext,
+  }));
 }
 
 /** Al entregar: los PIN asignados al pedido quedan usados. */

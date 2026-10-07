@@ -53,6 +53,9 @@ services:
       # El cliente confirma su ID (escrito dos veces) y paga sin esperar al equipo.
       - key: PLAYER_VERIFICATION
         value: customer
+      # true: con PIN en Panel → Inventario, cada pedido pagado se entrega solo (docs/procedimiento-diamantes.md).
+      - key: PIN_AUTO_DELIVERY
+        value: 'false'
       # ── Se escriben en el panel de Render (secretos o datos del propietario) ──
       - key: PUBLIC_BASE_URL
         sync: false

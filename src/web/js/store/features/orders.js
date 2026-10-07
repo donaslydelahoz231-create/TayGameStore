@@ -9,7 +9,7 @@ import { orderToken, rememberOrder } from '../storage.js';
 
 const isFinal = (status) => FINAL_ORDER_STATUSES.includes(status);
 
-function accessHeaders(reference) {
+export function accessHeaders(reference) {
   const token = orderToken(reference);
   return token ? { 'x-order-token': token } : {};
 }

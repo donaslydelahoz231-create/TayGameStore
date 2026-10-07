@@ -494,6 +494,52 @@ test.describe('compra completa (invitado)', () => {
     }
   });
 
+  test('entrega automática: pago aprobado → «Ver mi PIN» con instrucciones de canje', async ({
+    page,
+  }) => {
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    expect(
+      (
+        await operator(page, 'pin-auto', {
+          on: true,
+          sku: 'ff-110',
+          codes: ['E2E-PIN-ABCD-0001'],
+        })
+      ).ok(),
+    ).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('745612398');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('745612398');
+      await page.locator('#confirmUid').click();
+      await page.locator('#customerName').fill('Cliente PIN');
+      await page.locator('#customerEmail').fill('pin-e2e@example.com');
+      await page.locator('#paymentMethod').selectOption('mercadopago');
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+      await expect(page.locator('#pinBox')).toBeHidden();
+
+      await page.locator('#payBtn').click();
+      await page.locator('#startPayment').click();
+      await page.waitForURL(/\/#seguimiento$/);
+      // Sin que el dueño haga nada: entregado con el PIN del inventario.
+      await expect(page.locator('#trackDelivery')).toContainText('PIN entregado');
+      await expect(page.locator('#pinBox')).toBeVisible();
+      await expect(page.locator('#pinBox')).toContainText('pagostore.com');
+      await expect(page.locator('#pinList')).toBeEmpty();
+      await page.locator('#showPins').click();
+      await expect(page.locator('#pinList')).toContainText('E2EPINABCD0001');
+      await expect(page.locator('#showPins')).toBeHidden();
+    } finally {
+      await operator(page, 'pin-auto', { on: false });
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
   test('el pedido se recupera tras recargar la página', async ({ page }) => {
     await page.goto('/');
     await enterAsGuest(page);

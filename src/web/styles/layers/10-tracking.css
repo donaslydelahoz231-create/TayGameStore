@@ -79,3 +79,52 @@
   color: var(--muted);
   font-size: 0.6875rem;
 }
+
+/* PIN entregados automáticamente: solo visibles para el comprador de un pedido entregado. */
+.pin-box {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  background: rgba(57, 224, 138, 0.06);
+  display: grid;
+  gap: 10px;
+}
+.pin-head b {
+  display: block;
+  color: var(--green);
+}
+.pin-head small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.pin-head a {
+  color: var(--violet2);
+}
+.pin-list {
+  display: grid;
+  gap: 8px;
+}
+.pin-list:empty {
+  display: none;
+}
+.pin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.pin-row small {
+  display: block;
+  color: var(--muted);
+}
+.pin-row code {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  user-select: all;
+}
