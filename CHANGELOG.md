@@ -13,6 +13,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Vista previa al compartir el enlace (WhatsApp, Facebook, X): etiquetas Open Graph y Twitter con
+  imagen propia de la marca (`og-image.png`, 1200×630) y direcciones absolutas tomadas de
+  `PUBLIC_BASE_URL` en el build; favicon (SVG e ICO) e ícono para iPhone; datos estructurados
+  `WebSite`. Las imágenes se regeneran con `node tools/marca/generar-imagenes.mjs` (sin logos ni
+  arte de terceros).
+- `robots.txt` y `sitemap.xml` servidos por el servidor con la URL pública: solo la tienda; la API,
+  el inicio de sesión y el panel no se anuncian; términos y privacidad siguen con `noindex`.
+- Guardia de datos (`.claude/hooks/guardia-datos.sh`), skills de auditoría y despliegue seguro,
+  escáner de secretos y del documento del propietario, y registro de auditoría.
+
 - Privacidad del vendedor: términos y privacidad muestran el documento solo como «documento
   terminado en XXXX» (`LEGAL_ID` se guarda completo en el hosting, nunca en el repositorio) y
   piden a los buscadores no indexarlas (`<meta name="robots">` y cabecera `X-Robots-Tag`:

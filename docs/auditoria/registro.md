@@ -39,6 +39,16 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   (`PAYMENTS_ENABLED`, `CHECKOUT_ENABLED`), variables de Render, rollback, historial de Git,
   visibilidad del repositorio y datos personales.
 
+### F2 publicado
+
+- **Evidencia**: commit `aa1d0f6` (10 archivos); `git ls-remote` igual al local.
+
+### Vista previa al compartir, íconos, robots.txt y sitemap.xml
+
+- **Dentro de la autorización anterior**: mejora técnica sin publicidad ni servicios de pago.
+- **Evidencia**: e2e 66/66 (incluye las capturas visuales, sin cambios en la tienda), 160 pruebas
+  unitarias y de API, 174 de integración, guardia 27/27, escáner 0.
+
 ### Correcciones de auditorías anteriores
 
 - El patrón de búsqueda del documento usado antes de las 12:15 exigía los 4 últimos dígitos

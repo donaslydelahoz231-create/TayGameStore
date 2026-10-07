@@ -12,6 +12,7 @@ import {
   pendingLegalFields,
   renderLegalPage,
 } from './legal.js';
+import { robotsTxt, sitemapXml } from './seo.js';
 import type { SocialProvider } from './db/schema.js';
 import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
@@ -203,6 +204,20 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
           .send(html),
       );
     }
+    // Buscadores: solo la tienda; sin PUBLIC_BASE_URL no hay sitemap (necesita URL absoluta).
+    app.get('/robots.txt', (_request, reply) =>
+      reply
+        .type('text/plain; charset=utf-8')
+        .header('cache-control', 'public, max-age=3600')
+        .send(robotsTxt(config.publicBaseUrl)),
+    );
+    app.get('/sitemap.xml', (_request, reply) => {
+      if (!config.publicBaseUrl) return reply.callNotFound();
+      return reply
+        .type('application/xml; charset=utf-8')
+        .header('cache-control', 'public, max-age=3600')
+        .send(sitemapXml(config.publicBaseUrl));
+    });
     await app.register(fastifyStatic, {
       root,
       // Debe ser un array: con preCompressed, @fastify/static solo resuelve índices en array

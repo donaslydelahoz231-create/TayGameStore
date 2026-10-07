@@ -396,3 +396,28 @@ test('panel y páginas legales: texto legible y controles táctiles de 44 px', a
     await touch.close();
   }
 });
+
+test('vista previa al compartir, íconos y robots.txt salen del build real', async ({ page }) => {
+  await page.goto('/');
+  const meta = (selector: string) => page.locator(selector).getAttribute('content');
+  expect(await meta('meta[property="og:title"]')).toContain('TayGameStore');
+  expect(await meta('meta[name="twitter:card"]')).toBe('summary_large_image');
+  // Sin PUBLIC_BASE_URL en el build, las direcciones quedan relativas (nunca el marcador).
+  const imagen = await meta('meta[property="og:image"]');
+  expect(imagen).toBe('/og-image.png');
+  expect(await page.content()).not.toContain('__TGS_SITE_URL__');
+  const datos = await page.locator('script[type="application/ld+json"]').textContent();
+  expect(JSON.parse(datos ?? '{}')).toMatchObject({ '@type': 'WebSite', name: 'TayGameStore' });
+
+  for (const [ruta, tipo] of [
+    ['/og-image.png', 'image/png'],
+    ['/favicon.svg', 'image/svg+xml'],
+    ['/favicon.ico', 'image/'],
+    ['/apple-touch-icon.png', 'image/png'],
+    ['/robots.txt', 'text/plain'],
+  ] as const) {
+    const res = await page.request.get(ruta);
+    expect(res.status(), ruta).toBe(200);
+    expect(res.headers()['content-type'], ruta).toContain(tipo);
+  }
+});

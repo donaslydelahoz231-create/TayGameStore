@@ -61,3 +61,30 @@ describe('archivos estáticos', () => {
     expect(Number(res.headers['content-length'])).toBeLessThan(JS.length);
   });
 });
+
+describe('buscadores', () => {
+  it('robots.txt responde en texto plano; sin PUBLIC_BASE_URL no hay sitemap', async () => {
+    const robots = await app.inject({ method: 'GET', url: '/robots.txt' });
+    expect(robots.statusCode).toBe(200);
+    expect(robots.headers['content-type']).toContain('text/plain');
+    expect(robots.body).toContain('Disallow: /api/');
+    expect(robots.body).not.toContain('Sitemap');
+    expect((await app.inject({ method: 'GET', url: '/sitemap.xml' })).statusCode).toBe(404);
+  });
+
+  it('con PUBLIC_BASE_URL el sitemap usa la dirección pública', async () => {
+    const conUrl = await buildTestApp({
+      env: { SERVE_WEB: 'true', WEB_DIST_DIR: dir, PUBLIC_BASE_URL: 'https://tienda.example/' },
+    });
+    try {
+      const robots = await conUrl.inject({ method: 'GET', url: '/robots.txt' });
+      expect(robots.body).toContain('Sitemap: https://tienda.example/sitemap.xml');
+      const sitemap = await conUrl.inject({ method: 'GET', url: '/sitemap.xml' });
+      expect(sitemap.statusCode).toBe(200);
+      expect(sitemap.headers['content-type']).toContain('application/xml');
+      expect(sitemap.body).toContain('<loc>https://tienda.example/</loc>');
+    } finally {
+      await conUrl.close();
+    }
+  });
+});

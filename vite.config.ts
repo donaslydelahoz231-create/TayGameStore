@@ -46,9 +46,32 @@ function precompress(): Plugin {
   };
 }
 
+/**
+ * Pone la URL pública (PUBLIC_BASE_URL del entorno de build, la misma que usa el servidor) en las
+ * etiquetas de vista previa del HTML: WhatsApp y Facebook exigen direcciones absolutas. Sin ella,
+ * quedan relativas. Solo se aceptan URLs http(s) sin caracteres que rompan un atributo.
+ */
+function siteUrl(): Plugin {
+  const raw = (process.env.PUBLIC_BASE_URL ?? '').replace(/\/+$/, '');
+  const url = /^https?:\/\/[^\s"'<>\\]+$/.test(raw) ? raw : '';
+  return {
+    name: 'tgs-site-url',
+    transformIndexHtml: {
+      order: 'pre',
+      // Sin URL pública no hay canonical (una dirección relativa no sirve y Vite la trataría como
+      // archivo); el resto queda relativo.
+      handler: (html) =>
+        (url
+          ? html
+          : html.replace(/\n\s*<link rel="canonical" href="__TGS_SITE_URL__\/">/, '')
+        ).replaceAll('__TGS_SITE_URL__', url),
+    },
+  };
+}
+
 export default defineConfig({
   root,
-  plugins: [precompress()],
+  plugins: [siteUrl(), precompress()],
   build: {
     outDir,
     emptyOutDir: true,
