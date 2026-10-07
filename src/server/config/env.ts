@@ -204,7 +204,15 @@ const envSchema = z
      * el repositorio ni en un chat); el servidor los pone en las páginas al servirlas.
      */
     LEGAL_NAME: legalText(120),
-    LEGAL_ID: legalText(40),
+    /**
+     * Solo los 4 últimos dígitos del documento (requisito del dueño: el número completo nunca se
+     * guarda en el servidor). Un valor más largo se rechaza sin repetirlo en el error.
+     */
+    LEGAL_ID: z
+      .string()
+      .trim()
+      .regex(/^\d{4}$/, 'solo los 4 últimos dígitos del documento, nunca el número completo')
+      .optional(),
     LEGAL_ADDRESS: legalText(160),
     LEGAL_DELIVERY_TIME: legalText(160),
     LEGAL_REFUND_TIME: legalText(160),
