@@ -49,6 +49,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Google: la cuenta del dueño creada con contraseña o huella se vincula a su Google (mismo correo
+  verificado y en ADMIN_EMAILS) en vez de crear otra; los correos de Google se guardan en
+  minúsculas.
 - Panel: los botones ocultos («Cerrar sesión», «Ver tienda como cliente»…) se mostraban a
   quien no tenía sesión porque el estilo del botón anulaba `hidden`.
 - Seguimiento del pedido: una consulta automática que llegaba tarde (red lenta) podía volver a

@@ -226,6 +226,31 @@ describe('acceso del administrador', () => {
     expect((await passkeyLogin(laptop)).finish.statusCode).toBe(200);
   });
 
+  it('entrar con Google (mismo correo verificado) vincula la MISMA cuenta del dueño', async () => {
+    const [before] = await h.database.db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
+    expect(before?.googleSub).toBeNull();
+    h.google.identity = {
+      sub: 'g-dueno',
+      email: ADMIN_EMAIL.toUpperCase(),
+      emailVerified: true,
+      name: 'Dueño',
+    };
+    const start = await inject({ method: 'GET', url: '/auth/google?modo=admin' });
+    const state = new URL(String(start.headers.location)).searchParams.get('state') ?? '';
+    const stateCookie = start.cookies.find((c) => c.name === 'tgs_oauth');
+    const callback = await inject({
+      method: 'GET',
+      url: `/auth/google/callback?code=codigo&state=${state}`,
+      cookies: { tgs_oauth: stateCookie?.value ?? '' },
+    });
+    expect(sessionCookie(callback)).toBeDefined();
+    const accounts = await h.database.db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
+    // Una sola cuenta: la de la contraseña y la huella, ahora también con Google.
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]).toMatchObject({ id: before?.id, googleSub: 'g-dueno', role: 'admin' });
+    expect(accounts[0]?.passwordHash).toBe(before?.passwordHash);
+  });
+
   it('un cliente con sesión no puede añadir llaves ni ver el panel', async () => {
     const customer = (await sessionFor(h, { email: 'cliente@example.com', sub: 'cli-adm' })).cookie;
     expect((await post('/api/auth/admin/passkey/add/options', {}, customer)).statusCode).toBe(404);

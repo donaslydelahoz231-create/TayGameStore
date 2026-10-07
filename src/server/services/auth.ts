@@ -106,11 +106,29 @@ export async function upsertGoogleUser(
     throw new AppError('FORBIDDEN', 403, 'Esta cuenta no tiene acceso de administración.');
   }
   const role = purpose === 'admin' ? 'admin' : undefined;
+  // Los correos se guardan en minúsculas (como ADMIN_EMAILS) para que la cuenta coincida.
+  const email = identity.email.toLowerCase();
+  if (purpose === 'admin') {
+    // La cuenta del dueño creada con contraseña o huella (mismo correo, sin Google aún) queda
+    // vinculada a su Google: una sola cuenta con la misma contraseña, código y huellas. Solo
+    // con correo verificado por Google y en ADMIN_EMAILS (comprobado arriba).
+    await deps.db
+      .update(users)
+      .set({ googleSub: identity.sub, emailVerified: true, updatedAt: sql`now()` })
+      .where(
+        and(
+          eq(users.email, email),
+          eq(users.role, 'admin'),
+          isNull(users.googleSub),
+          sql`not exists (select 1 from users u where u.google_sub = ${identity.sub})`,
+        ),
+      );
+  }
   const [user] = await deps.db
     .insert(users)
     .values({
       googleSub: identity.sub,
-      email: identity.email,
+      email,
       emailVerified: identity.emailVerified,
       name: identity.name ?? null,
       role: role ?? 'customer',
@@ -119,7 +137,7 @@ export async function upsertGoogleUser(
     .onConflictDoUpdate({
       target: users.googleSub,
       set: {
-        email: identity.email,
+        email,
         emailVerified: identity.emailVerified,
         name: identity.name ?? null,
         lastLoginAt: now,
