@@ -9,9 +9,9 @@ rutas `/api/admin/*` también. La cuenta del dueño es el primer correo de `ADMI
 
 | Método | Pasos | Nivel |
 |---|---|---|
-| **Correo + contraseña** | Contraseña creada por el dueño → código de 6 dígitos de su app autenticadora (Google Authenticator, Authy…) | Dos pasos |
+| **Correo + contraseña** | Contraseña creada por el dueño → código de 6 dígitos de Google Authenticator | Dos pasos |
 | **Huella o llave de acceso** | El dispositivo pide huella, rostro o PIN | Dos pasos (dispositivo + biometría/PIN) |
-| Google | Solo si se configuran `GOOGLE_CLIENT_ID/SECRET` → código de la app autenticadora | Dos pasos |
+| Google | Solo si se configuran `GOOGLE_CLIENT_ID/SECRET` → código de Google Authenticator | Dos pasos |
 
 Los clientes **no** ven nada de esto: compran como invitados o con Google, Facebook o Discord
 (los botones de redes se muestran siempre; cada red funciona cuando su credencial está en el
@@ -23,8 +23,9 @@ servidor).
    (frase de activación, mínimo 20 caracteres).
 2. Abre `https://taygamestore.onrender.com` + `ADMIN_PATH` → «Primera vez»:
    - escribe la frase y **tu** contraseña (mínimo 12 caracteres) → «Crear contraseña»;
-   - el panel te pide configurar la app autenticadora: «Mostrar mi clave» → escanea el **código
-     QR** (o, en el celular, «Abrir en mi app autenticadora», o escribe la clave) → escribe el
+   - el panel te pide configurar **Google Authenticator**: «Mostrar mi clave» → en la app «+» →
+     «Escanear un código QR» (o, en el mismo celular, «Abrir en Google Authenticator», o
+     «Ingresar una clave de configuración») → escribe el
      código de 6 dígitos (con o sin espacio) → guarda los códigos de recuperación. La clave es la
      misma aunque pulses el botón otra vez; si la app tiene varias entradas «TayGameStore»,
      borra las viejas;

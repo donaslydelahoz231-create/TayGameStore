@@ -53,7 +53,7 @@
           </div>
         </form>
         <p class="adm-note">
-          Después de la contraseña se pide el código de tu app autenticadora. La huella o llave ya
+          Después de la contraseña se pide el código de Google Authenticator. La huella o llave ya
           es de dos pasos.
         </p>
         <details id="admFirstTime">
@@ -94,20 +94,22 @@
         <ol class="adm-steps">
           <li>Pulsa «Mostrar mi clave».</li>
           <li>
-            En tu app autenticadora (Google Authenticator, Microsoft Authenticator, Authy…) añade
-            una cuenta y <strong>escanea el código QR</strong>. Si estás en el celular, toca «Abrir
-            en mi app autenticadora» o escribe la clave a mano.
+            Instala <strong>Google Authenticator</strong> (Play Store o App Store), toca «+» →
+            «Escanear un código QR» y escanea el código de abajo. Si estás en el mismo celular, toca
+            «Abrir en Google Authenticator» o usa «Ingresar una clave de configuración».
           </li>
-          <li>Escribe el código de 6 dígitos que muestra la app para «TayGameStore».</li>
+          <li>
+            Escribe el código de 6 dígitos que muestra Google Authenticator para «TayGameStore».
+          </li>
         </ol>
         <button id="admMfaStart" class="adm-btn" type="button">Mostrar mi clave</button>
         <div id="admMfaSecretBox" hidden>
           <img id="admMfaQr" class="adm-qr" alt="Código QR de tu clave de verificación" />
-          <p><a id="admMfaOpen" class="adm-btn ghost" href="#">Abrir en mi app autenticadora</a></p>
+          <p><a id="admMfaOpen" class="adm-btn ghost" href="#">Abrir en Google Authenticator</a></p>
           <p>Clave para escribir a mano: <code id="admMfaSecret" class="adm-secret"></code></p>
           <p class="adm-small">
             Es siempre la misma clave hasta que la actives: si ya la añadiste, no la añadas otra
-            vez. Si en la app tienes varias entradas «TayGameStore», borra las viejas.
+            vez. Si en Google Authenticator tienes varias entradas «TayGameStore», borra las viejas.
           </p>
           <label for="admMfaEnableCode">Código de 6 dígitos</label>
           <input

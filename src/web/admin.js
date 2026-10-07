@@ -229,7 +229,7 @@ $('admPasswordSetupBtn').onclick = (e) => {
       $('admNewPassword').value = '';
       $('admNewPassword2').value = '';
       await boot();
-    }, 'Contraseña creada. Ahora configura el código de tu app autenticadora.'),
+    }, 'Contraseña creada. Ahora configura Google Authenticator.'),
   );
 };
 
@@ -310,7 +310,7 @@ $('admMfaEnable').onclick = (e) =>
     } catch (err) {
       if (err instanceof ApiError && err.code === 'MFA_INVALID') {
         return message(
-          'Código incorrecto. Usa la entrada «TayGameStore» que añadiste con ESTA clave, ' +
+          'Código incorrecto. Usa la entrada «TayGameStore» de Google Authenticator añadida con ESTA clave, ' +
             'escribe el código antes de que cambie y revisa que la hora del celular sea automática.',
           'bad',
         );
