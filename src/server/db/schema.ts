@@ -71,7 +71,11 @@ export const FULFILLMENT_STATUSES = [
 ] as const;
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 
-/** Redes sociales de clientes además de Google (que vive en users.google_sub). */
+/**
+ * Redes sociales de clientes además de Google (que vive en users.google_sub). El acceso con
+ * Discord ya no se ofrece; el valor se conserva solo para que la base de datos siga aceptando
+ * las identidades y bloqueos que ya existan (cambiarlo exigiría una migración).
+ */
 export const SOCIAL_PROVIDERS = ['discord', 'facebook'] as const;
 export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
 

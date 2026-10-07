@@ -9,8 +9,8 @@ import { revealStore } from './entry.js';
 // Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
 // habilitado (no hay recuperación segura sin proveedor de correo): el formulario no envía nada.
 
-const OAUTH_PROVIDERS = ['google', 'facebook', 'discord'];
-const PROVIDER_NAMES = { google: 'Google', facebook: 'Facebook', discord: 'Discord' };
+const OAUTH_PROVIDERS = ['google', 'facebook'];
+const PROVIDER_NAMES = { google: 'Google', facebook: 'Facebook' };
 
 /** Motivos de error del login (códigos fijos del servidor; nunca se muestra texto de la URL). */
 const LOGIN_ERRORS = {
@@ -20,7 +20,6 @@ const LOGIN_ERRORS = {
   bloqueado: 'Esta cuenta no puede acceder. Contacta a soporte.',
   google: 'Google no respondió. Inténtalo de nuevo.',
   facebook: 'Facebook no respondió. Inténtalo de nuevo.',
-  discord: 'Discord no respondió. Inténtalo de nuevo.',
   no_configurado: 'Ese acceso no está configurado.',
   en_uso: 'Esa cuenta ya está vinculada a otro usuario de TayGameStore.',
   sesion: 'Inicia sesión para vincular otra cuenta.',

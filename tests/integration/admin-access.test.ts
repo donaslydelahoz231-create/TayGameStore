@@ -88,7 +88,7 @@ describe('acceso del administrador', () => {
     const config = (await inject({ method: 'GET', url: '/api/config' })).json<{
       auth: Record<string, boolean>;
     }>();
-    expect(Object.keys(config.auth).sort()).toEqual(['discord', 'facebook', 'google']);
+    expect(Object.keys(config.auth).sort()).toEqual(['facebook', 'google']);
   });
 
   it('sin la frase correcta, la activación no existe (404) y no crea nada', async () => {

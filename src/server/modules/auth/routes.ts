@@ -242,8 +242,8 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     },
   );
 
-  // ── Discord y Facebook (solo clientes) ──
-  for (const provider of ['discord', 'facebook'] as const) {
+  // ── Facebook (solo clientes) ──
+  for (const provider of ['facebook'] as const) {
     const callbackUrl = (deps: ServiceDeps) =>
       `${deps.config.publicBaseUrl ?? `http://${deps.config.host}:${deps.config.port}`}/auth/${provider}/callback`;
 

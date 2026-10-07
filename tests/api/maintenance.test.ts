@@ -82,7 +82,7 @@ describe('GET /api/config', () => {
       paymentsEnabled: false,
       paymentsMode: null,
       paymentMethod: 'mercadopago',
-      auth: { google: false, discord: false, facebook: false },
+      auth: { google: false, facebook: false },
       playerLookup: false,
       // Sin proveedor de consulta, el cliente confirma su propio ID (valor por defecto).
       playerVerification: 'customer',

@@ -19,7 +19,7 @@ import { audit, type Actor, type ServiceDeps } from './context.js';
 
 /**
  * Huella o llave de acceso (passkeys, estándar WebAuthn) del ADMINISTRADOR. No se ofrece al
- * público: los clientes compran como invitados (o con Google/Facebook/Discord si se activan).
+ * público: los clientes compran como invitados (o con Google/Facebook si se activan).
  *
  * - Activación: la primera llave se registra en el panel con ADMIN_SETUP_CODE (frase que solo
  *   conoce el dueño, escrita en el hosting). Cuando ya existe una, la frase deja de servir.

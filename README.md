@@ -60,7 +60,7 @@ python3 -m http.server 8080 -d dist/preview   # o cualquier servidor estático
 `tools/preview/shim.js` responde a las rutas `/api/*` dentro del navegador con las mismas reglas
 del servidor (precios, estados del pedido, verificación, entrega) y guarda los datos en el
 navegador. El pago es una **pasarela de prueba** (no es Mercado Pago; nada se cobra) y el acceso
-con Google/Discord/Facebook crea una sesión de prueba. Un aviso fijo lo indica en todo momento.
+con Google/Facebook crea una sesión de prueba. Un aviso fijo lo indica en todo momento.
 **Nunca se despliega**: el servidor solo sirve `dist/web`.
 
 ## Flujo de compra
@@ -102,7 +102,7 @@ con Google/Discord/Facebook crea una sesión de prueba. Un aviso fijo lo indica 
 | `POST /api/orders/:ref/confirm-player`, `/pay`, `/sync` | Dueño |
 | `POST /api/webhooks/mercadopago` | Mercado Pago (firma `x-signature`) |
 | `GET /auth/google`, `/auth/google/callback`, `GET /api/auth/me`, `POST /api/auth/logout` | Google OIDC + PKCE |
-| `GET /auth/discord`, `/auth/facebook` (+ `/callback`, `?vincular=1`) | Clientes: Discord (PKCE) y Facebook; vinculación explícita |
+| `GET /auth/facebook` (+ `/callback`, `?vincular=1`) | Clientes: Facebook; vinculación explícita |
 | `/api/admin/*` | Admin (Google + `ADMIN_EMAILS` + TOTP) |
 
 Errores: `{ "error": { "code", "message", "requestId" } }`; cada respuesta lleva `x-request-id`.

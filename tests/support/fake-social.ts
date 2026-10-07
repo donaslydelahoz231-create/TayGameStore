@@ -6,7 +6,7 @@ import {
 } from '../../src/server/integrations/social/providers.js';
 
 /**
- * Doble de pruebas de Discord/Facebook (solo tests y e2e; nunca en producción).
+ * Doble de pruebas de Facebook (solo tests y e2e; nunca en producción).
  * `authorizeBase` es la "página del proveedor": en e2e, una ruta local que devuelve al
  * callback con el código; en integración, la prueba construye el callback a mano.
  */

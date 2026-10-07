@@ -26,7 +26,7 @@ afterAll(async () => {
 let subjectCounter = 900_000_000_000_000_000n;
 const nextSubject = () => String((subjectCounter += 1n));
 
-type Provider = 'discord' | 'facebook';
+type Provider = 'facebook';
 
 /** Recorre el flujo OAuth completo contra el servidor (el proveedor es un doble de pruebas). */
 async function socialFlow(
@@ -77,16 +77,41 @@ async function me(session: Record<string, string> | undefined) {
   }>();
 }
 
-describe('login con Discord y Facebook', () => {
-  it('Discord: crea la cuenta, abre sesión y la reconoce en el siguiente acceso', async () => {
+/** Inicio con Google (cliente, o vinculando si se pasa la sesión). */
+async function googleFlow(
+  identity: { sub: string; email: string; name: string },
+  session?: Record<string, string>,
+) {
+  h.google.identity = { ...identity, emailVerified: true };
+  const start = await inject({
+    method: 'GET',
+    url: session ? '/auth/google?vincular=1' : '/auth/google',
+    cookies: session ?? {},
+  });
+  const state = new URL(String(start.headers.location)).searchParams.get('state');
+  const cookie = start.cookies.find((c) => c.name === 'tgs_oauth')?.value ?? '';
+  const callback = await inject({
+    method: 'GET',
+    url: `/auth/google/callback?code=codigo&state=${state}`,
+    cookies: { ...(session ?? {}), tgs_oauth: cookie },
+  });
+  const created = callback.cookies.find((c) => c.name === 'tgs_session');
+  return {
+    location: String(callback.headers.location),
+    session: created ? { tgs_session: created.value } : session,
+  };
+}
+
+describe('login con Facebook', () => {
+  it('crea la cuenta, abre sesión y la reconoce en el siguiente acceso', async () => {
     const subject = nextSubject();
-    const first = await socialFlow('discord', { subject, name: 'Jugador Discord' });
+    const first = await socialFlow('facebook', { subject, name: 'Jugador Facebook' });
     expect(first.location).toBe('/?acceso=ok');
     const profile = await me(first.session);
-    expect(profile).toMatchObject({ authenticated: true, user: { name: 'Jugador Discord' } });
-    expect(profile.linked).toEqual(['discord']);
+    expect(profile).toMatchObject({ authenticated: true, user: { name: 'Jugador Facebook' } });
+    expect(profile.linked).toEqual(['facebook']);
 
-    const second = await socialFlow('discord', { subject, name: 'Jugador Discord' });
+    const second = await socialFlow('facebook', { subject, name: 'Jugador Facebook' });
     expect(second.location).toBe('/?acceso=ok');
     const rows = await h.database.db
       .select()
@@ -95,31 +120,40 @@ describe('login con Discord y Facebook', () => {
     expect(rows).toHaveLength(1); // misma cuenta, sin duplicados
   });
 
-  it('Facebook: entra y la URL de autorización lleva state y redirección fijas', async () => {
+  it('la URL de autorización lleva state y redirección fijas', async () => {
     const flow = await socialFlow('facebook', { subject: nextSubject(), name: 'Cliente FB' });
     expect(flow.location).toBe('/?acceso=ok');
     const auth = h.facebook.lastAuthorization;
     expect(auth?.searchParams.get('redirect_uri')).toBe(
       'http://localhost:3000/auth/facebook/callback',
     );
-    expect((await me(flow.session)).linked).toEqual(['facebook']);
+  });
+
+  it('Discord ya no se ofrece: sus rutas no existen', async () => {
+    for (const url of ['/auth/discord', '/auth/discord/callback?code=x&state=y']) {
+      expect((await inject({ method: 'GET', url })).statusCode).toBe(404);
+    }
   });
 
   it('rechaza el callback sin la cookie de state, con state de otro proveedor o cancelado', async () => {
-    const start = await inject({ method: 'GET', url: '/auth/discord' });
+    const start = await inject({ method: 'GET', url: '/auth/facebook' });
     const state = new URL(String(start.headers.location)).searchParams.get('state');
     const noCookie = await inject({
       method: 'GET',
-      url: `/auth/discord/callback?code=x&state=${state}`,
+      url: `/auth/facebook/callback?code=x&state=${state}`,
     });
     expect(noCookie.headers.location).toBe('/?acceso=error&motivo=estado');
 
-    const crossed = await socialFlow(
-      'discord',
-      { subject: nextSubject() },
-      { callbackProvider: 'facebook' },
-    );
-    expect(crossed.location).toBe('/?acceso=error&motivo=estado');
+    // State emitido para Google presentado en el regreso de Facebook.
+    const google = await inject({ method: 'GET', url: '/auth/google' });
+    const googleState = new URL(String(google.headers.location)).searchParams.get('state');
+    const googleCookie = google.cookies.find((c) => c.name === 'tgs_oauth')?.value ?? '';
+    const crossed = await inject({
+      method: 'GET',
+      url: `/auth/facebook/callback?code=${h.facebook.issueCode({ subject: nextSubject(), email: undefined, name: undefined })}&state=${googleState}`,
+      cookies: { tgs_oauth: googleCookie },
+    });
+    expect(crossed.headers.location).toBe('/?acceso=error&motivo=estado');
 
     const cancelled = await inject({
       method: 'GET',
@@ -129,15 +163,15 @@ describe('login con Discord y Facebook', () => {
   });
 
   it('un código inválido no abre sesión', async () => {
-    const start = await inject({ method: 'GET', url: '/auth/discord' });
+    const start = await inject({ method: 'GET', url: '/auth/facebook' });
     const state = new URL(String(start.headers.location)).searchParams.get('state');
     const cookie = start.cookies.find((c) => c.name === 'tgs_oauth')?.value ?? '';
     const res = await inject({
       method: 'GET',
-      url: `/auth/discord/callback?code=inventado&state=${state}`,
+      url: `/auth/facebook/callback?code=inventado&state=${state}`,
       cookies: { tgs_oauth: cookie },
     });
-    expect(res.headers.location).toBe('/?acceso=error&motivo=discord');
+    expect(res.headers.location).toBe('/?acceso=error&motivo=facebook');
     expect(res.cookies.find((c) => c.name === 'tgs_session')).toBeUndefined();
   });
 
@@ -145,42 +179,49 @@ describe('login con Discord y Facebook', () => {
     const subject = nextSubject();
     await h.database.db
       .insert(blocklist)
-      .values({ kind: 'discord_id', value: subject, reason: 'fraude' });
-    const flow = await socialFlow('discord', { subject });
+      .values({ kind: 'facebook_id', value: subject, reason: 'fraude' });
+    const flow = await socialFlow('facebook', { subject });
     expect(flow.location).toBe('/?acceso=error&motivo=bloqueado');
   });
 });
 
 describe('vinculación de cuentas', () => {
-  it('vincula Facebook a una cuenta de Discord y luego entra con cualquiera de las dos', async () => {
-    const discordId = nextSubject();
+  it('vincula Google a una cuenta de Facebook y luego entra con cualquiera de las dos', async () => {
     const facebookId = nextSubject();
-    const login = await socialFlow('discord', { subject: discordId, name: 'Multi' });
-    const linked = await socialFlow(
-      'facebook',
-      { subject: facebookId },
-      { session: login.session, link: true },
+    const login = await socialFlow('facebook', { subject: facebookId, name: 'Multi' });
+    const googleSub = `g-${nextSubject()}`;
+    const linked = await googleFlow(
+      { sub: googleSub, email: 'vinculo@example.com', name: 'Con Google' },
+      login.session,
     );
     expect(linked.location).toBe('/?acceso=vinculado');
-    expect((await me(login.session)).linked).toEqual(['discord', 'facebook']);
+    expect((await me(login.session)).linked).toEqual(['google', 'facebook']);
 
-    const viaFacebook = await socialFlow('facebook', { subject: facebookId });
-    const [a] = await h.database.db
-      .select({ userId: userIdentities.userId })
-      .from(userIdentities)
-      .where(eq(userIdentities.subject, discordId));
-    const [b] = await h.database.db
+    const viaGoogle = await googleFlow({
+      sub: googleSub,
+      email: 'vinculo@example.com',
+      name: 'Con Google',
+    });
+    const [row] = await h.database.db
       .select({ userId: userIdentities.userId })
       .from(userIdentities)
       .where(eq(userIdentities.subject, facebookId));
-    expect(a?.userId).toBe(b?.userId);
-    expect((await me(viaFacebook.session)).user?.name).toBe('Multi');
+    const [owner] = await h.database.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.googleSub, googleSub));
+    expect(owner?.id).toBe(row?.userId);
+    expect((await me(viaGoogle.session)).linked).toEqual(['google', 'facebook']);
   });
 
   it('no vincula una identidad que ya es de otra persona', async () => {
     const owned = nextSubject();
     await socialFlow('facebook', { subject: owned });
-    const other = await socialFlow('discord', { subject: nextSubject() });
+    const other = await googleFlow({
+      sub: `g-${nextSubject()}`,
+      email: 'otra@example.com',
+      name: 'Otra',
+    });
     const steal = await socialFlow(
       'facebook',
       { subject: owned },
@@ -190,16 +231,16 @@ describe('vinculación de cuentas', () => {
   });
 
   it('vincular exige una sesión abierta', async () => {
-    const flow = await socialFlow('discord', { subject: nextSubject() }, { link: true });
+    const flow = await socialFlow('facebook', { subject: nextSubject() }, { link: true });
     expect(flow.location).toBe('/?acceso=error&motivo=sesion');
   });
 
   it('NUNCA une cuentas por correo (evita el secuestro de cuentas)', async () => {
-    const first = await socialFlow('discord', {
+    const first = await socialFlow('facebook', {
       subject: nextSubject(),
       email: 'mismo@example.com',
     });
-    const second = await socialFlow('discord', {
+    const second = await socialFlow('facebook', {
       subject: nextSubject(),
       email: 'mismo@example.com',
     });
@@ -212,7 +253,7 @@ describe('vinculación de cuentas', () => {
   });
 
   it('una red social nunca da acceso de administración, aunque el correo sea del admin', async () => {
-    const flow = await socialFlow('discord', { subject: nextSubject(), email: ADMIN_EMAIL });
+    const flow = await socialFlow('facebook', { subject: nextSubject(), email: ADMIN_EMAIL });
     expect((await me(flow.session)).admin).toBeNull();
     const panel = await inject({
       method: 'GET',
@@ -223,34 +264,10 @@ describe('vinculación de cuentas', () => {
     expect(panel.statusCode).toBe(404);
   });
 
-  it('vincula Google a una cuenta creada con Discord', async () => {
-    const login = await socialFlow('discord', { subject: nextSubject() });
-    h.google.identity = {
-      sub: `g-${nextSubject()}`,
-      email: 'vinculo@example.com',
-      emailVerified: true,
-      name: 'Con Google',
-    };
-    const start = await inject({
-      method: 'GET',
-      url: '/auth/google?vincular=1',
-      cookies: login.session ?? {},
-    });
-    const state = new URL(String(start.headers.location)).searchParams.get('state');
-    const cookie = start.cookies.find((c) => c.name === 'tgs_oauth')?.value ?? '';
-    const callback = await inject({
-      method: 'GET',
-      url: `/auth/google/callback?code=codigo&state=${state}`,
-      cookies: { ...(login.session ?? {}), tgs_oauth: cookie },
-    });
-    expect(callback.headers.location).toBe('/?acceso=vinculado');
-    expect((await me(login.session)).linked).toEqual(['google', 'discord']);
-  });
-
-  it('/api/config anuncia los accesos configurados', async () => {
+  it('/api/config anuncia los accesos configurados (sin Discord)', async () => {
     const config = (await inject({ method: 'GET', url: '/api/config' })).json<{
       auth: Record<string, boolean>;
     }>();
-    expect(config.auth).toEqual({ google: true, discord: true, facebook: true });
+    expect(config.auth).toEqual({ google: true, facebook: true });
   });
 });

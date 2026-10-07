@@ -24,7 +24,7 @@ Cliente paga en Mercado Pago ──▶ Cuenta de Mercado Pago del dueño de MP_A
 | Capa | Qué la protege |
 |---|---|
 | Lista de administradores | `ADMIN_EMAILS` (variable del servidor). Pon **solo tu correo**. No hay pantalla para añadir administradores; se revisa en cada petición |
-| Inicio de sesión | Solo con **Google** (Discord, Facebook y las llaves de acceso nunca dan acceso de administración) |
+| Inicio de sesión | Solo con **Google** (Facebook nunca da acceso de administración) |
 | Segundo factor | TOTP obligatorio + códigos de recuperación; 5 códigos erróneos bloquean la cuenta 15 min |
 | Credenciales de Mercado Pago | Solo en variables de entorno de Render; ninguna respuesta del servidor las muestra |
 | Cambios en el panel | Auditoría que no se puede modificar ni borrar |
@@ -61,7 +61,7 @@ nada de lo que llega del navegador:
 | Escritura sin la cabecera anti-CSRF | 403 `CSRF_REJECTED` y señal al escudo anti-abuso |
 | Mostrar el panel oculto (`#admApp`) | Sin datos: la API responde 404 a quien no es administrador |
 | Cookie de sesión inventada | 404 (el panel no existe para ella) |
-| Cliente con sesión (llave de acceso, Discord, Facebook o Google sin permiso) | 404 en todo `/api/admin/*` |
+| Cliente con sesión (Facebook o Google sin permiso) | 404 en todo `/api/admin/*` |
 | Leer la cookie de sesión desde la consola (`document.cookie`) | No aparece: es HttpOnly (y `__Host-` en producción) |
 | Dejar código (`<img onerror=…>`) en el nombre del pedido para que se ejecute en el panel | Se muestra como texto; la CSP tampoco permite scripts en línea |
 
@@ -75,7 +75,7 @@ está en el inspector sino en **tus cuentas**: por eso la lista siguiente.
 3. Tu cuenta de Mercado Pago con verificación en dos pasos y un correo/teléfono que solo tú
    controles.
 4. Panel → configura el TOTP y guarda los códigos de recuperación **fuera** del computador.
-5. Nadie más tiene acceso a GitHub, Vercel/Render, Google Cloud, Meta, Discord ni Mercado Pago
+5. Nadie más tiene acceso a GitHub, Vercel/Render, Google Cloud, Meta ni Mercado Pago
    (verificación en dos pasos en todas).
 6. Si sospechas de una filtración: rota `MP_ACCESS_TOKEN`/`MP_WEBHOOK_SECRET` en Mercado Pago y en
    Render (ver `deployment.md` → Rotación de secretos) y revisa la Auditoría del panel.

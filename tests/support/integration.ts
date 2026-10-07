@@ -72,7 +72,6 @@ export interface Harness {
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
   routes: readonly string[];
-  discord: FakeSocialClient;
   facebook: FakeSocialClient;
   clock: { now: Date };
   close(): Promise<void>;
@@ -92,7 +91,6 @@ export async function createHarness(
   const events = new RecordingEventSink();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
-  const discord = new FakeSocialClient('discord');
   const facebook = new FakeSocialClient('facebook');
   const clock = { now: new Date() };
   const config = loadConfig({
@@ -119,7 +117,7 @@ export async function createHarness(
     db: database.db,
     paymentGateway: gateway,
     googleClient: google,
-    socialClients: { discord, facebook },
+    socialClients: { facebook },
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
     ownerNotifier: notifier,
     mailer,
@@ -139,7 +137,6 @@ export async function createHarness(
     verifier,
     shield,
     routes,
-    discord,
     facebook,
     clock,
     close: async () => {

@@ -237,9 +237,9 @@ test.describe('panel de administración', () => {
   }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
-    await page.locator('[data-provider="discord"]').click();
+    await page.locator('[data-provider="facebook"]').click();
     await page.waitForURL(/\/$/);
-    await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
+    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
 
     // La cookie de sesión es HttpOnly: ni la consola ni un script inyectado pueden leerla.
     expect(await page.evaluate(() => document.cookie)).not.toContain('tgs_session');

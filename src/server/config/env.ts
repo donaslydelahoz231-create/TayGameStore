@@ -130,12 +130,6 @@ const envSchema = z
 
     GOOGLE_CLIENT_ID: z.string().min(10).optional(),
     GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
-    /** Login de clientes con Discord (https://discord.com/developers/applications). */
-    DISCORD_CLIENT_ID: z
-      .string()
-      .regex(/^\d{5,25}$/)
-      .optional(),
-    DISCORD_CLIENT_SECRET: z.string().min(10).optional(),
     /** Login de clientes con Facebook (https://developers.facebook.com/apps). */
     FACEBOOK_APP_ID: z
       .string()
@@ -260,9 +254,6 @@ const envSchema = z
     const issue = (path: string, message: string) =>
       ctx.addIssue({ code: 'custom', path: [path], message });
 
-    if (Boolean(env.DISCORD_CLIENT_ID) !== Boolean(env.DISCORD_CLIENT_SECRET)) {
-      issue('DISCORD_CLIENT_SECRET', 'DISCORD_CLIENT_ID y DISCORD_CLIENT_SECRET van juntos');
-    }
     if (Boolean(env.FACEBOOK_APP_ID) !== Boolean(env.FACEBOOK_APP_SECRET)) {
       issue('FACEBOOK_APP_SECRET', 'FACEBOOK_APP_ID y FACEBOOK_APP_SECRET van juntos');
     }
@@ -372,7 +363,6 @@ export interface AppConfig {
   sessions: { ttlHours: number; idleMinutes: number; adminTtlMinutes: number };
   google: { clientId: string; clientSecret: string } | undefined;
   social: {
-    discord: { clientId: string; clientSecret: string } | undefined;
     facebook: { clientId: string; clientSecret: string; graphVersion: string } | undefined;
   };
   adminEmails: readonly string[];
@@ -514,10 +504,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       adminTtlMinutes: env.ADMIN_SESSION_TTL_MINUTES,
     },
     social: {
-      discord:
-        env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET
-          ? { clientId: env.DISCORD_CLIENT_ID, clientSecret: env.DISCORD_CLIENT_SECRET }
-          : undefined,
       facebook:
         env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET
           ? {

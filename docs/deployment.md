@@ -53,17 +53,12 @@ El servidor **no arranca** si falta una variable obligatoria (muestra el nombre,
 5. Entra a `https://tudominio.com<ADMIN_PATH>` (tu dirección secreta), configura el TOTP y **guarda los códigos de
    recuperación** fuera del computador.
 
-### Discord y Facebook (acceso de clientes, opcional)
+### Facebook (acceso de clientes, opcional)
 
-Cada red aparece como **Disponible** en la tienda solo cuando sus dos variables están puestas;
+(Discord se retiró a pedido del dueño.) Cada red aparece como **Disponible** en la tienda solo cuando sus dos variables están puestas;
 si no, el botón queda deshabilitado (nunca hay un acceso de mentira). Nunca dan acceso de
 administración: el panel exige Google + `ADMIN_EMAILS` + TOTP.
 
-- **Discord** ([documentación](https://docs.discord.com/developers/topics/oauth2)):
-  [Developer Portal](https://discord.com/developers/applications) → New Application →
-  **OAuth2** → copia *Client ID* y *Client Secret* (`DISCORD_CLIENT_ID`,
-  `DISCORD_CLIENT_SECRET`) → *Redirects*: `https://tudominio.com/auth/discord/callback`.
-  Ámbitos que pide la tienda: `identify email`.
 - **Facebook** ([flujo manual](https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow/)):
   [Meta for Developers](https://developers.facebook.com/apps) → crea una app de tipo
   consumidor → producto **Inicio de sesión con Facebook** → *URI de redireccionamiento de

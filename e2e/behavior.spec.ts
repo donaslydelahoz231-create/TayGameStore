@@ -70,10 +70,11 @@ test.describe('entrada y acceso', () => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
     await expect(page.locator('#loginModal input[type="password"]')).toHaveCount(0);
-    await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(3);
+    await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(2);
     await expect(page.locator('[data-provider="vk"]')).toHaveCount(0);
-    // El servidor de pruebas configura Discord y Facebook (dobles), no Google.
-    await expect(page.locator('#discordState')).toHaveText('Disponible');
+    // Discord se retiró a pedido del dueño.
+    await expect(page.locator('[data-provider="discord"]')).toHaveCount(0);
+    // El servidor de pruebas configura Facebook (doble), no Google.
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
     await expect(page.locator('#googleState')).toHaveText('No configurado');
     // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega.
@@ -82,19 +83,15 @@ test.describe('entrada y acceso', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('entrar con Discord y vincular Facebook desde Mi cuenta', async ({ page }) => {
+  test('entrar con Facebook y ver la red vinculada en Mi cuenta', async ({ page }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
-    await page.locator('[data-provider="discord"]').click();
+    await page.locator('[data-provider="facebook"]').click();
     await page.waitForURL(/\/$/);
-    await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
-    await page.locator('#accountBtn').click();
-    await expect(page.locator('#menuLinksList')).toContainText('Discord ✓');
-    await page.locator('#menuLinksList a', { hasText: 'Vincular Facebook' }).click();
-    await page.waitForURL(/\/$/);
+    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
     await page.locator('#accountBtn').click();
     await expect(page.locator('#menuLinksList')).toContainText('Facebook ✓');
-    await expect(page.locator('#menuLinksList')).toContainText('Discord ✓');
+    await expect(page.locator('#menuLinksList')).not.toContainText('Discord');
   });
 });
 
@@ -305,8 +302,8 @@ test.describe('estado de la tienda y soporte', () => {
     await page.goto('/');
     // El menú de cuenta es para clientes con sesión (al invitado el botón le abre el acceso).
     await page.locator('#enterStoreBtn').click();
-    await page.locator('[data-provider="discord"]').click();
-    await expect(page.locator('#accountName')).toHaveText('Gamer Discord');
+    await page.locator('[data-provider="facebook"]').click();
+    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
     await product(page, '520 + 52 Diamantes').locator('.fav-btn').click();
     await page.locator('#accountBtn').click();
     await page.locator('#menuFavorites').click();

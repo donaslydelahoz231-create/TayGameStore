@@ -16,7 +16,7 @@ import { audit, type Actor, type ServiceDeps } from './context.js';
  *   apoderarse de cuentas ajenas.
  * - Ninguna identidad social da acceso de administración.
  */
-export const LINKABLE_PROVIDERS = ['google', 'discord', 'facebook'] as const;
+export const LINKABLE_PROVIDERS = ['google', 'facebook'] as const;
 export type LinkableProvider = (typeof LINKABLE_PROVIDERS)[number];
 
 const inUse = () =>
@@ -45,7 +45,7 @@ async function activeUser(deps: ServiceDeps, userId: string): Promise<AuthUser> 
   return toAuthUser(user);
 }
 
-/** Entrar (o crear la cuenta) con Discord o Facebook. */
+/** Entrar (o crear la cuenta) con Facebook. */
 export async function loginWithSocial(
   deps: ServiceDeps,
   identity: SocialIdentity,
@@ -117,7 +117,7 @@ export async function loginWithSocial(
   return user;
 }
 
-/** Vincular Discord o Facebook a la cuenta con sesión abierta. */
+/** Vincular Facebook a la cuenta con sesión abierta. */
 export async function linkSocialIdentity(
   deps: ServiceDeps,
   userId: string,
@@ -211,7 +211,8 @@ export async function listLinkedProviders(
     .select({ provider: userIdentities.provider })
     .from(userIdentities)
     .where(eq(userIdentities.userId, user.id));
-  const linked = new Set<LinkableProvider>(rows.map((r) => r.provider));
+  // Las identidades de Discord antiguas ya no se muestran: ese acceso no se ofrece.
+  const linked = new Set<string>(rows.map((r) => r.provider));
   if (user.googleSub) linked.add('google');
   return LINKABLE_PROVIDERS.filter((p) => linked.has(p));
 }

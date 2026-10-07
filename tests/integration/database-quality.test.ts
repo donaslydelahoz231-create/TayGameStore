@@ -54,7 +54,7 @@ describe('calidad de la base de datos', () => {
     ['sesión por hash del token', sql`select * from sessions where token_hash = 'x'`],
     [
       'identidad social',
-      sql`select * from user_identities where provider = 'discord' and subject = '1'`,
+      sql`select * from user_identities where provider = 'facebook' and subject = '1'`,
     ],
     [
       'bloqueo por tipo y valor',

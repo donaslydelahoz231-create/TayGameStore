@@ -84,11 +84,6 @@
   color: #b9f5dc;
 }
 
-/* Tres accesos: Google ocupa la fila completa en el formato de dos columnas. */
-.oauth-grid .oauth-btn.google {
-  grid-column: 1 / -1;
-}
-
 /* Cabecera de escritorio: el menú no se recorta (con un nombre de cuenta largo "Soporte"
    quedaba oculto); si falta espacio, el texto de estado de la píldora se abrevia. */
 @media (min-width: 1101px) {

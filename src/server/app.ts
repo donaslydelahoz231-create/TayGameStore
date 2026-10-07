@@ -41,7 +41,7 @@ export interface AppDependencies {
   db?: Db | undefined;
   paymentGateway?: PaymentGateway | undefined;
   googleClient?: GoogleClient | undefined;
-  /** Login de clientes con Discord y Facebook (solo los configurados). */
+  /** Login de clientes con Facebook (si está configurado). */
   socialClients?: Partial<Record<SocialProvider, SocialClient>> | undefined;
   /** Verificación automática de jugadores. Sin ella, la verificación es manual (operador). */
   playerVerifier?: PlayerVerifier | undefined;
@@ -161,7 +161,6 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
     paymentsAvailable: deps?.gateway !== undefined,
     googleAvailable: input.googleClient !== undefined && deps !== undefined,
     socialAvailable: {
-      discord: input.socialClients?.discord !== undefined && deps !== undefined,
       facebook: input.socialClients?.facebook !== undefined && deps !== undefined,
     },
     playerLookupAvailable: input.playerVerifier !== undefined && deps !== undefined,

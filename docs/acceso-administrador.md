@@ -13,7 +13,7 @@ rutas `/api/admin/*` también. La cuenta del dueño es el primer correo de `ADMI
 | **Huella o llave de acceso** | El dispositivo pide huella, rostro o PIN | Dos pasos (dispositivo + biometría/PIN) |
 | Google | Solo si se configuran `GOOGLE_CLIENT_ID/SECRET` → código de Google Authenticator | Dos pasos |
 
-Los clientes **no** ven nada de esto: compran como invitados o con Google, Facebook o Discord
+Los clientes **no** ven nada de esto: compran como invitados o con Google o Facebook
 (los botones de redes se muestran siempre; cada red funciona cuando su credencial está en el
 servidor).
 

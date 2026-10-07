@@ -6,7 +6,7 @@ export interface ConfigRoutesOptions {
   config: AppConfig;
   paymentsAvailable: boolean;
   googleAvailable: boolean;
-  socialAvailable: { discord: boolean; facebook: boolean };
+  socialAvailable: { facebook: boolean };
   playerLookupAvailable: boolean;
   emailUpdatesAvailable: boolean;
   now: () => Date;

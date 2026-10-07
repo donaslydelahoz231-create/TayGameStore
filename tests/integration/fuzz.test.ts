@@ -169,8 +169,6 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/api/auth/logout' },
   { method: 'GET', path: '/auth/google' },
   { method: 'GET', path: '/auth/google/callback' },
-  { method: 'GET', path: '/auth/discord' },
-  { method: 'GET', path: '/auth/discord/callback' },
   { method: 'GET', path: '/auth/facebook' },
   { method: 'GET', path: '/auth/facebook/callback' },
   { method: 'POST', path: '/api/admin/mfa/setup', admin: true },

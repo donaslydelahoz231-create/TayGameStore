@@ -5,6 +5,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Retirado
+
+- Acceso de clientes con Discord (a pedido del dueño): sin botón, sin rutas `/auth/discord*` ni
+  variables `DISCORD_*`. La ventana de acceso ofrece Google y Facebook, lado a lado, además de
+  comprar como invitado. La base de datos conserva el valor `discord` solo por compatibilidad.
+
 ### Añadido
 
 - Aviso de marcas visible en el pie de la tienda (y ampliado en los términos): Free Fire, Garena,

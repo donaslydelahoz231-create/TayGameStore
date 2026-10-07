@@ -2,10 +2,8 @@ import { createHmac } from 'node:crypto';
 import type { SocialProvider } from '../../db/schema.js';
 
 /**
- * Inicio de sesión de clientes con Discord y Facebook (OAuth 2.0, Authorization Code).
+ * Inicio de sesión de clientes con Facebook (OAuth 2.0, Authorization Code).
  * Endpoints según la documentación oficial:
- * - Discord: https://docs.discord.com/developers/topics/oauth2 (PKCE S256, formulario
- *   x-www-form-urlencoded en el token endpoint, perfil en /users/@me).
  * - Facebook: https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow/
  *   (dialog/oauth → oauth/access_token → /me?fields=id,name,email), con appsecret_proof.
  * Solo se usan para CLIENTES: la administración exige Google + lista de correos + TOTP.
@@ -58,73 +56,6 @@ const text = (value: unknown, max = 80) => {
   const clean = value.replace(/[\u0000-\u001f\u007f]/g, '').trim();
   return clean ? clean.slice(0, max) : undefined;
 };
-
-// ── Discord ──────────────────────────────────────────────────────────────────
-
-export const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize';
-export const DISCORD_TOKEN_URL = 'https://discord.com/api/oauth2/token';
-export const DISCORD_ME_URL = 'https://discord.com/api/users/@me';
-
-export class DiscordClient implements SocialClient {
-  readonly provider = 'discord' as const;
-  private readonly fetch: typeof fetch;
-
-  constructor(private readonly options: ClientOptions) {
-    this.fetch = options.fetchImpl ?? fetch;
-  }
-
-  authorizationUrl(input: { state: string; codeChallenge: string; redirectUri: string }) {
-    const url = new URL(DISCORD_AUTHORIZE_URL);
-    url.search = new URLSearchParams({
-      response_type: 'code',
-      client_id: this.options.clientId,
-      scope: 'identify email',
-      state: input.state,
-      redirect_uri: input.redirectUri,
-      code_challenge: input.codeChallenge,
-      code_challenge_method: 'S256',
-      prompt: 'consent',
-    }).toString();
-    return url.toString();
-  }
-
-  async exchangeCode(input: { code: string; codeVerifier: string; redirectUri: string }) {
-    const signal = AbortSignal.timeout(this.options.timeoutMs ?? 10_000);
-    const token = await readJson(
-      await this.fetch(DISCORD_TOKEN_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: input.code,
-          redirect_uri: input.redirectUri,
-          client_id: this.options.clientId,
-          client_secret: this.options.clientSecret,
-          code_verifier: input.codeVerifier,
-        }),
-        signal,
-      }),
-      'token',
-    );
-    if (typeof token.access_token !== 'string') throw new SocialAuthError('no_access_token');
-    const me = await readJson(
-      await this.fetch(DISCORD_ME_URL, {
-        headers: { authorization: `Bearer ${token.access_token}` },
-        signal,
-      }),
-      'profile',
-    );
-    const subject = text(me.id, 40);
-    if (!subject || !/^\d{5,25}$/.test(subject)) throw new SocialAuthError('subject');
-    const email = me.verified === true ? text(me.email, 160)?.toLowerCase() : undefined;
-    return {
-      provider: this.provider,
-      subject,
-      email,
-      name: text(me.global_name) ?? text(me.username),
-    };
-  }
-}
 
 // ── Facebook ─────────────────────────────────────────────────────────────────
 

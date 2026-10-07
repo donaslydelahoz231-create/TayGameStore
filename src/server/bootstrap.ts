@@ -7,7 +7,7 @@ import { SmtpMailer } from './integrations/notify/email.js';
 import { WebhookEventSink } from './integrations/notify/events.js';
 import { TelegramOwnerNotifier } from './integrations/notify/owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
-import { DiscordClient, FacebookClient } from './integrations/social/providers.js';
+import { FacebookClient } from './integrations/social/providers.js';
 
 export interface Server extends BuiltApp {
   database: Database | undefined;
@@ -43,7 +43,6 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
     googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
     socialClients: {
-      ...(config.social.discord ? { discord: new DiscordClient(config.social.discord) } : {}),
       ...(config.social.facebook ? { facebook: new FacebookClient(config.social.facebook) } : {}),
     },
   });
