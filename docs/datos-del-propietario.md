@@ -57,16 +57,29 @@ Este documento no contiene ningún dato personal.
 
 ## Cómo verificar que el número no está (sin escribirlo)
 
-Buscar cualquier secuencia larga de dígitos que termine en los 4 últimos del documento
-(`XXXX`), en el repositorio, su historial y los registros:
+El escáner busca cualquier secuencia de 7 o más dígitos que termine en los 4 últimos del
+documento (`XXXX`), **con o sin separadores también dentro de esos 4 dígitos** (el formato
+«x.xxx.xxx.xxx» los separa con un punto), en el árbol, `dist/`, los archivos ignorados y todo el
+historial; además, secretos y `LEGAL_ID` con más de 4 dígitos. Solo imprime conteos:
 
 ```bash
-P='[0-9]([0-9. -]?[0-9]){5,}XXXX'
-grep -rlE "$P" . --exclude-dir=node_modules --exclude-dir=.git   # archivos
-git log --all -p | grep -cE "$P"                                  # historial (debe ser 0)
+TGS_SUFIJO_DOC=XXXX bash scripts/auditoria/escanear.sh   # debe terminar en «0 coincidencias»
 ```
 
-En Render: Logs → buscar `XXXX` (debe salir vacío).
+En Render: Logs → buscar `XXXX`, `X.XXX` y `X XXX` (las tres deben salir vacías).
+
+## Guardia automática y procedimientos
+
+- `.claude/hooks/guardia-datos.sh` (activado en `.claude/settings.json`) bloquea antes de
+  ejecutarse cualquier herramienta con secretos, el documento completo, `LEGAL_ID` largo, push
+  forzado o reescritura del historial, y pide autorización para push, Render, GitHub, rutinas y
+  n8n. Sus pruebas: `bash scripts/auditoria/probar-guardia.sh`. Para la regla del documento, el
+  sufijo va en la variable de entorno `TGS_SUFIJO_DOC` del entorno de Claude o en
+  `.claude/guardia.local` (no versionado). Las solicitudes de autorización solo llegan al dueño si
+  la sesión está en modo de permisos «Ask/Default»; en modo `auto` las resuelve el clasificador.
+- Skills: `.claude/skills/auditoria-segura` (solo lectura, informe en 6 secciones) y
+  `.claude/skills/despliegue-seguro` (autorización por etapas).
+- Registro de cambios autorizados: `docs/auditoria/registro.md`.
 
 ## Eliminación
 

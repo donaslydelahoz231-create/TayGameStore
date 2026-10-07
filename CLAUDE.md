@@ -20,3 +20,7 @@
   datos.
 - **Evidencia**: si una comprobación no puede hacerse, márcala como NO VERIFICADO. No afirmes que
   algo fue publicado, eliminado o verificado sin evidencia técnica.
+
+Procedimientos: skill `auditoria-segura` (solo lectura) y skill `despliegue-seguro` (autorización
+por etapas). La guardia `.claude/hooks/guardia-datos.sh` bloquea secretos, el documento completo y
+la reescritura del historial; no la desactives ni la eludas.

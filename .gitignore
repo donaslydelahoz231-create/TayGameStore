@@ -34,3 +34,6 @@ Thumbs.db
 # Vercel
 .vercel/
 .vercel-static/
+
+# Sufijo local del documento del propietario para la guardia de datos (nunca se versiona)
+.claude/guardia.local
