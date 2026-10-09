@@ -28,7 +28,6 @@ jobs:
     timeout-minutes: 20
     env:
       URL: ${{ vars.PRODUCTION_URL || 'https://taygamestore.onrender.com' }}
-      DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
       GH_TOKEN: ${{ github.token }}
       LABEL: incidente
     steps:
@@ -83,9 +82,21 @@ jobs:
           echo "::error::La tienda sigue sin responder; incidente #${{ steps.issue.outputs.number }} abierto."
           exit 1
 
+      - name: Comprobar si hay Deploy Hook configurado
+        id: hook
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == ''
+        env:
+          DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$DEPLOY_HOOK" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Reiniciar con el deploy hook
         id: heal
-        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' && env.DEPLOY_HOOK != ''
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' && steps.hook.outputs.configured == 'true'
         env:
           DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
@@ -117,7 +128,7 @@ jobs:
         env:
           TRIGGERED: ${{ steps.heal.outputs.triggered }}
           RECOVERED: ${{ steps.heal.outputs.recovered }}
-          HAS_HOOK: ${{ secrets.DEPLOY_HOOK_URL != '' || secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+          HAS_HOOK: ${{ steps.hook.outputs.configured }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           now=$(date -u +%FT%TZ)
