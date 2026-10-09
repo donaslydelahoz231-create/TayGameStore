@@ -5,8 +5,8 @@ name: Vigilancia y autorreparación
 #      último commit; no repite pagos ni recargas: el servidor es idempotente),
 #   2. espera a que vuelva y deja constancia en un issue con la etiqueta "incidente".
 # Si sigue caída, el issue queda abierto para el propietario y no se reintenta en bucle.
-# Configuración (docs/autorreparacion.md): variable PRODUCTION_URL y secreto
-# DEPLOY_HOOK_URL (o RENDER_DEPLOY_HOOK_URL). Sin PRODUCTION_URL el trabajo no hace nada.
+# Configuración (docs/autorreparacion.md): la URL pública tiene un valor predeterminado y puede
+# sobrescribirse con PRODUCTION_URL. El deploy hook es opcional; sin él solo alerta.
 
 on:
   schedule:
@@ -24,11 +24,10 @@ concurrency:
 jobs:
   salud:
     name: Salud de producción
-    if: vars.PRODUCTION_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      URL: ${{ vars.PRODUCTION_URL }}
+      URL: ${{ vars.PRODUCTION_URL || 'https://taygamestore.onrender.com' }}
       DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
       GH_TOKEN: ${{ github.token }}
       LABEL: incidente
