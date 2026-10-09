@@ -4,7 +4,7 @@ Dos workflows mantienen la tienda sin intervención diaria. Ninguno toca pagos n
 
 ## Vigilancia (`.github/workflows/vigilancia.yml`)
 
-Cada 30 minutos consulta `https://<tu-dominio>/api/ready` (comprueba servidor y base de datos).
+Cada 30 minutos consulta `/api/ready` (comprueba servidor y base de datos). Usa por defecto `https://taygamestore.onrender.com`; si el dominio cambia, define la variable opcional `PRODUCTION_URL` en GitHub Actions.
 
 | Situación | Qué hace |
 |---|---|
@@ -23,10 +23,10 @@ o una entrega nunca se repiten por un reinicio). Revisa después las alertas del
    - pestaña **Secrets** → *New repository secret* → `RENDER_DEPLOY_HOOK_URL` = la URL del paso 1
      (es secreta: quien la tenga puede redesplegar tu servicio);
    - pestaña **Variables** → *New repository variable* → `PRODUCTION_URL` =
-     `https://tu-dominio` (sin barra final).
+     `https://tu-dominio` (sin barra final), solo si el dominio difiere del predeterminado.
 3. **Actions** → *Vigilancia y autorreparación* → **Run workflow** para probarla.
 
-Sin `PRODUCTION_URL` el workflow no hace nada; sin el secreto solo avisa (no reinicia).
+Si no defines `PRODUCTION_URL`, se usa la URL pública predeterminada de TayGameStore. Sin el secreto del deploy hook, la vigilancia no reinicia el servicio: registra el incidente y avisa. El secreto habilita un redespliegue automático único si la comprobación de disponibilidad falla; úsalo solo si aceptas ese comportamiento.
 
 ## Mantenimiento (`.github/workflows/mantenimiento.yml`)
 
