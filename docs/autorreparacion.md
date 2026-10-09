@@ -1,10 +1,10 @@
 # Autorreparación y mantenimiento automático (GitHub Actions)
 
-Dos workflows mantienen la tienda sin intervención diaria. Ninguno toca pagos ni recargas.
+GitHub Actions aporta vigilancia y mantenimiento; las tareas de pedidos y conciliación las gestiona principalmente el programador interno del servidor. El workflow `.github/workflows/tareas.yml` queda en espera intencional para limitar el consumo de Neon Free. No lo reactives hasta validar `CRON_SECRET`, idempotencia y presupuesto de cómputo.
 
 ## Vigilancia (`.github/workflows/vigilancia.yml`)
 
-Cada 30 minutos consulta `https://<tu-dominio>/api/ready` (comprueba servidor y base de datos).
+Cada 30 minutos consulta `/api/ready` (comprueba servidor y base de datos). Usa por defecto `https://taygamestore.onrender.com`; si el dominio cambia, define `PRODUCTION_URL` y actualiza el allowlist HTTPS del workflow mediante revisión de código. El flujo rechaza hostnames, puertos, rutas y parámetros no previstos.
 
 | Situación | Qué hace |
 |---|---|
@@ -23,10 +23,10 @@ o una entrega nunca se repiten por un reinicio). Revisa después las alertas del
    - pestaña **Secrets** → *New repository secret* → `RENDER_DEPLOY_HOOK_URL` = la URL del paso 1
      (es secreta: quien la tenga puede redesplegar tu servicio);
    - pestaña **Variables** → *New repository variable* → `PRODUCTION_URL` =
-     `https://tu-dominio` (sin barra final).
+     `https://tu-dominio` (sin barra final), solo si el dominio difiere del predeterminado.
 3. **Actions** → *Vigilancia y autorreparación* → **Run workflow** para probarla.
 
-Sin `PRODUCTION_URL` el workflow no hace nada; sin el secreto solo avisa (no reinicia).
+Si no defines `PRODUCTION_URL`, se usa la URL pública predeterminada de TayGameStore. Sin el secreto del deploy hook, la vigilancia registra el incidente y avisa, sin reiniciar. El secreto habilita un redespliegue automático único si la comprobación falla. Eso puede activar un nuevo despliegue de producción; mantenlo sin configurar hasta decidir expresamente que quieres esa recuperación automática.
 
 ## Mantenimiento (`.github/workflows/mantenimiento.yml`)
 
@@ -43,3 +43,8 @@ GitHub): la CI corre en cuanto haces cualquier push a esa rama o la fusionas.
 GitHub Actions debe estar ejecutándose en el repositorio. Si los trabajos se quedan en cola y se
 cancelan sin empezar, revisa **Settings → Actions** y la facturación de la organización
 (issue #8).
+
+
+## Respaldo opcional de tareas programadas
+
+El workflow `.github/workflows/tareas.yml` permanece desactivado por defecto. Configurar `PRODUCTION_URL` para otros fines no debe activar conciliaciones ni reintentos de correo. Para habilitar el respaldo desde GitHub Actions se requiere la variable `ENABLE_SCHEDULED_TASKS=true`, `PRODUCTION_URL` y el secreto `CRON_SECRET` idéntico al configurado en Render. El workflow valida HTTPS y el hostname permitido antes de enviar el secreto; no se debe desactivar esa validación. Antes de habilitarlo, comprobar el programador interno, los locks e idempotencia en staging y vigilar el consumo de la base de datos.

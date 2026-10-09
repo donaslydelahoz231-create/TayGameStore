@@ -5,8 +5,8 @@ name: Vigilancia y autorreparación
 #      último commit; no repite pagos ni recargas: el servidor es idempotente),
 #   2. espera a que vuelva y deja constancia en un issue con la etiqueta "incidente".
 # Si sigue caída, el issue queda abierto para el propietario y no se reintenta en bucle.
-# Configuración (docs/autorreparacion.md): variable PRODUCTION_URL y secreto
-# DEPLOY_HOOK_URL (o RENDER_DEPLOY_HOOK_URL). Sin PRODUCTION_URL el trabajo no hace nada.
+# Configuración (docs/autorreparacion.md): la URL pública tiene un valor predeterminado y puede
+# sobrescribirse con PRODUCTION_URL. El deploy hook es opcional; sin él solo alerta.
 
 on:
   schedule:
@@ -24,20 +24,36 @@ concurrency:
 jobs:
   salud:
     name: Salud de producción
-    if: vars.PRODUCTION_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      URL: ${{ vars.PRODUCTION_URL }}
-      DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
+      URL: ${{ vars.PRODUCTION_URL || 'https://taygamestore.onrender.com' }}
       GH_TOKEN: ${{ github.token }}
       LABEL: incidente
     steps:
+      - name: Validar destino de vigilancia
+        env:
+          URL: ${{ vars.PRODUCTION_URL || 'https://taygamestore.onrender.com' }}
+        run: |
+          export URL
+          node <<'NODE'
+          const u = new URL(process.env.URL);
+          const valid = u.protocol === "https:" &&
+            u.hostname === "taygamestore.onrender.com" &&
+            !u.username && !u.password &&
+            ["", "/"].includes(u.pathname) && !u.search && !u.hash &&
+            (!u.port || u.port === "443");
+          if (!valid) {
+            console.error("::error::PRODUCTION_URL no coincide con el dominio HTTPS autorizado; no se consultará otro destino.");
+            process.exit(1);
+          }
+          NODE
+
       - name: Comprobar /api/ready (3 intentos)
         id: check
         run: |
           for attempt in 1 2 3; do
-            if curl -fsS --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
+            if curl --proto '=https:' --tlsv1.2 -fsS --connect-timeout 10 --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
               echo "ok=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -66,16 +82,41 @@ jobs:
           echo "::error::La tienda sigue sin responder; incidente #${{ steps.issue.outputs.number }} abierto."
           exit 1
 
+      - name: Comprobar si hay Deploy Hook configurado
+        id: hook
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == ''
+        env:
+          DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$DEPLOY_HOOK" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Reiniciar con el deploy hook
         id: heal
-        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' && env.DEPLOY_HOOK != ''
+        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' && steps.hook.outputs.configured == 'true'
+        env:
+          DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK_URL || secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl -fsS -X POST --max-time 30 "$DEPLOY_HOOK" -o /dev/null
+          export DEPLOY_HOOK
+          node <<'NODE'
+          const u = new URL(process.env.DEPLOY_HOOK);
+          const valid = u.protocol === "https:" && u.hostname === "api.render.com" &&
+            u.pathname.startsWith("/deploy/") && u.pathname.length > "/deploy/".length &&
+            !u.username && !u.password;
+          if (!valid) {
+            console.error("::error::Deploy Hook rechazado: se esperaba HTTPS en api.render.com/deploy/…");
+            process.exit(1);
+          }
+          NODE
+          curl --proto '=https:' --tlsv1.2 -fsS --connect-timeout 10 --max-time 30 -X POST "$DEPLOY_HOOK" -o /dev/null
           echo "triggered=true" >> "$GITHUB_OUTPUT"
           # Un despliegue tarda unos minutos: se espera hasta 12.
           for attempt in $(seq 1 24); do
             sleep 30
-            if curl -fsS --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
+            if curl --proto '=https:' --tlsv1.2 -fsS --connect-timeout 10 --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
               echo "recovered=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -83,10 +124,11 @@ jobs:
           echo "recovered=false" >> "$GITHUB_OUTPUT"
 
       - name: Registrar el incidente
-        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == ''
+        if: ${{ !cancelled() && steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' }}
         env:
           TRIGGERED: ${{ steps.heal.outputs.triggered }}
           RECOVERED: ${{ steps.heal.outputs.recovered }}
+          HAS_HOOK: ${{ steps.hook.outputs.configured }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           now=$(date -u +%FT%TZ)
@@ -99,6 +141,8 @@ jobs:
           fi
           if [ "$TRIGGERED" = "true" ]; then
             action="Se reinició una vez con el deploy hook y **sigue sin responder**."
+          elif [ "$HAS_HOOK" = "true" ]; then
+            action="El Deploy Hook configurado no pasó la validación o falló; no se confirmó un reinicio."
           else
             action="No hay secreto DEPLOY_HOOK_URL: no se intentó reiniciar."
           fi

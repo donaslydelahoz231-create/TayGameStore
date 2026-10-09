@@ -1,16 +1,19 @@
 name: Tareas programadas
 
-# Llama cada 10 minutos a /api/internal/jobs de la tienda publicada (vencer pedidos, conciliar
-# pagos con Mercado Pago si un webhook no llegó, reintentar correos y avisos, liberar entregas).
-# Las tareas son idempotentes y usan locks en PostgreSQL: repetirlas no duplica pagos ni entregas.
+# Respaldo opcional del programador interno. NO se ejecuta hasta definir la variable de repositorio
+# ENABLE_SCHEDULED_TASKS=true además de PRODUCTION_URL. Esto evita que configurar solo la vigilancia
+# active conciliaciones de pagos y correos desde GitHub Actions.
+# Ejecuta /api/internal/jobs (vencer pedidos, conciliar pagos, reintentar avisos, liberar entregas).
+# Antes de habilitarlo, valida staging e idempotencia: los locks no sustituyen todas las pruebas.
 # GitHub puede retrasar los flujos programados unos minutos; no sustituye al webhook, lo respalda.
 #
 # - Render gratuito: además mantiene la tienda despierta (sin visitas se dormiría y las tareas
 #   no correrían). Ver docs/despliegue-gratis.md.
 # - Vercel: en el plan Hobby, Vercel Cron solo corre una vez al día.
 #
-# Configuración: variable PRODUCTION_URL y secreto CRON_SECRET (el mismo valor que en el
-# hosting). Sin ellos no hace nada.
+# Habilitación explícita: ENABLE_SCHEDULED_TASKS=true, PRODUCTION_URL y CRON_SECRET (idéntico al
+# del hosting). URL permitida actualmente: https://taygamestore.onrender.com; al cambiar dominio,
+# actualiza la allowlist mediante revisión de código. La credencial nunca debe enviarse a otro host.
 
 on:
   schedule:
@@ -26,8 +29,8 @@ concurrency:
 
 jobs:
   tareas:
-    name: Ejecutar tareas del servidor
-    if: vars.PRODUCTION_URL != ''
+    name: Ejecutar tareas de respaldo del servidor
+    if: vars.ENABLE_SCHEDULED_TASKS == 'true' && vars.PRODUCTION_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     env:
@@ -37,10 +40,28 @@ jobs:
       - name: Llamar a /api/internal/jobs
         run: |
           if [ -z "$CRON_SECRET" ]; then
-            echo "Sin secreto CRON_SECRET: nada que hacer."
-            exit 0
+            echo "::error::ENABLE_SCHEDULED_TASKS=true pero falta CRON_SECRET. Se aborta sin llamar al servidor."
+            exit 1
           fi
-          status=$(curl -sS --max-time 60 -o /dev/null -w '%{http_code}' \
+          if [ -z "$URL" ]; then
+            echo "::error::ENABLE_SCHEDULED_TASKS=true pero falta PRODUCTION_URL."
+            exit 1
+          fi
+          export URL
+          node <<'NODE'
+          const u = new URL(process.env.URL);
+          const valid = u.protocol === "https:" &&
+            u.hostname === "taygamestore.onrender.com" &&
+            !u.username && !u.password &&
+            ["", "/"].includes(u.pathname) && !u.search && !u.hash &&
+            (!u.port || u.port === "443");
+          if (!valid) {
+            console.error("::error::PRODUCTION_URL no está en la allowlist HTTPS de TayGameStore; no se enviará CRON_SECRET.");
+            process.exit(1);
+          }
+          NODE
+          status=$(curl --proto '=https' --tlsv1.2 -sS --connect-timeout 10 --max-time 60 \
+            -o /dev/null -w '%{http_code}' \
             -H "Authorization: Bearer $CRON_SECRET" "${URL%/}/api/internal/jobs")
           echo "Respuesta: $status"
           if [ "$status" != "200" ]; then

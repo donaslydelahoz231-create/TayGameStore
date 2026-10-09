@@ -161,7 +161,9 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
 
   await app.register(healthRoutes, {
     database: input.database,
-    readinessTimeoutMs: input.readinessTimeoutMs ?? 2_000,
+    // Neon Free puede tardar varios segundos al despertar; dar margen al pool (5 s)
+    // antes de marcar la tienda como no preparada. Un fallo real sigue devolviendo 503.
+    readinessTimeoutMs: input.readinessTimeoutMs ?? 5_500,
   });
   await app.register(configRoutes, {
     config,

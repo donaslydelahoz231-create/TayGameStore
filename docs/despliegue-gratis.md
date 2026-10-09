@@ -7,7 +7,8 @@ Costo: **0**. Necesitas una cuenta de GitHub (ya la tienes) y unos 20 minutos. T
 |---|---|---|
 | Servidor de la tienda | **Render** (plan Free) | Página, API, pagos, panel |
 | Base de datos | **Neon** (plan Free) | Pedidos, catálogo, clientes |
-| Tareas cada 10 min | **GitHub Actions** (gratis en repositorios públicos) | Concilia pagos, reintenta correos y mantiene la tienda despierta |
+| Tareas del servidor | Programador interno de TayGameStore | Gestiona expiración de pedidos, conciliación y avisos; entra en modo reposo para limitar el uso de Neon |
+| Vigilancia cada 30 min | **GitHub Actions** (gratis en repositorios públicos) | Comprueba `/api/ready` y registra incidentes |
 
 ## 1. Base de datos en Neon
 
@@ -30,25 +31,19 @@ Costo: **0**. Necesitas una cuenta de GitHub (ya la tienes) y unos 20 minutos. T
    pusiste en `PUBLIC_BASE_URL`, corrígela en *Environment* y guarda (se vuelve a desplegar).
 5. Comprueba en el navegador: `https://<tu-dirección>/api/ready` debe decir `"status":"ready"`.
 
-## 3. Tareas cada 10 minutos (GitHub)
+## 3. Vigilancia e incidentes (GitHub Actions)
 
-En GitHub → repositorio `TayGameStore` → *Settings* → *Secrets and variables* → *Actions*:
+La vigilancia consulta `https://taygamestore.onrender.com/api/ready` cada 30 minutos por defecto; no necesita `PRODUCTION_URL` para el dominio actual. Si el dominio cambia, configura esa variable en GitHub Actions.
 
-- Pestaña **Variables** → *New repository variable*: `PRODUCTION_URL` = tu dirección de Render.
-- Pestaña **Secrets** → *New repository secret*: `CRON_SECRET` = **el mismo valor** que pusiste
-  en Render.
+Si deseas recuperación automática por redespliegue, crea el secreto `RENDER_DEPLOY_HOOK_URL` con la URL privada del Deploy Hook de Render. Sin ese secreto, la vigilancia registra el incidente y avisa sin reiniciar el servicio. Habilítalo solo después de aceptar ese comportamiento y comprobar la política de recuperación.
 
-Desde ese momento, cada 10 minutos el flujo **Tareas programadas** llama a la tienda: concilia
-pagos cuyo aviso de Mercado Pago no llegó, reintenta correos y, como efecto, la mantiene
-despierta. El flujo **Vigilancia** (cada 30 min) abre un aviso en GitHub si la tienda deja de
-responder.
+**La vigilancia no necesita `PRODUCTION_URL` para el dominio actual.** El workflow `Tareas programadas` está protegido por una segunda condición explícita: `ENABLE_SCHEDULED_TASKS=true`. Configurar solo `PRODUCTION_URL` no activa conciliaciones ni reintentos de correo.
+
+Solo si decides habilitar el respaldo de tareas: configura `ENABLE_SCHEDULED_TASKS=true`, `PRODUCTION_URL=https://taygamestore.onrender.com` y el secreto `CRON_SECRET` con el mismo valor que en Render. El workflow valida el hostname HTTPS permitido antes de enviar la credencial. Aun así, revisa el consumo de Neon y valida en staging que los trabajos no dupliquen conciliaciones, correos ni entregas. No lo actives como arreglo automático sin esas verificaciones.
 
 ## 4. Lo que hay que saber del plan gratuito
 
-- **Se duerme sin tráfico.** Las tareas de GitHub la despiertan cada 10 minutos; aun así, GitHub
-  puede retrasar sus flujos, y si coincide, el primer visitante espera cerca de un minuto. Los
-  pagos no se pierden: Mercado Pago reintenta su aviso y la tienda consulta el pago cuando el
-  cliente vuelve.
+- **Se duerme sin tráfico.** El programador interno entra en modo reposo cuando no hay trabajo pendiente para reducir el consumo de Neon. La vigilancia de GitHub Actions revisa cada 30 minutos y puede despertar la base de datos durante la comprobación; no mantiene la tienda despierta continuamente. Mercado Pago reintenta sus notificaciones y la tienda concilia pagos cuando corresponde.
 - **Horas gratuitas al mes.** Render da un cupo mensual de horas gratuitas por cuenta; según su
   documentación actual alcanza para un servicio encendido todo el mes. Revísalo en
   render.com/pricing: si se agotara, el servicio se detiene hasta el mes siguiente.
