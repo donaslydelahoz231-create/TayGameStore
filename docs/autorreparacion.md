@@ -1,6 +1,6 @@
 # Autorreparación y mantenimiento automático (GitHub Actions)
 
-Dos workflows mantienen la tienda sin intervención diaria. Ninguno toca pagos ni recargas.
+GitHub Actions aporta vigilancia y mantenimiento; las tareas de pedidos y conciliación las gestiona principalmente el programador interno del servidor. El workflow `.github/workflows/tareas.yml` queda en espera intencional para limitar el consumo de Neon Free. No lo reactives hasta validar `CRON_SECRET`, idempotencia y presupuesto de cómputo.
 
 ## Vigilancia (`.github/workflows/vigilancia.yml`)
 
@@ -26,7 +26,7 @@ o una entrega nunca se repiten por un reinicio). Revisa después las alertas del
      `https://tu-dominio` (sin barra final), solo si el dominio difiere del predeterminado.
 3. **Actions** → *Vigilancia y autorreparación* → **Run workflow** para probarla.
 
-Si no defines `PRODUCTION_URL`, se usa la URL pública predeterminada de TayGameStore. Sin el secreto del deploy hook, la vigilancia no reinicia el servicio: registra el incidente y avisa. El secreto habilita un redespliegue automático único si la comprobación de disponibilidad falla; úsalo solo si aceptas ese comportamiento.
+Si no defines `PRODUCTION_URL`, se usa la URL pública predeterminada de TayGameStore. Sin el secreto del deploy hook, la vigilancia registra el incidente y avisa, sin reiniciar. El secreto habilita un redespliegue automático único si la comprobación falla. Eso puede activar un nuevo despliegue de producción; mantenlo sin configurar hasta decidir expresamente que quieres esa recuperación automática.
 
 ## Mantenimiento (`.github/workflows/mantenimiento.yml`)
 
