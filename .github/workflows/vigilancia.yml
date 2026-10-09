@@ -113,7 +113,7 @@ jobs:
           echo "recovered=false" >> "$GITHUB_OUTPUT"
 
       - name: Registrar el incidente
-        if: steps.check.outputs.ok == 'false' && steps.issue.outputs.number == ''
+        if: ${{ !cancelled() && steps.check.outputs.ok == 'false' && steps.issue.outputs.number == '' }}
         env:
           TRIGGERED: ${{ steps.heal.outputs.triggered }}
           RECOVERED: ${{ steps.heal.outputs.recovered }}
