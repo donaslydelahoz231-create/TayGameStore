@@ -11,8 +11,10 @@ services:
   - type: web
     name: taygamestore
     runtime: node
-    # Gratuito: se duerme sin tráfico. El flujo de GitHub `tareas.yml` (cada 10 min, con
-    # CRON_SECRET) ejecuta las tareas y la mantiene despierta; ver docs/despliegue-gratis.md.
+    # Gratis: Render se duerme tras inactividad. El programador interno usa JOBS_IDLE_MINUTES
+    # para reducir el consumo de Neon. El respaldo de GitHub `tareas.yml` queda desactivado
+    # salvo que se habilite explícitamente con ENABLE_SCHEDULED_TASKS=true, PRODUCTION_URL y
+    # CRON_SECRET; no se utiliza como mecanismo para mantener despierto el servicio.
     plan: free
     # Región de EE. UU. más cercana a Colombia. [A VERIFICAR en el panel]
     region: virginia
