@@ -1,0 +1,63 @@
+name: Production smoke check
+
+on:
+  push:
+    branches:
+      - claude/taygamestore-production-pfctbn
+  pull_request:
+    branches:
+      - claude/taygamestore-production-pfctbn
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Check production web, liveness and readiness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe production endpoints
+        env:
+          BASE_URL: https://taygamestore.onrender.com
+        run: |
+          node --input-type=module <<'NODE'
+          const base = new URL(process.env.BASE_URL);
+          if (base.protocol !== 'https:' || base.hostname !== 'taygamestore.onrender.com') {
+            console.error('Refusing unexpected production URL');
+            process.exit(1);
+          }
+          const probes = [
+            { path: '/', label: 'web', check: (r, b) => r.status === 200 && (r.headers.get('content-type') || '').includes('text/html') && b.length > 0 },
+            { path: '/api/health', label: 'liveness', check: (r, b) => r.status === 200 && b?.status === 'ok' },
+            { path: '/api/ready', label: 'readiness-database', check: (r, b) => r.status === 200 && b?.status === 'ready' && b?.checks?.database === 'ok' },
+          ];
+          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+          for (let attempt = 1; attempt <= 15; attempt++) {
+            const results = await Promise.all(probes.map(async p => {
+              try {
+                const r = await fetch(new URL(p.path, base), { redirect: 'manual', signal: AbortSignal.timeout(8000) });
+                const raw = await r.text();
+                let body = raw;
+                if (p.path !== '/') { try { body = JSON.parse(raw); } catch { body = null; } }
+                return { label: p.label, status: r.status, ok: p.check(r, body) };
+              } catch (e) {
+                return { label: p.label, status: e?.name || 'network-error', ok: false };
+              }
+            }));
+            console.log('Attempt ' + attempt + ': ' + results.map(r => r.label + '=' + r.status).join(' '));
+            if (results.every(r => r.ok)) {
+              console.log('Production smoke check passed.');
+              process.exit(0);
+            }
+            if (attempt < 15) await sleep(15000);
+          }
+          console.error('Production smoke check failed; inspect Render, DNS and database readiness.');
+          process.exit(1);
+          NODE
