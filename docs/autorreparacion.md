@@ -4,7 +4,7 @@ GitHub Actions aporta vigilancia y mantenimiento; las tareas de pedidos y concil
 
 ## Vigilancia (`.github/workflows/vigilancia.yml`)
 
-Cada 30 minutos consulta `/api/ready` (comprueba servidor y base de datos). Usa por defecto `https://taygamestore.onrender.com`; si el dominio cambia, define la variable opcional `PRODUCTION_URL` en GitHub Actions.
+Cada 30 minutos consulta `/api/ready` (comprueba servidor y base de datos). Usa por defecto `https://taygamestore.onrender.com`; si el dominio cambia, define `PRODUCTION_URL` y actualiza el allowlist HTTPS del workflow mediante revisión de código. El flujo rechaza hostnames, puertos, rutas y parámetros no previstos.
 
 | Situación | Qué hace |
 |---|---|
