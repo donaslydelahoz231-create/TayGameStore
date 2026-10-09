@@ -37,9 +37,9 @@ La vigilancia consulta `https://taygamestore.onrender.com/api/ready` cada 30 min
 
 Si deseas recuperación automática por redespliegue, crea el secreto `RENDER_DEPLOY_HOOK_URL` con la URL privada del Deploy Hook de Render. Sin ese secreto, la vigilancia registra el incidente y avisa sin reiniciar el servicio. Habilítalo solo después de aceptar ese comportamiento y comprobar la política de recuperación.
 
-**No configures `PRODUCTION_URL` solo para arreglar la vigilancia.** Esa variable también activa la condición de ejecución del workflow `Tareas programadas`. Este workflow permanece en espera intencional para evitar consumo adicional en Neon Free; el servidor ya dispone de un programador interno.
+**La vigilancia no necesita `PRODUCTION_URL` para el dominio actual.** El workflow `Tareas programadas` está protegido por una segunda condición explícita: `ENABLE_SCHEDULED_TASKS=true`. Configurar solo `PRODUCTION_URL` no activa conciliaciones ni reintentos de correo.
 
-Solo si decides activar el workflow de respaldo de tareas: configura `PRODUCTION_URL` y el secreto `CRON_SECRET` con el mismo valor que el servidor, revisa el consumo de cómputo de Neon y valida en staging que los trabajos idempotentes no dupliquen conciliaciones, correos ni entregas. No lo actives como arreglo automático sin esas verificaciones.
+Solo si decides habilitar el respaldo de tareas: configura `ENABLE_SCHEDULED_TASKS=true`, `PRODUCTION_URL=https://taygamestore.onrender.com` y el secreto `CRON_SECRET` con el mismo valor que en Render. El workflow valida el hostname HTTPS permitido antes de enviar la credencial. Aun así, revisa el consumo de Neon y valida en staging que los trabajos no dupliquen conciliaciones, correos ni entregas. No lo actives como arreglo automático sin esas verificaciones.
 
 ## 4. Lo que hay que saber del plan gratuito
 
