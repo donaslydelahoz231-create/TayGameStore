@@ -43,3 +43,8 @@ GitHub): la CI corre en cuanto haces cualquier push a esa rama o la fusionas.
 GitHub Actions debe estar ejecutándose en el repositorio. Si los trabajos se quedan en cola y se
 cancelan sin empezar, revisa **Settings → Actions** y la facturación de la organización
 (issue #8).
+
+
+## Respaldo opcional de tareas programadas
+
+El workflow `.github/workflows/tareas.yml` permanece desactivado por defecto. Configurar `PRODUCTION_URL` para otros fines no debe activar conciliaciones ni reintentos de correo. Para habilitar el respaldo desde GitHub Actions se requiere la variable `ENABLE_SCHEDULED_TASKS=true`, `PRODUCTION_URL` y el secreto `CRON_SECRET` idéntico al configurado en Render. El workflow valida HTTPS y el hostname permitido antes de enviar el secreto; no se debe desactivar esa validación. Antes de habilitarlo, comprobar el programador interno, los locks e idempotencia en staging y vigilar el consumo de la base de datos.
