@@ -1,0 +1,43 @@
+name: Mantener la tienda activa
+
+# El plan gratuito de Render duerme el servicio tras 15 minutos sin visitas y el primer cliente
+# espera ~1 minuto a que despierte. Este flujo pide /api/health cada 10 minutos para que la tienda
+# responda siempre al instante (lo pidió el propietario el 2026-10-10: «no quiero que se pause»).
+#
+# - /api/health no consulta la base de datos ni cuenta como actividad para las tareas internas:
+#   Neon sigue durmiendo y gastando solo cuando hay clientes (ver docs/despliegue-gratis.md).
+# - Coste: cero. GitHub Actions es gratis en repositorios públicos y un servicio de Render encendido
+#   todo el mes (~744 h) cabe en las 750 h gratuitas del espacio de trabajo (hay un solo servicio).
+# - Los horarios de GitHub son aproximados (pueden retrasarse unos minutos); si alguna vez pasa de
+#   15 minutos, la tienda duerme un momento y la siguiente visita la despierta.
+# - Solo lee: no tiene permisos sobre el repositorio y no reinicia nada (eso es vigilancia.yml).
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mantener-activa
+  cancel-in-progress: false
+
+jobs:
+  despertar:
+    name: Visitar /api/health
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Pedir /api/health (espera el arranque en frío)
+        run: |
+          for attempt in 1 2 3; do
+            if curl --proto '=https' --tlsv1.2 -fsS --connect-timeout 15 --max-time 90 \
+              https://taygamestore.onrender.com/api/health -o /dev/null; then
+              echo "Tienda activa (intento $attempt)."
+              exit 0
+            fi
+            sleep 15
+          done
+          # No falla el flujo: las caídas reales las detecta y reporta vigilancia.yml.
+          echo "::warning::La tienda no respondió a /api/health en 3 intentos."

@@ -7,6 +7,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- **Tienda siempre activa**: `mantener-activa.yml` pide `/api/health` cada 10 min para que Render
+  (plan gratuito) no duerma el servicio y nadie espere ~1 min al entrar. No toca la base de datos:
+  Neon sigue durmiendo sin clientes. Coste cero (GitHub Actions público + 744 de 750 h de Render).
 - Marca: **Tay**, personaje propio (diamante con visor, antena-destello y manos de cristal),
   sustituye al título grande de la portada y al ícono de la entrada; anima flotación, parpadeo,
   saludo, brillo y órbita solo con `transform`/`opacity` (se detiene con movimiento reducido y

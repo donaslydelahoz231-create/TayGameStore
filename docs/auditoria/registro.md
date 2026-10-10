@@ -233,3 +233,18 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   (incluye las animaciones de Tay), capturas visuales actualizadas y revisadas en 3 tamaños.
 - **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED` siguen apagados), secretos,
   `LEGAL_*` ni datos del dueño.
+
+### 2026-10-10 · Tienda siempre activa (sin pausas de Render)
+
+- **Autorizó**: el dueño («quiero que ejecute activamente mi tienda, no quiero que se pause»).
+- **Causa**: Render duerme el servicio gratuito tras 15 min sin visitas. El flujo «Vigilancia» de
+  n8n lo visitaba cada 5 min, pero **n8n no ejecuta ningún flujo desde el 2026-10-08 20:20 UTC**
+  (0 ejecuciones en todos los flujos, aunque figuran activos). Causa probable: límite del plan de
+  n8n Cloud (prueba vencida o cupo de ejecuciones). **NO VERIFICADO**: solo se ve en la
+  facturación de la cuenta de n8n del dueño.
+- **Corregido**: `mantener-activa.yml` (GitHub Actions, cada 10 min, sin permisos, solo
+  `/api/health`). `/api/health` no consulta la base de datos ni cuenta como actividad para el
+  programador interno: Neon sigue suspendiéndose sin clientes. Render: un solo servicio en el
+  espacio de trabajo, ~744 h/mes de 750 gratuitas.
+- **Riesgo anotado**: los horarios de GitHub son aproximados; un retraso de más de 15 min deja
+  dormir la tienda unos minutos. Añadir otro servicio gratuito al mismo espacio agotaría las horas.

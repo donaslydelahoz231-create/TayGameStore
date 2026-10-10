@@ -43,7 +43,7 @@ Solo si decides habilitar el respaldo de tareas: configura `ENABLE_SCHEDULED_TAS
 
 ## 4. Lo que hay que saber del plan gratuito
 
-- **Se duerme sin tráfico.** El programador interno entra en modo reposo cuando no hay trabajo pendiente para reducir el consumo de Neon. La vigilancia de GitHub Actions revisa cada 30 minutos y puede despertar la base de datos durante la comprobación; no mantiene la tienda despierta continuamente. Mercado Pago reintenta sus notificaciones y la tienda concilia pagos cuando corresponde.
+- **Siempre activa (desde el 2026-10-10, a pedido del propietario).** Render duerme el servicio gratuito tras 15 minutos sin visitas; el flujo `mantener-activa.yml` pide `/api/health` cada 10 minutos para que responda al instante. Esa ruta no toca la base de datos ni cuenta como actividad: el programador interno sigue en modo reposo y Neon duerme cuando no hay clientes. Coste cero: GitHub Actions es gratis en repositorios públicos y un solo servicio encendido todo el mes (~744 h) cabe en las 750 h gratuitas de Render. Si se añade otro servicio gratuito al mismo espacio de trabajo, las horas dejan de alcanzar. La vigilancia (`vigilancia.yml`, cada 30 minutos) sigue revisando `/api/ready` y avisa de caídas reales. Mercado Pago reintenta sus notificaciones y la tienda concilia pagos cuando corresponde.
 - **Horas gratuitas al mes.** Render da un cupo mensual de horas gratuitas por cuenta; según su
   documentación actual alcanza para un servicio encendido todo el mes. Revísalo en
   render.com/pricing: si se agotara, el servicio se detiene hasta el mes siguiente.
