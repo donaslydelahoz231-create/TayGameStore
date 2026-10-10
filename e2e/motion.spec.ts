@@ -40,12 +40,24 @@ test('las animaciones se conservan y solo se pausan donde no se ven', async ({ p
   await expect.poll(async () => (await animationsIn(page, '#app')).running).toBe(0);
   expect((await animationsIn(page, '#app')).paused).toBeGreaterThan(0);
   expect((await animationsIn(page, '#entryExperience')).running).toBeGreaterThan(0);
+  // Tay, el personaje de la marca, ya se mueve en la bienvenida.
+  expect((await animationsIn(page, '.entry-mascot')).names).toContain('tgsTayBlink');
 
   await enterAsGuest(page);
   // En la portada se ven y corren las animaciones de siempre.
   await expect.poll(async () => (await animationsIn(page, '.hero')).running).toBeGreaterThan(0);
   const hero = await animationsIn(page, '.hero');
-  for (const name of ['tgsTitleGlow', 'tgsButtonAura', 'tgsReactorFloat']) {
+  for (const name of [
+    'tgsTitleGlow',
+    'tgsButtonAura',
+    'tgsReactorFloat',
+    // Tay: flota, parpadea, saluda, brilla y su órbita gira.
+    'tgsTayFloat',
+    'tgsTayBlink',
+    'tgsTayHand',
+    'tgsTayShine',
+    'tgsTayOrbit',
+  ]) {
     expect(hero.names, name).toContain(name);
   }
   // La pantalla de entrada ya oculta deja de animarse.

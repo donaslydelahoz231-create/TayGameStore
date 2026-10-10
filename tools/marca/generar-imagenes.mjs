@@ -1,5 +1,5 @@
 // Genera las imágenes de marca de la tienda en src/web/public a partir de diseños HTML propios
-// (corona y colores de TayGameStore; sin logos ni arte de terceros):
+// (el personaje «Tay» de favicon.svg y los colores de TayGameStore; sin logos ni arte de terceros):
 //   og-image.png (1200×630, vista previa al compartir), apple-touch-icon.png (180×180) y
 //   favicon.ico (32×32, PNG dentro de un contenedor ICO).
 //
@@ -13,8 +13,8 @@ import { chromium } from '@playwright/test';
 
 const raiz = resolve(import.meta.dirname, '../..');
 const destino = resolve(raiz, 'src/web/public');
-const corona = await readFile(resolve(destino, 'favicon.svg'), 'utf8');
-const coronaUri = `data:image/svg+xml;base64,${Buffer.from(corona).toString('base64')}`;
+const marca = await readFile(resolve(destino, 'favicon.svg'), 'utf8');
+const marcaUri = `data:image/svg+xml;base64,${Buffer.from(marca).toString('base64')}`;
 
 const fuentes =
   '<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600&display=block" rel="stylesheet">';
@@ -31,20 +31,21 @@ const portada = `<!doctype html><html><head>${fuentes}<style>
   .contenido{position:relative;display:flex;align-items:center;gap:56px}
   img{width:220px;height:220px;border-radius:44px;box-shadow:0 0 80px rgba(139,61,255,.55)}
   .marca{font-family:Oxanium,sans-serif;font-weight:800;font-size:84px;letter-spacing:-1px}
-  .marca span{color:#ffc857}
+  .marca span{background:linear-gradient(100deg,#37d6ff,#8b7bff 48%,#b06bff);-webkit-background-clip:text;
+    background-clip:text;color:transparent}
   .lema{font-family:Oxanium,sans-serif;font-weight:700;font-size:40px;margin-top:8px;color:#37d6ff}
   .detalle{font-size:26px;margin-top:22px;color:#c9d0f5;font-weight:500;line-height:1.4}
 </style></head><body><div class="grid"></div><div class="orb a"></div><div class="orb b"></div>
-<div class="contenido"><img src="${coronaUri}" alt=""><div>
+<div class="contenido"><img src="${marcaUri}" alt=""><div>
   <div class="marca">TayGame<span>Store</span></div>
-  <div class="lema">Tu ID. Tu recarga. Tu siguiente jugada.</div>
-  <div class="detalle">Recargas de diamantes por ID<br>Verificación del jugador · Pago con Mercado Pago</div>
+  <div class="lema">Diamantes Free Fire · Recarga por ID</div>
+  <div class="detalle">Verificación del jugador antes de pagar<br>Comprobante digital · Pago con Mercado Pago</div>
 </div></div></body></html>`;
 
 const icono = (lado) =>
   `<!doctype html><html><head><style>*{margin:0}body{width:${lado}px;height:${lado}px}
   img{width:${lado}px;height:${lado}px;display:block}</style></head>
-  <body><img src="${coronaUri}" alt=""></body></html>`;
+  <body><img src="${marcaUri}" alt=""></body></html>`;
 
 /** ICO con una sola imagen PNG (formato admitido por los navegadores actuales). */
 function ico(png, lado) {

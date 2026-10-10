@@ -1,0 +1,288 @@
+/*
+ * Marca de la portada: «Tay», el personaje de TayGameStore (un diamante con visor gamer,
+ * antena-destello dorada y manos de cristal) reemplaza el título grande. Sus animaciones son
+ * sutiles y baratas: solo transform, opacity y stroke-dashoffset dentro del SVG. Con movimiento
+ * reducido, la capa 20 las deja en su último fotograma (ojos abiertos, brillo fuera del cuerpo).
+ */
+.hero-left h1.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  max-width: none;
+  margin: 12px 0 10px;
+  font-size: clamp(2rem, 4.2vw, 3.3rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.hero-logo {
+  flex: none;
+  width: clamp(112px, 13.5vw, 172px);
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+  filter: drop-shadow(0 16px 30px rgba(63, 141, 255, 0.3));
+}
+
+/* Logotipo: «TayGame» claro con filo cian; «Store» en el degradado de la marca. */
+.hero-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--display);
+  font-weight: 800;
+  filter: drop-shadow(0 6px 22px rgba(139, 61, 255, 0.28));
+}
+/* El brillo animado del título (text-shadow) se vería encima del degradado recortado. */
+.hero-wordmark > span {
+  text-shadow: none;
+}
+.hero-wordmark .wm-game,
+.entry-brand .wm-game {
+  background: linear-gradient(180deg, #ffffff 0%, #dbe6ff 62%, #a9bdf5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-wordmark .wm-store,
+.entry-brand .wm-store {
+  background: linear-gradient(100deg, #37d6ff 0%, #8b7bff 48%, #b06bff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  position: relative;
+}
+/* Subrayado de energía bajo «Store», con el dorado del destello. */
+.hero-wordmark .wm-store::after,
+.entry-brand .wm-store::after {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 2%;
+  bottom: -0.16em;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #ffc857 30%, #37d6ff 75%, transparent);
+  opacity: 0.85;
+}
+
+/* Lema en tres pasos, separados por pequeños diamantes; mismo tamaño que el texto de apoyo. */
+.hero-left > p.hero-tagline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 0 12px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(0.95rem, 1.5vw, 1.12rem);
+  letter-spacing: 0.01em;
+  color: #dfe6ff;
+}
+.hero-left > p.hero-tagline > i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  transform: rotate(45deg);
+  border-radius: 1px;
+  background: linear-gradient(135deg, #37d6ff, #8b3dff);
+  box-shadow: 0 0 8px rgba(55, 214, 255, 0.6);
+}
+.hero-left > p.hero-tagline strong {
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(55, 214, 255, 0.25);
+}
+
+/*
+ * Pantalla de entrada: el personaje reemplaza la caja del ícono (las órbitas giran detrás) y el
+ * lema deja de ser un titular gigante: mismo mensaje, tamaño de bienvenida.
+ */
+.entry-experience .entry-logo-wrap {
+  width: 172px;
+  height: 172px;
+  margin: 14px auto 6px;
+}
+.entry-experience .entry-orbits i {
+  border-radius: 50%;
+  inset: 18px;
+}
+.entry-experience .entry-orbits i:nth-child(2) {
+  inset: 30px;
+}
+.entry-experience .entry-orbits i:nth-child(3) {
+  inset: 42px;
+}
+.entry-mascot {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  overflow: visible;
+  filter: drop-shadow(0 18px 34px rgba(63, 141, 255, 0.32));
+}
+.entry-experience .entry-brand {
+  display: inline-flex;
+  font-size: clamp(1.6rem, 3.4vw, 2.2rem);
+  letter-spacing: -0.02em;
+  filter: drop-shadow(0 6px 22px rgba(139, 61, 255, 0.28));
+}
+/*
+ * Sin titular gigante: Tay y el logotipo son la portada. El h1 queda como una línea corta que
+ * dice qué se vende (también es lo que leen los buscadores).
+ */
+.entry-experience .entry-shell h1.entry-seo {
+  margin: 14px 0 8px;
+  font-size: clamp(1rem, 1.9vw, 1.2rem);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: #dfe6ff;
+  text-shadow: none;
+  text-wrap: balance;
+}
+.entry-experience .entry-shell h1.entry-seo span {
+  color: var(--cyan);
+}
+
+/*
+ * El trazo global de los íconos de línea (`svg { stroke: currentColor }`) no aplica al personaje:
+ * cada forma declara el suyo; sin esto, la sombra heredaba un borde y parecía un aro.
+ */
+.tay-mascot {
+  stroke: none;
+}
+
+/* Animaciones del personaje (portada y entrada). */
+.tay-mascot .ty-body {
+  animation: tgsTayFloat 3.6s ease-in-out infinite alternate;
+}
+.tay-mascot .ty-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsTayShadow 3.6s ease-in-out infinite alternate;
+}
+.tay-mascot .ty-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsTayBlink 5.2s ease-in-out infinite;
+}
+.tay-mascot .ty-hand {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.tay-mascot .ty-hand-l {
+  animation: tgsTayHand 3.6s ease-in-out infinite alternate;
+}
+.tay-mascot .ty-hand-r {
+  animation: tgsTayHand 3.6s ease-in-out -1.8s infinite alternate;
+}
+.tay-mascot .ty-shine {
+  transform: translateX(240px);
+  animation: tgsTayShine 7s ease-in-out 1.5s infinite;
+}
+.tay-mascot .ty-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsTayStar 3.2s ease-in-out infinite;
+}
+.tay-mascot .ty-orbit-back {
+  opacity: 0.9;
+}
+.tay-mascot .ty-orbit-spark {
+  opacity: 0.85;
+  animation: tgsTayOrbit 4.6s linear infinite;
+}
+
+@keyframes tgsTayFloat {
+  from {
+    transform: translateY(2px);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+@keyframes tgsTayShadow {
+  from {
+    transform: scaleX(1);
+    opacity: 0.5;
+  }
+  to {
+    transform: scaleX(0.82);
+    opacity: 0.3;
+  }
+}
+/* Parpadeo corto dentro de un ciclo largo; termina con los ojos abiertos. */
+@keyframes tgsTayBlink {
+  0%,
+  44%,
+  50%,
+  100% {
+    transform: scaleY(1);
+  }
+  47% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes tgsTayHand {
+  from {
+    transform: translateY(3px) rotate(-4deg);
+  }
+  to {
+    transform: translateY(-3px) rotate(4deg);
+  }
+}
+/* El brillo cruza el cuerpo en el primer tercio y descansa fuera de él el resto del ciclo. */
+@keyframes tgsTayShine {
+  0% {
+    transform: translateX(0);
+  }
+  32%,
+  100% {
+    transform: translateX(240px);
+  }
+}
+@keyframes tgsTayStar {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.22) rotate(45deg);
+    opacity: 1;
+  }
+}
+@keyframes tgsTayOrbit {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero-left h1.hero-brand {
+    font-size: clamp(1.55rem, 7.2vw, 2.5rem);
+  }
+  .hero-logo {
+    width: clamp(88px, 24vw, 128px);
+  }
+  /* Lema compacto en pantallas medianas. */
+  .hero-left > p.hero-tagline {
+    gap: 6px 8px;
+    font-size: clamp(0.8rem, 3.6vw, 0.98rem);
+  }
+  .entry-experience .entry-logo-wrap {
+    width: 144px;
+    height: 144px;
+  }
+  .entry-mascot {
+    width: 124px;
+    height: 124px;
+  }
+}
+
+/* En teléfonos el lema queda en una línea: «Colombia» ya está en el título y la descripción. */
+@media (max-width: 480px) {
+  .hero-left > p.hero-tagline > :nth-last-child(-n + 2) {
+    display: none;
+  }
+}

@@ -207,3 +207,29 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   cubren gitleaks en CI y el escáner propio. `npm audit`: 0 vulnerabilidades.
 - **Riesgo residual anotado**: cualquiera puede despertar la base pidiendo `/api/*` (consumo de
   CU-horas); lo limitan el límite global por IP y el escudo. La rutina diaria vigila la proyección.
+
+### 2026-10-10 · Marca «Tay», textos SEO, vigilancia de GitHub y medición de Neon
+
+- **Autorizó**: el dueño (logo/personaje animado propio en lugar del texto grande; «no quiero este
+  texto grande… un personaje… o un SEO que encaje con el ícono»; mantenimiento diario autorizado
+  el 2026-10-07 dentro de sus límites).
+- **Marca**: personaje «Tay» dibujado desde cero en SVG (sin arte de terceros, sin licencias
+  externas). Portada, entrada, encabezado, pie, favicon, ícono de Apple e imagen social usan el
+  mismo dibujo. Animaciones solo con `transform`/`opacity`/`stroke-dashoffset`; con movimiento
+  reducido quedan en su último fotograma. Los lemas grandes se sustituyen por «Recargas de
+  diamantes Free Fire por ID» (h1 de la entrada y `<title>`).
+- **Integración**: la rama remota traía 2 commits del dueño (`84afd34`, `155e774`: readiness con
+  5,5 s, tareas de GitHub opcionales, smoke de producción). Se integraron con avance rápido, sin
+  reescribir historial; no tocan los mismos archivos.
+- **Corregido · Vigilancia de GitHub**: fallaba en cada ejecución con `Protocol "https" not
+  supported` porque usaba `--proto '=https:'`; abría el incidente #11 aunque la tienda respondía
+  (logs de Render: `/api/ready` 200 a las 19:37 UTC). Reproducido en local y corregido a
+  `--proto '=https'`. El issue se cierra solo cuando la vigilancia vuelva a ver la tienda.
+  **NO VERIFICADO** hasta la primera ejecución tras el push.
+- **Neon (tarea U3 cerrada)**: compute `idle`, suspendido a las 19:59 UTC (última actividad 19:53):
+  el reposo funciona. `compute_time_seconds` 41 585 (21 801 el 07-oct 17:10): ~1,7 CU-h/día;
+  proyección al 1-nov ≈ 48 CU-h de 100 (umbral de alerta: 80).
+- **Evidencia local**: lint, typecheck, formato, unitarias 177/177, integración 176/176, e2e 64/64
+  (incluye las animaciones de Tay), capturas visuales actualizadas y revisadas en 3 tamaños.
+- **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED` siguen apagados), secretos,
+  `LEGAL_*` ni datos del dueño.

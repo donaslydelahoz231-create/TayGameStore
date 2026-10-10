@@ -7,6 +7,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- Marca: **Tay**, personaje propio (diamante con visor, antena-destello y manos de cristal),
+  sustituye al título grande de la portada y al ícono de la entrada; anima flotación, parpadeo,
+  saludo, brillo y órbita solo con `transform`/`opacity` (se detiene con movimiento reducido y
+  fuera de pantalla). El mismo dibujo es el favicon, el ícono de Apple, la imagen social y
+  `public/brand/tay-mark.svg` para redes.
+- Textos: fuera los lemas gigantes («Tu recarga. Tu jugador. Tu siguiente jugada.»); en su lugar
+  una línea corta que dice qué se vende («Recargas de diamantes Free Fire por ID»), también en el
+  `<title>` para los buscadores.
 - Escudo anti-abuso: las sondas de salud no consultan la lista de bloqueos (la Vigilancia cada
   5 min impedía que Neon se suspendiera) y su exención es por ruta exacta, no por prefijo.
 - `infra/n8n/`: copia de los flujos de n8n (sin secretos) con instrucciones de restauración.
@@ -19,6 +27,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Vigilancia de GitHub: `curl --proto '=https:'` (con dos puntos) rechazaba toda URL HTTPS, así
+  que cada ejecución declaraba la tienda caída y abría un incidente falso (#11). Ahora
+  `--proto '=https'`, igual que `tareas.yml`.
 - Guías: `LEGAL_ID` lleva solo los 4 últimos dígitos (la tabla decía «NIT o cédula»).
 - Botones de Google y Facebook: arrancan deshabilitados hasta que la configuración del servidor
   confirma el proveedor. Antes, un clic durante «Comprobando…» (servidor lento o recién
