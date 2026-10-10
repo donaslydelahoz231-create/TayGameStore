@@ -231,7 +231,7 @@ function bindInvoiceAndCheckout() {
   $('customerEmail').oninput = (e) => {
     state.customerEmail = e.target.value.trim();
   };
-  $('paymentMethod').onchange = () => renderAll();
+  $('payMeans').onchange = () => renderAll();
   $('payBtn').onclick = preparePayment;
   $('startPayment').onclick = startPayment;
   $('refreshOrderBtn').onclick = refreshOrder;

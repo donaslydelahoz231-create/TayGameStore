@@ -10,6 +10,7 @@ import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
 import { modal, toast } from '../ui.js';
 import { loadCatalog } from './catalog.js';
+import { chosenPayMeans, PAY_MEANS, payMeansText } from './pay-means.js';
 import { lookupExpired, verifyPlayer } from './player.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
@@ -18,8 +19,6 @@ import { setCurrentOrder, startPolling } from './orders.js';
 //   2. El equipo verifica el jugador y el cliente confirma su cuenta.
 //   3. "Confirmar y pagar": resumen completo → el servidor crea la preferencia → redirección.
 // El navegador nunca decide que algo está pagado: lo confirma el servidor con Mercado Pago.
-
-const METHOD = 'mercadopago';
 
 function newCheckoutKey() {
   runtime.checkoutKey = uuid();
@@ -67,8 +66,8 @@ function missingRequirement() {
   if (!state.customerName.trim()) return ['Escribe el nombre del cliente.', 'factura'];
   if (!EMAIL_PATTERN.test(state.customerEmail.trim()))
     return ['Escribe un correo válido para el pedido.', 'factura'];
-  if ($('paymentMethod').value !== METHOD)
-    return ['Selecciona Mercado Pago como método de pago.', 'factura'];
+  if (!chosenPayMeans())
+    return ['Elige cómo pagar: tarjeta, PSE, Efecty o saldo de Mercado Pago.', 'factura'];
   if (!$('acceptTerms').checked) return ['Debes aceptar los términos de la compra.', 'factura'];
   return null;
 }
@@ -157,7 +156,9 @@ function summaryText(order) {
   parts.push(`Subtotal ${money(order.subtotalCop)}`, `Total ${money(order.totalCop)}`);
   parts.push(
     `Región ${order.verification.region || serverLabel(order.playerServer) || '—'}`,
-    'Pago con Mercado Pago',
+    chosenPayMeans()
+      ? `Pago con Mercado Pago (${PAY_MEANS[chosenPayMeans()]})`
+      : 'Pago con Mercado Pago',
     `Términos aceptados (v${order.termsVersion})`,
   );
   return parts.join(' · ');
@@ -169,6 +170,7 @@ function openConfirmation(order) {
   setText('payUid', order.playerUid);
   setText('payNick', order.verification.nickname || '—');
   setText('payAmount', money(order.totalCop));
+  setText('payMeansText', payMeansText());
   const prep = $('paymentPrep');
   prep.className = 'payment-status ok';
   prep.querySelector('span').textContent = summaryText(order);
@@ -192,7 +194,7 @@ export function goToNextStep() {
     ['verificacion', 'playerUid', () => state.uidAccepted],
     ['factura', 'customerName', () => state.customerName.trim().length > 0],
     ['factura', 'customerEmail', () => EMAIL_PATTERN.test(state.customerEmail.trim())],
-    ['factura', 'paymentMethod', () => $('paymentMethod').value === METHOD],
+    ['factura', 'payMeansCard', () => chosenPayMeans() !== null],
     ['factura', 'acceptTerms', () => $('acceptTerms').checked],
   ];
   const missing = steps.find(([, , done]) => !done());

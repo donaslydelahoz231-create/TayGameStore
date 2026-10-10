@@ -126,7 +126,7 @@ test('accesibilidad del panel con sesión: todas las pestañas y el detalle de u
   await page.locator('#verifyBtn').click();
   await page.locator('#customerName').fill('Cliente Axe');
   await page.locator('#customerEmail').fill('axe-panel@example.com');
-  await page.locator('#paymentMethod').selectOption('mercadopago');
+  await page.locator('#payMeansCard').check();
   await page.locator('#acceptTerms').check();
   await page.locator('#payBtn').click();
   await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-/);

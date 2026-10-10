@@ -265,3 +265,18 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   capturas visuales actualizadas y revisadas.
 - **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`), secretos, `LEGAL_*` ni datos
   del dueño.
+
+### 2026-10-10 · Paso visible «Elige cómo pagar» y estado real de los pagos
+
+- **Pidió**: el dueño («cuando creo mi pedido no me pide el método para pagar … como las demás
+  tiendas»).
+- **Hecho**: selector visible de medio de pago (tarjeta, PSE, Efecty, saldo de Mercado Pago). Solo
+  cambia la interfaz: Mercado Pago sigue siendo la única autoridad de pago.
+- **Estado de producción comprobado**: 0 pedidos y 0 pagos en la base de datos (consulta de solo
+  lectura en Neon). Las compras siguen apagadas: `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED` **no se
+  tocaron**. Para encenderlas faltan datos que solo el dueño puede cargar en Render (llaves de
+  Mercado Pago y `LEGAL_*`); encenderlas sin ellos haría que el servidor no arranque.
+  **NO VERIFICADO** qué variables ya están cargadas: la herramienta de Render no muestra nombres
+  ni valores de variables y no se leen secretos.
+- **Evidencia local**: lint, typecheck, formato, unitarias 180/180, e2e 64/64 (incluye elegir
+  PSE y verlo en la factura y en la confirmación), capturas visuales actualizadas y revisadas.

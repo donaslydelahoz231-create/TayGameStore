@@ -36,7 +36,7 @@ async function fillCheckout(page: Page, uid: string) {
   await expect(page.locator('#playerResult')).toContainText(`UID ${uid} listo`);
   await page.locator('#customerName').fill('Cliente E2E');
   await page.locator('#customerEmail').fill(`e2e-${uid}@example.com`);
-  await page.locator('#paymentMethod').selectOption('mercadopago');
+  await page.locator('#payMeansCard').check();
   await page.locator('#acceptTerms').check();
 }
 
@@ -516,7 +516,10 @@ test.describe('compra completa (invitado)', () => {
 
       await page.locator('#customerName').fill('Cliente Directo');
       await page.locator('#customerEmail').fill('directo-e2e@example.com');
-      await page.locator('#paymentMethod').selectOption('mercadopago');
+      // El medio de pago se elige a la vista (como en otras tiendas de recargas).
+      await expect(page.locator('#payBtn')).toBeEnabled();
+      await page.getByRole('radio', { name: /PSE/ }).check();
+      await expect(page.locator('#invoiceMethod')).toHaveText('PSE');
       await page.locator('#acceptTerms').check();
       await page.locator('#payBtn').click();
       await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
@@ -527,6 +530,9 @@ test.describe('compra completa (invitado)', () => {
 
       await page.locator('#payBtn').click();
       await expect(page.locator('#paymentModal')).toBeVisible();
+      await expect(page.locator('#payMeansText')).toHaveText(
+        'PSE (débito bancario) · Mercado Pago',
+      );
       await page.locator('#startPayment').click();
       await page.waitForURL(/\/#seguimiento$/);
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
@@ -562,7 +568,7 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#confirmUid').click();
       await page.locator('#customerName').fill('Cliente PIN');
       await page.locator('#customerEmail').fill('pin-e2e@example.com');
-      await page.locator('#paymentMethod').selectOption('mercadopago');
+      await page.locator('#payMeansCard').check();
       await page.locator('#acceptTerms').check();
       await page.locator('#payBtn').click();
       await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
@@ -627,7 +633,7 @@ test.describe('compra completa (invitado)', () => {
     // falta y lleva al jugador.
     await page.locator('#customerName').fill('Cliente E2E');
     await page.locator('#customerEmail').fill('e2e-lookup@example.com');
-    await page.locator('#paymentMethod').selectOption('mercadopago');
+    await page.locator('#payMeansCard').check();
     await page.locator('#acceptTerms').check();
     await page.locator('#payBtn').click();
     await expect(page.locator('.toast').last()).toContainText('Sí, es mi cuenta');

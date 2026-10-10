@@ -1,0 +1,96 @@
+/*
+ * «Elige cómo pagar»: el medio de pago se ve y se elige como en las tiendas de recargas, en vez
+ * de un desplegable escondido. Radios nativos (teclado y lectores de pantalla) con tarjetas.
+ */
+.pay-means {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.pay-means legend {
+  margin: 0 0 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+.pay-means-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.pay-mean {
+  position: relative;
+  display: block;
+  margin: 0;
+  cursor: pointer;
+}
+.pay-mean input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.pay-mean span {
+  display: block;
+  height: 100%;
+  padding: 9px 10px 9px 30px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #070c24;
+  color: var(--ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+/* Indicador redondo propio (el radio nativo es invisible pero sigue siendo el control). */
+.pay-mean span::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--muted2);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.pay-mean b,
+.pay-mean small {
+  display: block;
+  line-height: 1.25;
+}
+.pay-mean b {
+  font-size: 0.75rem;
+}
+.pay-mean small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.pay-mean:hover span {
+  border-color: #3a4687;
+}
+.pay-mean input:checked + span {
+  border-color: var(--violet);
+  background: linear-gradient(135deg, rgba(139, 61, 255, 0.18), rgba(47, 139, 255, 0.1)), #070c24;
+  box-shadow: 0 0 0 1px rgba(139, 61, 255, 0.35);
+}
+.pay-mean input:checked + span::before {
+  border-color: var(--cyan);
+  background: radial-gradient(circle, var(--cyan) 0 3px, transparent 3.5px);
+}
+.pay-mean input:focus-visible + span {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* En la confirmación, el medio elegido ocupa toda la fila. */
+.payment-grid .payment-means {
+  grid-column: 1 / -1;
+}

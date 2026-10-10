@@ -7,6 +7,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **«Elige cómo pagar»** a la vista, como en las tiendas de recargas: tarjeta, PSE, Efecty o
+  saldo de Mercado Pago, en tarjetas seleccionables (radios nativos, accesibles con teclado) en
+  lugar del desplegable escondido «Pendiente / Mercado Pago». El medio elegido aparece en la
+  factura y en «Confirmar y pagar»; el cobro sigue ocurriendo solo en la página de Mercado Pago.
 - **Servidor de Free Fire en el pedido**: junto al ID, el cliente elige el servidor de su cuenta
   (Latinoamérica por defecto, Brasil, Norteamérica, Europa, Oriente Medio, India, Asia o «No estoy
   seguro»). Se guarda en el pedido (`orders.player_server`, migración 0013, con restricción de

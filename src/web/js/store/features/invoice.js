@@ -4,6 +4,7 @@ import { money } from '../format.js';
 import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
 import { humanStatus, paymentInProgress } from './order-status.js';
+import { chosenPayMeans, PAY_MEANS } from './pay-means.js';
 
 // Comprobante en vivo. Antes de crear el pedido es un borrador con los precios del catálogo;
 // después muestra exactamente la orden del servidor (referencia, totales, estado).
@@ -48,8 +49,7 @@ function payButtonState() {
   if (state.previewOnly)
     return { text: 'Requiere servidor', enabled: false, note: 'Vista previa visual' };
   if (!order || ['REJECTED', 'EXPIRED', 'REFUNDED'].includes(order.status)) {
-    const ready =
-      cartItems().length > 0 && state.uidAccepted && $('paymentMethod')?.value === 'mercadopago';
+    const ready = cartItems().length > 0 && state.uidAccepted && chosenPayMeans() !== null;
     const blocked = !cfg
       ? 'Sin conexión con el servidor'
       : cfg.maintenanceMode
@@ -131,7 +131,15 @@ export function renderInvoice() {
   setText('invoiceState', order ? humanStatus(order) : 'Pendiente');
   const stateEl = $('invoiceState');
   if (stateEl) stateEl.className = order ? 'ready' : 'pending';
-  setText('invoiceMethod', order ? 'Mercado Pago · ' + humanStatus(order) : 'Pendiente');
+  const means = chosenPayMeans();
+  setText(
+    'invoiceMethod',
+    order
+      ? 'Mercado Pago · ' + humanStatus(order)
+      : means
+        ? PAY_MEANS[means].split(' (')[0]
+        : 'Pendiente',
+  );
   const rows = $('invoiceRows');
   rows.replaceChildren();
   if (!lines.length)
