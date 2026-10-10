@@ -3,12 +3,14 @@ import { z } from 'zod';
 import type { DbOrTx, Tx } from '../db/client.js';
 import {
   blocklist,
+  FREE_FIRE_SERVERS,
   fulfillments,
   orderItems,
   orders,
   paymentAttempts,
   payments,
   products,
+  type FreeFireServer,
   type OrderStatus,
 } from '../db/schema.js';
 import { computeTotals, effectivePrice } from '../domain/pricing.js';
@@ -106,6 +108,8 @@ export interface PublicOrder {
   expiresAt: string;
   game: string;
   playerUid: string;
+  /** Servidor de Free Fire declarado por el cliente (código de FREE_FIRE_SERVERS). */
+  playerServer: FreeFireServer | null;
   customerName: string;
   customerEmail: string;
   items: {
@@ -218,6 +222,7 @@ function buildPublicOrder(
     expiresAt: order.expiresAt.toISOString(),
     game: order.game,
     playerUid: order.playerUid,
+    playerServer: order.playerServer ?? null,
     customerName: order.customerName,
     customerEmail: order.customerEmail,
     items: items.map((item) => ({
@@ -287,6 +292,8 @@ export const checkoutSchema = z.strictObject({
     .string()
     .regex(/^\d{6,12}$/)
     .optional(),
+  /** Servidor (región) de la cuenta de Free Fire: el equipo entrega en ese servidor. */
+  playerServer: z.enum(FREE_FIRE_SERVERS).optional(),
   items: z
     .array(
       z.strictObject({
@@ -343,6 +350,7 @@ export async function createOrder(
       playerUid: input.playerUid,
       email: input.customerEmail,
       lookup: input.playerLookup?.ref ?? null,
+      server: input.playerServer ?? null,
       items: [...input.items].sort((a, b) => a.sku.localeCompare(b.sku)),
     }),
   );
@@ -521,6 +529,7 @@ export async function createOrder(
           ...verified,
           game: input.game,
           playerUid: input.playerUid,
+          playerServer: input.playerServer ?? null,
           customerName: input.customerName,
           customerEmail: input.customerEmail,
           userId: context.actor.userId ?? null,

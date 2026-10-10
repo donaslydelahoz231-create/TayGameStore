@@ -5,6 +5,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Servidor de Free Fire en el pedido**: junto al ID, el cliente elige el servidor de su cuenta
+  (Latinoamérica por defecto, Brasil, Norteamérica, Europa, Oriente Medio, India, Asia o «No estoy
+  seguro»). Se guarda en el pedido (`orders.player_server`, migración 0013, con restricción de
+  valores), forma parte de la clave de idempotencia y aparece en el comprobante, el seguimiento,
+  el correo, el aviso al dueño y el panel de administración («No estoy seguro» pide confirmarlo
+  antes de entregar). Pedidos anteriores quedan sin servidor y siguen funcionando.
+
 ### Cambiado
 
 - **Tienda siempre activa**: `mantener-activa.yml` pide `/api/health` cada 10 min para que Render

@@ -12,6 +12,8 @@ export const state = {
   qty: {},
   favorites: [],
   playerUid: '',
+  /** Servidor de Free Fire de la cuenta (servers.js); el operador lo confirma al entregar. */
+  playerServer: 'latam',
   /** UID con formato válido aceptado por el cliente (la identidad la verifica el operador). */
   uidAccepted: false,
   /**

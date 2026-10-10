@@ -41,6 +41,12 @@ describe('aviso al dueño por Telegram', () => {
     expect(text).toMatch(/25\.900/);
     expect(text).toContain('765432100 (<b>Jugador</b>)');
     expect(text).toContain('2 × 100 + 10 Diamantes');
+    // Sin servidor declarado (pedidos anteriores) no aparece la línea.
+    expect(text).not.toContain('Servidor:');
+  });
+
+  it('incluye el servidor de Free Fire en el que hay que entregar', () => {
+    expect(paidOrderText({ ...notice, server: 'Brasil' })).toContain('Servidor: Brasil');
   });
 
   it('los errores nunca incluyen el token del bot', async () => {

@@ -1,6 +1,7 @@
 import { cartItems, total } from '../cart-model.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
+import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
 import { humanStatus, paymentInProgress } from './order-status.js';
 
@@ -119,7 +120,12 @@ export function renderInvoice() {
   setText('invoiceClient', order?.customerName || state.customerName.trim() || '—');
   setText('invoiceUid', order?.playerUid || (state.uidAccepted ? state.playerUid : '—'));
   setText('invoiceNick', showPlayer ? verification.nickname : lookup ? lookup.nickname : '—');
-  setText('invoiceRegion', showPlayer ? verification.region || '—' : lookup ? lookup.region : '—');
+  // Región verificada (operador o proveedor) o, si aún no la hay, el servidor que eligió el cliente.
+  const chosenServer = serverLabel(order ? order.playerServer : state.playerServer);
+  setText(
+    'invoiceRegion',
+    (showPlayer ? verification.region : lookup ? lookup.region : '') || chosenServer || '—',
+  );
   setText('invoiceTotal', money(invoiceTotal()));
   setText('invoiceCode', invoiceCode());
   setText('invoiceState', order ? humanStatus(order) : 'Pendiente');

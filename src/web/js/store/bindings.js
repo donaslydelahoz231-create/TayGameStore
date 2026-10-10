@@ -3,6 +3,7 @@ import { scrollToSection } from './scroll.js';
 import { cleanUid } from './format.js';
 import { renderAll } from './render.js';
 import { errorMessage } from './api.js';
+import { DEFAULT_SERVER, isServer } from './servers.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
 import { closeAllModals, closeMenus, modal, toast } from './ui.js';
@@ -208,6 +209,10 @@ function bindPlayer() {
     onPlayerUidInput(e.target.value);
   };
   $('playerUid').onkeydown = onEnter(verifyPlayer);
+  $('playerServer').onchange = (e) => {
+    state.playerServer = isServer(e.target.value) ? e.target.value : DEFAULT_SERVER;
+    renderAll();
+  };
   $('verifyBtn').onclick = verifyPlayer;
   $('playerFinderBtn').onclick = () => {
     modal('playerFinderModal', true);

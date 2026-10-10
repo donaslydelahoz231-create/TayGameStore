@@ -5,6 +5,7 @@ import { cartItems, total } from '../cart-model.js';
 import { $, setText } from '../dom.js';
 import { EMAIL_PATTERN, money, validUid } from '../format.js';
 import { renderAll } from '../render.js';
+import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
 import { modal, toast } from '../ui.js';
@@ -102,6 +103,7 @@ async function createOrder() {
         checkoutKey: currentCheckoutKey(),
         game: 'freefire',
         playerUid: state.playerUid,
+        playerServer: state.playerServer,
         customerName: state.customerName.trim(),
         customerEmail: state.customerEmail.trim(),
         acceptTerms: true,
@@ -154,7 +156,7 @@ function summaryText(order) {
   if (order.discountCop > 0) parts.push(`Descuento ${money(order.discountCop)}`);
   parts.push(`Subtotal ${money(order.subtotalCop)}`, `Total ${money(order.totalCop)}`);
   parts.push(
-    `Región ${order.verification.region || '—'}`,
+    `Región ${order.verification.region || serverLabel(order.playerServer) || '—'}`,
     'Pago con Mercado Pago',
     `Términos aceptados (v${order.termsVersion})`,
   );

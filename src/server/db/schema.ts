@@ -47,6 +47,34 @@ export const VERIFICATION_STATUSES = [
 ] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
+/**
+ * Servidor (región) de la cuenta de Free Fire que declara el cliente. Los paquetes y códigos de
+ * recarga dependen de la región de la cuenta: el equipo lo usa para entregar en el servidor
+ * correcto. Códigos propios de la tienda (no de Garena); los nombres están en
+ * FREE_FIRE_SERVER_LABELS y en el frontend (`store/features/player.js`).
+ */
+export const FREE_FIRE_SERVERS = [
+  'latam',
+  'brasil',
+  'norteamerica',
+  'europa',
+  'oriente_medio',
+  'india',
+  'asia',
+  'no_seguro',
+] as const;
+export type FreeFireServer = (typeof FREE_FIRE_SERVERS)[number];
+export const FREE_FIRE_SERVER_LABELS: Record<FreeFireServer, string> = {
+  latam: 'Latinoamérica',
+  brasil: 'Brasil',
+  norteamerica: 'Norteamérica',
+  europa: 'Europa',
+  oriente_medio: 'Oriente Medio',
+  india: 'India',
+  asia: 'Asia',
+  no_seguro: 'No está seguro (confirmar antes de entregar)',
+};
+
 export const ATTEMPT_STATUSES = ['CREATING', 'OPEN', 'CLOSED', 'EXPIRED', 'FAILED'] as const;
 export type AttemptStatus = (typeof ATTEMPT_STATUSES)[number];
 
@@ -317,6 +345,8 @@ export const orders = pgTable(
     status: text('status').$type<OrderStatus>().notNull(),
     game: text('game').notNull(),
     playerUid: text('player_uid').notNull(),
+    /** Servidor declarado por el cliente (FREE_FIRE_SERVERS); null en pedidos anteriores. */
+    playerServer: text('player_server').$type<FreeFireServer>(),
     customerName: text('customer_name').notNull(),
     customerEmail: text('customer_email').notNull(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -357,6 +387,10 @@ export const orders = pgTable(
     check('orders_verification_status_check', inList('verification_status', VERIFICATION_STATUSES)),
     check('orders_game_check', inList('game', ['freefire'])),
     check('orders_uid_check', sql`${t.playerUid} ~ '^[0-9]{6,12}$'`),
+    check(
+      'orders_player_server_check',
+      sql`${t.playerServer} is null or ${inList('player_server', FREE_FIRE_SERVERS)}`,
+    ),
     check('orders_currency_check', sql`${t.currency} = 'COP'`),
     check(
       'orders_totals_check',

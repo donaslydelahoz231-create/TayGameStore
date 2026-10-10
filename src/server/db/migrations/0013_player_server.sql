@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ADD COLUMN "player_server" text;--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_player_server_check" CHECK ("orders"."player_server" is null or player_server in ('latam', 'brasil', 'norteamerica', 'europa', 'oriente_medio', 'india', 'asia', 'no_seguro'));

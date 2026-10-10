@@ -1,6 +1,7 @@
 import { cartItems } from '../cart-model.js';
 import { $, setText } from '../dom.js';
 import { validUid } from '../format.js';
+import { serverLabel } from '../servers.js';
 import { state } from '../state.js';
 
 const MESSAGES = {
@@ -43,7 +44,9 @@ export function renderChecks() {
   const paid = ['PAID', 'DELIVERING', 'DELIVERED'].includes(status);
   $('trackPlayer').classList.toggle('done', playerOk);
   $('trackPlayer').querySelector('small').textContent = playerOk
-    ? (order ? order.verification.region : lookup?.region) || 'Confirmado'
+    ? (order ? order.verification.region : lookup?.region) ||
+      serverLabel(order ? order.playerServer : state.playerServer) ||
+      'Confirmado'
     : order
       ? 'Verificando'
       : 'Esperando UID';

@@ -248,3 +248,20 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   espacio de trabajo, ~744 h/mes de 750 gratuitas.
 - **Riesgo anotado**: los horarios de GitHub son aproximados; un retraso de más de 15 min deja
   dormir la tienda unos minutos. Añadir otro servicio gratuito al mismo espacio agotaría las horas.
+
+### 2026-10-10 · Servidor (región) de Free Fire asignado a cada pedido
+
+- **Autorizó**: el dueño («el ID … del jugador en el juego correspondiente de Free Fire sin
+  importar la región … asigna un servidor»).
+- **Hecho**: el cliente declara el servidor de su cuenta al escribir el ID; el servidor lo valida
+  (lista cerrada en `FREE_FIRE_SERVERS` y `CHECK` en la base de datos), lo guarda y lo muestra al
+  dueño en el panel, el aviso de pago y el comprobante. Migración 0013 aditiva (columna nula): no
+  toca pedidos existentes.
+- **Límite honesto**: el nickname y la región **no se consultan automáticamente**. No existe API
+  pública oficial de Garena para eso y el dueño descartó el scraping y las APIs no oficiales
+  (`verifier.ts`). Solo un proveedor autorizado podría añadirlo (`PLAYER_VERIFICATION`).
+- **Evidencia local**: lint, typecheck, formato, unitarias 180/180, integración 179/179 (servidor
+  guardado y devuelto, valor inválido → 400, misma clave con otro servidor → 409), e2e 64/64,
+  capturas visuales actualizadas y revisadas.
+- **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`), secretos, `LEGAL_*` ni datos
+  del dueño.

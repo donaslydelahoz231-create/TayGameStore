@@ -9,6 +9,7 @@ import qrcode from 'qrcode-generator';
 import { api, ApiError, errorMessage } from './js/store/api.js';
 import { $, esc } from './js/store/dom.js';
 import { money } from './js/store/format.js';
+import { serverLabel } from './js/store/servers.js';
 
 const STATUS_LABEL = {
   AWAITING_VERIFICATION: 'Verificar jugador',
@@ -515,6 +516,14 @@ async function selectOrder(id) {
   if (detail) renderDetail(detail);
 }
 
+/** Servidor de Free Fire que declaró el cliente: la recarga se entrega en ese servidor. */
+function serverText(server) {
+  if (!server) return '— (pedido anterior a la elección de servidor)';
+  if (server === 'no_seguro')
+    return 'El cliente no está seguro: confírmalo con él antes de entregar';
+  return esc(serverLabel(server) || server);
+}
+
 function renderDetail(d) {
   const o = d.order;
   const v = d.verification;
@@ -524,6 +533,7 @@ function renderDetail(d) {
     <dl>
       <dt>Cliente</dt><dd>${esc(o.customerName)} · ${esc(o.customerEmail)}</dd>
       <dt>UID</dt><dd>${esc(o.playerUid)}</dd>
+      <dt>Servidor</dt><dd>${serverText(o.playerServer)}</dd>
       <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}${v.note === 'cliente' ? ' · ID confirmado por el cliente (escrito dos veces): entrégalo a este UID' : ''}</dd>
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
       <dt>Total</dt><dd>${money(o.totalCop)}</dd>

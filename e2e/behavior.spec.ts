@@ -509,6 +509,11 @@ test.describe('compra completa (invitado)', () => {
       await expect(page.locator('#playerResult')).toContainText('ID 734567812 confirmado ✓');
       await expect(page.locator('#nickState')).toHaveText('Listo');
 
+      // El servidor de la cuenta viaja con el pedido (la recarga se entrega allí).
+      await expect(page.locator('#playerServer')).toHaveValue('latam');
+      await page.locator('#playerServer').selectOption('brasil');
+      await expect(page.locator('#invoiceRegion')).toHaveText('Brasil');
+
       await page.locator('#customerName').fill('Cliente Directo');
       await page.locator('#customerEmail').fill('directo-e2e@example.com');
       await page.locator('#paymentMethod').selectOption('mercadopago');
@@ -518,6 +523,7 @@ test.describe('compra completa (invitado)', () => {
       const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
       // Sin esperar al equipo: el pedido ya se puede pagar.
       await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+      await expect(page.locator('#invoiceRegion')).toHaveText('Brasil');
 
       await page.locator('#payBtn').click();
       await expect(page.locator('#paymentModal')).toBeVisible();

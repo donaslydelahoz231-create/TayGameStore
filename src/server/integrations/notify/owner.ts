@@ -12,6 +12,8 @@ export interface PaidOrderNotice {
   totalCop: number;
   playerUid: string;
   nickname: string | null;
+  /** Servidor de Free Fire declarado por el cliente, ya con su nombre legible. */
+  server?: string | null;
   items: readonly { name: string; quantity: number }[];
   /** PIN del inventario ya entregados automáticamente (0: hay que entregarlo a mano). */
   pinCount?: number;
@@ -42,6 +44,7 @@ export function paidOrderText(notice: PaidOrderNotice): string {
     `Pedido pagado ${notice.reference}`,
     `Total: ${cop.format(notice.totalCop)}`,
     `ID de jugador: ${player}`,
+    ...(notice.server ? [`Servidor: ${notice.server}`] : []),
     items,
     notice.pinCount
       ? `Mercado Pago confirmó el pago y se entregó automáticamente con ${notice.pinCount} PIN de tu inventario.`

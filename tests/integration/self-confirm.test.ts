@@ -29,13 +29,18 @@ afterAll(async () => {
 });
 
 let ip = 0;
-async function checkout(extra: Record<string, unknown>, playerUid = '512345678') {
+async function checkout(
+  extra: Record<string, unknown>,
+  playerUid = '512345678',
+  cookies?: Record<string, string>,
+) {
   ip += 1;
   return h.app.inject({
     method: 'POST',
     url: '/api/checkout',
     remoteAddress: `10.20.30.${ip}`,
     headers: CSRF,
+    ...(cookies ? { cookies } : {}),
     payload: {
       checkoutKey: randomUUID(),
       game: 'freefire',
@@ -104,6 +109,54 @@ describe('el cliente confirma su ID y paga sin esperar al equipo', () => {
     });
     expect(pay.statusCode).toBe(200);
     expect(pay.json<{ checkoutUrl: string }>().checkoutUrl).toMatch(/^https?:\/\//);
+  });
+
+  it('guarda el servidor de Free Fire elegido y lo devuelve en el pedido', async () => {
+    const res = await checkout(
+      { confirmedPlayerUid: '523456789', playerServer: 'brasil' },
+      '523456789',
+    );
+    expect(res.statusCode).toBe(201);
+    const { order } = res.json<{ order: { reference: string; playerServer: string | null } }>();
+    expect(order.playerServer).toBe('brasil');
+    const [row] = await h.database.db
+      .select({ playerServer: orders.playerServer })
+      .from(orders)
+      .where(eq(orders.publicRef, order.reference));
+    expect(row?.playerServer).toBe('brasil');
+
+    // Sin servidor (clientes con la página anterior en caché) el pedido se crea igual.
+    const legacy = await checkout({ confirmedPlayerUid: '523456780' }, '523456780');
+    expect(legacy.statusCode).toBe(201);
+    expect(legacy.json<{ order: { playerServer: string | null } }>().order.playerServer).toBeNull();
+  });
+
+  it('rechaza un servidor que no existe', async () => {
+    const res = await checkout(
+      { confirmedPlayerUid: '534567890', playerServer: 'marte' },
+      '534567890',
+    );
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('la misma clave de compra con otro servidor no reutiliza el pedido', async () => {
+    const same = {
+      checkoutKey: randomUUID(),
+      customerEmail: 'servidor@example.com',
+      confirmedPlayerUid: '545678901',
+    };
+    const first = await checkout({ ...same, playerServer: 'asia' }, '545678901');
+    expect(first.statusCode).toBe(201);
+    // El mismo navegador (sus cookies) repite la compra: recibe el mismo pedido.
+    const cookies = Object.fromEntries(first.cookies.map((c) => [c.name, c.value]));
+    const again = await checkout({ ...same, playerServer: 'asia' }, '545678901', cookies);
+    expect(again.statusCode).toBeLessThan(300);
+    expect(again.json<{ order: { reference: string } }>().order.reference).toBe(
+      first.json<{ order: { reference: string } }>().order.reference,
+    );
+    const changed = await checkout({ ...same, playerServer: 'europa' }, '545678901', cookies);
+    expect(changed.statusCode).toBe(409);
+    expect(changed.json<ApiErrorBody>().error.code).toBe('IDEMPOTENCY_CONFLICT');
   });
 
   it('en modo `operator` la confirmación del cliente no salta la verificación del equipo', async () => {

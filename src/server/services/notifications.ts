@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '../db/client.js';
 import {
+  FREE_FIRE_SERVER_LABELS,
   notifications,
   orderItems,
   orders,
@@ -100,6 +101,8 @@ interface OrderSnapshot {
   playerUid: string;
   nickname: string | null;
   region: string | null;
+  /** Servidor de Free Fire declarado por el cliente (nombre legible). */
+  server: string | null;
   customerEmail: string;
   receiptCode: string;
   items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
@@ -218,7 +221,9 @@ const bogota = new Intl.DateTimeFormat('es-CO', {
 });
 
 function paymentReceipt(order: OrderSnapshot): Receipt {
-  const player = [order.playerUid, order.nickname, order.region].filter(Boolean).join(' · ');
+  const player = [order.playerUid, order.nickname, order.region ?? order.server]
+    .filter(Boolean)
+    .join(' · ');
   return {
     rows: [
       ['Comprobante', order.receiptCode],
@@ -356,6 +361,7 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
       playerUid: orders.playerUid,
       nickname: orders.verifiedNickname,
       region: orders.verifiedRegion,
+      playerServer: orders.playerServer,
       customerEmail: orders.customerEmail,
       receiptCode: orders.receiptCode,
     })
@@ -375,7 +381,13 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
     .select({ providerPaymentId: payments.providerPaymentId, approvedAt: payments.approvedAt })
     .from(payments)
     .where(and(eq(payments.orderId, orderId), eq(payments.isOrderPayment, true)));
-  return { ...order, items, payment: payment ?? null };
+  const { playerServer, ...rest } = order;
+  return {
+    ...rest,
+    server: playerServer ? FREE_FIRE_SERVER_LABELS[playerServer] : null,
+    items,
+    payment: payment ?? null,
+  };
 }
 
 /** Solo datos de la operación: ni correo ni nombre del cliente. */
