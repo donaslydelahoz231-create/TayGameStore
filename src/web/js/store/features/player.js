@@ -398,8 +398,16 @@ export async function finderSearch() {
 
 /** Textos de ayuda según el modo de verificación que ofrece el servidor. */
 export function renderPlayerMode() {
+  // Otros juegos: el texto lo pone renderGames (aún no están a la venta).
+  if (state.game !== 'freefire') return;
   if (!lookupEnabled()) {
-    if (!selfConfirmMode()) return;
+    if (!selfConfirmMode()) {
+      setText(
+        'playerHint',
+        'Escribe tu ID de Free Fire y pulsa Verificar. Nuestro equipo confirma el nickname antes de que pagues.',
+      );
+      return;
+    }
     setText(
       'playerHint',
       'Escribe tu ID, pulsa Verificar y confírmalo: pagas al instante y la recarga llega a ese ID.',

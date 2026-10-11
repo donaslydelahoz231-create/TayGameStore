@@ -94,3 +94,41 @@
 .payment-grid .payment-means {
   grid-column: 1 / -1;
 }
+
+/* Ayuda «¿Dónde encuentro mi ID?» (como en la recarga oficial: el ID está en el perfil). */
+.id-help {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.id-help summary {
+  width: fit-content;
+  color: var(--cyan);
+  font-weight: 700;
+  cursor: pointer;
+}
+.id-help summary:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.id-help ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+
+/* Tarjeta de paquete: entrega y valor real por cada 100 diamantes (del precio vigente). */
+.product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+  margin-top: 4px;
+  color: var(--muted2);
+  font-size: 0.6875rem;
+}
+.product-meta span:last-child {
+  color: #b9c6f2;
+  font-variant-numeric: tabular-nums;
+}

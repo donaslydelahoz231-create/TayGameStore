@@ -280,3 +280,15 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   ni valores de variables y no se leen secretos.
 - **Evidencia local**: lint, typecheck, formato, unitarias 180/180, e2e 64/64 (incluye elegir
   PSE y verlo en la factura y en la confirmación), capturas visuales actualizadas y revisadas.
+
+### 2026-10-11 · Pulido inspirado en la recarga oficial y en LootBar
+
+- **Pidió**: el dueño (inspirarse en la recarga oficial de Free Fire y en LootBar sin copiarlas).
+- **Fuentes**: las páginas de Garena y LootBar no se pudieron abrir desde el entorno (DNS
+  bloqueado). Solo se usó lo confirmado en búsquedas: compra por ID sin contraseña y el ID en el
+  perfil del jugador (avatar, arriba a la izquierda). **NO VERIFICADO** directamente en esas páginas.
+- **Catálogo real de producción** (solo lectura): 6 paquetes activos, stock de PIN en 0 (entrega
+  manual por ID).
+- **Hecho**: ayuda «¿Dónde encuentro mi ID?», valor por cada 100 diamantes en cada paquete,
+  texto inicial honesto del ID. Evidencia local: lint, formato, unitarias 180/180, e2e 64/64 y
+  capturas visuales revisadas.

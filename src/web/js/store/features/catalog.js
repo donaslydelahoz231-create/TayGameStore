@@ -74,12 +74,12 @@ export function renderGames() {
   document
     .querySelectorAll('.tariff-toggle button')
     .forEach((b) => b.classList.toggle('active', b.dataset.tariff === state.tariff));
-  const playerSection = $('verificacion');
-  if (playerSection) {
-    playerSection.querySelector('.hint').textContent =
-      state.game === 'freefire'
-        ? 'El equipo verifica nickname y región con una fuente oficial después de crear el pedido. Nunca te pediremos la contraseña.'
-        : 'Este juego está preparado visualmente. La verificación se habilitará cuando exista un flujo de jugador real para esa categoría.';
+  // En Free Fire el texto lo pone renderPlayerMode según el modo de verificación del servidor.
+  if (state.game !== 'freefire') {
+    setText(
+      'playerHint',
+      'Este juego aún no está a la venta. La verificación se habilitará cuando tenga recargas reales.',
+    );
   }
   const playerInput = $('playerUid');
   if (playerInput) playerInput.disabled = state.game !== 'freefire';
@@ -117,7 +117,8 @@ export function renderProducts() {
     const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
     const addLabel = q ? 'Añadido' : 'Agregar';
     const providerNote = 'Disponible';
-    el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button">${addLabel}</button><div class="qty"><button type="button" data-op="minus" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus">+</button></div></div>`;
+    const perHundred = Math.round((priceOf(p) / Number(p.diamonds || 1)) * 100);
+    el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button">${addLabel}</button><div class="qty"><button type="button" data-op="minus" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus">+</button></div></div>`;
     const favBtn = el.querySelector('.fav-btn');
     favBtn.addEventListener('click', (e) => {
       e.preventDefault();

@@ -7,6 +7,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- Inspirado en la recarga oficial y en tiendas como LootBar (sin copiarlas): ayuda «¿Dónde
+  encuentro mi ID?» junto al campo del ID, y en cada paquete «Directo a tu ID» con el precio
+  aproximado por cada 100 diamantes, calculado del precio vigente del servidor.
+
+### Corregido
+
+- El texto inicial del ID afirmaba que el equipo verifica «con una fuente oficial»; ahora dice
+  lo que pasa de verdad según el modo de verificación, y cambiar de juego ya no lo deja mal.
+
 - **«Elige cómo pagar»** a la vista, como en las tiendas de recargas: tarjeta, PSE, Efecty o
   saldo de Mercado Pago, en tarjetas seleccionables (radios nativos, accesibles con teclado) en
   lugar del desplegable escondido «Pendiente / Mercado Pago». El medio elegido aparece en la

@@ -62,6 +62,13 @@ test.describe('entrada y acceso', () => {
     await expect(page.locator('#catalogStatus')).toHaveText('Catálogo disponible');
     // El servidor de pruebas usa MP_MODE=sandbox: la tienda lo anuncia.
     await expect(page.locator('#serverState')).toContainText('Modo prueba · Mercado Pago sandbox');
+    // Cada paquete dice cómo llega y cuánto cuestan 100 diamantes con el precio vigente.
+    await expect(page.locator('#products .product').first().locator('.product-meta')).toContainText(
+      /Directo a tu ID.*c\/100/,
+    );
+    // Ayuda para encontrar el ID en el perfil del juego, sin datos inventados.
+    await page.locator('.id-help summary').click();
+    await expect(page.locator('.id-help ol')).toContainText('Toca tu avatar');
   });
 
   test('el acceso solo ofrece métodos reales: sin formulario de contraseña ni redes sin soporte', async ({
