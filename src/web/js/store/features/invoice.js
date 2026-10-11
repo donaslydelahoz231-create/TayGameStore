@@ -11,7 +11,17 @@ import { chosenPayMeans, PAY_MEANS } from './pay-means.js';
 
 export const invoiceReference = () => state.currentOrder?.reference || 'BORRADOR';
 
-export const invoiceCode = () => state.currentOrder?.receiptCode || '--------';
+/**
+ * Pedido pagado: número consecutivo del comprobante y código de verificación (los asigna el
+ * servidor; el dueño los comprueba en su panel). Antes del pago, el código corto del pedido.
+ */
+export const invoiceCode = () => {
+  const order = state.currentOrder;
+  if (order?.receipt) {
+    return `N.º ${String(order.receipt.number).padStart(6, '0')} · ${order.receipt.verificationCode}`;
+  }
+  return order?.receiptCode || '--------';
+};
 
 /** Líneas del comprobante: las de la orden si existe, si no las del carrito. */
 export function invoiceLines() {

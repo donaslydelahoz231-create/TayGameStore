@@ -36,6 +36,8 @@ import {
 import type { ServiceDeps } from '../../services/context.js';
 import type { AbuseShield } from '../../services/shield.js';
 import { reconcileOrder } from '../../services/payments.js';
+import { integritySummary } from '../../services/integrity.js';
+import { verifyReceipt } from '../../services/receipts.js';
 import { AppError } from '../../plugins/errors.js';
 
 export interface AdminRoutesOptions {
@@ -104,6 +106,24 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
       throw new AppError('PAYMENTS_DISABLED', 503, 'Mercado Pago no está configurado.');
     await reconcileOrder(deps, detail.order.reference, actor);
     return getOrderForAdmin(deps, id);
+  });
+
+  // Integridad: cadena de sellos recalculada, último comprobante emitido y huella del catálogo.
+  app.get('/api/admin/integrity', guarded, async (request) => {
+    const { deps } = ctx(request);
+    return integritySummary(deps);
+  });
+
+  // ¿Este comprobante es auténtico? Referencia + código de verificación impresos en él.
+  app.post('/api/admin/receipts/verify', guarded, async (request) => {
+    const { deps } = ctx(request);
+    const body = z
+      .strictObject({
+        reference: z.string().trim().min(5).max(40),
+        code: z.string().trim().min(5).max(60),
+      })
+      .parse(request.body);
+    return verifyReceipt(deps, body);
   });
 
   app.get('/api/admin/products', guarded, async (request) => {

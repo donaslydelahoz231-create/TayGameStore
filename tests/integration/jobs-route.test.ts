@@ -51,6 +51,7 @@ describe('tareas programadas por HTTP', () => {
         'reconcilePayments',
         'releaseClaims',
         'retryEvents',
+        'sealAudit',
         'sendNotifications',
         'topups',
       ].sort(),

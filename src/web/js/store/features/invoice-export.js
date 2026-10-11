@@ -108,10 +108,14 @@ function invoiceCanvas() {
   y += 92;
   c.fillStyle = '#b18cff';
   c.font = `700 14px ${FONT}`;
-  c.fillText('CÓDIGO', 42, y);
+  c.fillText(
+    invoiceCode().startsWith('N.º') ? 'COMPROBANTE Y CÓDIGO DE VERIFICACIÓN' : 'CÓDIGO',
+    42,
+    y,
+  );
   y += 30;
   c.fillStyle = '#37d6ff';
-  c.font = `800 26px ${FONT}`;
+  c.font = `800 ${invoiceCode().length > 12 ? 18 : 26}px ${FONT}`;
   c.fillText(invoiceCode(), 42, y);
   y += 36;
   c.fillStyle = '#8f9bc9';

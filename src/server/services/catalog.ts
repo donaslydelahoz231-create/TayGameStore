@@ -96,7 +96,28 @@ export async function listAllProducts(deps: ServiceDeps) {
   return deps.db.select().from(products).orderBy(asc(products.game), asc(products.sortOrder));
 }
 
+/**
+ * Con CATALOG_LOCKED nadie cambia el catálogo desde el panel (tampoco con una sesión robada):
+ * el intento queda en el historial con alerta y se rechaza.
+ */
+async function assertCatalogUnlocked(deps: ServiceDeps, actor: Actor, sku: string) {
+  if (!deps.config.catalogLocked) return;
+  await audit(deps.db, actor, {
+    entityType: 'product',
+    entityId: sku,
+    action: 'product.change_blocked',
+    data: { sku, alert: true },
+  });
+  deps.log.warn({ alert: 'catalog_locked', sku }, 'cambio de catálogo bloqueado');
+  throw new AppError(
+    'CATALOG_LOCKED',
+    423,
+    'El catálogo está bloqueado: los precios no se pueden cambiar desde el panel. Para cambiarlos, pon CATALOG_LOCKED=false en Render, haz el cambio y vuelve a bloquearlo.',
+  );
+}
+
 export async function createProduct(deps: ServiceDeps, input: ProductInput, actor: Actor) {
+  await assertCatalogUnlocked(deps, actor, input.sku);
   try {
     const [row] = await deps.db
       .insert(products)
@@ -123,6 +144,7 @@ export async function updateProduct(
   input: ProductInput,
   actor: Actor,
 ) {
+  await assertCatalogUnlocked(deps, actor, input.sku);
   const [row] = await deps.db
     .update(products)
     .set({

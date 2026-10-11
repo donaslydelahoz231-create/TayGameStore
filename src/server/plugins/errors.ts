@@ -37,6 +37,7 @@ const GENERIC_MESSAGES: Record<ErrorCode, string> = {
   UNSUPPORTED_MEDIA_TYPE: 'Tipo de contenido no soportado.',
   RATE_LIMITED: 'Demasiadas solicitudes. Inténtalo más tarde.',
   MAINTENANCE_MODE: 'La tienda está en mantenimiento. Inténtalo más tarde.',
+  CATALOG_LOCKED: 'El catálogo está bloqueado.',
   CHECKOUT_DISABLED: 'Las compras no están habilitadas en este momento.',
   PAYMENTS_DISABLED: 'Los pagos no están habilitados en este momento.',
   FULFILLMENT_DISABLED: 'Las entregas están pausadas.',

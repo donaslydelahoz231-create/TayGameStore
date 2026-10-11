@@ -7,6 +7,23 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Protección contra borrar la tienda, alterar precios y falsificar comprobantes**
+  (`docs/seguridad-tienda.md`):
+  - **Comprobantes verificables**: cada pago aprobado recibe un número consecutivo y un código
+    de verificación (HMAC con llave del servidor sobre número, referencia, total y operación de
+    Mercado Pago). Salen en el correo y en la factura. En Panel → Integridad el dueño verifica
+    cualquier comprobante: un código falso o un total cambiado no coincide.
+  - **La base de datos no deja borrar** pedidos, pagos, entregas, recargas, PIN, productos ni el
+    historial, ni con SQL directo. Los montos, la referencia y el número de comprobante de un
+    pedido, y sus líneas, son inmutables.
+  - **Todo cambio de precio queda registrado**, incluso por SQL directo (trigger, actor
+    `database`).
+  - **Catálogo bloqueable** (`CATALOG_LOCKED`): con él, ni una sesión robada del panel cambia
+    precios. El intento queda con alerta.
+  - **Sellos de integridad**: el historial se sella cada 10 minutos con una cadena de hashes.
+    Panel → Integridad muestra «Intacto» o «ALTERADO», el conteo, la huella del historial, el
+    último comprobante emitido y la huella del catálogo. El diagnóstico diario los publica
+    fuera de la base como testigo, y queda en rojo si la cadena se rompe.
 - **Recarga directa al ID con UniPin (sin PIN), lista para activar.** Con `TOPUP_PROVIDER=unipin`,
   un pago aprobado valida el ID del jugador en UniPin (distribuidor oficial), pide la recarga y
   marca el pedido «Entregado» solo cuando UniPin la confirma con su `transaction_number`.

@@ -29,6 +29,7 @@ import { deliverNotifications, enqueueOrderNotifications } from './notifications
 import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 import { providerCovers, providerSkus } from './topup-coverage.js';
+import { receiptVerificationCode } from './receipts.js';
 
 export type OrderRow = typeof orders.$inferSelect;
 
@@ -135,12 +136,14 @@ export interface PublicOrder {
   payment: { status: string | null; canPay: boolean; checkoutAvailable: boolean };
   /** `pins`: cantidad de PIN entregados (el cliente los abre con «Ver mi PIN»). */
   fulfillment: { status: string | null; deliveredAt: string | null; pins: number };
+  /** Comprobante verificable (pedido pagado): número consecutivo y código de verificación. */
+  receipt: { number: number; verificationCode: string } | null;
 }
 
 type OrderItemRow = typeof orderItems.$inferSelect;
 interface OrderRelations {
   items: OrderItemRow[];
-  payments: Pick<typeof payments.$inferSelect, 'status' | 'isOrderPayment'>[];
+  payments: Pick<typeof payments.$inferSelect, 'status' | 'isOrderPayment' | 'providerPaymentId'>[];
   fulfillment: Pick<typeof fulfillments.$inferSelect, 'status' | 'deliveredAt'> | undefined;
   pins: number;
 }
@@ -169,6 +172,7 @@ async function loadOrderRelations(
         orderId: payments.orderId,
         status: payments.status,
         isOrderPayment: payments.isOrderPayment,
+        providerPaymentId: payments.providerPaymentId,
       })
       .from(payments)
       .where(inArray(payments.orderId, ids))
@@ -259,6 +263,25 @@ function buildPublicOrder(
       deliveredAt: fulfillment?.deliveredAt?.toISOString() ?? null,
       pins: order.status === 'DELIVERED' ? (relations?.pins ?? 0) : 0,
     },
+    receipt: publicReceipt(deps, order, orderPayments),
+  };
+}
+
+function publicReceipt(
+  deps: ServiceDeps,
+  order: OrderRow,
+  orderPayments: OrderRelations['payments'],
+): PublicOrder['receipt'] {
+  const paid = orderPayments.find((p) => p.isOrderPayment);
+  if (order.receiptNumber === null || !paid) return null;
+  return {
+    number: order.receiptNumber,
+    verificationCode: receiptVerificationCode(deps.config.secrets.orderTokenKeys, {
+      number: order.receiptNumber,
+      reference: order.publicRef,
+      totalCop: order.totalCop,
+      paymentId: paid.providerPaymentId,
+    }),
   };
 }
 

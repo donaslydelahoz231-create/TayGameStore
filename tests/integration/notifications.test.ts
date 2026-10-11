@@ -153,14 +153,16 @@ describe('aviso de pago confirmado', () => {
     expect(customer?.replyTo).toBe('soporte@example.com');
     // El correo es el comprobante: código, pedido, operación de Mercado Pago, detalle y total.
     const [saved] = await h.database.db
-      .select({ receiptCode: orders.receiptCode, subtotal: orders.subtotalCop })
+      .select({ receiptNumber: orders.receiptNumber, subtotal: orders.subtotalCop })
       .from(orders)
       .where(eq(orders.publicRef, order.reference));
     const money = (n: number) => `$ ${n.toLocaleString('es-CO')}`.replace(/\s/g, ' ');
     const plain = (customer?.text ?? '').replace(/\s/g, ' ');
     for (const expected of [
       'COMPROBANTE DE PAGO',
-      `Comprobante: ${saved?.receiptCode}`,
+      // Comprobante verificable: número consecutivo y código (el dueño lo comprueba en el panel).
+      'Comprobante N.º: 000001',
+      'Código de verificación: V1-',
       `Pedido: ${order.reference}`,
       `Operación de Mercado Pago: ${paymentId}`,
       'Fecha de pago:',
@@ -173,7 +175,8 @@ describe('aviso de pago confirmado', () => {
     }
     expect(plain).toMatch(/2 × .+ \(\$ [\d.]+ c\/u\)/);
     expect(customer?.html).toContain('COMPROBANTE DE PAGO');
-    expect(customer?.html).toContain(saved?.receiptCode ?? '—');
+    expect(customer?.html).toContain('Código de verificación');
+    expect(saved?.receiptNumber).toBe(1);
     const owner = h.mailer.sent.filter((m) => m.to.includes(ADMIN_EMAIL));
     expect(owner.length).toBe(ownerBefore + 1);
     expect(owner.at(-1)?.subject).toBe(`Pedido pagado por entregar · ${order.reference}`);

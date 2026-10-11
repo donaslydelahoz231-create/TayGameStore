@@ -7,6 +7,7 @@ import { deliverNotifications } from './notifications.js';
 import { purgeExpiredLookups } from './player.js';
 import { purgeExpiredBlocks } from './shield.js';
 import { processTopups } from './topups.js';
+import { sealAudit } from './integrity.js';
 import {
   failedPaymentEvents,
   ordersNeedingReconciliation,
@@ -27,6 +28,7 @@ const JOB_LOCKS = {
   cleanup: 7305,
   sendNotifications: 7306,
   topups: 7307,
+  sealAudit: 7308,
 } as const;
 export type JobName = keyof typeof JOB_LOCKS;
 /** Todas las tareas, en el orden en que conviene ejecutarlas en una pasada. */
@@ -158,6 +160,8 @@ const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   sendNotifications: (deps) => deliverNotifications(deps, { limit: 50 }),
   // Recarga directa: empieza entregas pendientes y consulta recargas dudosas a UniPin.
   topups: (deps) => processTopups(deps),
+  // Sella el historial (cadena de hashes): borrar o cambiar un evento antiguo se detecta.
+  sealAudit,
 };
 
 const JOB_TIMEOUT_MS = 50_000;
@@ -202,6 +206,7 @@ const SCHEDULE: [JobName, number][] = [
   ['cleanup', 3_600_000],
   ['sendNotifications', 60_000],
   ['topups', 60_000],
+  ['sealAudit', 600_000],
 ];
 
 /** Margen para que una tanda no se salte una tarea por segundos de diferencia. */

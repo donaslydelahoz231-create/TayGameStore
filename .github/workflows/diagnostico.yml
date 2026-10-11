@@ -51,6 +51,43 @@ jobs:
             echo '```'
             if [ "$code" -eq 0 ]; then echo 'Resultado: **LISTO para vender**.'; else echo 'Resultado: hay puntos **FALTA** (revisa la lista).'; fi
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Testigo de integridad (huella del historial)
+        # Deja fuera de la base de datos, en el resumen de cada día, la huella del último sello del
+        # historial, el último comprobante emitido y la huella del catálogo. Si alguien rehiciera
+        # la base, la huella de días anteriores ya no coincidiría. Sin datos de pedidos ni clientes.
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          {
+            echo
+            echo '### Integridad (testigo diario)'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$CRON_SECRET" ]; then
+            echo 'NO VERIFICADO: falta el secreto CRON_SECRET en GitHub (el mismo valor que en Render).' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          set +e
+          body=$(curl -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$URL/api/internal/integrity")
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] || [ -z "$body" ]; then
+            echo 'NO VERIFICADO: la tienda no respondió.' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf '%s' "$body" | node -e '
+            let raw = "";
+            process.stdin.on("data", (c) => (raw += c)).on("end", () => {
+              let j;
+              try { j = JSON.parse(raw); } catch { console.log("NO VERIFICADO: respuesta ilegible"); return; }
+              if (!j.chain) { console.log("NO VERIFICADO: " + (j.error?.message ?? "sin datos")); return; }
+              const c = j.chain;
+              console.log(c.ok ? "Historial: INTACTO" : `Historial: ALTERADO en el sello ${c.brokenAt} (${c.reason})`);
+              console.log(c.head ? `Huella del historial: ${c.head.fingerprint} (sello ${c.head.seq}, ${c.sealedEvents} eventos)` : "Aún sin sellos");
+              console.log(`Último comprobante emitido: ${j.lastReceipt || "ninguno"}`);
+              console.log(`Huella del catálogo: ${j.catalog.fingerprint} · ${j.catalog.locked ? "bloqueado" : "DESBLOQUEADO"}`);
+              if (!c.ok) process.exitCode = 1;
+            });
+          ' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
       - name: Burbujas de soporte (navegador real)

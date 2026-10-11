@@ -1,4 +1,5 @@
 import { describePending, pendingLegalFields } from '../legal.js';
+import { catalogFingerprint, type FingerprintProduct } from '../domain/catalog-fingerprint.js';
 import { ConfigError, loadConfig, type AppConfig } from '../config/env.js';
 
 /**
@@ -209,11 +210,14 @@ export async function checkRemote(
   }
 
   const catalog = (await get('/api/catalog?game=freefire'))?.json as
-    { products?: unknown[] } | undefined;
+    { products?: FingerprintProduct[] } | undefined;
   const count = catalog?.products?.length ?? 0;
   checks.push(
     count > 0
-      ? ok(`Catálogo con ${count} paquete(s) a la venta`)
+      ? ok(
+          `Catálogo con ${count} paquete(s) a la venta · huella ${catalogFingerprint(catalog?.products ?? [])} ` +
+            '(debe ser la misma que en Panel → Integridad)',
+        )
       : missing('El catálogo está vacío: crea los paquetes y precios en el panel'),
   );
 

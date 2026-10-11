@@ -360,6 +360,7 @@ document.querySelectorAll('.adm-tabs button').forEach((button) =>
       inventory: loadInventory,
       blocklist: loadBlocks,
       audit: loadAudit,
+      integrity: loadIntegrity,
     };
     loaders[button.dataset.tab]?.();
   }),
@@ -863,6 +864,65 @@ async function loadAudit() {
       .join('');
   });
 }
+
+// ── Integridad ──
+
+const RECEIPT_REASONS = {
+  no_existe: 'No existe ningún pedido con esa referencia.',
+  sin_comprobante: 'Ese pedido no tiene un pago aprobado: no puede tener comprobante.',
+  codigo_no_coincide: 'El código NO coincide: el comprobante es falso o lo alteraron.',
+};
+const receiptNo = (n) => 'N.º ' + String(n).padStart(6, '0');
+
+async function loadIntegrity() {
+  await run(async () => {
+    const j = await call('/api/admin/integrity');
+    const c = j.chain;
+    const rows = [
+      [
+        'Historial',
+        c.ok
+          ? `<b class="adm-ok">Intacto</b> · ${c.sealedEvents} eventos sellados en ${c.seals} sellos` +
+            (j.unsealedEvents ? ` · ${j.unsealedEvents} por sellar (se sellan cada 10 min)` : '')
+          : `<b class="adm-bad">ALTERADO</b> en el sello N.º ${c.brokenAt}: ${esc(c.reason || '')}`,
+      ],
+      [
+        'Huella del historial',
+        c.head
+          ? `<code>${esc(c.head.fingerprint)}</code> (sello N.º ${c.head.seq}, ${fmtDate(c.head.at)})`
+          : 'Aún sin sellos',
+      ],
+      ['Último comprobante emitido', j.lastReceipt ? receiptNo(j.lastReceipt) : 'Ninguno todavía'],
+      [
+        'Huella del catálogo',
+        `<code>${esc(j.catalog.fingerprint)}</code> · ${j.catalog.products} paquetes activos · ` +
+          (j.catalog.locked
+            ? '<b class="adm-ok">bloqueado</b> (los precios no se cambian desde el panel)'
+            : '<b class="adm-bad">desbloqueado</b> (CATALOG_LOCKED=false)'),
+      ],
+      ['Verificado', fmtDate(j.checkedAt)],
+    ];
+    $('admIntegrity').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  });
+}
+
+$('admIntegrityRefresh').onclick = () => loadIntegrity();
+
+$('admReceiptForm').onsubmit = (e) => {
+  e.preventDefault();
+  const out = $('admReceiptResult');
+  out.textContent = '';
+  run(async () => {
+    const j = await call('/api/admin/receipts/verify', {
+      method: 'POST',
+      body: { reference: $('rcRef').value.trim(), code: $('rcCode').value.trim() },
+    });
+    out.className = 'adm-receipt-result ' + (j.valid ? 'adm-ok' : 'adm-bad');
+    out.textContent = j.valid
+      ? `AUTÉNTICO · ${receiptNo(j.number)} · ${j.reference} · ${money(j.totalCop)} · pago Mercado Pago ${j.paymentId}${j.paidAt ? ' · ' + fmtDate(j.paidAt) : ''} · estado actual: ${STATUS_LABEL[j.status] || j.status}`
+      : `${RECEIPT_REASONS[j.reason] || 'No coincide.'} (Último comprobante emitido: ${j.lastIssued ? receiptNo(j.lastIssued) : 'ninguno'}.)`;
+  });
+};
 
 boot();
 // Refresco automático de alertas y pedidos cada minuto (sin solapamiento).

@@ -175,6 +175,10 @@
   font-size: 0.6875rem;
   margin-top: 2px;
 }
+/* El código de verificación es largo: parte en cualquier punto antes que desbordar. */
+#invoiceCode {
+  overflow-wrap: anywhere;
+}
 .invoice-foot {
   margin-top: 12px;
   color: var(--muted);

@@ -15,6 +15,7 @@ import { canTransitionFulfillment } from '../domain/state-machines.js';
 import { AppError } from '../plugins/errors.js';
 import { isUniqueViolation, toPublicOrder, transitionOrder } from './orders.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
+import { assignReceiptNumber } from './receipts.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   assignInventory,
@@ -371,6 +372,7 @@ export async function resolveReview(
       if (!valid) throw invalidState('No hay un pago aprobado y correcto para esta orden.');
       if (order.confirmedAt === null) throw invalidState('El cliente no confirmó el jugador.');
       await transitionOrder(tx, actor, order, 'PAID', {}, { note: input.note });
+      await assignReceiptNumber(tx, order.id);
       // Si el pago llegó tarde y se aceptó en revisión, el cliente y el dueño reciben el aviso.
       await enqueueOrderNotifications(deps, tx, order.id, 'paid');
       const [existing] = await tx

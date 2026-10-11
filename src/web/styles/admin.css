@@ -341,3 +341,45 @@ label {
   letter-spacing: 0.08em;
   user-select: all;
 }
+
+/* Integridad: estado de la cadena de sellos, huellas y verificador de comprobantes. */
+.adm-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.adm-integrity {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+.adm-integrity dt {
+  color: var(--muted);
+}
+.adm-integrity dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.adm-integrity code {
+  color: var(--cyan);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+.adm-ok {
+  color: var(--green);
+}
+.adm-bad {
+  color: var(--red);
+}
+.adm-receipt-result {
+  margin: 12px 0 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .adm-integrity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

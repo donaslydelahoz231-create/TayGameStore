@@ -30,7 +30,7 @@ export interface ServiceDeps {
 
 /** Quién ejecuta una acción. Nunca se toma del cuerpo de la petición. */
 export interface Actor {
-  type: 'system' | 'customer' | 'admin' | 'webhook';
+  type: 'system' | 'customer' | 'admin' | 'webhook' | 'database';
   userId?: string | undefined;
   ipHash?: string | undefined;
   requestId?: string | undefined;

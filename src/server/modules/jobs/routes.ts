@@ -3,6 +3,7 @@ import type { AppConfig } from '../../config/env.js';
 import { safeEqual } from '../../lib/crypto.js';
 import { AppError } from '../../plugins/errors.js';
 import type { ServiceDeps } from '../../services/context.js';
+import { integritySummary } from '../../services/integrity.js';
 import { JOB_NAMES, runJob } from '../../services/jobs.js';
 
 export interface JobRoutesOptions {
@@ -46,4 +47,22 @@ export const jobRoutes: FastifyPluginAsync<JobRoutesOptions> = async (app, { con
     return { ok: !failed, results };
   };
   app.get('/api/internal/jobs', handler);
+
+  // Testigo externo de la integridad: el diagnóstico diario (GitHub Actions) publica fuera de la
+  // base la huella del último sello, el último comprobante y la huella del catálogo. Sin datos de
+  // pedidos ni de clientes. Misma llave que las tareas.
+  app.get('/api/internal/integrity', async (request, reply) => {
+    const secret = config.cronSecret;
+    if (!secret || !safeEqual(request.headers.authorization ?? '', `Bearer ${secret}`)) {
+      throw new AppError('NOT_FOUND', 404, 'Recurso no encontrado.');
+    }
+    reply.header('cache-control', 'no-store');
+    if (!deps) {
+      reply.code(503);
+      return { error: { code: 'NO_DATABASE', message: 'Base de datos no configurada.' } };
+    }
+    const summary = await integritySummary(deps);
+    if (!summary.chain.ok) reply.code(500);
+    return summary;
+  });
 };

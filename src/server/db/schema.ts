@@ -368,6 +368,11 @@ export const orders = pgTable(
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     receiptCode: text('receipt_code').notNull(),
+    /**
+     * Número consecutivo del comprobante (1, 2, 3…), asignado cuando Mercado Pago aprueba el pago.
+     * Junto con el código de verificación permite al dueño comprobar que un comprobante es real.
+     */
+    receiptNumber: integer('receipt_number'),
     ipHash: text('ip_hash'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -378,6 +383,7 @@ export const orders = pgTable(
       .where(sql`${t.verifiedBy} is not null`),
     uniqueIndex('orders_public_ref_key').on(t.publicRef),
     uniqueIndex('orders_checkout_key_key').on(t.checkoutKey),
+    uniqueIndex('orders_receipt_number_key').on(t.receiptNumber),
     index('orders_status_expires_idx').on(t.status, t.expiresAt),
     index('orders_user_idx').on(t.userId, t.createdAt),
     index('orders_guest_idx').on(t.guestHash, t.createdAt),
@@ -716,8 +722,36 @@ export const auditEvents = pgTable(
     index('audit_events_entity_idx').on(table.entityType, table.entityId, table.createdAt),
     check(
       'audit_events_actor_type_check',
-      sql`${table.actorType} in ('system', 'customer', 'admin', 'webhook')`,
+      // `database`: cambio hecho directamente en la base (lo registra un trigger, no la app).
+      sql`${table.actorType} in ('system', 'customer', 'admin', 'webhook', 'database')`,
     ),
+  ],
+);
+
+/**
+ * Sellos de integridad del historial (cadena de hashes). Cada sello cubre los eventos de
+ * auditoría desde el sello anterior y encadena su hash con el del sello previo:
+ *   hash = sha256(hash_anterior · número · último_evento · huellas de los eventos)
+ * Borrar, cambiar o insertar un evento antiguo rompe la cadena y la verificación lo detecta.
+ * Append-only (trigger), como audit_events.
+ */
+export const auditSeals = pgTable(
+  'audit_seals',
+  {
+    seq: integer('seq').primaryKey(),
+    fromEventId: bigint('from_event_id', { mode: 'number' }).notNull(),
+    uptoEventId: bigint('upto_event_id', { mode: 'number' }).notNull(),
+    events: integer('events').notNull(),
+    totalEvents: bigint('total_events', { mode: 'number' }).notNull(),
+    prevHash: text('prev_hash').notNull(),
+    hash: text('hash').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('audit_seals_upto_key').on(t.uptoEventId),
+    check('audit_seals_seq_check', sql`${t.seq} >= 1`),
+    check('audit_seals_range_check', sql`${t.uptoEventId} >= ${t.fromEventId}`),
+    check('audit_seals_hash_check', sql`${t.hash} ~ '^[0-9a-f]{64}$'`),
   ],
 );
 

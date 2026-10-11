@@ -533,4 +533,41 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   `unipin:check` en staging los confirma antes de activar.
 - **Producción**: el despliegue aplica la migración. La recarga sigue **apagada**
   (`TOPUP_PROVIDER` sin definir = `none`), así que la tienda se comporta igual que antes.
+- **Evidencia**:
+  - Render `dep-db61453bc2fs739830ng` en `live` (commit `1f6d2f2`);
+  - Neon: 15 migraciones, tabla `topups` creada y vacía;
+  - CI verde. WebKit falló una vez en `motion.spec.ts` («element is not stable» en el botón de
+    invitado, código no tocado) y pasó al relanzarlo una sola vez.
+  - En local, la prueba del panel «el operador verifica… y entrega» falló en 2 de 11 corridas
+    completas y nunca aislada (30/30). Causa NO VERIFICADA.
+
+### 2026-10-11 · Protección contra borrado, alteración de precios y comprobantes falsos
+
+- **Pidió**: el dueño («que no me borren ni alteren la tienda… un código que yo pueda verificar y
+  un conteo que no se pueda falsificar»).
+- **Hecho** (migración `0015_integridad.sql`):
+  - triggers que impiden DELETE/TRUNCATE en las tablas de dinero, catálogo e historial;
+  - montos, referencia y comprobante de un pedido inmutables, y sus líneas también;
+  - auditoría por trigger de todo cambio de precio, incluso por SQL directo (actor `database`);
+  - comprobante N.º consecutivo, asignado bajo un lock de PostgreSQL, y código de verificación
+    HMAC (`V1-XXXX-XXXX-XXXX-XXXX`) en el correo y la factura;
+  - verificador de comprobantes en Panel → Integridad;
+  - sellos de integridad del historial (`audit_seals`, cadena SHA-256, tarea `sealAudit` cada
+    10 min) con verificación completa;
+  - huella del catálogo;
+  - `CATALOG_LOCKED`;
+  - testigo diario fuera de la base (`/api/internal/integrity` con `CRON_SECRET` → resumen de
+    «Diagnóstico diario»);
+  - guía `docs/seguridad-tienda.md`.
+- **Pruebas**:
+  - unitarias: código de verificación (cambia con cada dato, sin la llave no se fabrica, rotación
+    de llave, escritura a mano), huella del catálogo, cadena;
+  - integración `security-integrity` (9 casos): comprobantes consecutivos y verificación;
+    falsos, de otro pedido y sin pago rechazados; DELETE/TRUNCATE/UPDATE de montos rechazados;
+    precio por SQL auditado; catálogo bloqueado (423 + alerta); sellado; el testigo; y un
+    atacante con acceso total que desactiva el trigger, cambia o borra un evento sellado →
+    «ALTERADO» y testigo en 500.
+- **Límite**: la cuenta dueña de la base (Neon) puede quitar triggers; eso lo detectan el testigo
+  externo y los respaldos. Verificación en dos pasos en Google, GitHub, Render, Neon y Mercado
+  Pago: pendiente del dueño (NO VERIFICADO).
 

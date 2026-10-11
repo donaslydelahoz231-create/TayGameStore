@@ -15,6 +15,7 @@ import type { MailMessage } from '../integrations/notify/email.js';
 import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
 import type { ServiceDeps } from './context.js';
 import { deliveredPinCounts, deliveredPins } from './inventory.js';
+import { receiptVerificationCode } from './receipts.js';
 
 /**
  * Avisos de un pedido (cola `notifications`):
@@ -126,6 +127,8 @@ interface OrderSnapshot {
   items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
   /** El pago de Mercado Pago que pagó el pedido (si ya existe). */
   payment: { providerPaymentId: string; approvedAt: Date | null } | null;
+  /** Comprobante verificable: número consecutivo y código (si el pedido ya está pagado). */
+  receipt: { number: number; verificationCode: string } | null;
   /** PIN entregados (entrega automática): solo se cargan para el correo de entrega. */
   pins?: { name: string; code: string }[];
   /** Cantidad de PIN entregados (aviso al dueño). */
@@ -248,7 +251,12 @@ function paymentReceipt(order: OrderSnapshot): Receipt {
     .join(' · ');
   return {
     rows: [
-      ['Comprobante', order.receiptCode],
+      ...(order.receipt
+        ? [
+            ['Comprobante N.º', String(order.receipt.number).padStart(6, '0')] as [string, string],
+            ['Código de verificación', order.receipt.verificationCode] as [string, string],
+          ]
+        : [['Comprobante', order.receiptCode] as [string, string]]),
       ['Pedido', order.reference],
       ...(order.payment?.approvedAt
         ? [
@@ -276,7 +284,7 @@ function paymentReceipt(order: OrderSnapshot): Receipt {
         : []),
       ['Total pagado', cop.format(order.totalCop)],
     ],
-    note: 'Este comprobante confirma tu pago a TayGameStore. No reemplaza una factura electrónica. Guárdalo: con la referencia del pedido te atendemos en soporte.',
+    note: 'Este comprobante confirma tu pago a TayGameStore. No reemplaza una factura electrónica. Guárdalo: con la referencia del pedido te atendemos en soporte. TayGameStore puede comprobar con el código de verificación que es auténtico y que nadie lo alteró.',
   };
 }
 
@@ -404,6 +412,7 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
       playerServer: orders.playerServer,
       customerEmail: orders.customerEmail,
       receiptCode: orders.receiptCode,
+      receiptNumber: orders.receiptNumber,
     })
     .from(orders)
     .where(eq(orders.id, orderId));
@@ -421,12 +430,24 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
     .select({ providerPaymentId: payments.providerPaymentId, approvedAt: payments.approvedAt })
     .from(payments)
     .where(and(eq(payments.orderId, orderId), eq(payments.isOrderPayment, true)));
-  const { playerServer, ...rest } = order;
+  const { playerServer, receiptNumber, ...rest } = order;
   return {
     ...rest,
     server: playerServer ? FREE_FIRE_SERVER_LABELS[playerServer] : null,
     items,
     payment: payment ?? null,
+    receipt:
+      receiptNumber !== null && payment
+        ? {
+            number: receiptNumber,
+            verificationCode: receiptVerificationCode(deps.config.secrets.orderTokenKeys, {
+              number: receiptNumber,
+              reference: order.reference,
+              totalCop: order.totalCop,
+              paymentId: payment.providerPaymentId,
+            }),
+          }
+        : null,
   };
 }
 

@@ -264,6 +264,12 @@ const envSchema = z
      */
     SELL_ONLY_WITH_STOCK: z.stringbool().default(false),
     /**
+     * true: el catálogo (precios, promociones, paquetes) no se puede cambiar desde el panel, ni
+     * siquiera con una sesión de administrador robada. Para cambiar precios, el dueño lo pone en
+     * false en Render, hace el cambio y lo vuelve a poner en true.
+     */
+    CATALOG_LOCKED: z.stringbool().default(false),
+    /**
      * Recarga directa al ID con un distribuidor oficial (sin PIN): `none` (apagada) o `unipin`.
      * Con un pago aprobado y el paquete y servidor en UNIPIN_CATALOG, la tienda pide la recarga
      * a UniPin y marca el pedido entregado solo cuando UniPin la confirma.
@@ -455,6 +461,8 @@ export interface AppConfig {
   jobsIdleMinutes: number;
   flags: FeatureFlags;
   fulfillmentMode: 'manual';
+  /** Catálogo bloqueado: el panel no puede crear ni cambiar paquetes ni precios. */
+  catalogLocked: boolean;
   secrets: {
     orderTokenKeys: Keyring;
     mfaKeys: Keyring;
@@ -607,6 +615,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       fulfillmentEnabled: env.FULFILLMENT_ENABLED,
     },
     fulfillmentMode: env.FULFILLMENT_MODE,
+    catalogLocked: env.CATALOG_LOCKED,
     secrets: {
       // Fuera de producción se generan claves efímeras: los tokens dejan de valer al reiniciar.
       orderTokenKeys: env.ORDER_TOKEN_KEYS ?? ephemeralKeyring(),

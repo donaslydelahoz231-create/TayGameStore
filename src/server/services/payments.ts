@@ -20,6 +20,7 @@ import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
 import { deliverFromInventory } from './inventory.js';
 import { kickTopups, routeToProvider } from './topups.js';
+import { assignReceiptNumber } from './receipts.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   closeOpenAttempts,
@@ -409,6 +410,8 @@ async function applyOrderEffects(
       .where(eq(payments.id, payment.id));
     if (order.status === 'AWAITING_PAYMENT') {
       await transitionOrder(tx, actor, order, 'PAID', {}, { paymentId: payment.id });
+      // Comprobante N.º consecutivo: existe si y solo si el pago quedó guardado.
+      await assignReceiptNumber(tx, order.id);
       await closeOpenAttempts(tx, order.id, 'CLOSED');
       await tx
         .insert(fulfillments)

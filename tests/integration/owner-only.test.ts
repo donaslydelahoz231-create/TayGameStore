@@ -28,6 +28,8 @@ const APPROVED_ADMIN_ROUTES = [
   'GET /api/admin/alerts',
   'GET /api/admin/audit',
   'GET /api/admin/blocklist',
+  // Integridad: solo lectura (cadena de sellos, último comprobante, huella del catálogo).
+  'GET /api/admin/integrity',
   // Inventario de PIN de recargas (aprobado por el dueño el 2026-10-06).
   'GET /api/admin/inventory',
   'GET /api/admin/orders',
@@ -46,6 +48,8 @@ const APPROVED_ADMIN_ROUTES = [
   // Cambiar la contraseña del dueño (exige la contraseña actual y sesión verificada).
   'POST /api/admin/password',
   'POST /api/admin/products',
+  // Verificar un comprobante (solo lectura: recalcula el código, no cambia nada).
+  'POST /api/admin/receipts/verify',
   // Baja la propia sesión a cliente ("Ver tienda como cliente"); nunca sube privilegios.
   'POST /api/admin/sesion/cliente',
   'PUT /api/admin/products/:id',
