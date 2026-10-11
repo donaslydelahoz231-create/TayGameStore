@@ -345,7 +345,11 @@ test.describe('estado de la tienda y soporte', () => {
 
   test('las burbujas de soporte solo muestran los canales configurados', async ({ page }) => {
     await page.goto('/');
+    // En la pantalla de bienvenida no hay burbujas: solo dentro de la tienda.
+    await expect(page.locator('body')).toHaveClass(/entry-locked/);
+    await expect(page.locator('#supportFloat')).toBeHidden();
     await enterAsGuest(page);
+    await expect(page.locator('#supportFloat')).toBeVisible();
     // El servidor de pruebas solo define SUPPORT_EMAIL.
     const email = page.locator('#floatEmail');
     await expect(email).toBeVisible();

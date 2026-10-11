@@ -326,3 +326,6 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Hecho**: burbuja fuera de `#app` (encima de la bienvenida, debajo de los modales de la
   tienda), WhatsApp de 60 px, avisos a su izquierda en móvil. Evidencia: medición en Chromium
   (360, 768 y 1280 px), lint, unitarias 183/183, e2e 64/64 y capturas revisadas.
+- **Corrección del dueño (mismo día)**: la burbuja va solo dentro de la tienda, no en la pantalla
+  de bienvenida. Se oculta mientras la bienvenida está abierta (`body.entry-locked`); la prueba
+  e2e lo comprueba.

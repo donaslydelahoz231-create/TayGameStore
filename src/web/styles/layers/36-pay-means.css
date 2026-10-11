@@ -233,11 +233,11 @@
 }
 
 /*
- * Burbuja de soporte: vive fuera de la tienda (#app) para verse también en la pantalla de
- * bienvenida, por encima de ella mientras está abierta. En la tienda queda debajo de los modales.
+ * Burbuja de soporte: solo dentro de la tienda (el dueño no la quiere en la pantalla de
+ * bienvenida). Vive fuera de #app para quedar fija en la ventana, debajo de los modales.
  */
 body.entry-locked .support-float {
-  z-index: 1250;
+  display: none;
 }
 .support-float-btn.whatsapp {
   width: 60px;
