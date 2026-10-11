@@ -26,6 +26,7 @@ describe('programador de tareas en modo reposo', () => {
 
   it('con actividad reciente, cada tarea corre a su ritmo normal', async () => {
     const { scheduler, count } = start(30 * MINUTE);
+    scheduler.markActivity();
     await vi.advanceTimersByTimeAsync(10 * MINUTE);
     // Cada minuto + la primera pasada (5-15 s tras arrancar).
     expect(count('expireOrders')).toBeGreaterThanOrEqual(10);
@@ -56,6 +57,14 @@ describe('programador de tareas en modo reposo', () => {
     // Cada tanda incluye las tareas frecuentes; la limpieza (cada hora) va en tandas alternas.
     expect(count('reconcilePayments')).toBeGreaterThanOrEqual(wakes);
     expect(count('cleanup')).toBeGreaterThanOrEqual(2);
+    scheduler.stop();
+  });
+
+  it('un arranque (despliegue) no cuenta como actividad: empieza en reposo', async () => {
+    const { scheduler, count } = start(30 * MINUTE);
+    await vi.advanceTimersByTimeAsync(29 * MINUTE);
+    // Una sola tanda al arrancar, no una por minuto.
+    expect(count('expireOrders')).toBe(1);
     scheduler.stop();
   });
 

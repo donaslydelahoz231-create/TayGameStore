@@ -22,6 +22,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- Textos de la tienda sobre el ID: ya no prometen una verificación «del equipo» que en el modo
+  actual no existe; dicen lo real (el cliente confirma su ID antes de pagar).
+- Las tareas internas arrancan en reposo: un despliegue ya no deja la base de datos despierta
+  30 minutos con tareas cada minuto.
 - **Consumo de Neon**: con la tienda siempre activa, las 6 tareas internas en reposo corrían cada
   30 min pero en momentos distintos y mantenían la base despierta ~87 % del tiempo (~5,5 CU-h/día,
   rumbo a superar las 100 CU-h del plan gratuito). Ahora en reposo corren juntas en una sola tanda

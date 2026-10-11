@@ -388,3 +388,19 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   `CHECKOUT_ENABLED` siguen apagados en producción hasta que el dueño cargue sus llaves.
 - **Evidencia local**: lint, typecheck, formato, unitarias 184/184, e2e 64/64 (incluye pedido →
   cobro en un clic con y sin consulta de nickname), capturas visuales actualizadas.
+
+### 2026-10-11 · ¿Quién verifica el ID? Textos honestos y arranque en reposo
+
+- **Pregunta del dueño**: quién verifica el ID y si conviene verificarlo automáticamente «con
+  herramientas de otra página como LootBar».
+- **Respuesta (hechos)**: en producción `PLAYER_VERIFICATION=customer`: nadie del «equipo»
+  verifica; el cliente escribe su ID dos veces y lo confirma. El modo `operator` (el dueño verifica
+  desde el panel) existe pero no está activo. La consulta automática de nickname queda lista en el
+  código (`PlayerVerifier`) para un proveedor autorizado; usar la página de LootBar u otra web
+  sería scraping (contra sus condiciones y la decisión del dueño). Búsqueda de proveedores B2B con
+  validación de ID: sin resultados verificables (**NO VERIFICADO** que exista uno público).
+- **Corregido**: textos que prometían verificación del equipo; tareas internas que corrían cada
+  minuto 30 min tras cada despliegue (ahora arrancan en reposo; prueba unitaria).
+- **Neon**: entre 12:49 y 16:26 UTC subió ~844 s/h, pero con 3 despliegues, pruebas con navegador
+  y consultas manuales en ese intervalo: medición no representativa, **NO VERIFICADO** el ahorro.
+- **Evidencia local**: lint, typecheck, formato, unitarias 185/185, integración 179/179, e2e 64/64.

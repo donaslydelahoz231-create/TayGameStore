@@ -209,7 +209,9 @@ export function startScheduler(deps: ServiceDeps, options: SchedulerOptions = {}
   const timers: NodeJS.Timeout[] = [];
   const running = new Set<JobName>();
   const lastRun = new Map<JobName, number>();
-  let lastActivity = now();
+  // Arranca en reposo: un despliegue o reinicio no es actividad de clientes, y sin esto las
+  // tareas corrían cada minuto (base despierta) durante los primeros `idleMs` de cada arranque.
+  let lastActivity = idleMs > 0 ? now() - idleMs : now();
   // Inicio de la última tanda en reposo: todas las tareas corren juntas, así la base de datos
   // despierta una sola vez por intervalo (Neon tarda ~5 min en volver a suspenderse; seis tareas
   // en momentos distintos la mantenían encendida casi todo el tiempo).
