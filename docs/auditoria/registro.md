@@ -306,3 +306,14 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   cumple, ni el logo o personajes de Free Fire (marca de Garena), ni el nombre «ID RECARGA».
 - **Evidencia local**: lint, typecheck, formato, unitarias 180/180, integración 179/179, e2e 64/64
   (tabla con ahorro real) y capturas revisadas en 360 px.
+
+### 2026-10-11 · Canales de soporte (WhatsApp y correo) activados
+
+- **Autorizó**: el dueño, por escrito («Disponible sí, habilitado sí, funcional sí»), con su
+  número y su correo de soporte. El correo se confirmó con él (el mismo asignado antes a la tienda).
+- **Hecho**: `SUPPORT_WHATSAPP` y `SUPPORT_EMAIL` cargados en Render (despliegue
+  `dep-db5dl6ad0e5s73f39n80`, en vivo). Los valores no se escriben en el repositorio.
+- **Verificación**: la burbuja en la tienda publicada queda **NO VERIFICADA** desde la sesión (el
+  proxy bloquea el dominio); la prueba de producción de GitHub lo comprobará en cada despliegue.
+- **Aviso de seguridad**: en un mensaje anterior del chat se compartieron contraseñas de las
+  cuentas de Gmail. Se recomienda al dueño cambiarlas y activar la verificación en dos pasos.

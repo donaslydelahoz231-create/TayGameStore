@@ -350,6 +350,11 @@ test.describe('estado de la tienda y soporte', () => {
     const email = page.locator('#floatEmail');
     await expect(email).toBeVisible();
     await expect(email).toHaveAttribute('href', /^mailto:soporte@example\.com\?subject=/);
+    // Antes de comprar, el mensaje es una consulta (nunca «pedido BORRADOR»).
+    await expect(email).toHaveAttribute(
+      'href',
+      /subject=Consulta%20TayGameStore&body=Hola%20TayGameStore/,
+    );
     await expect(page.locator('#floatWhatsApp')).toBeHidden();
     await expect(page.locator('#supportWhatsappState')).toHaveText('No disponible por ahora');
     const box = await email.boundingBox();

@@ -7,6 +7,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Soporte por WhatsApp y correo activo**: los canales oficiales se configuraron en Render
+  (`SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, nunca en el código). El mensaje que abren las burbujas se
+  adapta: consulta antes de comprar, paquetes del carrito con el ID, o referencia del pedido con
+  ID y servidor (antes decía «pedido BORRADOR»). La prueba de producción comprueba que ambos
+  canales estén publicados, sin imprimir sus valores.
 - **Tabla de tarifas propia** en «Radar promo»: precio normal, precio promo y ahorro real de
   cada paquete ($200 a $12.000), y una franja sobre el catálogo con el mayor ahorro. Todo sale de
   los precios del servidor: `/api/catalog` publica ahora `promoPriceCop` (la promo configurada

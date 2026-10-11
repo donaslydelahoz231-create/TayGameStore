@@ -61,3 +61,18 @@ jobs:
           console.error('Production smoke check failed; inspect Render, DNS and database readiness.');
           process.exit(1);
           NODE
+      - name: Support channels published (WhatsApp and email bubbles)
+        env:
+          BASE_URL: https://taygamestore.onrender.com
+        run: |
+          node --input-type=module <<'NODE'
+          // Solo dice si cada canal está publicado: nunca imprime el número ni el correo.
+          const res = await fetch(new URL('/api/config', process.env.BASE_URL), {
+            signal: AbortSignal.timeout(15000),
+          });
+          const body = await res.json().catch(() => null);
+          const wa = Boolean(body?.support?.whatsapp);
+          const mail = Boolean(body?.support?.email);
+          console.log(`WhatsApp: ${wa ? 'publicado' : 'FALTA'} · Correo: ${mail ? 'publicado' : 'FALTA'}`);
+          if (!wa || !mail) console.log('::warning::Falta un canal de soporte (SUPPORT_WHATSAPP / SUPPORT_EMAIL en Render).');
+          NODE
