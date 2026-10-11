@@ -19,6 +19,7 @@ import {
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
 import { deliverFromInventory } from './inventory.js';
+import { kickTopups, routeToProvider } from './topups.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   closeOpenAttempts,
@@ -296,7 +297,10 @@ export async function applyProviderPayment(
   });
   // Solo tras confirmar la transacción: el aviso nunca anuncia un pago que no quedó guardado.
   const { notifyOrderId, ...result } = applied;
-  if (notifyOrderId) await deliverNotifications(deps, { orderId: notifyOrderId });
+  if (notifyOrderId) {
+    await deliverNotifications(deps, { orderId: notifyOrderId });
+    kickTopups(deps, notifyOrderId);
+  }
   return result;
 }
 
@@ -423,6 +427,8 @@ async function applyOrderEffects(
       // Aviso al dueño y al cliente: existe si y solo si el pago quedó guardado.
       await enqueueOrderNotifications(deps, tx, order.id, 'paid');
       await autoDeliverPins(deps, tx, actor, order);
+      // Sin PIN: si el distribuidor cubre el pedido, la recarga directa se encarga.
+      await routeToProvider(deps, tx, order);
       return 'PAID';
     }
     // Pago aprobado de una orden que no lo esperaba (expirada, rechazada…): revisión humana.

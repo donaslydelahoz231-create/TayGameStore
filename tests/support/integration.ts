@@ -14,6 +14,7 @@ import { RecordingMailer } from './fake-mailer.js';
 import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
+import { FakeTopupProvider } from './fake-topup.js';
 import type { AbuseShield } from '../../src/server/services/shield.js';
 
 export function testDatabaseUrl(): string {
@@ -73,6 +74,10 @@ export interface Harness {
   shield: AbuseShield;
   routes: readonly string[];
   facebook: FakeSocialClient;
+  /** UniPin simulado; solo actúa con TOPUP_PROVIDER=unipin en el entorno de la prueba. */
+  topup: FakeTopupProvider;
+  /** Espera las tareas en segundo plano (recargas que arranca un pago aprobado). */
+  settle(): Promise<void>;
   clock: { now: Date };
   close(): Promise<void>;
 }
@@ -92,6 +97,8 @@ export async function createHarness(
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
   const facebook = new FakeSocialClient('facebook');
+  const topup = new FakeTopupProvider();
+  const pending: Promise<unknown>[] = [];
   const clock = { now: new Date() };
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -122,6 +129,8 @@ export async function createHarness(
     ownerNotifier: notifier,
     mailer,
     eventSink: options.events ? events : undefined,
+    topupProvider: topup,
+    background: (task) => pending.push(task),
     now: () => clock.now,
   });
   if (!deps) throw new Error('sin dependencias');
@@ -138,8 +147,13 @@ export async function createHarness(
     shield,
     routes,
     facebook,
+    topup,
+    settle: async () => {
+      while (pending.length) await Promise.all(pending.splice(0));
+    },
     clock,
     close: async () => {
+      while (pending.length) await Promise.all(pending.splice(0));
       await app.close();
       await database.close();
     },

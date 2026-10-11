@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   auditEvents,
@@ -9,6 +9,7 @@ import {
   orders,
   paymentAttempts,
   payments,
+  topups,
 } from '../db/schema.js';
 import { canTransitionFulfillment } from '../domain/state-machines.js';
 import { AppError } from '../plugins/errors.js';
@@ -60,33 +61,47 @@ export async function listOrdersForAdmin(
 export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
   const [order] = await deps.db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) throw notFound();
-  const [view, paymentRows, attempts, fulfillment, history, inventory] = await Promise.all([
-    toPublicOrder(deps, deps.db, order),
-    deps.db
-      .select()
-      .from(payments)
-      .where(eq(payments.orderId, order.id))
-      .orderBy(desc(payments.createdAt)),
-    deps.db
-      .select({
-        id: paymentAttempts.id,
-        status: paymentAttempts.status,
-        preferenceId: paymentAttempts.preferenceId,
-        createdAt: paymentAttempts.createdAt,
-        expiresAt: paymentAttempts.expiresAt,
-      })
-      .from(paymentAttempts)
-      .where(eq(paymentAttempts.orderId, order.id))
-      .orderBy(desc(paymentAttempts.createdAt)),
-    deps.db.select().from(fulfillments).where(eq(fulfillments.orderId, order.id)),
-    deps.db
-      .select()
-      .from(auditEvents)
-      .where(and(eq(auditEvents.entityType, 'order'), eq(auditEvents.entityId, order.id)))
-      .orderBy(desc(auditEvents.id))
-      .limit(50),
-    inventoryForOrder(deps, order.id),
-  ]);
+  const [view, paymentRows, attempts, fulfillment, history, inventory, topupRows] =
+    await Promise.all([
+      toPublicOrder(deps, deps.db, order),
+      deps.db
+        .select()
+        .from(payments)
+        .where(eq(payments.orderId, order.id))
+        .orderBy(desc(payments.createdAt)),
+      deps.db
+        .select({
+          id: paymentAttempts.id,
+          status: paymentAttempts.status,
+          preferenceId: paymentAttempts.preferenceId,
+          createdAt: paymentAttempts.createdAt,
+          expiresAt: paymentAttempts.expiresAt,
+        })
+        .from(paymentAttempts)
+        .where(eq(paymentAttempts.orderId, order.id))
+        .orderBy(desc(paymentAttempts.createdAt)),
+      deps.db.select().from(fulfillments).where(eq(fulfillments.orderId, order.id)),
+      deps.db
+        .select()
+        .from(auditEvents)
+        .where(and(eq(auditEvents.entityType, 'order'), eq(auditEvents.entityId, order.id)))
+        .orderBy(desc(auditEvents.id))
+        .limit(50),
+      inventoryForOrder(deps, order.id),
+      deps.db
+        .select({
+          referenceNo: topups.referenceNo,
+          status: topups.status,
+          attempt: topups.attempt,
+          providerTransaction: topups.providerTransaction,
+          errorCode: topups.errorCode,
+          checks: topups.checks,
+          updatedAt: topups.updatedAt,
+        })
+        .from(topups)
+        .where(eq(topups.orderId, order.id))
+        .orderBy(asc(topups.referenceNo)),
+    ]);
   return {
     id: order.id,
     order: view,
@@ -116,6 +131,8 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
     history,
     /** PIN del inventario asignados a este pedido (solo administradores con doble factor). */
     inventory,
+    /** Recargas directas con UniPin (una por unidad e intento). */
+    topups: topupRows,
   };
 }
 

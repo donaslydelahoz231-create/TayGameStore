@@ -7,6 +7,7 @@ import { SmtpMailer } from './integrations/notify/email.js';
 import { WebhookEventSink } from './integrations/notify/events.js';
 import { TelegramOwnerNotifier } from './integrations/notify/owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
+import { UniPinTopupProvider } from './integrations/topup/unipin.js';
 import { FacebookClient } from './integrations/social/providers.js';
 
 export interface Server extends BuiltApp {
@@ -41,6 +42,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       : undefined,
     mailer: config.smtp ? new SmtpMailer(config.smtp) : undefined,
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
+    topupProvider: config.topup ? new UniPinTopupProvider(config.topup) : undefined,
     googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
     socialClients: {
       ...(config.social.facebook ? { facebook: new FacebookClient(config.social.facebook) } : {}),
@@ -59,6 +61,21 @@ export async function buildServer(config: AppConfig): Promise<Server> {
         largoSecreto: clientSecret.length,
       },
       'google oauth configurado',
+    );
+  }
+  if (config.topup) {
+    // Qué cubre la recarga directa, sin credenciales.
+    const { catalog, env } = config.topup;
+    built.app.log.info(
+      {
+        entorno: env,
+        servidores: Object.keys(catalog),
+        paquetes: Object.values(catalog).reduce(
+          (n, region) => n + Object.keys(region.skus).length,
+          0,
+        ),
+      },
+      'recarga directa UniPin configurada',
     );
   }
   if (config.secrets.ephemeral) {

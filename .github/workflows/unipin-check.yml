@@ -1,0 +1,70 @@
+name: Comprobar UniPin
+
+# Comprueba la recarga directa con UniPin contra su API real (npm run unipin:check), con un botón
+# en Actions → «Comprobar UniPin» → Run workflow. Las credenciales salen de los secretos del
+# repositorio (Settings → Secrets and variables → Actions): UNIPIN_PARTNER_ID, UNIPIN_SECRET_KEY y
+# UNIPIN_CATALOG. Nunca se imprimen. Sin «compra de prueba» no crea recargas ni gasta saldo; la
+# compra de prueba solo corre en staging (dev-api.unipin.com, sin diamantes reales).
+
+on:
+  workflow_dispatch:
+    inputs:
+      entorno:
+        description: 'Entorno de UniPin'
+        type: choice
+        options: [staging, production]
+        default: staging
+      uid:
+        description: 'ID de jugador para validar (opcional, no cobra)'
+        type: string
+        required: false
+      compra_prueba:
+        description: 'Recarga de prueba (solo staging)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unipin-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Comprobar la API de UniPin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TOPUP_PROVIDER: unipin
+      UNIPIN_ENV: ${{ inputs.entorno }}
+      UNIPIN_PARTNER_ID: ${{ secrets.UNIPIN_PARTNER_ID }}
+      UNIPIN_SECRET_KEY: ${{ secrets.UNIPIN_SECRET_KEY }}
+      UNIPIN_CATALOG: ${{ secrets.UNIPIN_CATALOG }}
+      # Las entradas van por variables de entorno, nunca interpoladas en el script.
+      INPUT_UID: ${{ inputs.uid }}
+      INPUT_COMPRA: ${{ inputs.compra_prueba }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: unipin:check
+        run: |
+          set -o pipefail
+          args=()
+          if [ -n "$INPUT_UID" ]; then args+=(--uid "$INPUT_UID"); fi
+          if [ "$INPUT_COMPRA" = "true" ]; then args+=(--compra-prueba); fi
+          set +e
+          npm run -s unipin:check -- "${args[@]}" 2>&1 | tee unipin.txt
+          code=$?
+          {
+            echo "## Comprobar UniPin · $UNIPIN_ENV · $(date -u +'%F %H:%M') UTC"
+            echo '```'
+            cat unipin.txt
+            echo '```'
+            if [ "$code" -eq 0 ]; then echo 'Resultado: **todo OK**.'; else echo 'Resultado: hay **FALLAS** (revisa la lista).'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"

@@ -38,6 +38,7 @@ import { registerMaintenanceGuard } from './plugins/maintenance.js';
 import { registerSecurity } from './plugins/security.js';
 import { registerShield } from './plugins/shield.js';
 import type { ServiceDeps } from './services/context.js';
+import type { TopupProvider } from './integrations/topup/provider.js';
 import { AbuseShield } from './services/shield.js';
 
 export interface AppDependencies {
@@ -58,6 +59,10 @@ export interface AppDependencies {
   mailer?: Mailer | undefined;
   /** Eventos de pedidos hacia una automatización externa (webhook de n8n si está configurado). */
   eventSink?: OrderEventSink | undefined;
+  /** Recarga directa al ID con el distribuidor (UniPin si está configurado). */
+  topupProvider?: TopupProvider | undefined;
+  /** Para pruebas: recibe las tareas en segundo plano (recargas) para poder esperarlas. */
+  background?: ((task: Promise<unknown>) => void) | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
 }
@@ -141,6 +146,8 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         notifier: input.ownerNotifier,
         mailer: input.mailer,
         events: input.eventSink,
+        topup: config.topup ? input.topupProvider : undefined,
+        background: input.background,
       }
     : undefined;
 

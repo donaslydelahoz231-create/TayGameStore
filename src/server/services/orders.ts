@@ -28,6 +28,7 @@ import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './c
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
+import { providerCovers, providerSkus } from './topup-coverage.js';
 
 export type OrderRow = typeof orders.$inferSelect;
 
@@ -426,6 +427,8 @@ export async function createOrder(
             now,
           )
         : null;
+      // La recarga directa (UniPin) cubre todo el pedido en el servidor elegido: no hace falta PIN.
+      const viaProvider = providerCovers(deps, input.playerServer ?? null, skus);
       const lines = input.items.map((item) => {
         const product = bySku.get(item.sku);
         if (!product?.active) {
@@ -435,11 +438,13 @@ export async function createOrder(
             'Uno de los productos ya no está disponible.',
           );
         }
-        if (stock && (stock.get(product.id) ?? 0) < item.quantity) {
+        if (stock && !viaProvider && (stock.get(product.id) ?? 0) < item.quantity) {
           throw new AppError(
             'PRODUCT_UNAVAILABLE',
             409,
-            'Ese paquete está agotado por ahora. Elige otro o vuelve más tarde.',
+            providerSkus(deps).has(item.sku)
+              ? 'Ese paquete no tiene recarga automática para el servidor que elegiste. Revisa tu servidor o elige otro paquete.'
+              : 'Ese paquete está agotado por ahora. Elige otro o vuelve más tarde.',
           );
         }
         const unitPriceCop = effectivePrice(product, now, deps.config.promoSchedule);

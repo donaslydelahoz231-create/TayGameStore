@@ -2,7 +2,14 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkEnvironment, checkRemote, loginCheck, report } from '../../src/server/cli/golive.js';
+import {
+  checkEnvironment,
+  checkRemote,
+  deliveryCheck,
+  loginCheck,
+  report,
+} from '../../src/server/cli/golive.js';
+import { loadConfig } from '../../src/server/config/env.js';
 
 const key32 = `1:${Buffer.alloc(32, 7).toString('base64')}`;
 const PRODUCTION: Record<string, string> = {
@@ -174,5 +181,45 @@ describe('golive:check — acceso de clientes', () => {
     expect(partial.level).toBe('aviso');
     expect(partial.label).toContain('invitado, Facebook. Sin credenciales en Render: Google');
     expect(loginCheck(undefined).label).toContain('Sin credenciales en Render: Google y Facebook');
+  });
+});
+
+describe('golive:check — entrega', () => {
+  const topup = {
+    TOPUP_PROVIDER: 'unipin',
+    UNIPIN_PARTNER_ID: 'socio-ficticio-0001',
+    UNIPIN_SECRET_KEY: 'llave-ficticia-de-prueba',
+    UNIPIN_CATALOG: '{"latam":{"game":"FF","skus":{"ff-110":"D110"}}}',
+  };
+
+  it('con UniPin: OK, servidores cubiertos y recordatorio de unipin:check', () => {
+    expect(deliveryCheck(loadConfig(topup))).toEqual({
+      level: 'ok',
+      label: 'Recarga directa UniPin (staging) en: latam. Antes de vender: npm run unipin:check',
+    });
+  });
+
+  it('en producción, UniPin en staging no pasa: no entregaría diamantes', () => {
+    expect(failures(checkEnvironment({ ...PRODUCTION, ...topup }, webRoot()))).toEqual([
+      expect.stringContaining('UNIPIN_ENV: en producción debe ser production'),
+    ]);
+  });
+
+  it('con PIN o a mano: aviso con la guía de recarga directa', () => {
+    expect(deliveryCheck(loadConfig({ PIN_AUTO_DELIVERY: 'true' })).label).toContain(
+      'docs/recarga-directa-unipin.md',
+    );
+    expect(deliveryCheck(loadConfig({})).level).toBe('aviso');
+  });
+
+  it('nunca imprime las credenciales de UniPin', () => {
+    const lines: string[] = [];
+    report(
+      'Variables',
+      checkEnvironment({ ...PRODUCTION, ...topup, UNIPIN_ENV: 'production' }, webRoot()),
+      (l) => lines.push(l),
+    );
+    expect(lines.join('\n')).not.toContain('llave-ficticia-de-prueba');
+    expect(lines.join('\n')).not.toContain('socio-ficticio-0001');
   });
 });

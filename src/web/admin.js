@@ -524,6 +524,18 @@ function serverText(server) {
   return esc(serverLabel(server) || server);
 }
 
+/** Recargas directas con UniPin: una fila por unidad e intento. */
+function topupBlock(d) {
+  if (!d.topups || !d.topups.length) return '';
+  return `<h3>Recarga directa (UniPin)</h3>
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: recargas con UniPin"><table class="adm-table"><thead><tr><th>Referencia</th><th>Estado</th><th>Transacción UniPin</th><th>Detalle</th></tr></thead><tbody>${d.topups
+      .map(
+        (t) =>
+          `<tr><td>${esc(t.referenceNo)}</td><td>${pill(t.status)}</td><td>${esc(t.providerTransaction || '—')}</td><td>${esc(t.errorCode || '')}${t.checks ? ` · ${t.checks} consultas` : ''}</td></tr>`,
+      )
+      .join('')}</tbody></table></div>`;
+}
+
 function renderDetail(d) {
   const o = d.order;
   const v = d.verification;
@@ -538,10 +550,11 @@ function renderDetail(d) {
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
       <dt>Total</dt><dd>${money(o.totalCop)}</dd>
       <dt>Vence</dt><dd>${fmtDate(o.expiresAt)}</dd>
-      <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.evidence ? ' · ' + esc(f.evidence) : '') : '—'}</dd>
+      <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.mode === 'provider' ? ' · recarga directa UniPin' : '') + (f.evidence ? ' · ' + esc(f.evidence) : '') + (f.failureReason ? ' · ' + esc(f.failureReason) : '') : '—'}</dd>
     </dl>
     <div id="admDetailActions"></div>
     ${inventoryBlock(d)}
+    ${topupBlock(d)}
     <h3>Pagos (Mercado Pago)</h3>
     <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: pagos de Mercado Pago"><table class="adm-table"><thead><tr><th>ID MP</th><th>Estado</th><th>MP</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
       d.payments

@@ -605,11 +605,68 @@ export const fulfillments = pgTable(
     check('fulfillments_mode_check', inList('mode', ['manual', 'provider'])),
     check(
       'fulfillments_claim_check',
-      sql`${t.status} not in ('CLAIMED', 'DELIVERING') or (${t.claimedBy} is not null and ${t.claimedAt} is not null)`,
+      // La recarga directa (modo provider) la hace la tienda, sin operador que la reclame.
+      sql`${t.status} not in ('CLAIMED', 'DELIVERING') or ${t.mode} = 'provider' or (${t.claimedBy} is not null and ${t.claimedAt} is not null)`,
     ),
     check(
       'fulfillments_delivered_check',
       sql`${t.status} <> 'DELIVERED' or (${t.evidence} is not null and ${t.deliveredAt} is not null)`,
+    ),
+  ],
+);
+
+export const TOPUP_STATUSES = ['PENDING', 'SENT', 'SUCCESS', 'FAILED', 'UNCERTAIN'] as const;
+export type TopupStatus = (typeof TOPUP_STATUSES)[number];
+
+/**
+ * Recargas directas al ID con el distribuidor (UniPin): una fila por unidad y por intento.
+ * `reference_no` es determinista (pedido-unidad-intento) y UniPin rechaza una referencia
+ * repetida: reintentar la misma fila nunca recarga dos veces.
+ * - SENT: se envió y no hay respuesta guardada (p. ej. el proceso se reinició) → se consulta.
+ * - UNCERTAIN: sin respuesta clara (tiempo agotado, error del servidor) → se consulta; nunca
+ *   cuenta como entregada ni se reenvía con otra referencia mientras no se aclare.
+ * - FAILED: UniPin respondió con un error explícito; un reintento crea el intento siguiente.
+ */
+export const topups = pgTable(
+  'topups',
+  {
+    id: id(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id),
+    orderItemId: uuid('order_item_id')
+      .notNull()
+      .references(() => orderItems.id),
+    unitIndex: integer('unit_index').notNull(),
+    attempt: integer('attempt').notNull().default(1),
+    provider: text('provider').notNull().default('unipin'),
+    referenceNo: text('reference_no').notNull(),
+    gameCode: text('game_code').notNull(),
+    denominationId: text('denomination_id').notNull(),
+    status: text('status').$type<TopupStatus>().notNull().default('PENDING'),
+    providerTransaction: text('provider_transaction'),
+    errorCode: text('error_code'),
+    checks: integer('checks').notNull().default(0),
+    nextCheckAt: timestamp('next_check_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('topups_reference_key').on(t.provider, t.referenceNo),
+    uniqueIndex('topups_unit_attempt_key').on(t.orderItemId, t.unitIndex, t.attempt),
+    index('topups_order_idx').on(t.orderId),
+    index('topups_check_idx')
+      .on(t.nextCheckAt)
+      .where(sql`${t.status} in ('PENDING', 'SENT', 'UNCERTAIN')`),
+    check('topups_status_check', inList('status', TOPUP_STATUSES)),
+    check('topups_provider_check', inList('provider', ['unipin'])),
+    check(
+      'topups_unit_check',
+      sql`${t.unitIndex} between 1 and 5 and ${t.attempt} between 1 and 20`,
+    ),
+    check(
+      'topups_success_check',
+      sql`${t.status} <> 'SUCCESS' or ${t.providerTransaction} is not null`,
     ),
   ],
 );
@@ -673,6 +730,8 @@ export const NOTIFICATION_KINDS = [
   'order_delivered_event',
   'order_refunded_event',
   'order_verification_event',
+  /** Al dueño: una recarga directa falló o quedó sin confirmar (revisar en el panel). */
+  'topup_problem_owner',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook'] as const;

@@ -52,6 +52,7 @@ describe('tareas programadas por HTTP', () => {
         'releaseClaims',
         'retryEvents',
         'sendNotifications',
+        'topups',
       ].sort(),
     );
     expect(Object.values(body.results)).not.toContain('error');

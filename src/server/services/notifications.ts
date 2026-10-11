@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Tx } from '../db/client.js';
 import {
   FREE_FIRE_SERVER_LABELS,
+  fulfillments,
   notifications,
   orderItems,
   orders,
@@ -74,6 +75,23 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
   return planned;
 }
 
+/**
+ * Aviso al dueño: una recarga directa falló, quedó sin confirmar o el proveedor no cubre el
+ * pedido. Si ya hubo uno para este pedido (p. ej. tras un reintento), se vuelve a enviar.
+ */
+export async function enqueueTopupAlert(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
+  deps.log.warn({ orderId, alert: 'topup_problem' }, 'recarga directa necesita revisión');
+  if (!deps.mailer || !deps.config.adminEmails.length) return;
+  const now = deps.now();
+  await tx
+    .insert(notifications)
+    .values({ kind: 'topup_problem_owner', channel: 'email', orderId, nextAttemptAt: now })
+    .onConflictDoUpdate({
+      target: [notifications.orderId, notifications.kind, notifications.channel],
+      set: { status: 'PENDING', attempts: 0, lastError: null, sentAt: null, nextAttemptAt: now },
+    });
+}
+
 /** Encola los avisos del evento. Llamar dentro de la transacción que cambia el pedido. */
 export async function enqueueOrderNotifications(
   deps: ServiceDeps,
@@ -112,6 +130,10 @@ interface OrderSnapshot {
   pins?: { name: string; code: string }[];
   /** Cantidad de PIN entregados (aviso al dueño). */
   pinCount?: number;
+  /** La recarga directa (UniPin) se encarga del pedido (aviso al dueño). */
+  topup?: boolean;
+  /** Motivo de la recarga directa fallida (aviso al dueño). */
+  topupProblem?: string | null;
 }
 
 /** Comprobante: datos que la tienda generó o que confirmó Mercado Pago (nada de texto libre). */
@@ -279,13 +301,17 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         [...deps.config.adminEmails],
         order.pinCount
           ? `Pedido pagado y entregado con PIN · ${order.reference}`
-          : `Pedido pagado por entregar · ${order.reference}`,
+          : order.topup
+            ? `Pedido pagado, recarga automática en curso · ${order.reference}`
+            : `Pedido pagado por entregar · ${order.reference}`,
         `Pedido pagado ${order.reference}`,
         [
           paidOrderText(order),
           order.pinCount
             ? 'No tienes que hacer nada. Repón el inventario cuando el panel lo pida.'
-            : 'Entra a tu panel para tomarlo y entregarlo.',
+            : order.topup
+              ? 'No tienes que hacer nada: el cliente recibe la confirmación cuando UniPin la confirme.'
+              : 'Entra a tu panel para tomarlo y entregarlo.',
         ],
       );
     case 'order_paid_customer':
@@ -330,6 +356,20 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
           `Comprobante de pago: ${order.receiptCode}.`,
           'Si todavía no ves los diamantes, cierra y vuelve a abrir el juego.',
           `¿Algo no cuadra? Responde a este correo o escríbenos con la referencia ${order.reference}.`,
+        ],
+      );
+    case 'topup_problem_owner':
+      return compose(
+        deps,
+        [...deps.config.adminEmails],
+        `Recarga por revisar · ${order.reference}`,
+        `La recarga del pedido ${order.reference} necesita tu revisión`,
+        [
+          paidOrderText(order),
+          order.topupProblem ??
+            'La recarga directa no cubre este pedido (servidor o paquete fuera del catálogo de UniPin).',
+          'El cliente ya pagó. En tu panel puedes «Reanudar la entrega» (reintenta solo las unidades que no se recargaron) o entregarla a mano. Si no se puede entregar, reembolsa en Mercado Pago.',
+          'Antes de reintentar una recarga «sin confirmar», revisa la transacción en tu panel de UniPin: así nunca se recarga dos veces.',
         ],
       );
     case 'order_refunded_customer':
@@ -432,8 +472,20 @@ async function sendOne(
     return;
   }
   if (row.kind === 'order_delivered_customer') order.pins = await deliveredPins(deps, row.orderId);
+  if (row.kind === 'topup_problem_owner') {
+    const [fulfillment] = await deps.db
+      .select({ failureReason: fulfillments.failureReason })
+      .from(fulfillments)
+      .where(eq(fulfillments.orderId, row.orderId));
+    order.topupProblem = fulfillment?.failureReason ?? null;
+  }
   if (row.kind === 'order_paid_owner' || row.channel === 'telegram') {
     order.pinCount = (await deliveredPinCounts(deps.db, [row.orderId])).get(row.orderId) ?? 0;
+    const [fulfillment] = await deps.db
+      .select({ mode: fulfillments.mode })
+      .from(fulfillments)
+      .where(eq(fulfillments.orderId, row.orderId));
+    order.topup = fulfillment?.mode === 'provider';
   }
   if (row.channel === 'telegram') {
     if (!deps.notifier) throw new Error('Telegram no está configurado');

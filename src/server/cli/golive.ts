@@ -1,5 +1,5 @@
 import { describePending, pendingLegalFields } from '../legal.js';
-import { ConfigError, loadConfig } from '../config/env.js';
+import { ConfigError, loadConfig, type AppConfig } from '../config/env.js';
 
 /**
  * Comprobación antes de vender con dinero real (`npm run golive:check`).
@@ -115,12 +115,7 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
           'Sin TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID: solo el panel abierto avisa de pagos nuevos',
         ),
   );
-  checks.push(
-    warn(
-      'Entrega manual: cada pedido pagado se entrega desde el panel (no hay distribuidor ' +
-        'autorizado conectado para recargar automáticamente)',
-    ),
-  );
+  checks.push(deliveryCheck(config));
   return checks;
 }
 
@@ -237,6 +232,27 @@ export async function checkRemote(
     ),
   );
   return checks;
+}
+
+/** Cómo se entregan los pedidos pagados: recarga directa (UniPin), PIN del inventario o a mano. */
+export function deliveryCheck(config: AppConfig): Check {
+  const topup = config.topup;
+  if (topup) {
+    const servers = Object.keys(topup.catalog).join(', ');
+    return ok(
+      `Recarga directa UniPin (${topup.env}) en: ${servers}. Antes de vender: npm run unipin:check`,
+    );
+  }
+  if (config.orders.pinAutoDelivery) {
+    return warn(
+      'Entrega con PIN del inventario (PIN_AUTO_DELIVERY): sin PIN, el pedido se entrega a mano. ' +
+        'Para recargar directo al ID: TOPUP_PROVIDER=unipin (docs/recarga-directa-unipin.md)',
+    );
+  }
+  return warn(
+    'Entrega manual: cada pedido pagado se entrega desde el panel (no hay distribuidor ' +
+      'autorizado conectado para recargar automáticamente; ver docs/recarga-directa-unipin.md)',
+  );
 }
 
 /** Métodos de acceso de clientes: invitado siempre; Google y Facebook si tienen credenciales. */

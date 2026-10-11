@@ -26,6 +26,11 @@ el PIN queda apartado mientras el cliente paga y, al aprobarse el pago, se entre
 pedido y por correo). El dueño solo tiene que **mantener PIN cargados**; la tienda le avisa por los
 pedidos y el inventario muestra cuántos quedan de cada paquete.
 
+**Sin PIN, directo al ID:** con un contrato de socio con UniPin (distribuidor oficial) y
+`TOPUP_PROVIDER=unipin`, la tienda recarga sola al ID del jugador y solo marca «Entregado» cuando
+UniPin lo confirma. Si hay PIN en el inventario, se usan primero. Guía y pasos:
+[`recarga-directa-unipin.md`](recarga-directa-unipin.md).
+
 ## El ciclo de un pedido (inventario de PIN)
 
 1. **Cliente:** elige el paquete, escribe su ID, **lo repite y lo confirma** («Sí, es mi ID») y

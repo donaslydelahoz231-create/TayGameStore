@@ -502,3 +502,35 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   y rechaza con «agotado» si los PIN libres (disponibles menos unidades de pedidos sin pagar y sin
   vencer) no alcanzan. Pruebas: unitarias 194/194, integración 182/182 (nueva `stock-only`), e2e
   66/66. Con 0 PIN cargados la tienda muestra todo «Agotado» hasta que el dueño cargue PIN.
+
+### 2026-10-11 · Recarga directa al ID con UniPin (código listo, apagada)
+
+- **Pidió**: el dueño («ejecuta todo… prueba con UniPin»): proveedor oficial, automático, sin PIN.
+- **Hecho**:
+  - conector UniPin «In Game Top Up» (`TOPUP_PROVIDER=unipin`);
+  - tabla `topups` (migración `0014_topups.sql`) y tarea programada `topups`;
+  - aviso «Recarga por revisar» al dueño;
+  - recargas visibles en el panel;
+  - cobertura por servidor en el catálogo y el checkout;
+  - `npm run unipin:check` y el flujo «Comprobar UniPin»;
+  - guía `docs/recarga-directa-unipin.md`.
+- **Fuentes**: hosts, rutas y firma (HMAC-SHA256 de partnerid + timestamp + path) leídos del SDK
+  oficial `github.com/UniPinSDK/php`. Los campos `validation_token`, `reference_no`,
+  `denomination_id` y `transaction_number` y los errores 708, 726 y 727 vienen de la
+  documentación pública de UniPin (Postman «In Game Top Up V.2»), leída por resúmenes de
+  búsqueda: el proxy de esta sesión bloquea unipin.com y postman.com.
+- **Pruebas**:
+  - unitarias 223/223: firma con vector calculado aparte en Python, clasificación, cliente HTTP,
+    configuración, `unipin:check`, golive;
+  - integración 195/195 (nueva `topup`, 13 casos);
+  - e2e 66/66.
+- **NO VERIFICADO** (falta una cuenta de socio):
+  - que UniPin acepte a una persona natural de Colombia;
+  - qué servidores de Free Fire cubre y a qué costo;
+  - el nombre `fields` del cuerpo de validación y el campo `userid`;
+  - la forma exacta de las respuestas correctas.
+
+  `unipin:check` en staging los confirma antes de activar.
+- **Producción**: el despliegue aplica la migración. La recarga sigue **apagada**
+  (`TOPUP_PROVIDER` sin definir = `none`), así que la tienda se comporta igual que antes.
+

@@ -7,6 +7,7 @@ import type { Mailer } from '../integrations/notify/email.js';
 import type { OrderEventSink } from '../integrations/notify/events.js';
 import type { OwnerNotifier } from '../integrations/notify/owner.js';
 import type { PaymentGateway } from '../integrations/payments/gateway.js';
+import type { TopupProvider } from '../integrations/topup/provider.js';
 
 /** Dependencias compartidas por los servicios de dominio. */
 export interface ServiceDeps {
@@ -21,6 +22,10 @@ export interface ServiceDeps {
   mailer?: Mailer | undefined;
   /** Eventos de pedidos hacia la automatización del dueño (n8n). Opcional. */
   events?: OrderEventSink | undefined;
+  /** Recarga directa al ID (UniPin). Opcional: sin ella, la entrega es con PIN o manual. */
+  topup?: TopupProvider | undefined;
+  /** Registra una tarea en segundo plano (las pruebas la esperan). Por defecto se suelta. */
+  background?: ((task: Promise<unknown>) => void) | undefined;
 }
 
 /** Quién ejecuta una acción. Nunca se toma del cuerpo de la petición. */

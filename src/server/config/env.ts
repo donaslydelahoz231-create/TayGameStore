@@ -1,6 +1,7 @@
 import type { PromoSchedule } from '../domain/pricing.js';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
+import { FREE_FIRE_SERVERS, type FreeFireServer } from '../db/schema.js';
 
 /**
  * Configuración del servidor, validada al arrancar.
@@ -85,6 +86,55 @@ const legalText = (max: number) =>
     .max(max)
     .regex(/^[^\p{Cc}\p{Cf}]+$/u, 'una sola línea, sin caracteres de control')
     .optional();
+
+/**
+ * Catálogo del proveedor de recarga directa: por servidor de Free Fire, el código de juego del
+ * proveedor y el código de denominación de cada paquete de la tienda. Los códigos los da el
+ * proveedor (en UniPin, «Game List» y «Game Details»); no son secretos.
+ * Ejemplo: {"latam":{"game":"<game_code>","skus":{"ff-110":"<denomination_id>"}}}
+ */
+export interface TopupRegion {
+  game: string;
+  /** Nombre del campo del ID de jugador en el proveedor (UniPin, Free Fire: `userid`). */
+  uidField: string;
+  skus: Readonly<Record<string, string>>;
+}
+export type TopupCatalog = Partial<Record<Exclude<FreeFireServer, 'no_seguro'>, TopupRegion>>;
+
+const providerCode = z.string().regex(/^[A-Za-z0-9_.:-]{1,80}$/, 'código del proveedor');
+const topupRegionSchema = z.strictObject({
+  game: providerCode,
+  uidField: z
+    .string()
+    .regex(/^[a-z_]{1,40}$/)
+    .default('userid'),
+  skus: z.record(z.string().regex(/^[a-z0-9-]{2,40}$/, 'SKU de la tienda'), providerCode),
+});
+const regionKeys = FREE_FIRE_SERVERS.filter((server) => server !== 'no_seguro');
+const topupCatalogSchema = z
+  .string()
+  .optional()
+  .transform((value, ctx): TopupCatalog | undefined => {
+    if (value === undefined) return undefined;
+    let raw: unknown;
+    try {
+      raw = JSON.parse(value);
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'JSON inválido' });
+      return z.NEVER;
+    }
+    const parsed = z
+      .partialRecord(z.enum(regionKeys as [string, ...string[]]), topupRegionSchema)
+      .safeParse(raw);
+    if (!parsed.success || !Object.keys(parsed.data).length) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `{"<servidor>":{"game":"…","skus":{"<sku>":"…"}}}; servidores: ${regionKeys.join(', ')}`,
+      });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
 
 const minutes = (fallback: number, max = 60 * 24 * 30) =>
   z.coerce.number().int().min(1).max(max).default(fallback);
@@ -213,6 +263,18 @@ const envSchema = z
      * «Agotado»). Con PIN_AUTO_DELIVERY, ningún pago queda esperando una entrega manual.
      */
     SELL_ONLY_WITH_STOCK: z.stringbool().default(false),
+    /**
+     * Recarga directa al ID con un distribuidor oficial (sin PIN): `none` (apagada) o `unipin`.
+     * Con un pago aprobado y el paquete y servidor en UNIPIN_CATALOG, la tienda pide la recarga
+     * a UniPin y marca el pedido entregado solo cuando UniPin la confirma.
+     */
+    TOPUP_PROVIDER: z.enum(['none', 'unipin']).default('none'),
+    /** `staging` (dev-api.unipin.com, sin diamantes reales) o `production` (api.unipin.com). */
+    UNIPIN_ENV: z.enum(['staging', 'production']).default('staging'),
+    UNIPIN_PARTNER_ID: noSpaces.optional(),
+    UNIPIN_SECRET_KEY: noSpaces.optional(),
+    UNIPIN_CATALOG: topupCatalogSchema,
+    UNIPIN_TIMEOUT_MS: z.coerce.number().int().min(2000).max(60_000).default(20_000),
     SUPPORT_WHATSAPP: z
       .string()
       .regex(/^\+?\d{8,15}$/)
@@ -319,6 +381,13 @@ const envSchema = z
       if (!env.PUBLIC_BASE_URL) issue('PUBLIC_BASE_URL', 'obligatoria con PAYMENTS_ENABLED');
       if (!env.MP_MODE) issue('MP_MODE', 'obligatoria con PAYMENTS_ENABLED (sandbox o production)');
     }
+    if (env.TOPUP_PROVIDER === 'unipin') {
+      if (!env.UNIPIN_PARTNER_ID)
+        issue('UNIPIN_PARTNER_ID', 'obligatoria con TOPUP_PROVIDER=unipin');
+      if (!env.UNIPIN_SECRET_KEY)
+        issue('UNIPIN_SECRET_KEY', 'obligatoria con TOPUP_PROVIDER=unipin');
+      if (!env.UNIPIN_CATALOG) issue('UNIPIN_CATALOG', 'obligatoria con TOPUP_PROVIDER=unipin');
+    }
 
     if (env.NODE_ENV !== 'production') return;
     if (!env.PUBLIC_BASE_URL) {
@@ -342,6 +411,10 @@ const envSchema = z
     }
     if (env.GOOGLE_CLIENT_ID && !env.MFA_ENCRYPTION_KEYS) {
       issue('MFA_ENCRYPTION_KEYS', 'obligatoria en producción cuando hay acceso con Google');
+    }
+    // Una recarga de prueba no entrega diamantes: en producción solo se acepta la real.
+    if (env.TOPUP_PROVIDER === 'unipin' && env.UNIPIN_ENV !== 'production') {
+      issue('UNIPIN_ENV', 'en producción debe ser production (staging no entrega diamantes)');
     }
     // No se aceptan órdenes que no se puedan pagar.
     if (env.CHECKOUT_ENABLED && !env.PAYMENTS_ENABLED) {
@@ -421,6 +494,18 @@ export interface AppConfig {
     pinAutoDelivery: boolean;
     sellOnlyWithStock: boolean;
   };
+  /** Recarga directa al ID con un distribuidor oficial. Sin ella, la entrega es PIN o manual. */
+  topup:
+    | {
+        provider: 'unipin';
+        env: 'staging' | 'production';
+        baseUrl: string;
+        partnerId: string;
+        secretKey: string;
+        timeoutMs: number;
+        catalog: TopupCatalog;
+      }
+    | undefined;
   support: { whatsapp: string | undefined; email: string | undefined };
   promoSchedule: PromoSchedule;
   legal: {
@@ -574,6 +659,25 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       pinAutoDelivery: env.PIN_AUTO_DELIVERY,
       sellOnlyWithStock: env.SELL_ONLY_WITH_STOCK,
     },
+    topup:
+      env.TOPUP_PROVIDER === 'unipin' &&
+      env.UNIPIN_PARTNER_ID &&
+      env.UNIPIN_SECRET_KEY &&
+      env.UNIPIN_CATALOG
+        ? {
+            provider: 'unipin',
+            env: env.UNIPIN_ENV,
+            // Hosts del SDK oficial de UniPin (UniPinSDK/php, unipin.generate).
+            baseUrl:
+              env.UNIPIN_ENV === 'production'
+                ? 'https://api.unipin.com/'
+                : 'https://dev-api.unipin.com/',
+            partnerId: env.UNIPIN_PARTNER_ID,
+            secretKey: env.UNIPIN_SECRET_KEY,
+            timeoutMs: env.UNIPIN_TIMEOUT_MS,
+            catalog: env.UNIPIN_CATALOG,
+          }
+        : undefined,
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
     promoSchedule: env.PROMO_SCHEDULE,
     legal: {

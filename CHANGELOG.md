@@ -7,6 +7,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Recarga directa al ID con UniPin (sin PIN), lista para activar.** Con `TOPUP_PROVIDER=unipin`,
+  un pago aprobado valida el ID del jugador en UniPin (distribuidor oficial), pide la recarga y
+  marca el pedido «Entregado» solo cuando UniPin la confirma con su `transaction_number`.
+  - Una referencia determinista por unidad e intento: UniPin rechaza las repetidas, así que nunca
+    se recarga dos veces.
+  - Una respuesta dudosa (tiempo agotado, 5xx) se consulta y nunca cuenta como entregada.
+  - Un rechazo, o la falta de confirmación tras ~2 h, pasa el pedido a revisión con el correo
+    «Recarga por revisar» al dueño. «Reanudar entrega» reintenta solo las unidades que fallaron.
+  - El catálogo y el checkout usan la cobertura por servidor (`UNIPIN_CATALOG`).
+  - Firma HMAC y rutas tomadas del SDK oficial de UniPin.
+  - `npm run unipin:check`, con su botón en Actions, comprueba credenciales, catálogo, el campo
+    del ID y una recarga de prueba en staging.
+  - Apagada por defecto. Guía: `docs/recarga-directa-unipin.md`.
 - **Venta solo con stock (`SELL_ONLY_WITH_STOCK`)**: un paquete se puede comprar solo si hay un
   PIN libre en el inventario; si no, la tienda lo muestra «Agotado». Mientras un cliente paga,
   su PIN queda apartado (los pedidos sin pagar y sin vencer cuentan como reservados, y las compras

@@ -62,6 +62,12 @@ services:
       # true: solo se vende un paquete con PIN libre; los demás salen «Agotado» (sin entregas a mano).
       - key: SELL_ONLY_WITH_STOCK
         value: 'false'
+      # Recarga directa al ID con UniPin (sin PIN): none o unipin (docs/recarga-directa-unipin.md).
+      # Con unipin, UNIPIN_PARTNER_ID, UNIPIN_SECRET_KEY y UNIPIN_CATALOG van en el panel.
+      - key: TOPUP_PROVIDER
+        value: none
+      - key: UNIPIN_ENV
+        value: production
       # ── Se escriben en el panel de Render (secretos o datos del propietario) ──
       - key: PUBLIC_BASE_URL
         sync: false
