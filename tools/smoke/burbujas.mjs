@@ -54,10 +54,29 @@ try {
     .map(([name, on]) => `${name}: ${on ? 'activo' : 'sin credenciales'}`)
     .join(' · ');
   console.log(`Acceso de clientes · invitado: activo · ${auth || 'sin datos'}`);
+  // Google activo: el inicio del login debe llevar a Google con un ID de cliente bien formado y
+  // la dirección de regreso exacta (sin iniciar sesión; nunca imprime el ID).
+  if (config.auth?.google) {
+    const start = await fetch(new URL('/auth/google', base), { redirect: 'manual' });
+    const target = new URL(start.headers.get('location') || 'about:blank');
+    const id = target.searchParams.get('client_id') || '';
+    const checks = {
+      'va a Google': target.hostname === 'accounts.google.com',
+      'ID de cliente con formato válido': /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id),
+      'regreso a /auth/google/callback':
+        target.searchParams.get('redirect_uri') === `${base.origin}/auth/google/callback`,
+    };
+    console.log(
+      `Login con Google · ${Object.entries(checks)
+        .map(([name, ok]) => `${name}: ${ok ? 'sí' : 'NO'}`)
+        .join(' · ')}`,
+    );
+    if (Object.values(checks).includes(false)) failures.push('login con Google');
+  }
 } finally {
   await browser.close();
 }
 if (failures.length) {
-  console.error(`Burbujas de soporte con fallos en: ${failures.join(', ')}`);
+  console.error(`Fallos en: ${failures.join(', ')}`);
   process.exit(1);
 }
