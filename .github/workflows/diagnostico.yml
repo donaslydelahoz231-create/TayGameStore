@@ -1,0 +1,67 @@
+name: Diagnóstico diario
+
+# Reemplaza los flujos «Diagnóstico» y «Cerebro» de n8n (el dueño pidió el 2026-10-11 dejar n8n por
+# una automatización gratuita). GitHub Actions es gratis y sin límite de minutos en repositorios
+# públicos. Una vez al día revisa la tienda publicada y deja el informe en el resumen del flujo:
+#   1. golive:check --url: estado, base de datos, ventas y pagos, catálogo, panel oculto.
+#   2. Navegador real: burbujas de WhatsApp y correo dentro de la tienda.
+# Solo lee: no crea pedidos, no paga y nunca imprime secretos ni datos personales. Si la tienda o
+# las burbujas fallan, el flujo queda en rojo y GitHub te avisa por correo.
+
+on:
+  schedule:
+    - cron: '17 11 * * *' # 6:17 a. m. en Colombia
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    name: Revisar la tienda publicada
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      URL: https://taygamestore.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Verificador de producción (golive:check)
+        run: |
+          # «Falta» no rompe el flujo (p. ej. pagos aún apagados por decisión del dueño):
+          # se informa en el resumen. Las caídas reales las detecta vigilancia.yml.
+          set +e
+          npm run -s golive:check -- --url "$URL" > golive.txt 2>&1
+          code=$?
+          cat golive.txt
+          {
+            echo "## Diagnóstico diario · $(date -u +'%F %H:%M') UTC"
+            echo
+            echo '### Verificador de producción'
+            echo '```'
+            cat golive.txt
+            echo '```'
+            if [ "$code" -eq 0 ]; then echo 'Resultado: **LISTO para vender**.'; else echo 'Resultado: hay puntos **FALTA** (revisa la lista).'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Burbujas de soporte (navegador real)
+        run: |
+          set +e -o pipefail
+          {
+            echo
+            echo '### Burbujas de soporte'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          node tools/smoke/burbujas.mjs "$URL" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          status=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status

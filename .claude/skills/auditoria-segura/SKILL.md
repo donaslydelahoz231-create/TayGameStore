@@ -34,7 +34,9 @@ modifica nada**: ni commits, ni push, ni Render, ni GitHub, ni n8n, ni rutinas.
    las variables no es legible por API: NO VERIFICADO.
 5. **CI y CodeQL**: `mcp__github__actions_list` del último commit; trabajos con
    `list_workflow_jobs`.
-6. **n8n**: ejecuciones con error desde la última auditoría (solo lectura).
+6. **Automatización** (GitHub Actions; n8n quedó reemplazado el 2026-10-11, ver
+   `docs/automatizacion.md`): «Diagnóstico diario», «Vigilancia y autorreparación» y «Mantener la
+   tienda activa» sin fallos desde la última auditoría (solo lectura).
 7. **Neon y Mercado Pago**: sin conector autorizado en la sesión → NO VERIFICADO.
 
 ## Informe

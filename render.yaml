@@ -110,7 +110,8 @@ services:
         sync: false
       - key: LEGAL_RETENTION
         sync: false
-      # Eventos de pedidos hacia n8n (opcional; ver docs/n8n.md).
+      # Eventos de pedidos hacia un webhook externo (opcional; ya no se usa n8n: ver
+      # docs/automatizacion.md).
       - key: EVENTS_WEBHOOK_URL
         sync: false
       - key: EVENTS_WEBHOOK_SECRET

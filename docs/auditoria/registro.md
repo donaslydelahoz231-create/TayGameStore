@@ -360,3 +360,19 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Resto de la ronda**: CI, CodeQL, prueba de producción (con navegador real) en verde; Render en
   vivo con 94909442, sin logs de error/warn/fatal desde la ronda anterior; n8n sin ejecuciones
   (bloqueado por su plan desde el 08-oct, pendiente del dueño).
+
+### 2026-10-11 · Migración de la automatización fuera de n8n
+
+- **Pidió**: el dueño («que te migres a otra automatización que no sea n8n y sea gratuita sin
+  límites»).
+- **Inventario**: Vigilancia, Tareas y «mantener despierta» ya vivían fuera de n8n; Pedidos
+  (registro + Gmail), Errores, Diagnóstico y Cerebro dependían de n8n, que no ejecuta desde el
+  2026-10-08.
+- **Hecho**: `diagnostico.yml` (diario, GitHub Actions: `golive:check --url` + navegador real),
+  `docs/automatizacion.md` (qué reemplaza a cada flujo), `docs/n8n.md` marcado como histórico,
+  README y skill de auditoría actualizados, y la rutina diaria de Claude ya no revisa n8n.
+- **No tocado**: n8n (sin borrar ni despublicar flujos; respaldo en `infra/n8n/`); variables
+  `EVENTS_WEBHOOK_*` de Render (si existen, las borra el dueño).
+- **Límite honesto**: GitHub Actions es gratis y sin límite de minutos en repositorios públicos,
+  pero los horarios pueden retrasarse y se pausan tras 60 días sin actividad en el repositorio.
+  Los avisos al celular de pedidos pagados necesitan Telegram (gratis), que configura el dueño.

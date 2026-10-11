@@ -1,4 +1,7 @@
-# Automatización con n8n
+# Automatización con n8n (reemplazada)
+
+> **Reemplazada el 2026-10-11** por una automatización gratuita sin n8n: ver
+> [`automatizacion.md`](automatizacion.md). Este documento queda como referencia histórica.
 
 Todo está en tu n8n (`taygamestore.app.n8n.cloud`), carpeta **TayGameStore**. Ningún flujo
 guarda llaves: cada una va en una **credencial** de n8n que creas tú en la pantalla de n8n.

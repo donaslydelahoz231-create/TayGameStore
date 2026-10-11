@@ -51,6 +51,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- **Adiós a n8n**: la automatización pasa a piezas gratuitas (servidor + GitHub Actions + rutina
+  diaria de Claude), ver `docs/automatizacion.md`. Nuevo flujo **Diagnóstico diario**
+  (`diagnostico.yml`): verificador de producción y navegador real, con informe en el resumen.
+  Los respaldos de n8n quedan en `infra/n8n/`.
 - **Tienda siempre activa**: `mantener-activa.yml` pide `/api/health` cada 10 min para que Render
   (plan gratuito) no duerma el servicio y nadie espere ~1 min al entrar. No toca la base de datos:
   Neon sigue durmiendo sin clientes. Coste cero (GitHub Actions público + 744 de 750 h de Render).
