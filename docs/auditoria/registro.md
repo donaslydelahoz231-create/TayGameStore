@@ -570,4 +570,16 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Límite**: la cuenta dueña de la base (Neon) puede quitar triggers; eso lo detectan el testigo
   externo y los respaldos. Verificación en dos pasos en Google, GitHub, Render, Neon y Mercado
   Pago: pendiente del dueño (NO VERIFICADO).
+- **Evidencia en producción**:
+  - Render `dep-db61r7v40ujc73cvune0` en `live` (commit `b5ace7d`);
+  - Neon: 16 migraciones, 10 triggers anti-borrado, protección de montos y auditoría de precios
+    activas, primer sello del historial creado al arrancar;
+  - CI verde (lint, unitarias, integración, e2e Chromium/Firefox/WebKit, gitleaks, CodeQL);
+  - «Diagnóstico diario» manual: **LISTO para vender**. Huella del catálogo pública
+    `88F3-60CD-E1EB-1ED2`, idéntica a la calculada desde la base.
+- **Bloqueo del catálogo activado** a pedido del dueño («no permitas que me alteren la tienda»):
+  `CATALOG_LOCKED=true` en Render (despliegue `dep-db61sotckfvc73br57r0`, `live`).
+- **NO VERIFICADO**: el testigo externo del historial. Falta el secreto `CRON_SECRET` en GitHub
+  (y en Render). Lo crea el dueño con el mismo valor aleatorio en ambos (pasos en
+  `docs/seguridad-tienda.md`); nunca se pega en un chat.
 

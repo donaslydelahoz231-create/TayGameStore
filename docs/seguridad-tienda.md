@@ -52,6 +52,14 @@ huellas de días anteriores ya no coincidirían. Si la cadena se rompe, el diagn
 y GitHub te avisa por correo. Este paso necesita el secreto `CRON_SECRET` en GitHub, el mismo
 valor que en Render. Si falta, el resumen dice NO VERIFICADO.
 
+**Activar el testigo** (una vez, tú mismo, sin pegar el valor en ningún chat):
+
+1. Inventa una frase larga al azar, de 40 caracteres o más.
+2. Render → tu servicio → Environment → Add → `CRON_SECRET` = esa frase → Save.
+3. GitHub → el repositorio → Settings → Secrets and variables → Actions → New repository secret
+   → `CRON_SECRET` = la misma frase.
+4. Actions → «Diagnóstico diario» → Run workflow. En el resumen debe salir «Historial: INTACTO».
+
 ## 2. Lo que la tienda impide sola
 
 | Ataque | Protección |
