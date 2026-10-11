@@ -22,6 +22,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- La burbuja flotante de WhatsApp (derecha, abajo) estaba dentro de la tienda y no se veía en la
+  pantalla de bienvenida; ahora vive fuera, se ve desde el primer momento, es más grande y en
+  teléfonos los avisos ya no la tapan.
 - El texto inicial del ID afirmaba que el equipo verifica «con una fuente oficial»; ahora dice
   lo que pasa de verdad según el modo de verificación, y cambiar de juego ya no lo deja mal.
 

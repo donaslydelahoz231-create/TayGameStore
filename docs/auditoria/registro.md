@@ -317,3 +317,12 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   proxy bloquea el dominio); la prueba de producción de GitHub lo comprobará en cada despliegue.
 - **Aviso de seguridad**: en un mensaje anterior del chat se compartieron contraseñas de las
   cuentas de Gmail. Se recomienda al dueño cambiarlas y activar la verificación en dos pasos.
+
+### 2026-10-11 · Burbuja flotante de WhatsApp visible desde la bienvenida
+
+- **Pidió**: el dueño («el botón flotante estilo burbuja de WhatsApp a la derecha»).
+- **Causa**: la burbuja estaba dentro de `#app`, que queda oculto bajo la pantalla de bienvenida;
+  además, en teléfonos los avisos (toasts) la tapaban.
+- **Hecho**: burbuja fuera de `#app` (encima de la bienvenida, debajo de los modales de la
+  tienda), WhatsApp de 60 px, avisos a su izquierda en móvil. Evidencia: medición en Chromium
+  (360, 768 y 1280 px), lint, unitarias 183/183, e2e 64/64 y capturas revisadas.

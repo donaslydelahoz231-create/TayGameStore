@@ -231,3 +231,30 @@
   color: var(--muted);
   font-size: 0.6875rem;
 }
+
+/*
+ * Burbuja de soporte: vive fuera de la tienda (#app) para verse también en la pantalla de
+ * bienvenida, por encima de ella mientras está abierta. En la tienda queda debajo de los modales.
+ */
+body.entry-locked .support-float {
+  z-index: 1250;
+}
+.support-float-btn.whatsapp {
+  width: 60px;
+  min-width: 60px;
+  height: 60px;
+  border-radius: 30px 30px 8px 30px;
+}
+.support-float-btn.whatsapp svg {
+  width: 30px;
+  height: 30px;
+}
+/* En teléfonos los avisos no tapan las burbujas: ocupan el espacio a su izquierda. */
+@media (max-width: 520px) {
+  .toast-stack {
+    left: 11px;
+    right: 84px;
+    width: auto;
+    transform: none;
+  }
+}
