@@ -329,3 +329,16 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Corrección del dueño (mismo día)**: la burbuja va solo dentro de la tienda, no en la pantalla
   de bienvenida. Se oculta mientras la bienvenida está abierta (`body.entry-locked`); la prueba
   e2e lo comprueba.
+
+### 2026-10-11 · «Falta la burbuja de WhatsApp» (artefacto de prueba)
+
+- **Causa**: el dueño veía la burbuja de correo pero no la de WhatsApp. La tienda de prueba
+  publicada como artefacto (versión del 2026-10-05) tenía en su configuración simulada
+  `whatsapp: null`. La tienda real publica ambos canales (prueba de producción: «WhatsApp:
+  publicado · Correo: publicado»).
+- **Corregido**: la vista previa recibe los canales por variables de entorno al construir (no se
+  escriben en el repositorio) y el artefacto se republicó con la versión actual (versión 2).
+  Verificado con Chromium: bienvenida sin burbuja; en la tienda, WhatsApp a la derecha con enlace
+  wa.me y correo debajo.
+- **Vigilancia nueva**: la prueba de producción abre la tienda real con un navegador y comprueba
+  lo mismo en 360 y 1280 px, sin imprimir el número ni el correo.

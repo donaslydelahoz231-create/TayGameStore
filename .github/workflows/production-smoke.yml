@@ -20,7 +20,7 @@ jobs:
   smoke:
     name: Check production web, liveness and readiness
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Probe production endpoints
@@ -76,3 +76,14 @@ jobs:
           console.log(`WhatsApp: ${wa ? 'publicado' : 'FALTA'} · Correo: ${mail ? 'publicado' : 'FALTA'}`);
           if (!wa || !mail) console.log('::warning::Falta un canal de soporte (SUPPORT_WHATSAPP / SUPPORT_EMAIL en Render).');
           NODE
+      # Navegador real contra la tienda publicada: la burbuja de WhatsApp se ve a la derecha
+      # dentro de la tienda y no en la bienvenida (el dueño lo pidió el 2026-10-11).
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Burbujas de soporte en la tienda publicada (navegador real)
+        run: node tools/smoke/burbujas.mjs https://taygamestore.onrender.com

@@ -22,6 +22,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- La tienda de prueba (artefacto) no mostraba la burbuja de WhatsApp: su configuración simulada
+  tenía WhatsApp vacío. Ahora `build:preview` toma los canales de `PREVIEW_SUPPORT_WHATSAPP` y
+  `PREVIEW_SUPPORT_EMAIL` al construir (nunca del repositorio) y el artefacto se republicó.
+- La prueba de producción abre la tienda publicada con un navegador real
+  (`tools/smoke/burbujas.mjs`) y falla si la burbuja de WhatsApp no se ve a la derecha dentro
+  de la tienda o aparece en la bienvenida.
 - Burbuja flotante de WhatsApp (derecha, abajo): fija en la ventana dentro de la tienda (no en
   la pantalla de bienvenida, como pidió el dueño), más grande, y en teléfonos los avisos ya no la
   tapan.

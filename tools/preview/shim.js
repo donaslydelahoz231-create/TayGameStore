@@ -18,6 +18,9 @@
   var VERIFY_TTL_MS = 12 * 3600 * 1000;
   var PAY_TTL_MS = 3600 * 1000;
   var LOOKUP_TTL_MS = 30 * 60 * 1000;
+  // Canales de soporte de la vista previa. build.mjs los reemplaza con PREVIEW_SUPPORT_WHATSAPP y
+  // PREVIEW_SUPPORT_EMAIL al construir (nunca se escriben en el repositorio).
+  var PREVIEW_SUPPORT = /*__PREVIEW_SUPPORT__*/ { whatsapp: null, email: 'soporte@example.com' };
   var IS_ADMIN_PAGE = /admin\.html$/.test(location.pathname);
 
   var SEED_PRODUCTS = [
@@ -159,6 +162,8 @@
       listPriceCop: p.priceCop,
       priceCop: unitPrice(p),
       promoEndsAt: promoActive(p) ? p.promoEndsAt : null,
+      // Igual que el servidor: la promo configurada, para la tabla de tarifas.
+      promoPriceCop: promoActive(p) && p.promoPriceCop < p.priceCop ? p.promoPriceCop : null,
     };
   }
   function activeProducts(db) {
@@ -541,7 +546,7 @@
         paymentMethod: 'mercadopago',
         auth: { google: true, discord: true, facebook: true },
         playerLookup: true,
-        support: { whatsapp: null, email: 'soporte@example.com' },
+        support: PREVIEW_SUPPORT,
         termsVersion: TERMS_VERSION,
         limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },
       });

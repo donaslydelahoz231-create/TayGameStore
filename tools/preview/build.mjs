@@ -1,6 +1,6 @@
 // Construye dist/preview/: la tienda con el entorno de prueba del navegador (tools/preview/shim.js).
 // SOLO para enseñar y probar la tienda sin servidor. Nunca se despliega: el servidor sirve dist/web.
-import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { build } from 'vite';
 
@@ -21,7 +21,23 @@ for (const entry of await readdir(out, { recursive: true, withFileTypes: true })
 }
 
 await mkdir(join(out, 'preview'), { recursive: true });
-await copyFile(join(import.meta.dirname, 'shim.js'), join(out, 'preview/shim.js'));
+// Canales de soporte reales de la vista previa: solo desde variables de entorno al construir.
+const wa = (process.env.PREVIEW_SUPPORT_WHATSAPP || '').replace(/\D/g, '');
+const mail = (process.env.PREVIEW_SUPPORT_EMAIL || '').trim();
+if (wa && !/^\d{8,15}$/.test(wa))
+  throw new Error('PREVIEW_SUPPORT_WHATSAPP no es un número válido');
+if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail))
+  throw new Error('PREVIEW_SUPPORT_EMAIL no es un correo válido');
+let shim = await readFile(join(import.meta.dirname, 'shim.js'), 'utf8');
+if (wa || mail) {
+  const marked = /\/\*__PREVIEW_SUPPORT__\*\/ \{[^}]*\}/;
+  if (!marked.test(shim)) throw new Error('No se encontró el marcador de soporte en shim.js');
+  shim = shim.replace(
+    marked,
+    JSON.stringify({ whatsapp: wa || null, email: mail || 'soporte@example.com' }),
+  );
+}
+await writeFile(join(out, 'preview/shim.js'), shim);
 
 const SHIM_TAG = '<script src="./preview/shim.js"></script>';
 for (const page of ['index.html', 'admin.html', 'terminos.html', 'privacidad.html']) {
