@@ -444,3 +444,13 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   diagnosticar sin ver valores, el servidor registra ahora el código de error de Google
   (`invalid_client`, `invalid_grant`…) y, al arrancar, la forma de las credenciales (ID válido,
   prefijo del secreto y su largo), nunca los valores. Unitarias 189/189; integración de acceso 61/61.
+- **Resuelto (19:29 UTC)**: faltaba el guion de `GOCSPX-` en el secreto pegado (34 caracteres);
+  el dueño lo corrigió. Registros: «idValido: true · secretoGocspx: true · largoSecreto: 35» y
+  cuatro ingresos por `/auth/google/callback` (19:31–19:37) sin «google login failed». Neon:
+  3 cuentas con Google creadas hoy (solo conteos, sin datos personales). El historial de compras
+  queda en la base de la tienda asociado a la cuenta (`orders.user_id`), no en Google.
+- **Pendiente del dueño**: rotar el secreto de Google (se vio parcialmente en una captura);
+  credenciales de producción de Mercado Pago y `MP_WEBHOOK_SECRET` (no existe en Render) para
+  activar ventas; Facebook opcional.
+- **Neon**: 59 272 s de cómputo (≈16,5 CU-h) en 5,1 días, proyección ≈81 CU-h al 1 de noviembre,
+  inflada por un día de despliegues y pruebas; **NO VERIFICADO** el consumo en reposo.
