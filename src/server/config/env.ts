@@ -208,6 +208,11 @@ const envSchema = z
      * canjearlos en el sitio oficial (pagostore.com). Si falta alguno, se entrega a mano.
      */
     PIN_AUTO_DELIVERY: z.stringbool().default(false),
+    /**
+     * true: solo se vende un paquete si hay PIN libre en el inventario (los demás se muestran
+     * «Agotado»). Con PIN_AUTO_DELIVERY, ningún pago queda esperando una entrega manual.
+     */
+    SELL_ONLY_WITH_STOCK: z.stringbool().default(false),
     SUPPORT_WHATSAPP: z
       .string()
       .regex(/^\+?\d{8,15}$/)
@@ -414,6 +419,7 @@ export interface AppConfig {
     termsVersion: string;
     playerVerification: 'customer' | 'operator';
     pinAutoDelivery: boolean;
+    sellOnlyWithStock: boolean;
   };
   support: { whatsapp: string | undefined; email: string | undefined };
   promoSchedule: PromoSchedule;
@@ -566,6 +572,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       termsVersion: env.TERMS_VERSION,
       playerVerification: env.PLAYER_VERIFICATION,
       pinAutoDelivery: env.PIN_AUTO_DELIVERY,
+      sellOnlyWithStock: env.SELL_ONLY_WITH_STOCK,
     },
     support: { whatsapp: env.SUPPORT_WHATSAPP?.replace(/\D/g, ''), email: env.SUPPORT_EMAIL },
     promoSchedule: env.PROMO_SCHEDULE,

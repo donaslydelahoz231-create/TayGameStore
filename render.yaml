@@ -59,6 +59,9 @@ services:
       # true: con PIN en Panel → Inventario, cada pedido pagado se entrega solo (docs/procedimiento-diamantes.md).
       - key: PIN_AUTO_DELIVERY
         value: 'false'
+      # true: solo se vende un paquete con PIN libre; los demás salen «Agotado» (sin entregas a mano).
+      - key: SELL_ONLY_WITH_STOCK
+        value: 'false'
       # ── Se escriben en el panel de Render (secretos o datos del propietario) ──
       - key: PUBLIC_BASE_URL
         sync: false

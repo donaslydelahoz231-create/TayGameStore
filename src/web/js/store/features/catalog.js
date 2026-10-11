@@ -21,7 +21,8 @@ function fromServer(p) {
     promo: p.priceCop,
     price: p.priceCop,
     scheduledPromo: Number.isInteger(p.promoPriceCop) ? p.promoPriceCop : null,
-    providerAvailable: true,
+    // Agotado: la tienda vende solo con PIN listo y no queda ninguno (decide el servidor).
+    providerAvailable: p.soldOut !== true,
   };
 }
 
@@ -116,10 +117,11 @@ export function renderProducts() {
     el.className =
       'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
     const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
-    const addLabel = q ? 'Añadido' : 'Agregar';
-    const providerNote = 'Disponible';
+    const soldOut = !p.providerAvailable;
+    const addLabel = soldOut ? 'Agotado' : q ? 'Añadido' : 'Agregar';
+    const providerNote = soldOut ? 'Agotado por ahora' : 'Disponible';
     const perHundred = Math.round((priceOf(p) / Number(p.diamonds || 1)) * 100);
-    el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button">${addLabel}</button><div class="qty"><button type="button" data-op="minus" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus">+</button></div></div>`;
+    el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button"${soldOut ? ' disabled' : ''}>${addLabel}</button><div class="qty"><button type="button" data-op="minus" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus"${soldOut ? ' disabled' : ''}>+</button></div></div>`;
     const favBtn = el.querySelector('.fav-btn');
     favBtn.addEventListener('click', (e) => {
       e.preventDefault();

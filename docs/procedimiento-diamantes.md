@@ -18,6 +18,14 @@ Nunca: cuentas de terceros, «diamantes al por mayor» de vendedores sin contrat
 páginas que piden la contraseña del juego. Eso es fraude o robo de cuentas y Garena puede
 anular las recargas y bloquear al cliente.
 
+## Modo 100 % automático (sin entregas a mano)
+
+Con `PIN_AUTO_DELIVERY=true` y `SELL_ONLY_WITH_STOCK=true` la tienda **solo vende lo que puede
+entregar sola**: cada paquete muestra «Agotado» si no tiene PIN libre en **Panel → Inventario**,
+el PIN queda apartado mientras el cliente paga y, al aprobarse el pago, se entrega solo (en el
+pedido y por correo). El dueño solo tiene que **mantener PIN cargados**; la tienda le avisa por los
+pedidos y el inventario muestra cuántos quedan de cada paquete.
+
 ## El ciclo de un pedido (inventario de PIN)
 
 1. **Cliente:** elige el paquete, escribe su ID, **lo repite y lo confirma** («Sí, es mi ID») y

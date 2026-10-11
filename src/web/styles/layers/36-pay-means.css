@@ -258,3 +258,10 @@ body.entry-locked .support-float {
     transform: none;
   }
 }
+
+/* Paquete agotado (venta solo con PIN listo): el botón no se puede usar. */
+.product.unavailable .add-btn:disabled,
+.product.unavailable .qty button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DbOrTx, Tx } from '../db/client.js';
-import { inventoryCodes, orderItems, products } from '../db/schema.js';
+import { inventoryCodes, orderItems, orders, products } from '../db/schema.js';
 import { decrypt, encrypt, keyedHash } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, notFound, type Actor, type ServiceDeps } from './context.js';
@@ -198,6 +198,43 @@ export async function assignInventory(
  * PIN para TODAS las unidades del pedido, se le asignan ya usados (el cliente los ve y los canjea
  * en el sitio oficial). Si falta alguno no toca nada y devuelve 0: el pedido se entrega a mano.
  */
+/**
+ * PIN libres por producto: los disponibles menos las unidades de pedidos que todavía esperan
+ * pago (y no vencieron). Así dos clientes no pueden comprar el mismo último PIN.
+ */
+export async function freeStock(
+  db: DbOrTx,
+  productIds: readonly string[],
+  now: Date,
+): Promise<Map<string, number>> {
+  const result = new Map(productIds.map((id) => [id, 0]));
+  if (!productIds.length) return result;
+  const ids = [...productIds];
+  const available = await db
+    .select({ productId: inventoryCodes.productId, n: sql<number>`count(*)::int` })
+    .from(inventoryCodes)
+    .where(and(inArray(inventoryCodes.productId, ids), eq(inventoryCodes.status, 'AVAILABLE')))
+    .groupBy(inventoryCodes.productId);
+  const held = await db
+    .select({
+      productId: orderItems.productId,
+      n: sql<number>`coalesce(sum(${orderItems.quantity}), 0)::int`,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .where(
+      and(
+        inArray(orderItems.productId, ids),
+        inArray(orders.status, ['AWAITING_VERIFICATION', 'AWAITING_PAYMENT']),
+        gt(orders.expiresAt, now),
+      ),
+    )
+    .groupBy(orderItems.productId);
+  for (const row of available) result.set(row.productId, row.n);
+  for (const row of held) result.set(row.productId, (result.get(row.productId) ?? 0) - row.n);
+  return result;
+}
+
 export async function deliverFromInventory(tx: Tx, orderId: string, now: Date): Promise<number> {
   const items = await tx
     .select({ productId: orderItems.productId, quantity: orderItems.quantity })

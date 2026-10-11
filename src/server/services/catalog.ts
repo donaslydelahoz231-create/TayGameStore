@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { products } from '../db/schema.js';
 import { effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { AppError } from '../plugins/errors.js';
+import { freeStock } from './inventory.js';
 import { isUniqueViolation } from './orders.js';
 import { audit, notFound, type Actor, type ServiceDeps } from './context.js';
 
@@ -21,6 +22,8 @@ export interface PublicProduct {
    * de tarifas muestre el ahorro real. null si no hay promoción vigente. Lo cobrado es `priceCop`.
    */
   promoPriceCop: number | null;
+  /** true si la tienda vende solo con stock (SELL_ONLY_WITH_STOCK) y no queda PIN libre. */
+  soldOut: boolean;
 }
 
 export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<PublicProduct[]> {
@@ -31,6 +34,13 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
     .where(and(eq(products.game, game), eq(products.active, true)))
     .orderBy(asc(products.sortOrder), asc(products.priceCop));
   const schedule = deps.config.promoSchedule;
+  const stock = deps.config.orders.sellOnlyWithStock
+    ? await freeStock(
+        deps.db,
+        rows.map((row) => row.id),
+        now,
+      )
+    : null;
   // Con promo de fin de semana, la oferta termina a más tardar el lunes 00:00 (Colombia).
   const weekendEnd = schedule === 'weekends' ? weekendWindow(now).endsAt : null;
   return rows.map((row) => {
@@ -52,6 +62,7 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
         (row.promoEndsAt === null || row.promoEndsAt.getTime() > now.getTime())
           ? row.promoPriceCop
           : null,
+      soldOut: stock !== null && (stock.get(row.id) ?? 0) < 1,
     };
   });
 }

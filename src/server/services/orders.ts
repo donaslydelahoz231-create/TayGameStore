@@ -26,7 +26,7 @@ import {
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
-import { deliveredPinCounts, deliveredPins } from './inventory.js';
+import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -409,11 +409,23 @@ export async function createOrder(
 
   try {
     const order = await deps.db.transaction(async (tx) => {
-      const rows = await tx
+      // Con venta solo con stock se bloquean las filas de producto: dos compras simultáneas del
+      // último PIN se atienden una tras otra y la segunda ve «agotado».
+      const productQuery = tx
         .select()
         .from(products)
         .where(and(inArray(products.sku, skus), eq(products.game, input.game)));
+      const rows = config.orders.sellOnlyWithStock
+        ? await productQuery.for('update')
+        : await productQuery;
       const bySku = new Map(rows.map((row) => [row.sku, row]));
+      const stock = config.orders.sellOnlyWithStock
+        ? await freeStock(
+            tx,
+            rows.map((row) => row.id),
+            now,
+          )
+        : null;
       const lines = input.items.map((item) => {
         const product = bySku.get(item.sku);
         if (!product?.active) {
@@ -421,6 +433,13 @@ export async function createOrder(
             'PRODUCT_UNAVAILABLE',
             409,
             'Uno de los productos ya no está disponible.',
+          );
+        }
+        if (stock && (stock.get(product.id) ?? 0) < item.quantity) {
+          throw new AppError(
+            'PRODUCT_UNAVAILABLE',
+            409,
+            'Ese paquete está agotado por ahora. Elige otro o vuelve más tarde.',
           );
         }
         const unitPriceCop = effectivePrice(product, now, deps.config.promoSchedule);

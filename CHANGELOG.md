@@ -7,6 +7,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Venta solo con stock (`SELL_ONLY_WITH_STOCK`)**: un paquete se puede comprar solo si hay un
+  PIN libre en el inventario; si no, la tienda lo muestra «Agotado». Mientras un cliente paga,
+  su PIN queda apartado (los pedidos sin pagar y sin vencer cuentan como reservados, y las compras
+  del mismo paquete se atienden una tras otra), así nadie paga algo que no se pueda entregar. Con
+  `PIN_AUTO_DELIVERY` el pago aprobado entrega el PIN solo: cero entregas a mano.
 - **Mercado Pago abre directo el medio elegido.** Si el cliente elige «Tarjeta», Mercado Pago
   muestra de una vez el formulario de tarjeta (crédito o débito de cualquier banco: Bancolombia,
   Davivienda, Nequi…: número, vencimiento, código de seguridad y cédula); «PSE» abre el débito

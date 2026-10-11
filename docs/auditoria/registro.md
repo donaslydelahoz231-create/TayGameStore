@@ -497,3 +497,8 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   entrega en el panel hasta que el dueño cargue PIN.
 - **Límite real**: sin contrato con un proveedor con API (o Garena) nadie puede acreditar diamantes
   directo al ID de forma automática; ver `docs/procedimiento-diamantes.md`.
+- **Venta solo con stock** (mismo día, pedido del dueño: «todo automatizado, sin manual»): nuevo
+  `SELL_ONLY_WITH_STOCK`. El catálogo publica `soldOut`; el checkout bloquea las filas de producto
+  y rechaza con «agotado» si los PIN libres (disponibles menos unidades de pedidos sin pagar y sin
+  vencer) no alcanzan. Pruebas: unitarias 194/194, integración 182/182 (nueva `stock-only`), e2e
+  66/66. Con 0 PIN cargados la tienda muestra todo «Agotado» hasta que el dueño cargue PIN.
