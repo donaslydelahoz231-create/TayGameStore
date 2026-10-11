@@ -199,6 +199,9 @@ const SCHEDULE: [JobName, number][] = [
   ['sendNotifications', 60_000],
 ];
 
+/** Margen para que una tanda no se salte una tarea por segundos de diferencia. */
+const BATCH_SLACK_MS = 2 * 60_000;
+
 export function startScheduler(deps: ServiceDeps, options: SchedulerOptions = {}): Scheduler {
   const idleMs = options.idleMs ?? 0;
   const now = options.now ?? Date.now;
@@ -207,31 +210,51 @@ export function startScheduler(deps: ServiceDeps, options: SchedulerOptions = {}
   const running = new Set<JobName>();
   const lastRun = new Map<JobName, number>();
   let lastActivity = now();
-  for (const [name, every] of SCHEDULE) {
+  // Inicio de la última tanda en reposo: todas las tareas corren juntas, así la base de datos
+  // despierta una sola vez por intervalo (Neon tarda ~5 min en volver a suspenderse; seis tareas
+  // en momentos distintos la mantenían encendida casi todo el tiempo).
+  let lastBatch = Number.NEGATIVE_INFINITY;
+
+  const runOne = (name: JobName, at: number) => {
+    lastRun.set(name, at);
+    running.add(name);
+    run(deps, name)
+      .then((result) => {
+        if (!result) return;
+        deps.log.info({ job: name, result }, 'job finished');
+        lastActivity = now(); // Hubo trabajo: puede haber más enseguida.
+      })
+      .catch((error: unknown) =>
+        deps.log.error({ err: error, job: name, alert: 'job_failed' }, 'job failed'),
+      )
+      .finally(() => running.delete(name));
+  };
+
+  for (const [name, interval] of SCHEDULE) {
     const tick = () => {
       if (running.has(name)) return; // Sin solapamiento dentro del proceso.
       const at = now();
-      // En reposo no se toca la base de datos más de una vez por intervalo. Cualquier petición de
-      // un cliente o un aviso de Mercado Pago devuelve el ritmo normal, y el pago vuelve a
-      // comprobar el vencimiento del pedido por su cuenta.
+      // En reposo no se toca la base de datos más de una vez por intervalo, y siempre en tanda.
+      // Cualquier petición de un cliente o un aviso de Mercado Pago devuelve el ritmo normal, y
+      // el pago vuelve a comprobar el vencimiento del pedido por su cuenta.
       const idle = idleMs > 0 && at - lastActivity >= idleMs;
-      if (idle && at - (lastRun.get(name) ?? Number.NEGATIVE_INFINITY) < idleMs) return;
-      lastRun.set(name, at);
-      running.add(name);
-      run(deps, name)
-        .then((result) => {
-          if (!result) return;
-          deps.log.info({ job: name, result }, 'job finished');
-          lastActivity = now(); // Hubo trabajo: puede haber más enseguida.
-        })
-        .catch((error: unknown) =>
-          deps.log.error({ err: error, job: name, alert: 'job_failed' }, 'job failed'),
-        )
-        .finally(() => running.delete(name));
+      if (!idle) {
+        runOne(name, at);
+        return;
+      }
+      if (at - lastBatch < idleMs) return;
+      lastBatch = at;
+      for (const [job, jobEvery] of SCHEDULE) {
+        if (running.has(job)) continue;
+        // Las tareas lentas (limpieza, cada hora) respetan su propio ritmo dentro de las tandas.
+        const due = Math.max(jobEvery, idleMs) - BATCH_SLACK_MS;
+        if (at - (lastRun.get(job) ?? Number.NEGATIVE_INFINITY) < due) continue;
+        runOne(job, at);
+      }
     };
     // Desfase aleatorio para que varias instancias no arranquen a la vez.
     const first = setTimeout(tick, 5_000 + Math.floor(Math.random() * 10_000));
-    const timer = setInterval(tick, every);
+    const timer = setInterval(tick, interval);
     first.unref();
     timer.unref();
     timers.push(first, timer);

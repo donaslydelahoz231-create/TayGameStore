@@ -1,6 +1,7 @@
 name: Vigilancia y autorreparación
 
-# Comprueba la tienda en producción cada 30 minutos. Si no responde:
+# Comprueba la tienda en producción cada 30 minutos (la base de datos, una vez por hora). Si no
+# responde:
 #   1. reinicia el servicio una sola vez con el deploy hook (Vercel o Render; vuelve a desplegar el
 #      último commit; no repite pagos ni recargas: el servidor es idempotente),
 #   2. espera a que vuelva y deja constancia en un issue con la etiqueta "incidente".
@@ -49,11 +50,18 @@ jobs:
           }
           NODE
 
-      - name: Comprobar /api/ready (3 intentos)
+      - name: Comprobar la tienda (3 intentos)
         id: check
         run: |
+          # /api/ready despierta la base de datos (Neon cobra por tiempo encendido): solo en la
+          # primera media hora de cada hora y al lanzarlo a mano. El resto, /api/health (sin base).
+          path=/api/health
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$((10#$(date -u +%M)))" -lt 30 ]; then
+            path=/api/ready
+          fi
+          echo "Comprobando $path"
           for attempt in 1 2 3; do
-            if curl --proto '=https' --tlsv1.2 -fsS --connect-timeout 10 --max-time 20 "${URL%/}/api/ready" -o /dev/null; then
+            if curl --proto '=https' --tlsv1.2 -fsS --connect-timeout 10 --max-time 20 "${URL%/}$path" -o /dev/null; then
               echo "ok=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi

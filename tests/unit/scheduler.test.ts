@@ -13,13 +13,15 @@ describe('programador de tareas en modo reposo', () => {
 
   function start(idleMs: number, result: number | null = 0) {
     const runs: JobName[] = [];
+    const times: number[] = [];
     const run = vi.fn((_deps: ServiceDeps, name: JobName) => {
       runs.push(name);
+      times.push(Date.now());
       return Promise.resolve(result);
     });
     const scheduler = startScheduler(deps, { idleMs, now: () => Date.now(), run });
     const count = (name: JobName) => runs.filter((job) => job === name).length;
-    return { scheduler, count };
+    return { scheduler, count, times };
   }
 
   it('con actividad reciente, cada tarea corre a su ritmo normal', async () => {
@@ -38,6 +40,22 @@ describe('programador de tareas en modo reposo', () => {
     // 60 minutos en reposo con intervalo de 30: dos pasadas, no sesenta.
     expect(count('expireOrders') - before).toBeLessThanOrEqual(2);
     expect(count('expireOrders') - before).toBeGreaterThanOrEqual(1);
+    scheduler.stop();
+  });
+
+  it('en reposo todas las tareas corren juntas: la base despierta una vez por intervalo', async () => {
+    const { scheduler, count, times } = start(30 * MINUTE);
+    await vi.advanceTimersByTimeAsync(31 * MINUTE);
+    const from = times.length;
+    await vi.advanceTimersByTimeAsync(120 * MINUTE);
+    const idleTimes = times.slice(from);
+    // Momentos distintos en que se tocó la base (tareas a menos de 1 s entre sí = una tanda).
+    const wakes = idleTimes.filter((t, i) => i === 0 || t - (idleTimes[i - 1] ?? 0) > 1000).length;
+    expect(wakes).toBeLessThanOrEqual(4); // 120 min / 30 min
+    expect(wakes).toBeGreaterThanOrEqual(3);
+    // Cada tanda incluye las tareas frecuentes; la limpieza (cada hora) va en tandas alternas.
+    expect(count('reconcilePayments')).toBeGreaterThanOrEqual(wakes);
+    expect(count('cleanup')).toBeGreaterThanOrEqual(2);
     scheduler.stop();
   });
 

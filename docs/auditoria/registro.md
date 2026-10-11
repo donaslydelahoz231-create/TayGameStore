@@ -342,3 +342,21 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   wa.me y correo debajo.
 - **Vigilancia nueva**: la prueba de producción abre la tienda real con un navegador y comprueba
   lo mismo en 360 y 1280 px, sin imprimir el número ni el correo.
+
+### 2026-10-11 · Ronda diaria: consumo de Neon disparado (corregido)
+
+- **Detectado**: `compute_time_seconds` pasó de 42 948 (00:52 UTC) a 52 793 (12:49 UTC): +9 845 s
+  en ~12 h (~5,5 CU-h/día, antes ~1,8). Tiempo activo ~87 %. Proyección al 1-nov ≈ 125 CU-h
+  (límite 100, umbral de alerta 80).
+- **Causa raíz**: desde que `mantener-activa.yml` mantiene Render despierto, el programador interno
+  corre siempre. En reposo cada una de las 6 tareas corría cada 30 min pero con su propio desfase:
+  hasta 6 despertares de la base cada media hora, y Neon tarda ~5 min en suspenderse. A eso se
+  sumaba `/api/ready` de la vigilancia cada 30 min.
+- **Corregido**: en reposo las tareas corren juntas en una tanda por intervalo (la limpieza, en
+  tandas alternas); prueba unitaria nueva (con el código anterior: 10 despertares en 2 h; ahora
+  ≤ 4). La vigilancia usa `/api/ready` una vez por hora y `/api/health` (sin base) en la otra media
+  hora. Evidencia local: lint, typecheck, formato, unitarias 184/184, integración 179/179, e2e 64/64.
+- **NO VERIFICADO** todavía el efecto en Neon: se medirá en la próxima ronda (esperado ≈ 1 CU-h/día).
+- **Resto de la ronda**: CI, CodeQL, prueba de producción (con navegador real) en verde; Render en
+  vivo con 94909442, sin logs de error/warn/fatal desde la ronda anterior; n8n sin ejecuciones
+  (bloqueado por su plan desde el 08-oct, pendiente del dueño).
