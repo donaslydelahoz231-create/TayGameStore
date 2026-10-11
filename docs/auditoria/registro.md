@@ -438,3 +438,9 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   login: «va a Google: sí · ID de cliente con formato válido: NO · regreso: sí». El recorte de los
   extremos no bastó; ahora se quitan también espacios o saltos internos y la prueba da pistas del
   formato del ID sin mostrarlo.
+- **19:12–19:18 UTC**: con el ID ya válido y la dirección de regreso corregida en Google Cloud
+  (le faltaba `/auth/google/callback`), Google acepta el inicio del login pero responde 401 al
+  canjear el código: el secreto cargado en Render no coincide con un secreto activo. Para
+  diagnosticar sin ver valores, el servidor registra ahora el código de error de Google
+  (`invalid_client`, `invalid_grant`…) y, al arrancar, la forma de las credenciales (ID válido,
+  prefijo del secreto y su largo), nunca los valores. Unitarias 189/189; integración de acceso 61/61.

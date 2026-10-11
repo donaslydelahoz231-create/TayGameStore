@@ -133,7 +133,16 @@ export class HttpGoogleClient implements GoogleClient {
       }),
       signal: AbortSignal.timeout(this.options.timeoutMs ?? 10_000),
     });
-    if (!response.ok) throw new OidcError(`token_endpoint_${response.status}`);
+    if (!response.ok) {
+      // El código de error de Google (p. ej. invalid_client, invalid_grant) no contiene datos
+      // secretos y dice qué corregir; la descripción libre no se registra.
+      const detail = (await response.json().catch(() => ({}))) as { error?: unknown };
+      const code =
+        typeof detail.error === 'string' && /^[a-z_]{1,40}$/.test(detail.error)
+          ? `_${detail.error}`
+          : '';
+      throw new OidcError(`token_endpoint_${response.status}${code}`);
+    }
     const body = (await response.json()) as { id_token?: unknown };
     if (typeof body.id_token !== 'string') throw new OidcError('no_id_token');
     return validateIdTokenClaims(body.id_token, {

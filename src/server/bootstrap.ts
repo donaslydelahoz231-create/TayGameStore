@@ -49,6 +49,18 @@ export async function buildServer(config: AppConfig): Promise<Server> {
   logRef.current = built.app.log;
   if (!database)
     built.app.log.warn('DATABASE_URL no configurada: /api/ready y la tienda responderán 503.');
+  if (config.google) {
+    // Forma de las credenciales de Google, sin sus valores: detecta un pegado incompleto.
+    const { clientId, clientSecret } = config.google;
+    built.app.log.info(
+      {
+        idValido: /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(clientId),
+        secretoGocspx: clientSecret.startsWith('GOCSPX-'),
+        largoSecreto: clientSecret.length,
+      },
+      'google oauth configurado',
+    );
+  }
   if (config.secrets.ephemeral) {
     built.app.log.warn(
       'Claves efímeras (ORDER_TOKEN_KEYS/MFA_ENCRYPTION_KEYS/IP_HASH_PEPPER): solo para desarrollo.',
