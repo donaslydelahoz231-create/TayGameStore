@@ -421,3 +421,41 @@ test('vista previa al compartir, íconos y robots.txt salen del build real', asy
     expect(res.headers()['content-type'], ruta).toContain(tipo);
   }
 });
+
+/** Hoja principal del build (con hash); el reintento añade ?r=… */
+const HOJA_PRINCIPAL = /\/assets\/main-[^/?]*\.css/;
+const sinCortesDeRed = (errors: string[]) =>
+  errors.filter((text) => !/net::ERR_FAILED|Failed to load resource/.test(text));
+
+test('si la red corta la hoja de estilos, se pide otra vez y la tienda queda con su diseño', async ({
+  page,
+}) => {
+  let pedidos = 0;
+  await page.route(HOJA_PRINCIPAL, (route) => (pedidos++ === 0 ? route.abort() : route.continue()));
+  await page.goto('/');
+  await expect.poll(() => pedidos).toBe(2);
+  await expect(page.locator('html')).not.toHaveClass(/css-respaldo/);
+  await expect(page.locator('#estilosCaidos')).toHaveCount(0);
+  const fondo = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+  );
+  expect(fondo).toBe('#050815');
+  await expect(page.locator('#enterStoreBtn')).toBeVisible();
+  consoleErrors = sinCortesDeRed(consoleErrors);
+});
+
+test('si la hoja de estilos nunca llega, se ve un aviso con la marca y el botón Recargar', async ({
+  page,
+}) => {
+  await page.route(HOJA_PRINCIPAL, (route) => route.abort());
+  await page.goto('/');
+  const aviso = page.locator('#estilosCaidos');
+  await expect(aviso).toBeVisible();
+  await expect(aviso.getByRole('button', { name: 'Recargar' })).toBeVisible();
+  await expect(aviso).toContainText('Tu conexión cortó la carga de la tienda');
+  // Nada de la página sin estilos (mascota gigante, textos sueltos) queda a la vista.
+  await expect(page.locator('#entryExperience')).toBeHidden();
+  const fondo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(fondo).toBe('rgb(5, 8, 21)');
+  consoleErrors = sinCortesDeRed(consoleErrors);
+});

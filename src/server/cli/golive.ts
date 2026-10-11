@@ -191,6 +191,7 @@ export async function checkRemote(
         checkoutEnabled?: boolean;
         paymentsEnabled?: boolean;
         paymentsMode?: string | null;
+        auth?: Record<string, boolean>;
       }
     | undefined;
   if (!config) {
@@ -209,6 +210,7 @@ export async function checkRemote(
               '"Modo prueba" y no se cobra dinero real',
           ),
     );
+    checks.push(loginCheck(config.auth));
   }
 
   const catalog = (await get('/api/catalog?game=freefire'))?.json as
@@ -235,6 +237,19 @@ export async function checkRemote(
     ),
   );
   return checks;
+}
+
+/** Métodos de acceso de clientes: invitado siempre; Google y Facebook si tienen credenciales. */
+const LOGIN_NAMES: Record<string, string> = { google: 'Google', facebook: 'Facebook' };
+export function loginCheck(auth: Record<string, boolean> | undefined): Check {
+  const active = Object.keys(LOGIN_NAMES).filter((p) => auth?.[p] === true);
+  const off = Object.keys(LOGIN_NAMES).filter((p) => !active.includes(p));
+  const names = (list: string[]) => list.map((p) => LOGIN_NAMES[p]).join(' y ');
+  if (!off.length) return ok(`Acceso de clientes: invitado, ${names(active)}`);
+  return warn(
+    `Acceso de clientes: invitado${active.length ? `, ${names(active)}` : ''}. ` +
+      `Sin credenciales en Render: ${names(off)} (guía: docs/deployment.md, sección 3)`,
+  );
 }
 
 const MARK: Record<Level, string> = { ok: 'OK    ', falta: 'FALTA ', aviso: 'AVISO ' };

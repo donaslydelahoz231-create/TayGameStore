@@ -404,3 +404,20 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Neon**: entre 12:49 y 16:26 UTC subió ~844 s/h, pero con 3 despliegues, pruebas con navegador
   y consultas manuales en ese intervalo: medición no representativa, **NO VERIFICADO** el ahorro.
 - **Evidencia local**: lint, typecheck, formato, unitarias 185/185, integración 179/179, e2e 64/64.
+
+### 2026-10-11 · Tienda sin estilos en el teléfono y métodos de acceso
+
+- **Pidió**: el dueño (captura de la tienda publicada sin diseño en un teléfono, «otra persona
+  le carga así»; logins disponibles con cada método).
+- **Investigado**: registros de Render del 4 al 11 de octubre: ningún error en `/assets/` (los
+  únicos 404 son `favicon.ico` de builds viejos y `/admin.html`, a propósito). El CSS se sirve con
+  `text/css`, `nosniff`, `vary: accept-encoding` y caché inmutable; el HTML con `no-cache`. La
+  prueba diaria con navegador real (360 y 1280 px) vio el diseño aplicado. Conclusión: la hoja se
+  corta en la red o el navegador del visitante; la causa exacta en ese teléfono **NO VERIFICADO**.
+- **Hecho**: guardia de estilos (reintento único de la hoja + aviso con marca y «Recargar»);
+  pruebas e2e del corte; la prueba de producción falla si el diseño no carga y lista los accesos;
+  `golive:check --url` avisa qué acceso no tiene credenciales.
+- **Acceso de clientes**: invitado siempre; Google y Facebook solo con sus credenciales en
+  Render (variables protegidas, nunca en el chat). Discord sigue retirado a pedido del dueño.
+- **Evidencia local**: lint, typecheck, formato, unitarias 186/186, e2e 66/66.
+

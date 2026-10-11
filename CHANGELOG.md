@@ -22,6 +22,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- **Tienda «en blanco» cuando la hoja de estilos no llega** (el dueño la vio así en un
+  teléfono: letra por defecto, fondo blanco y la mascota gigante). El servidor sí entrega el CSS
+  (registros de Render sin errores en `/assets/`); el corte ocurre en la red del visitante. Ahora
+  `main.js` comprueba al terminar la carga que el diseño se aplicó; si no, pide la hoja otra vez y,
+  mientras tanto, muestra un aviso con la marca y el botón «Recargar» en vez de la página sin
+  estilos. Dos pruebas e2e cortan la hoja (una vez y siempre). La prueba de producción con navegador
+  real comprueba también «diseño cargado» y lista los métodos de acceso activos;
+  `golive:check --url` informa qué accesos (Google, Facebook) faltan por credenciales.
 - Textos de la tienda sobre el ID: ya no prometen una verificación «del equipo» que en el modo
   actual no existe; dicen lo real (el cliente confirma su ID antes de pagar).
 - Las tareas internas arrancan en reposo: un despliegue ya no deja la base de datos despierta

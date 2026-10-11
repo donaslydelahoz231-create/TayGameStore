@@ -32,6 +32,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Si la hoja principal no llega (red móvil cortada), main.js la pide otra vez y marca
+       <html class="css-respaldo">: en vez de una página en blanco se ve un aviso con la marca. -->
+  <style>.css-respaldo body{margin:0;min-height:100vh;background:#050815;color:#eef2ff;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}.css-respaldo body>:not(#estilosCaidos){display:none!important}#estilosCaidos{display:none}.css-respaldo #estilosCaidos{display:grid;place-items:center;align-content:center;gap:14px;min-height:100vh;padding:24px 16px;text-align:center}#estilosCaidos b{font-size:1.25rem}#estilosCaidos button{font:inherit;font-weight:700;color:#fff;background:#8b3dff;border:0;border-radius:12px;padding:12px 20px;min-height:44px}</style>
 <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body class="entry-locked">

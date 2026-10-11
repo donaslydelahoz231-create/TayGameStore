@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkEnvironment, checkRemote, report } from '../../src/server/cli/golive.js';
+import { checkEnvironment, checkRemote, loginCheck, report } from '../../src/server/cli/golive.js';
 
 const key32 = `1:${Buffer.alloc(32, 7).toString('base64')}`;
 const PRODUCTION: Record<string, string> = {
@@ -161,5 +161,18 @@ describe('golive:check — tienda publicada', () => {
     expect(failures(await checkRemote('https://tienda.example.com', down))).toEqual([
       'https://tienda.example.com no responde',
     ]);
+  });
+});
+
+describe('golive:check — acceso de clientes', () => {
+  it('con Google y Facebook activos queda OK; sin credenciales avisa cuál falta', () => {
+    expect(loginCheck({ google: true, facebook: true })).toEqual({
+      level: 'ok',
+      label: 'Acceso de clientes: invitado, Google y Facebook',
+    });
+    const partial = loginCheck({ google: false, facebook: true });
+    expect(partial.level).toBe('aviso');
+    expect(partial.label).toContain('invitado, Facebook. Sin credenciales en Render: Google');
+    expect(loginCheck(undefined).label).toContain('Sin credenciales en Render: Google y Facebook');
   });
 });
