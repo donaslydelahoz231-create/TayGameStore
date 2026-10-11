@@ -469,3 +469,21 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Evidencia (20:03 UTC, «Diagnóstico diario»)**: `golive:check --url` → «Ventas abiertas y pagos
   activos», «Mercado Pago en producción: cobros reales», catálogo con 6 paquetes, panel oculto:
   **LISTO para vender**. Navegador real: diseño, burbujas y login con Google OK.
+
+### 2026-10-11 · Medio de pago directo y estado de la entrega de diamantes
+
+- **Pidió**: el dueño (pagar con tarjeta de Nequi, Davivienda, Daviplata, Bancolombia… «solo con
+  número y código de seguridad», como Pagostore o LootBar; confirmar que cada paquete llegue a la
+  cuenta del jugador).
+- **Hecho**: el medio elegido viaja en `POST /api/orders/:ref/pay` y la preferencia oculta los
+  demás tipos (tarjeta → sin efectivo ni PSE; PSE → solo débito bancario; Efecty → solo
+  efectivo; saldo → sin restricción). Respaldo: si Mercado Pago rechaza la restricción, se crea
+  la preferencia con todos los medios (otra clave de idempotencia); un error incierto no se
+  repite. Pruebas: unitarias 194/194, integración 180/180, e2e 66/66.
+- **Hechos sobre la entrega (Neon, solo conteos)**: 6 paquetes activos; **0 PIN** en inventario;
+  `PIN_AUTO_DELIVERY` apagado. La tienda no tiene API de Garena ni de un proveedor: cada pedido
+  pagado lo entrega el dueño desde el panel (recarga por ID en un canal oficial o PIN). Que los
+  diamantes lleguen a la cuenta del jugador **NO VERIFICADO**: solo se comprueba con una compra
+  real y su entrega.
+- **NO VERIFICADO**: que Daviplata aparezca en la lista de PSE de Mercado Pago (la lista la
+  muestra Mercado Pago, no la tienda).

@@ -418,6 +418,32 @@ describe('verificación manual del jugador', () => {
 });
 
 describe('pago con Mercado Pago (doble de pruebas)', () => {
+  it('pasa a Mercado Pago el medio elegido; un medio desconocido se ignora', async () => {
+    const card = await readyToPay();
+    const res = await inject({
+      method: 'POST',
+      url: `/api/orders/${card.order.reference}/pay`,
+      headers: CSRF,
+      cookies: card.cookies,
+      payload: { payMeans: 'tarjeta' },
+    });
+    expect(res.statusCode).toBe(200);
+    const [withMeans] = [...h.gateway.preferences.values()].slice(-1);
+    expect(withMeans?.input.payMeans).toBe('tarjeta');
+
+    const other = await readyToPay();
+    const res2 = await inject({
+      method: 'POST',
+      url: `/api/orders/${other.order.reference}/pay`,
+      headers: CSRF,
+      cookies: other.cookies,
+      payload: { payMeans: 'bitcoin' },
+    });
+    expect(res2.statusCode).toBe(200);
+    const [withoutMeans] = [...h.gateway.preferences.values()].slice(-1);
+    expect(withoutMeans?.input.payMeans).toBeUndefined();
+  });
+
   it('crea una sola preferencia por orden aunque se pulse varias veces', async () => {
     const ready = await readyToPay();
     const before = h.gateway.preferences.size;

@@ -19,6 +19,7 @@ import {
 import { startPayment, syncOrderFromReturn } from '../../services/payments.js';
 import { lookupPlayer, lookupSchema, ownerKeyOf } from '../../services/player.js';
 import type { PlayerVerifier } from '../../integrations/player/verifier.js';
+import { PAY_MEANS } from '../../integrations/payments/gateway.js';
 
 export interface ShopRoutesOptions {
   deps: ServiceDeps | undefined;
@@ -26,6 +27,7 @@ export interface ShopRoutesOptions {
 }
 
 const refParams = z.object({ ref: z.string().regex(/^TGS-[0-9A-Z]{10}$/) });
+const payBody = z.object({ payMeans: z.enum(PAY_MEANS).optional() });
 const ORDER_TOKEN_HEADER = 'x-order-token';
 
 function accessOf(request: FastifyRequest): OrderAccess {
@@ -158,8 +160,10 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
     async (request, reply) => {
       const deps = requireDeps(options.deps);
       const { ref } = refParams.parse(request.params);
+      // Opcional: el medio elegido en la tienda; un valor desconocido se ignora (todos los medios).
+      const payMeans = payBody.safeParse(request.body ?? {}).data?.payMeans;
       reply.header('cache-control', 'no-store');
-      return startPayment(deps, ref, accessOf(request), actorOf(request, 'customer'));
+      return startPayment(deps, ref, accessOf(request), actorOf(request, 'customer'), payMeans);
     },
   );
 

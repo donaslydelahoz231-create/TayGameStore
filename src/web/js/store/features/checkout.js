@@ -208,8 +208,11 @@ async function goToCheckout(order) {
   runtime.paymentBusy = true;
   renderAll();
   try {
+    // El medio elegido hace que Mercado Pago abra directo ese formulario (tarjeta, PSE…).
+    const payMeans = chosenPayMeans();
     const j = await api('/api/orders/' + encodeURIComponent(order.reference) + '/pay', {
       method: 'POST',
+      ...(payMeans ? { body: { payMeans } } : {}),
     });
     const url = new URL(j.checkoutUrl);
     // Solo https (Mercado Pago) o el propio origen (entorno de pruebas).

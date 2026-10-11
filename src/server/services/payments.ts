@@ -13,6 +13,7 @@ import {
 import {
   mapMercadoPagoStatus,
   PaymentProviderError,
+  type PayMeans,
   type ProviderPayment,
 } from '../integrations/payments/gateway.js';
 import { AppError } from '../plugins/errors.js';
@@ -47,6 +48,7 @@ export async function startPayment(
   publicRef: string,
   access: OrderAccess,
   actor: Actor,
+  payMeans?: PayMeans,
 ): Promise<{ checkoutUrl: string }> {
   const gateway = requireGateway(deps);
   const base = deps.config.publicBaseUrl;
@@ -110,6 +112,7 @@ export async function startPayment(
     session = await gateway.createCheckout(
       {
         orderRef: plan.order.publicRef,
+        payMeans,
         items: items.map((item) => ({
           id: item.sku,
           title: item.name,

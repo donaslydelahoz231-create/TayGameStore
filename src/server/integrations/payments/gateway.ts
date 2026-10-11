@@ -12,8 +12,33 @@ export interface CheckoutItem {
   unitPriceCop: number;
 }
 
+/** Medio que el cliente eligió en la tienda; Mercado Pago abre directo ese formulario. */
+export const PAY_MEANS = ['tarjeta', 'pse', 'efecty', 'saldo'] as const;
+export type PayMeans = (typeof PAY_MEANS)[number];
+
+/**
+ * Tipos de pago de Mercado Pago que se ocultan según el medio elegido (`payment_methods.
+ * excluded_payment_types`). Tarjeta: solo tarjetas (crédito, débito o prepago de cualquier banco:
+ * Bancolombia, Davivienda, Nequi…). PSE: solo débito bancario. Efecty: solo efectivo. Saldo de
+ * Mercado Pago: sin restricción (el saldo no es un tipo que se pueda dejar solo).
+ */
+export function excludedPaymentTypes(payMeans: PayMeans | undefined): string[] {
+  switch (payMeans) {
+    case 'tarjeta':
+      return ['ticket', 'atm', 'bank_transfer'];
+    case 'pse':
+      return ['credit_card', 'debit_card', 'prepaid_card', 'ticket', 'atm'];
+    case 'efecty':
+      return ['credit_card', 'debit_card', 'prepaid_card', 'bank_transfer', 'atm'];
+    default:
+      return [];
+  }
+}
+
 export interface CreateCheckoutInput {
   orderRef: string;
+  /** Opcional: abre Mercado Pago directo en el medio elegido. */
+  payMeans?: PayMeans | undefined;
   items: readonly CheckoutItem[];
   totalCop: number;
   expiresAt: Date;

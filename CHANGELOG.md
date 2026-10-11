@@ -7,6 +7,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Mercado Pago abre directo el medio elegido.** Si el cliente elige «Tarjeta», Mercado Pago
+  muestra de una vez el formulario de tarjeta (crédito o débito de cualquier banco: Bancolombia,
+  Davivienda, Nequi…: número, vencimiento, código de seguridad y cédula); «PSE» abre el débito
+  bancario y «Efecty» el efectivo (`payment_methods.excluded_payment_types`). Si Mercado Pago
+  rechazara la restricción, se abre con todos los medios y la venta no se pierde. La tienda sigue
+  sin ver ni guardar datos de tarjetas.
 - **Soporte por WhatsApp y correo activo**: los canales oficiales se configuraron en Render
   (`SUPPORT_WHATSAPP`, `SUPPORT_EMAIL`, nunca en el código). El mensaje que abren las burbujas se
   adapta: consulta antes de comprar, paquetes del carrito con el ID, o referencia del pedido con

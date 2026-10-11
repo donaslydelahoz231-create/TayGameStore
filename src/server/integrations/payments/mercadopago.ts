@@ -14,7 +14,7 @@ import type {
   ProviderPayment,
   WebhookInput,
 } from './gateway.js';
-import { PaymentProviderError } from './gateway.js';
+import { excludedPaymentTypes, PaymentProviderError } from './gateway.js';
 
 /**
  * Integración con Mercado Pago (Checkout Pro) mediante el SDK oficial `mercadopago`.
@@ -65,6 +65,26 @@ export class MercadoPagoPaymentGateway implements PaymentGateway {
     input: CreateCheckoutInput,
     idempotencyKey: string,
   ): Promise<CheckoutSession> {
+    const excluded = excludedPaymentTypes(input.payMeans);
+    if (excluded.length) {
+      try {
+        return await this.createPreference(input, idempotencyKey, excluded);
+      } catch (error) {
+        // Si Mercado Pago rechaza la restricción, se abre la página con todos los medios: el
+        // cliente elige allí y la venta no se pierde. Un error incierto no se repite (podría
+        // haberse creado); la clave distinta evita reutilizar la respuesta rechazada.
+        if (!(error instanceof PaymentProviderError) || error.uncertain) throw error;
+        return this.createPreference(input, `${idempotencyKey}:todos`, []);
+      }
+    }
+    return this.createPreference(input, idempotencyKey, []);
+  }
+
+  private async createPreference(
+    input: CreateCheckoutInput,
+    idempotencyKey: string,
+    excluded: readonly string[],
+  ): Promise<CheckoutSession> {
     let response;
     try {
       response = await this.preference.create({
@@ -89,6 +109,9 @@ export class MercadoPagoPaymentGateway implements PaymentGateway {
           expiration_date_to: input.expiresAt.toISOString(),
           ...(this.options.statementDescriptor
             ? { statement_descriptor: this.options.statementDescriptor }
+            : {}),
+          ...(excluded.length
+            ? { payment_methods: { excluded_payment_types: excluded.map((id) => ({ id })) } }
             : {}),
         },
         // Misma clave en cada reintento: Mercado Pago no crea una preferencia duplicada.
