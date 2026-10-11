@@ -42,7 +42,8 @@ async function fillCheckout(page: Page, uid: string) {
 
 async function createOrder(page: Page, uid: string): Promise<string> {
   await fillCheckout(page, uid);
-  await expect(page.locator('#payBtn')).toHaveText('Crear pedido');
+  // Un solo botón con el total, como en las tiendas de recargas.
+  await expect(page.locator('#payBtn')).toHaveText('Pagar $ 3.800 COP');
   await page.locator('#payBtn').click();
   await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
   return (await page.locator('#invoiceRef').textContent()) ?? '';
@@ -60,8 +61,9 @@ test.describe('entrada y acceso', () => {
     await enterAsGuest(page);
     await expect(page.locator('#products .product')).toHaveCount(6);
     await expect(page.locator('#catalogStatus')).toHaveText('Catálogo disponible');
-    // El servidor de pruebas usa MP_MODE=sandbox: la tienda lo anuncia.
-    await expect(page.locator('#serverState')).toContainText('Modo prueba · Mercado Pago sandbox');
+    // El servidor de pruebas no cobra dinero real: la tienda lo anuncia sin tecnicismos.
+    await expect(page.locator('#serverState')).toContainText('Modo prueba · sin cobros reales');
+    await expect(page.locator('body')).not.toContainText(/sandbox/i);
     // Cada paquete dice cómo llega y cuánto cuestan 100 diamantes con el precio vigente.
     await expect(page.locator('#products .product').first().locator('.product-meta')).toContainText(
       /Directo a tu ID.*c\/100/,
@@ -457,7 +459,7 @@ test.describe('compra completa (invitado)', () => {
     expect(await page.locator('#confirmPlayer').count()).toBe(0);
   });
 
-  test('UID → pedido → verificación → "Sí, es mi cuenta" → Confirmar y pagar → Mercado Pago → entrega', async ({
+  test('UID → pedido → verificación → "Sí, es mi cuenta" → Pagar → Mercado Pago → entrega', async ({
     page,
   }) => {
     await page.goto('/');
@@ -476,16 +478,10 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
     await expect(page.locator('#invoiceNick')).toHaveText('JugadorE2E');
 
-    // Confirmación explícita con resumen completo antes de pagar.
-    await page.locator('#payBtn').click();
-    await expect(page.locator('#paymentModal')).toBeVisible();
-    await expect(page.locator('#paymentPrep')).toContainText('1× 100 + 10 Diamantes');
-    await expect(page.locator('#paymentPrep')).toContainText('Pago con Mercado Pago');
-    // El servidor de pruebas declara MP_MODE=sandbox: se avisa de que no hay cobro real.
-    await expect(page.locator('#paymentPrep')).toContainText('MODO PRUEBA (sin cobro real)');
+    // Confirmado el jugador, "Pagar" lleva directo al cobro (sin ventanas intermedias).
+    await expect(page.locator('#payBtn')).toHaveText('Pagar con Mercado Pago');
     await expect(page.locator('#serverState')).toContainText('Modo prueba');
-    await expect(page.locator('#payAmount')).toHaveText('$ 3.800 COP');
-    await page.locator('#startPayment').click();
+    await page.locator('#payBtn').click();
 
     // Vuelve de "Mercado Pago": el servidor confirma el pago (webhook + consulta).
     await page.waitForURL(/\/#seguimiento$/);
@@ -546,20 +542,13 @@ test.describe('compra completa (invitado)', () => {
       await page.getByRole('radio', { name: /PSE/ }).check();
       await expect(page.locator('#invoiceMethod')).toHaveText('PSE');
       await page.locator('#acceptTerms').check();
+      // Un solo paso: "Pagar" crea el pedido y lleva directo a Mercado Pago, sin esperar al equipo.
+      await expect(page.locator('#payBtn')).toHaveText('Pagar $ 3.800 COP');
       await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/);
       await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
       const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
-      // Sin esperar al equipo: el pedido ya se puede pagar.
-      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
       await expect(page.locator('#invoiceRegion')).toHaveText('Brasil');
-
-      await page.locator('#payBtn').click();
-      await expect(page.locator('#paymentModal')).toBeVisible();
-      await expect(page.locator('#payMeansText')).toHaveText(
-        'PSE (débito bancario) · Mercado Pago',
-      );
-      await page.locator('#startPayment').click();
-      await page.waitForURL(/\/#seguimiento$/);
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
 
       expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
@@ -595,12 +584,8 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#customerEmail').fill('pin-e2e@example.com');
       await page.locator('#payMeansCard').check();
       await page.locator('#acceptTerms').check();
-      await page.locator('#payBtn').click();
-      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
       await expect(page.locator('#pinBox')).toBeHidden();
-
       await page.locator('#payBtn').click();
-      await page.locator('#startPayment').click();
       await page.waitForURL(/\/#seguimiento$/);
       // Sin que el dueño haga nada: entregado con el PIN del inventario.
       await expect(page.locator('#trackDelivery')).toContainText('PIN entregado');
@@ -636,7 +621,7 @@ test.describe('compra completa (invitado)', () => {
     await page.locator('#newInvoiceBtn').click();
     await expect(page.locator('#invoiceRef')).toHaveText('BORRADOR');
     await expect(page.locator('#playerUid')).toHaveValue('');
-    await expect(page.locator('#payBtn')).toHaveText('Crear pedido');
+    await expect(page.locator('#payBtn')).toHaveText('Pagar');
     await page.evaluate(() => document.getElementById('menuHistory')?.click());
     await expect(page.locator('#historyList .history-entry')).not.toHaveCount(0);
   });
@@ -667,11 +652,11 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#playerResult')).toContainText('Jugador5678 ✓');
     await expect(page.locator('#nickState')).toHaveText('Listo');
     await expect(page.locator('#invoiceNick')).toHaveText('Jugador5678');
+    // Sin esperar al operador: "Pagar" crea el pedido y lleva directo a Mercado Pago.
     await page.locator('#payBtn').click();
+    await page.waitForURL(/\/#seguimiento$/);
     await expect(page.locator('#invoiceRef')).toHaveText(/^TGS-[0-9A-Z]{10}$/);
-    // Sin esperar al operador: directo a "Confirmar y pagar".
-    await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
-    await expect(page.locator('#payBtn')).toHaveText(/Confirmar y pagar/);
+    await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
   });
 
   test('consulta instantánea: ID inexistente se informa y editar el UID anula la consulta', async ({
@@ -927,7 +912,6 @@ test.describe('panel de administración', () => {
     // Lo que hace "Pagar" depende del estado: esperar a que el servidor confirme al jugador.
     await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
     await page.locator('#payBtn').click();
-    await page.locator('#startPayment').click();
     await page.waitForURL(/\/#seguimiento$/);
     await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
 

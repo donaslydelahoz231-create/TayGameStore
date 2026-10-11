@@ -51,6 +51,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- **Pago en un solo paso**, como en la recarga oficial y en las tiendas de recargas: el botón
+  «Pagar $X» crea el pedido y lleva directo al cobro en Mercado Pago (si el ID ya está
+  confirmado). Fuera la ventana intermedia «Confirmar y pagar»; si el pago no se completa, el
+  pedido queda guardado y «Pagar con Mercado Pago» vuelve a abrir el cobro.
+- Los textos para clientes ya no usan la palabra «sandbox» (p. ej. «Modo prueba · sin cobros
+  reales»); con Mercado Pago en producción no aparece ningún aviso de prueba.
 - **Adiós a n8n**: la automatización pasa a piezas gratuitas (servidor + GitHub Actions + rutina
   diaria de Claude), ver `docs/automatizacion.md`. Nuevo flujo **Diagnóstico diario**
   (`diagnostico.yml`): verificador de producción y navegador real, con informe en el resumen.

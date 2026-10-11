@@ -17,9 +17,3 @@ export function chosenPayMeans() {
   const input = document.querySelector('input[name="payMeans"]:checked');
   return input && hasOwn(PAY_MEANS, input.value) ? input.value : null;
 }
-
-/** Texto para el resumen: «PSE (débito bancario) · Mercado Pago». */
-export function payMeansText() {
-  const means = chosenPayMeans();
-  return means ? `${PAY_MEANS[means]} · Mercado Pago` : 'Mercado Pago';
-}

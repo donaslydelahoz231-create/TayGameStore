@@ -36,7 +36,7 @@ export const invoiceTotal = () => (state.currentOrder ? state.currentOrder.total
 
 const BUTTON_TEXT = {
   AWAITING_VERIFICATION: 'Verificando jugador…',
-  AWAITING_PAYMENT: 'Confirmar y pagar',
+  AWAITING_PAYMENT: 'Pagar con Mercado Pago',
   PAID: 'Pago confirmado',
   DELIVERING: 'Recarga en proceso',
   DELIVERED: 'Recarga entregada',
@@ -48,6 +48,8 @@ function payButtonState() {
   const cfg = state.serverConfig;
   if (state.previewOnly)
     return { text: 'Requiere servidor', enabled: false, note: 'Vista previa visual' };
+  if (runtime.paymentBusy)
+    return { text: 'Abriendo Mercado Pago…', enabled: false, note: 'Te llevamos al pago seguro' };
   if (!order || ['REJECTED', 'EXPIRED', 'REFUNDED'].includes(order.status)) {
     const ready = cartItems().length > 0 && state.uidAccepted && chosenPayMeans() !== null;
     const blocked = !cfg
@@ -57,8 +59,10 @@ function payButtonState() {
         : !cfg.checkoutEnabled
           ? 'Compras pausadas temporalmente'
           : '';
+    // Un solo botón, como en las tiendas de recargas: crea el pedido y lleva al cobro.
+    const amount = cartItems().length ? ' ' + money(total()) : '';
     return {
-      text: 'Crear pedido',
+      text: runtime.orderBusy ? 'Creando pedido…' : 'Pagar' + amount,
       enabled: !blocked && !runtime.orderBusy,
       note:
         blocked || (ready ? 'Requisitos completos' : 'Completa jugador, datos y método de pago'),

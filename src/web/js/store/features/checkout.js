@@ -2,22 +2,22 @@ import { api, ApiError, errorMessage } from '../api.js';
 import { scrollToSection } from '../scroll.js';
 import { uuid } from '../compat.js';
 import { cartItems, total } from '../cart-model.js';
-import { $, setText } from '../dom.js';
-import { EMAIL_PATTERN, money, validUid } from '../format.js';
+import { $ } from '../dom.js';
+import { EMAIL_PATTERN, validUid } from '../format.js';
 import { renderAll } from '../render.js';
-import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
-import { modal, toast } from '../ui.js';
+import { toast } from '../ui.js';
 import { loadCatalog } from './catalog.js';
-import { chosenPayMeans, PAY_MEANS, payMeansText } from './pay-means.js';
+import { chosenPayMeans } from './pay-means.js';
 import { lookupExpired, verifyPlayer } from './player.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
 // Checkout con Mercado Pago (Checkout Pro):
-//   1. "Crear pedido": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
-//   2. El equipo verifica el jugador y el cliente confirma su cuenta.
-//   3. "Confirmar y pagar": resumen completo → el servidor crea la preferencia → redirección.
+//   1. "Pagar": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
+//   2. Si el cliente ya confirmó su ID, en el mismo paso el servidor crea la preferencia y se
+//      redirige a Mercado Pago (como en las tiendas de recargas: un solo botón).
+//   3. Con verificación del equipo, el cliente confirma su cuenta y "Pagar" lleva al cobro.
 // El navegador nunca decide que algo está pagado: lo confirma el servidor con Mercado Pago.
 
 function newCheckoutKey() {
@@ -116,8 +116,13 @@ async function createOrder() {
     resetCheckoutKey();
     setCurrentOrder(j.order);
     startPolling();
-    if (j.order.status === 'AWAITING_PAYMENT') {
-      toast('Pedido creado. Ya puedes pagar con Mercado Pago.', 'good');
+    if (j.order.status === 'AWAITING_PAYMENT' && j.order.payment?.canPay) {
+      // Como en las tiendas de recargas: un solo paso, del pedido directo al cobro.
+      toast('Pedido creado. Te llevamos a Mercado Pago para pagar…', 'good');
+      runtime.orderBusy = false;
+      await goToCheckout(j.order);
+    } else if (j.order.status === 'AWAITING_PAYMENT') {
+      toast('Pedido guardado. Los pagos no están disponibles ahora; inténtalo más tarde.', 'bad');
       scrollToSection('factura');
     } else {
       toast('Pedido creado. Estamos verificando el jugador.', 'good');
@@ -145,39 +150,6 @@ async function createOrder() {
     runtime.orderBusy = false;
     renderAll();
   }
-}
-
-function summaryText(order) {
-  const lines = order.items.map((i) => `${i.quantity}× ${i.name} (${money(i.unitPriceCop)} c/u)`);
-  const parts =
-    state.serverConfig?.paymentsMode === 'sandbox' ? ['MODO PRUEBA (sin cobro real)'] : [];
-  parts.push(...lines);
-  if (order.discountCop > 0) parts.push(`Descuento ${money(order.discountCop)}`);
-  parts.push(`Subtotal ${money(order.subtotalCop)}`, `Total ${money(order.totalCop)}`);
-  parts.push(
-    `Región ${order.verification.region || serverLabel(order.playerServer) || '—'}`,
-    chosenPayMeans()
-      ? `Pago con Mercado Pago (${PAY_MEANS[chosenPayMeans()]})`
-      : 'Pago con Mercado Pago',
-    `Términos aceptados (v${order.termsVersion})`,
-  );
-  return parts.join(' · ');
-}
-
-/** Pantalla final antes de pagar: todo viene de la orden del servidor. */
-function openConfirmation(order) {
-  setText('payClient', order.customerName);
-  setText('payUid', order.playerUid);
-  setText('payNick', order.verification.nickname || '—');
-  setText('payAmount', money(order.totalCop));
-  setText('payMeansText', payMeansText());
-  const prep = $('paymentPrep');
-  prep.className = 'payment-status ok';
-  prep.querySelector('span').textContent = summaryText(order);
-  $('paymentError').classList.remove('show');
-  $('startPayment').disabled = false;
-  setText('startPayment', 'Confirmar y pagar');
-  modal('paymentModal', true);
 }
 
 /**
@@ -224,19 +196,17 @@ export async function preparePayment() {
       toast('Los pagos no están disponibles en este momento. Tu pedido sigue guardado.', 'bad');
       return;
     }
-    openConfirmation(order);
+    await goToCheckout(order);
     return;
   }
   scrollToSection('seguimiento');
 }
 
-/** "Confirmar y pagar": el servidor crea (o reutiliza) la preferencia y se redirige. */
-export async function startPayment() {
-  const order = state.currentOrder;
+/** El servidor crea (o reutiliza) la preferencia de Mercado Pago y se redirige al cobro. */
+async function goToCheckout(order) {
   if (!order || runtime.paymentBusy) return;
   runtime.paymentBusy = true;
-  $('startPayment').disabled = true;
-  setText('startPayment', 'Abriendo Mercado Pago…');
+  renderAll();
   try {
     const j = await api('/api/orders/' + encodeURIComponent(order.reference) + '/pay', {
       method: 'POST',
@@ -248,14 +218,8 @@ export async function startPayment() {
     }
     location.assign(url.toString());
   } catch (err) {
-    setText(
-      'paymentError',
-      errorMessage(err, 'No se pudo abrir Mercado Pago. Tu pedido sigue guardado.'),
-    );
-    $('paymentError').classList.add('show');
-    $('startPayment').disabled = false;
-    setText('startPayment', 'Confirmar y pagar');
-  } finally {
+    toast(errorMessage(err, 'No se pudo abrir Mercado Pago. Tu pedido sigue guardado.'), 'bad');
     runtime.paymentBusy = false;
+    renderAll();
   }
 }

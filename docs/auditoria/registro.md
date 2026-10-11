@@ -376,3 +376,15 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Límite honesto**: GitHub Actions es gratis y sin límite de minutos en repositorios públicos,
   pero los horarios pueden retrasarse y se pausan tras 60 días sin actividad en el repositorio.
   Los avisos al celular de pedidos pagados necesitan Telegram (gratis), que configura el dueño.
+
+### 2026-10-11 · Cobro automático al crear el pedido (un solo paso)
+
+- **Pidió**: el dueño («que sea automático y que cobre al usuario al crear el pedido», «no
+  menciones sandbox»).
+- **Hecho**: «Pagar $X» crea el pedido y, si queda listo para pagar, pide la preferencia y
+  redirige a Mercado Pago en el mismo clic; se eliminó la ventana «Confirmar y pagar». Ningún
+  texto visible dice «sandbox». La tienda de prueba (artefacto) se republicó (versión 3).
+- **Sin cambios**: el servidor sigue siendo la única autoridad de pago; `PAYMENTS_ENABLED` y
+  `CHECKOUT_ENABLED` siguen apagados en producción hasta que el dueño cargue sus llaves.
+- **Evidencia local**: lint, typecheck, formato, unitarias 184/184, e2e 64/64 (incluye pedido →
+  cobro en un clic con y sin consulta de nickname), capturas visuales actualizadas.

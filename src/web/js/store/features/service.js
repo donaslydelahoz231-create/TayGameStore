@@ -16,7 +16,7 @@ export function renderService() {
     label =
       state.serverReachable === false ? 'Sin conexión con el servidor' : 'Comprobando servicio';
   else if (cfg.maintenanceMode) label = 'Mantenimiento · solo consulta';
-  else if (sandbox) label = 'Modo prueba · Mercado Pago sandbox';
+  else if (sandbox) label = 'Modo prueba · sin cobros reales';
   else if (live) label = 'Tienda operativa · Mercado Pago';
   else if (cfg.checkoutEnabled) label = 'Pedidos habilitados · pagos pendientes';
   else label = 'Compras pausadas temporalmente';
@@ -34,7 +34,7 @@ export function renderService() {
     state.previewOnly
       ? 'Modo visual · las acciones reales requieren servidor'
       : sandbox
-        ? 'Pagos de prueba con Mercado Pago sandbox: no se cobra dinero real'
+        ? 'Pagos de prueba: no se cobra dinero real'
         : live
           ? 'Catálogo, verificación y pagos con Mercado Pago'
           : label,

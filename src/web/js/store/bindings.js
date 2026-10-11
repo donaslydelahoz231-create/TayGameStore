@@ -10,12 +10,7 @@ import { closeAllModals, closeMenus, modal, toast } from './ui.js';
 import { logout, openAccountMenu, openAdminPanel } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
-import {
-  goToNextStep,
-  preparePayment,
-  resetCheckoutKey,
-  startPayment,
-} from './features/checkout.js';
+import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderPromo, weekendPromo } from './features/promo.js';
@@ -232,7 +227,6 @@ function bindInvoiceAndCheckout() {
   };
   $('payMeans').onchange = () => renderAll();
   $('payBtn').onclick = preparePayment;
-  $('startPayment').onclick = startPayment;
   $('refreshOrderBtn').onclick = refreshOrder;
   $('showPins').onclick = showPins;
   $('newInvoiceBtn').onclick = startNewInvoice;
