@@ -454,3 +454,18 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   activar ventas; Facebook opcional.
 - **Neon**: 59 272 s de cómputo (≈16,5 CU-h) en 5,1 días, proyección ≈81 CU-h al 1 de noviembre,
   inflada por un día de despliegues y pruebas; **NO VERIFICADO** el consumo en reposo.
+
+### 2026-10-11 · Ventas reales activadas (autorizado por el dueño)
+
+- **Autorización**: el dueño pidió «habilitar las ventas y disponibilidad de todo» y confirmó
+  «llaves de Mercado Pago cargadas» (cargó en Render el Access Token de producción y
+  `MP_WEBHOOK_SECRET`, sin pasarlos por el chat).
+- **Hecho**: en Render `MP_MODE=production`, `PAYMENTS_ENABLED=true`, `CHECKOUT_ENABLED=true`
+  (solo esas tres; ningún secreto leído ni escrito). Despliegue `dep-db5um37lot8c7388endg` en
+  vivo a las 20:02 UTC sin errores: la validación de arranque exige token, clave del webhook,
+  `PUBLIC_BASE_URL` y modo, y pasó.
+- **NO VERIFICADO desde aquí**: que el token sea de producción y no de prueba (las dos empiezan
+  igual); se confirma con la primera compra real pequeña y el webhook de Mercado Pago.
+- **Evidencia (20:03 UTC, «Diagnóstico diario»)**: `golive:check --url` → «Ventas abiertas y pagos
+  activos», «Mercado Pago en producción: cobros reales», catálogo con 6 paquetes, panel oculto:
+  **LISTO para vender**. Navegador real: diseño, burbujas y login con Google OK.
