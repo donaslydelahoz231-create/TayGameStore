@@ -71,6 +71,21 @@ try {
         .map(([name, ok]) => `${name}: ${ok ? 'sí' : 'NO'}`)
         .join(' · ')}`,
     );
+    if (!checks['ID de cliente con formato válido']) {
+      // Pistas para corregirlo en Render sin mostrar el valor.
+      const hints = {
+        'termina en .apps.googleusercontent.com': id.endsWith('.apps.googleusercontent.com'),
+        'empieza con números y guion': /^\d+-/.test(id),
+        'tiene espacios': /\s/.test(id),
+        'parece el secreto (GOCSPX-)': id.startsWith('GOCSPX-'),
+        'repite el sufijo': id.split('.apps.googleusercontent.com').length > 2,
+      };
+      console.log(
+        `Pistas del ID (${id.length} caracteres) · ${Object.entries(hints)
+          .map(([name, ok]) => `${name}: ${ok ? 'sí' : 'no'}`)
+          .join(' · ')}`,
+      );
+    }
     if (Object.values(checks).includes(false)) failures.push('login con Google');
   }
 } finally {

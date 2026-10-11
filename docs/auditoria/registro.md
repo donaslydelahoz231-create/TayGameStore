@@ -429,8 +429,12 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Fallo al probar**: Google respondió «The OAuth client was not found» (401 invalid_client):
   el ID de cliente que llega a Google no coincide con ningún cliente. Causa más probable: espacio o
   salto de línea pegado desde el celular (el servidor no lo recortaba). **NO VERIFICADO** cuál fue.
-- **Corregido**: el servidor recorta espacios y saltos de línea de las dos variables de Google
+- **Corregido**: el servidor quita espacios y saltos de línea (también en medio) de las dos variables de Google
   (prueba unitaria). Si persiste, el dueño revisa en Render que el ID termine en
   `.apps.googleusercontent.com` y que no esté intercambiado con el secreto.
 - **Evidencia local**: lint, typecheck, formato, unitarias 187/187.
 
+- **Evidencia en producción (18:39 UTC)**: la prueba con navegador real ya revisa el inicio del
+  login: «va a Google: sí · ID de cliente con formato válido: NO · regreso: sí». El recorte de los
+  extremos no bastó; ahora se quitan también espacios o saltos internos y la prueba da pistas del
+  formato del ID sin mostrarlo.

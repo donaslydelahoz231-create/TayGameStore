@@ -29,6 +29,12 @@ export interface Keyring {
   keys: ReadonlyMap<number, Buffer>;
 }
 
+/** Credencial sin espacios ni saltos de línea (en ningún lugar del valor). */
+const noSpaces = z
+  .string()
+  .transform((value) => value.replace(/\s+/g, ''))
+  .pipe(z.string().min(10));
+
 function keyringSchema(minBytes: number) {
   return z
     .string()
@@ -134,10 +140,11 @@ const envSchema = z
     SESSION_IDLE_MINUTES: minutes(60 * 24),
     ADMIN_SESSION_TTL_MINUTES: minutes(120, 60 * 12),
 
-    // trim: al pegar desde el celular suele colarse un espacio o salto de línea, y Google
-    // responde «The OAuth client was not found» (invalid_client).
-    GOOGLE_CLIENT_ID: z.string().trim().min(10).optional(),
-    GOOGLE_CLIENT_SECRET: z.string().trim().min(10).optional(),
+    // Ni el ID ni el secreto de Google llevan espacios: al pegar desde el celular suele colarse
+    // un espacio o salto de línea (también en medio) y Google responde «The OAuth client was not
+    // found» (invalid_client). Se quitan todos.
+    GOOGLE_CLIENT_ID: noSpaces.optional(),
+    GOOGLE_CLIENT_SECRET: noSpaces.optional(),
     /** Login de clientes con Facebook (https://developers.facebook.com/apps). */
     FACEBOOK_APP_ID: z
       .string()

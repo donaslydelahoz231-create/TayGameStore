@@ -169,9 +169,9 @@ describe('loadConfig', () => {
     expect(config.adminEmails).toEqual(['admin@example.com', 'otro@example.com']);
   });
 
-  it('quita espacios y saltos de línea pegados en las credenciales de Google', () => {
+  it('quita espacios y saltos de línea (también en medio) de las credenciales de Google', () => {
     const config = loadConfig({
-      GOOGLE_CLIENT_ID: ' 123-abc.apps.googleusercontent.com\n',
+      GOOGLE_CLIENT_ID: ' 123-abc.apps.googleuserco\nntent.com\n',
       GOOGLE_CLIENT_SECRET: 'secreto-de-google \n',
     });
     expect(config.google).toEqual({
