@@ -20,6 +20,7 @@ function fromServer(p) {
     normal: p.listPriceCop,
     promo: p.priceCop,
     price: p.priceCop,
+    scheduledPromo: Number.isInteger(p.promoPriceCop) ? p.promoPriceCop : null,
     providerAvailable: true,
   };
 }

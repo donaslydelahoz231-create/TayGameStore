@@ -19,6 +19,7 @@ import {
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderPromo, weekendPromo } from './features/promo.js';
+import { renderTariffBoard } from './features/tariffs.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
@@ -186,16 +187,14 @@ function bindCatalogAndCart() {
     renderFavorites();
     modal('favoritesModal', true);
   };
-  $('promoBtn').onclick = () => {
-    // Con promo de fin de semana, el radar muestra el horario; si no, selecciona la tarifa.
-    if (weekendPromo()) {
-      renderPromo();
-      modal('promoModal', true);
-      return;
-    }
-    selectPromoTariff();
-    toast('Tarifa promo seleccionada.');
+  // Radar promo: horario de la promo (si es de fin de semana) y tabla de tarifas reales.
+  const openPromo = () => {
+    renderPromo();
+    renderTariffBoard();
+    modal('promoModal', true);
   };
+  $('promoBtn').onclick = openPromo;
+  $('promoStrip').onclick = openPromo;
   $('activatePromo').onclick = () => {
     modal('promoModal', false);
     selectPromoTariff();

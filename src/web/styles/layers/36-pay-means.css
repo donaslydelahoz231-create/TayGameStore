@@ -132,3 +132,102 @@
   color: #b9c6f2;
   font-variant-numeric: tabular-nums;
 }
+
+/* Franja de promo sobre el catálogo (ahorro máximo real, calculado del servidor). */
+.promo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 181, 46, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 181, 46, 0.14),
+    rgba(139, 61, 255, 0.12) 60%,
+    transparent
+  );
+  color: var(--ink);
+  font-size: 0.78rem;
+  text-align: left;
+}
+.promo-strip[hidden] {
+  display: none;
+}
+.promo-strip b {
+  color: var(--gold);
+  font-family: var(--display);
+  letter-spacing: 0.02em;
+}
+.promo-strip em {
+  margin-left: auto;
+  color: var(--cyan);
+  font-style: normal;
+  font-weight: 700;
+}
+.promo-strip:hover {
+  border-color: var(--gold);
+}
+.promo-strip:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* Tabla de tarifas en «Radar promo»: normal, promo y ahorro real. */
+.tariff-board {
+  margin: 12px 0;
+  overflow-x: auto;
+}
+.tariff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.tariff-table caption {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  text-align: left;
+}
+.tariff-table th,
+.tariff-table td {
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.tariff-table th:first-child {
+  text-align: left;
+}
+.tariff-table thead th {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+.tariff-table tbody th {
+  font-weight: 700;
+}
+.tariff-table td {
+  color: var(--muted);
+}
+.tariff-table td.now {
+  color: var(--ink);
+  font-weight: 800;
+}
+.tariff-table td.promo.now {
+  color: var(--gold);
+}
+.tariff-table td.saving {
+  color: var(--green);
+  font-weight: 700;
+}
+.tariff-foot,
+.tariff-empty {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.6875rem;
+}

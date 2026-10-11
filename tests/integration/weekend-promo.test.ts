@@ -25,7 +25,13 @@ afterAll(async () => {
   await h?.close();
 });
 
-type Product = { sku: string; listPriceCop: number; priceCop: number; promoEndsAt: string | null };
+type Product = {
+  sku: string;
+  listPriceCop: number;
+  priceCop: number;
+  promoEndsAt: string | null;
+  promoPriceCop: number | null;
+};
 const catalog = async () =>
   (await h.app.inject({ method: 'GET', url: '/api/catalog?game=freefire' })).json<{
     products: Product[];
@@ -60,7 +66,13 @@ describe('promo de fin de semana', () => {
   it('entre semana se cobra el precio normal y se anuncia el próximo sábado', async () => {
     h.clock.now = new Date('2026-10-06T21:00:00Z'); // martes 4:00 p. m. en Colombia
     const product = (await catalog()).find((p) => p.sku === 'ff-110');
-    expect(product).toMatchObject({ listPriceCop: 4000, priceCop: 4000, promoEndsAt: null });
+    // Se cobra el normal, pero la tabla de tarifas ya puede anunciar el precio del sábado.
+    expect(product).toMatchObject({
+      listPriceCop: 4000,
+      priceCop: 4000,
+      promoEndsAt: null,
+      promoPriceCop: 3800,
+    });
     expect(await promo()).toEqual({
       schedule: 'weekends',
       timeZone: 'America/Bogota',

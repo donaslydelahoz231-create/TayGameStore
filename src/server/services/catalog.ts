@@ -16,6 +16,11 @@ export interface PublicProduct {
   listPriceCop: number;
   priceCop: number;
   promoEndsAt: string | null;
+  /**
+   * Precio de promoción configurado (rija hoy o en el próximo fin de semana), para que la tabla
+   * de tarifas muestre el ahorro real. null si no hay promoción vigente. Lo cobrado es `priceCop`.
+   */
+  promoPriceCop: number | null;
 }
 
 export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<PublicProduct[]> {
@@ -41,6 +46,12 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
       listPriceCop: row.priceCop,
       priceCop: price,
       promoEndsAt: price < row.priceCop && promoEndsAt ? promoEndsAt.toISOString() : null,
+      promoPriceCop:
+        row.promoPriceCop !== null &&
+        row.promoPriceCop < row.priceCop &&
+        (row.promoEndsAt === null || row.promoEndsAt.getTime() > now.getTime())
+          ? row.promoPriceCop
+          : null,
     };
   });
 }

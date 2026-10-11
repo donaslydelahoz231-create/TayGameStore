@@ -208,8 +208,17 @@ test.describe('catálogo y carrito', () => {
       });
       await page.goto('/');
       await enterAsGuest(page);
-      await page.locator('#promoBtn').click();
+      // La franja anuncia el mayor ahorro real (normal − promo) y abre la tabla de tarifas.
+      await expect(page.locator('#promoStrip')).toContainText(
+        active ? 'Promo activa hoy' : 'Promo sáb. y dom.',
+      );
+      await page.locator('#promoStrip').click();
       await expect(page.locator('#promoModal')).toBeVisible();
+      const rows = page.locator('#tariffBoard tbody tr');
+      await expect(rows).toHaveCount(6);
+      // Ahorro real: $4.000 − $3.800 = $200 (nunca un «antes» inflado).
+      await expect(rows.first()).toContainText('100 + 10');
+      await expect(rows.first().locator('td')).toHaveText(['$4.000', '$3.800', '$200']);
       await expect(page.locator('#promoBadge')).toHaveText(active ? 'LIVE' : 'PRÓXIMA');
       await expect(page.locator('#promoStatus')).toContainText(
         active ? 'Termina el dom' : 'Empieza el sáb',

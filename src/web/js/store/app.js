@@ -17,6 +17,7 @@ import { renderPins } from './features/pins.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
+import { renderPromoStrip } from './features/tariffs.js';
 import { renderChecks } from './features/tracking.js';
 
 const CLOCK_REFRESH_MS = 1000;
@@ -27,6 +28,7 @@ registerRenderers([
   renderService,
   renderGames,
   renderProducts,
+  renderPromoStrip,
   renderSmartCart,
   renderDrawer,
   renderInvoice,

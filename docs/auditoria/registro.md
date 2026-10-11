@@ -292,3 +292,17 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Hecho**: ayuda «¿Dónde encuentro mi ID?», valor por cada 100 diamantes en cada paquete,
   texto inicial honesto del ID. Evidencia local: lint, formato, unitarias 180/180, e2e 64/64 y
   capturas visuales revisadas.
+
+### 2026-10-11 · Tabla de tarifas a partir de las piezas del dueño
+
+- **Pidió**: el dueño (tomar como referencia sus dos piezas de «ID RECARGA» con precio normal y
+  promo, y hacerlo propio de TayGameStore).
+- **Comprobado**: los 6 precios normales y los 6 promo de las piezas coinciden con la base de
+  datos de producción.
+- **Detalles que NO se trasladaron a la tienda** (por veracidad): en la pieza de promoción los
+  «ANTES» ($4.200…$182.400) y «AHORRAS HASTA» ($400…$44.400) no coinciden con el precio normal real
+  ($4.000…$150.000); el ahorro real es $200…$12.000. Tampoco se publican «entrega 3–5 minutos»,
+  «inmediata», «24/7», «100 % seguro» ni «sin comisiones» sin que el dueño confirme que los
+  cumple, ni el logo o personajes de Free Fire (marca de Garena), ni el nombre «ID RECARGA».
+- **Evidencia local**: lint, typecheck, formato, unitarias 180/180, integración 179/179, e2e 64/64
+  (tabla con ahorro real) y capturas revisadas en 360 px.

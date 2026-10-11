@@ -7,6 +7,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Tabla de tarifas propia** en «Radar promo»: precio normal, precio promo y ahorro real de
+  cada paquete ($200 a $12.000), y una franja sobre el catálogo con el mayor ahorro. Todo sale de
+  los precios del servidor: `/api/catalog` publica ahora `promoPriceCop` (la promo configurada
+  aunque hoy no rija), pero lo cobrado sigue siendo `priceCop`.
 - Inspirado en la recarga oficial y en tiendas como LootBar (sin copiarlas): ayuda «¿Dónde
   encuentro mi ID?» junto al campo del ID, y en cada paquete «Directo a tu ID» con el precio
   aproximado por cada 100 diamantes, calculado del precio vigente del servidor.
