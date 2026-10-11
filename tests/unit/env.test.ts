@@ -169,6 +169,17 @@ describe('loadConfig', () => {
     expect(config.adminEmails).toEqual(['admin@example.com', 'otro@example.com']);
   });
 
+  it('quita espacios y saltos de línea pegados en las credenciales de Google', () => {
+    const config = loadConfig({
+      GOOGLE_CLIENT_ID: ' 123-abc.apps.googleusercontent.com\n',
+      GOOGLE_CLIENT_SECRET: 'secreto-de-google \n',
+    });
+    expect(config.google).toEqual({
+      clientId: '123-abc.apps.googleusercontent.com',
+      clientSecret: 'secreto-de-google',
+    });
+  });
+
   describe('producción', () => {
     it('acepta una configuración mínima válida', () => {
       const config = loadConfig(PRODUCTION_BASE);

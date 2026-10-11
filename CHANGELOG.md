@@ -22,6 +22,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- **Acceso con Google**: las credenciales `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` se recortan
+  (espacios o saltos de línea pegados desde el celular hacían que Google respondiera «The OAuth
+  client was not found»).
 - **Tienda «en blanco» cuando la hoja de estilos no llega** (el dueño la vio así en un
   teléfono: letra por defecto, fondo blanco y la mascota gigante). El servidor sí entrega el CSS
   (registros de Render sin errores en `/assets/`); el corte ocurre en la red del visitante. Ahora

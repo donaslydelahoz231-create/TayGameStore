@@ -134,8 +134,10 @@ const envSchema = z
     SESSION_IDLE_MINUTES: minutes(60 * 24),
     ADMIN_SESSION_TTL_MINUTES: minutes(120, 60 * 12),
 
-    GOOGLE_CLIENT_ID: z.string().min(10).optional(),
-    GOOGLE_CLIENT_SECRET: z.string().min(10).optional(),
+    // trim: al pegar desde el celular suele colarse un espacio o salto de línea, y Google
+    // responde «The OAuth client was not found» (invalid_client).
+    GOOGLE_CLIENT_ID: z.string().trim().min(10).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().trim().min(10).optional(),
     /** Login de clientes con Facebook (https://developers.facebook.com/apps). */
     FACEBOOK_APP_ID: z
       .string()

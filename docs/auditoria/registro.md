@@ -421,3 +421,16 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   Render (variables protegidas, nunca en el chat). Discord sigue retirado a pedido del dueño.
 - **Evidencia local**: lint, typecheck, formato, unitarias 186/186, e2e 66/66.
 
+### 2026-10-11 · Acceso con Google: credenciales cargadas y limpieza de espacios
+
+- **Hecho por el dueño**: creó el cliente OAuth y cargó `GOOGLE_CLIENT_ID` y
+  `GOOGLE_CLIENT_SECRET` en Render (sin pasarlos por el chat). Despliegue manual en vivo sin
+  errores; la prueba con navegador real informa «google: activo».
+- **Fallo al probar**: Google respondió «The OAuth client was not found» (401 invalid_client):
+  el ID de cliente que llega a Google no coincide con ningún cliente. Causa más probable: espacio o
+  salto de línea pegado desde el celular (el servidor no lo recortaba). **NO VERIFICADO** cuál fue.
+- **Corregido**: el servidor recorta espacios y saltos de línea de las dos variables de Google
+  (prueba unitaria). Si persiste, el dueño revisa en Render que el ID termine en
+  `.apps.googleusercontent.com` y que no esté intercambiado con el secreto.
+- **Evidencia local**: lint, typecheck, formato, unitarias 187/187.
+
