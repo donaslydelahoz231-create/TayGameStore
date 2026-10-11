@@ -487,3 +487,13 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   real y su entrega.
 - **NO VERIFICADO**: que Daviplata aparezca en la lista de PSE de Mercado Pago (la lista la
   muestra Mercado Pago, no la tienda).
+
+### 2026-10-11 · Entrega automática de PIN activada (pedido del dueño)
+
+- **Pidió**: «todo automatizado, sin manual».
+- **Hecho**: `PIN_AUTO_DELIVERY=true` en Render (despliegue `dep-db5v5c942hec73aapps0`). Con PIN en
+  **Panel → Inventario**, cada pago aprobado entrega solo el PIN al pedido y al correo del cliente,
+  que lo canjea en pagostore.com a su ID. Hoy hay **0 PIN**: los pedidos pagados siguen esperando
+  entrega en el panel hasta que el dueño cargue PIN.
+- **Límite real**: sin contrato con un proveedor con API (o Garena) nadie puede acreditar diamantes
+  directo al ID de forma automática; ver `docs/procedimiento-diamantes.md`.
