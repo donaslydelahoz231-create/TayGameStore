@@ -62,6 +62,12 @@ services:
       # true: solo se vende un paquete con PIN libre; los demás salen «Agotado» (sin entregas a mano).
       - key: SELL_ONLY_WITH_STOCK
         value: 'false'
+      # Ganancia garantizada con el costo de UniPin (docs/estrategia-promociones.md): comisión del
+      # pago (verifícala en tu panel de Mercado Pago) y ganancia mínima, en %.
+      - key: PAYMENT_FEE_PCT
+        value: '4'
+      - key: MIN_MARGIN_PCT
+        value: '5'
       # true: nadie cambia precios ni paquetes desde el panel (docs/seguridad-tienda.md, punto 3).
       - key: CATALOG_LOCKED
         value: 'true'

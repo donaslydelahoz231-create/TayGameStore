@@ -200,7 +200,13 @@ describe('configuración', () => {
     expect(loadConfig(base).topup).toMatchObject({
       env: 'staging',
       baseUrl: 'https://dev-api.unipin.com/',
-      catalog: { latam: { game: 'FF', uidField: 'userid', skus: { 'ff-110': 'D110' } } },
+      catalog: {
+        latam: {
+          game: 'FF',
+          uidField: 'userid',
+          skus: { 'ff-110': { denomination: 'D110', costCop: null } },
+        },
+      },
     });
     expect(loadConfig({ ...base, UNIPIN_ENV: 'production' }).topup?.baseUrl).toBe(
       'https://api.unipin.com/',

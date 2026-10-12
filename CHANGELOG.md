@@ -7,6 +7,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Ganancia garantizada con el costo del proveedor** (`docs/estrategia-promociones.md`):
+  - `UNIPIN_CATALOG` acepta el costo de cada paquete (`costCop`);
+  - con la comisión del pago (`PAYMENT_FEE_PCT`, 4 %) y la ganancia mínima (`MIN_MARGIN_PCT`,
+    5 %), la tienda calcula un piso por paquete;
+  - ninguna promo baja de ese piso: se sube sola, o desaparece si el piso alcanza el precio
+    normal;
+  - un paquete cuyo precio normal no llega al piso no se vende por UniPin;
+  - catálogo, checkout y entrega usan el mismo cálculo;
+  - Panel → Catálogo → **Rentabilidad**: costo máximo (precio normal y promo), costo de UniPin,
+    ganancia por venta y estado de cada paquete;
+  - estrategia de promociones documentada (fin de semana escalonado, quincenas, eventos de Free
+    Fire, temporada).
+
 - **Protección contra borrar la tienda, alterar precios y falsificar comprobantes**
   (`docs/seguridad-tienda.md`):
   - **Comprobantes verificables**: cada pago aprobado recibe un número consecutivo y un código

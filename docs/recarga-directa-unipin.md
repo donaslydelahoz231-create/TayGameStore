@@ -74,12 +74,18 @@ de su catálogo («Game List» y «Game Details»).
   `UNIPIN_PARTNER_ID`, `UNIPIN_SECRET_KEY` y `UNIPIN_CATALOG`.
 - **Para la tienda**: en Render → Environment, las mismas tres, más `UNIPIN_ENV=production`.
 
-`UNIPIN_CATALOG` dice qué paquete de la tienda corresponde a qué denominación, por servidor:
+`UNIPIN_CATALOG` dice qué paquete de la tienda corresponde a qué denominación y **cuánto te
+cobra UniPin** por él (`costCop`, en pesos), por servidor:
 
 ```json
-{"latam":{"game":"<game_code>","skus":{"ff-110":"<id>","ff-341":"<id>","ff-572":"<id>",
-"ff-1166":"<id>","ff-2398":"<id>","ff-6160":"<id>"}}}
+{"latam":{"game":"<game_code>","skus":{
+  "ff-110":{"denomination":"<id>","costCop":3500},
+  "ff-341":{"denomination":"<id>","costCop":9000}}}}
 ```
+
+Con el costo, la tienda garantiza ganancia: ninguna promo baja del piso y un paquete que no deja
+ganancia no se vende por UniPin (`docs/estrategia-promociones.md`). Sin `costCop` también
+funciona, pero la ganancia de ese paquete no está garantizada.
 
 Los servidores válidos son `latam`, `brasil`, `norteamerica`, `europa`, `oriente_medio`, `india`
 y `asia`. Si UniPin pide el ID con otro nombre, agrega `"uidField":"<nombre>"` al servidor.
@@ -96,14 +102,16 @@ En Actions → **Comprobar UniPin** → Run workflow:
 
 Si algo sale **FALLA**, el mensaje dice qué ajustar.
 
-### 4. Ajustar precios (tú decides)
+### 4. Revisar la ganancia (Panel → Catálogo → Rentabilidad)
 
-Tus precios deben cubrir el costo de UniPin y la comisión de Mercado Pago:
+Tus precios se quedan como están. La tabla muestra, por paquete:
 
-**precio = (costo UniPin + tu ganancia) ÷ (1 − comisión de Mercado Pago)**
+- el **costo máximo** que puedes pagarle a UniPin;
+- el costo real, una vez cargado;
+- la ganancia por venta;
+- si la promo se ajustó o el paquete no deja ganancia.
 
-Con el costo real que te dé UniPin, se arma la tabla por paquete. Ningún precio cambia sin tu
-autorización.
+Ningún precio cambia sin tu autorización.
 
 ### 5. Activar (con tu autorización)
 

@@ -728,7 +728,44 @@ async function loadProducts() {
       tr.querySelector('button').onclick = () => fillProduct(p);
       body.appendChild(tr);
     }
+    await loadMargins();
   });
+}
+
+// ── Rentabilidad: costo máximo, piso y ganancia por paquete ──
+
+const MARGIN_STATUS = {
+  sin_costo: ['Falta el costo de UniPin', ''],
+  rentable: ['Deja ganancia', 'adm-ok'],
+  promo_ajustada: ['Promo subida al piso', 'adm-ok'],
+  no_rentable: ['No deja ganancia: no se vende por UniPin', 'adm-bad'],
+};
+
+async function loadMargins() {
+  const j = await call('/api/admin/margins');
+  $('admMarginPolicy').textContent =
+    `Comisión del pago ${j.policy.feePct} % · ganancia mínima ${j.policy.minMarginPct} % sobre el costo. ` +
+    '«Costo máximo» es lo más que puedes pagarle a UniPin por ese paquete sin perder. ' +
+    (j.providerActive
+      ? 'Con el costo de UniPin, la tienda nunca vende por debajo del piso: sube la promo o no vende por UniPin.'
+      : 'UniPin aún no está activo: compara su lista de precios de socio con «Costo máximo».');
+  $('admMargins').innerHTML = j.products
+    .map((p) => {
+      const [label, cls] = MARGIN_STATUS[p.status] || [p.status, ''];
+      const promo =
+        p.promoPriceCop === null
+          ? '—'
+          : p.promoEffectiveCop === p.promoPriceCop
+            ? money(p.promoPriceCop)
+            : `${money(p.promoPriceCop)} → ${p.promoEffectiveCop === null ? 'sin promo' : money(p.promoEffectiveCop)}`;
+      const gain =
+        p.profitListCop === null
+          ? '—'
+          : money(p.profitListCop) +
+            (p.profitPromoCop === null ? '' : ` / promo ${money(p.profitPromoCop)}`);
+      return `<tr><td>${esc(p.name)}</td><td>${money(p.listPriceCop)}</td><td>${promo}</td><td>${money(p.maxCostListCop)}${p.maxCostPromoCop === null ? '' : ' / ' + money(p.maxCostPromoCop)}</td><td>${p.costCop === null ? '—' : money(p.costCop)}</td><td>${gain}</td><td class="${cls}">${label}</td></tr>`;
+    })
+    .join('');
 }
 
 $('pReset').onclick = () => fillProduct(null);

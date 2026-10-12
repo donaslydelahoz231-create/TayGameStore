@@ -91,13 +91,21 @@ const legalText = (max: number) =>
  * Catálogo del proveedor de recarga directa: por servidor de Free Fire, el código de juego del
  * proveedor y el código de denominación de cada paquete de la tienda. Los códigos los da el
  * proveedor (en UniPin, «Game List» y «Game Details»); no son secretos.
- * Ejemplo: {"latam":{"game":"<game_code>","skus":{"ff-110":"<denomination_id>"}}}
+ * Ejemplo: {"latam":{"game":"<game_code>","skus":{"ff-110":{"denomination":"<id>","costCop":3500}}}}
+ * `costCop` es lo que el proveedor te cobra por ese paquete (precio de socio, en pesos): con él la
+ * tienda garantiza ganancia (MIN_MARGIN_PCT). Se acepta también solo el código ("ff-110":"<id>"),
+ * pero entonces la ganancia de ese paquete no está garantizada.
  */
+export interface TopupSku {
+  denomination: string;
+  /** Costo del paquete con el proveedor (COP). null: desconocido. */
+  costCop: number | null;
+}
 export interface TopupRegion {
   game: string;
   /** Nombre del campo del ID de jugador en el proveedor (UniPin, Free Fire: `userid`). */
   uidField: string;
-  skus: Readonly<Record<string, string>>;
+  skus: Readonly<Record<string, TopupSku>>;
 }
 export type TopupCatalog = Partial<Record<Exclude<FreeFireServer, 'no_seguro'>, TopupRegion>>;
 
@@ -108,7 +116,16 @@ const topupRegionSchema = z.strictObject({
     .string()
     .regex(/^[a-z_]{1,40}$/)
     .default('userid'),
-  skus: z.record(z.string().regex(/^[a-z0-9-]{2,40}$/, 'SKU de la tienda'), providerCode),
+  skus: z.record(
+    z.string().regex(/^[a-z0-9-]{2,40}$/, 'SKU de la tienda'),
+    z.union([
+      providerCode.transform((denomination): TopupSku => ({ denomination, costCop: null })),
+      z.strictObject({
+        denomination: providerCode,
+        costCop: z.number().int().positive().max(1_000_000),
+      }),
+    ]),
+  ),
 });
 const regionKeys = FREE_FIRE_SERVERS.filter((server) => server !== 'no_seguro');
 const topupCatalogSchema = z
@@ -263,6 +280,14 @@ const envSchema = z
      * «Agotado»). Con PIN_AUTO_DELIVERY, ningún pago queda esperando una entrega manual.
      */
     SELL_ONLY_WITH_STOCK: z.stringbool().default(false),
+    /**
+     * Política de ganancia: comisión del medio de pago (Mercado Pago, % del precio; verifica la
+     * tuya en tu panel de Mercado Pago) y ganancia mínima sobre el costo del proveedor. Con el costo
+     * de cada paquete en UNIPIN_CATALOG, ninguna promoción baja de ese piso y un paquete que no deja
+     * ganancia no se vende por el proveedor.
+     */
+    PAYMENT_FEE_PCT: z.coerce.number().min(0).max(20).default(4),
+    MIN_MARGIN_PCT: z.coerce.number().min(0).max(100).default(5),
     /**
      * true: el catálogo (precios, promociones, paquetes) no se puede cambiar desde el panel, ni
      * siquiera con una sesión de administrador robada. Para cambiar precios, el dueño lo pone en
@@ -463,6 +488,8 @@ export interface AppConfig {
   fulfillmentMode: 'manual';
   /** Catálogo bloqueado: el panel no puede crear ni cambiar paquetes ni precios. */
   catalogLocked: boolean;
+  /** Ganancia garantizada: comisión del pago y margen mínimo sobre el costo del proveedor (%). */
+  margin: { feePct: number; minMarginPct: number };
   secrets: {
     orderTokenKeys: Keyring;
     mfaKeys: Keyring;
@@ -616,6 +643,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     fulfillmentMode: env.FULFILLMENT_MODE,
     catalogLocked: env.CATALOG_LOCKED,
+    margin: { feePct: env.PAYMENT_FEE_PCT, minMarginPct: env.MIN_MARGIN_PCT },
     secrets: {
       // Fuera de producción se generan claves efímeras: los tokens dejan de valer al reiniciar.
       orderTokenKeys: env.ORDER_TOKEN_KEYS ?? ephemeralKeyring(),

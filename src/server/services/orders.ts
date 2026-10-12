@@ -28,7 +28,7 @@ import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './c
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
-import { providerCovers, providerSkus } from './topup-coverage.js';
+import { providerCovers, providerSkus, withPromoFloor } from './topup-coverage.js';
 import { receiptVerificationCode } from './receipts.js';
 
 export type OrderRow = typeof orders.$inferSelect;
@@ -451,7 +451,12 @@ export async function createOrder(
           )
         : null;
       // La recarga directa (UniPin) cubre todo el pedido en el servidor elegido: no hace falta PIN.
-      const viaProvider = providerCovers(deps, input.playerServer ?? null, skus);
+      const viaProvider = providerCovers(
+        deps,
+        input.playerServer ?? null,
+        skus,
+        new Map(rows.map((row) => [row.sku, row.priceCop])),
+      );
       const lines = input.items.map((item) => {
         const product = bySku.get(item.sku);
         if (!product?.active) {
@@ -470,7 +475,12 @@ export async function createOrder(
               : 'Ese paquete está agotado por ahora. Elige otro o vuelve más tarde.',
           );
         }
-        const unitPriceCop = effectivePrice(product, now, deps.config.promoSchedule);
+        // Mismo precio que muestra el catálogo: la promo no baja del piso de ganancia.
+        const unitPriceCop = effectivePrice(
+          withPromoFloor(deps, product),
+          now,
+          deps.config.promoSchedule,
+        );
         return { product, quantity: item.quantity, unitPriceCop, listPriceCop: product.priceCop };
       });
       const totals = computeTotals(lines);

@@ -32,6 +32,8 @@ const APPROVED_ADMIN_ROUTES = [
   'GET /api/admin/integrity',
   // Inventario de PIN de recargas (aprobado por el dueño el 2026-10-06).
   'GET /api/admin/inventory',
+  // Rentabilidad por paquete: solo lectura (costo máximo, piso, ganancia).
+  'GET /api/admin/margins',
   'GET /api/admin/orders',
   'GET /api/admin/orders/:id',
   'GET /api/admin/products',

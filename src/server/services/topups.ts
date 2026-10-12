@@ -49,18 +49,12 @@ export async function routeToProvider(
 ): Promise<boolean> {
   if (!deps.config.topup || !deps.config.flags.fulfillmentEnabled) return false;
   const items = await tx
-    .select({ sku: orderItems.sku })
+    .select({ sku: orderItems.sku, unitPriceCop: orderItems.unitPriceCop })
     .from(orderItems)
     .where(eq(orderItems.orderId, order.id));
-  if (
-    !providerCovers(
-      deps,
-      order.playerServer,
-      items.map((item) => item.sku),
-    )
-  ) {
-    return false;
-  }
+  // Solo si el precio cobrado cubre el piso de ganancia; si no, entrega manual (nunca a pérdida).
+  const paid = new Map(items.map((item) => [item.sku, item.unitPriceCop]));
+  if (!providerCovers(deps, order.playerServer, [...paid.keys()], paid)) return false;
   const routed = await tx
     .update(fulfillments)
     .set({ mode: 'provider', updatedAt: sql`now()` })
@@ -215,7 +209,7 @@ async function startDelivery(deps: ServiceDeps, orderId: string): Promise<boolea
           provider: config.provider,
           referenceNo: `${order.publicRef}-${position + 1}${unit}-${attempt}`,
           gameCode: region.game,
-          denominationId: region.skus[item.sku] ?? '',
+          denominationId: region.skus[item.sku]?.denomination ?? '',
           nextCheckAt: now,
         });
       }

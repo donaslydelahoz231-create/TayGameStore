@@ -192,10 +192,22 @@ describe('golive:check — entrega', () => {
     UNIPIN_CATALOG: '{"latam":{"game":"FF","skus":{"ff-110":"D110"}}}',
   };
 
-  it('con UniPin: OK, servidores cubiertos y recordatorio de unipin:check', () => {
-    expect(deliveryCheck(loadConfig(topup))).toEqual({
+  it('con UniPin y costos: OK, servidores cubiertos y recordatorio de unipin:check', () => {
+    const withCost = {
+      ...topup,
+      UNIPIN_CATALOG:
+        '{"latam":{"game":"FF","skus":{"ff-110":{"denomination":"D110","costCop":3500}}}}',
+    };
+    expect(deliveryCheck(loadConfig(withCost))).toEqual({
       level: 'ok',
       label: 'Recarga directa UniPin (staging) en: latam. Antes de vender: npm run unipin:check',
+    });
+  });
+
+  it('con UniPin sin costo de un paquete: aviso, la ganancia no está garantizada', () => {
+    expect(deliveryCheck(loadConfig(topup))).toMatchObject({
+      level: 'aviso',
+      label: expect.stringContaining('ganancia no garantizada): ff-110') as string,
     });
   });
 

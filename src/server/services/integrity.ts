@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { and, asc, between, desc, eq, gt, lt, sql } from 'drizzle-orm';
+import { and, asc, between, desc, gt, lt, sql } from 'drizzle-orm';
 import { catalogFingerprint, formatFingerprint } from '../domain/catalog-fingerprint.js';
-import { auditEvents, auditSeals, products } from '../db/schema.js';
+import { auditEvents, auditSeals } from '../db/schema.js';
+import { listCatalog } from './catalog.js';
 import type { ServiceDeps } from './context.js';
 import { lastReceiptNumber } from './receipts.js';
 
@@ -142,19 +143,10 @@ export async function verifyChain(deps: ServiceDeps): Promise<ChainCheck> {
 }
 
 export async function currentCatalogFingerprint(deps: ServiceDeps) {
-  const rows = await deps.db
-    .select({
-      sku: products.sku,
-      units: products.units,
-      priceCop: products.priceCop,
-      promoPriceCop: products.promoPriceCop,
-    })
-    .from(products)
-    .where(eq(products.active, true));
-  return {
-    products: rows.length,
-    fingerprint: catalogFingerprint(rows.map((r) => ({ ...r, listPriceCop: r.priceCop }))),
-  };
+  // Lo mismo que publica /api/catalog (con la promo ya ajustada al piso de ganancia): así la huella
+  // del panel y la del diagnóstico diario se comparan directamente.
+  const rows = await listCatalog(deps, 'freefire');
+  return { products: rows.length, fingerprint: catalogFingerprint(rows) };
 }
 
 /** Lo que ve el dueño en «Integridad» (y, sin datos de pedidos, el diagnóstico diario). */

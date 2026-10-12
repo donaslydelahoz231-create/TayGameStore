@@ -4,7 +4,7 @@ import { products } from '../db/schema.js';
 import { effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { AppError } from '../plugins/errors.js';
 import { freeStock } from './inventory.js';
-import { providerSkus } from './topup-coverage.js';
+import { providerSkus, withPromoFloor } from './topup-coverage.js';
 import { isUniqueViolation } from './orders.js';
 import { audit, notFound, type Actor, type ServiceDeps } from './context.js';
 
@@ -45,10 +45,12 @@ export async function listCatalog(deps: ServiceDeps, game: 'freefire'): Promise<
         now,
       )
     : null;
-  const viaProvider = providerSkus(deps);
+  const viaProvider = providerSkus(deps, new Map(rows.map((row) => [row.sku, row.priceCop])));
   // Con promo de fin de semana, la oferta termina a más tardar el lunes 00:00 (Colombia).
   const weekendEnd = schedule === 'weekends' ? weekendWindow(now).endsAt : null;
-  return rows.map((row) => {
+  return rows.map((original) => {
+    // La promo nunca baja del piso de ganancia (costo del proveedor + comisión + ganancia mínima).
+    const row = withPromoFloor(deps, original);
     const price = effectivePrice(row, now, schedule);
     const ends = [row.promoEndsAt, weekendEnd].filter((d): d is Date => d !== null);
     const promoEndsAt = ends.length ? new Date(Math.min(...ends.map((d) => d.getTime()))) : null;

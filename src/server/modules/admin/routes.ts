@@ -37,6 +37,7 @@ import type { ServiceDeps } from '../../services/context.js';
 import type { AbuseShield } from '../../services/shield.js';
 import { reconcileOrder } from '../../services/payments.js';
 import { integritySummary } from '../../services/integrity.js';
+import { marginReport } from '../../services/margins.js';
 import { verifyReceipt } from '../../services/receipts.js';
 import { AppError } from '../../plugins/errors.js';
 
@@ -124,6 +125,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
       })
       .parse(request.body);
     return verifyReceipt(deps, body);
+  });
+
+  // Rentabilidad: costo máximo, piso y ganancia por paquete (solo lectura).
+  app.get('/api/admin/margins', guarded, async (request) => {
+    const { deps } = ctx(request);
+    return marginReport(deps);
   });
 
   app.get('/api/admin/products', guarded, async (request) => {

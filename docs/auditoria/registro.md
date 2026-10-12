@@ -583,3 +583,28 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   (y en Render). Lo crea el dueño con el mismo valor aleatorio en ambos (pasos en
   `docs/seguridad-tienda.md`); nunca se pega en un chat.
 
+### 2026-10-12 · Ganancia garantizada y estrategia de promociones
+
+- **Pidió**: el dueño. Mantener sus precios, que no choquen y den ganancia, y no usar
+  Pagostore como proveedor (sí UniPin): «inclúyalo» (la tabla de costos máximos) y una estrategia
+  de promoción.
+- **Hecho**:
+  - `costCop` por paquete en `UNIPIN_CATALOG`;
+  - `PAYMENT_FEE_PCT` (4) y `MIN_MARGIN_PCT` (5);
+  - piso = costo × 1,05 ÷ 0,96, redondeado a $100;
+  - promo con piso en catálogo y checkout;
+  - nada se vende ni se envía a UniPin por debajo del piso;
+  - Panel → Catálogo → Rentabilidad (`GET /api/admin/margins`, solo lectura);
+  - aviso en golive si falta el costo de algún paquete;
+  - huella del catálogo calculada desde el listado público, para que panel y diagnóstico
+    coincidan;
+  - guía `docs/estrategia-promociones.md`.
+- **Precios**: sin cambios (6 paquetes y promos de fin de semana como estaban). En producción no
+  hay proveedor activo, así que el piso no cambia nada todavía.
+- **Pruebas**:
+  - unitarias 238/238 (cálculo del piso, costo máximo, ganancia, promo con piso, configuración);
+  - integración 208/208 (nueva `margin`: promo subida al piso, paquete sin ganancia agotado y
+    rechazado, cobro con piso, tabla del panel, acceso solo del dueño);
+  - e2e 66/66.
+- **NO VERIFICADO**: la comisión real de Mercado Pago (se usa 4 %) y el costo de socio de UniPin.
+

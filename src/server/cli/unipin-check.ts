@@ -121,9 +121,9 @@ export async function runUnipinCheck(
       );
       continue;
     }
-    const missing = Object.entries(region.skus).filter(
-      ([, denomination]) => !containsValue(detail.body, denomination),
-    );
+    const missing = Object.entries(region.skus)
+      .map(([sku, entry]) => [sku, entry.denomination] as const)
+      .filter(([, denomination]) => !containsValue(detail.body, denomination));
     if (missing.length) {
       fail(
         `${server}: denominaciones que UniPin no lista: ${missing.map(([sku, d]) => `${sku}→${d}`).join(', ')}`,
@@ -167,7 +167,8 @@ export async function runUnipinCheck(
   if (!purchase) return ok;
 
   // 4. Solo staging: recarga de prueba y consulta, para confirmar la forma de las respuestas.
-  const [sku, denomination] = Object.entries(region.skus)[0] ?? [];
+  const [sku, entry] = Object.entries(region.skus)[0] ?? [];
+  const denomination = entry?.denomination;
   if (!sku || !denomination) return ok;
   const referenceNo = `TGS-PRUEBA-${Date.now()}`;
   const created = await provider.call(UNIPIN_PATHS.create, {

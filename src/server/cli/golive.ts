@@ -243,9 +243,19 @@ export function deliveryCheck(config: AppConfig): Check {
   const topup = config.topup;
   if (topup) {
     const servers = Object.keys(topup.catalog).join(', ');
-    return ok(
-      `Recarga directa UniPin (${topup.env}) en: ${servers}. Antes de vender: npm run unipin:check`,
+    const noCost = new Set(
+      Object.values(topup.catalog).flatMap((region) =>
+        Object.entries(region.skus)
+          .filter(([, entry]) => entry.costCop === null)
+          .map(([sku]) => sku),
+      ),
     );
+    const label = `Recarga directa UniPin (${topup.env}) en: ${servers}. Antes de vender: npm run unipin:check`;
+    return noCost.size
+      ? warn(
+          `${label}. Sin costo en UNIPIN_CATALOG (ganancia no garantizada): ${[...noCost].join(', ')}`,
+        )
+      : ok(label);
   }
   if (config.orders.pinAutoDelivery) {
     return warn(
