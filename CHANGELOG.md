@@ -76,6 +76,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- **Prueba intermitente del panel** (solo pruebas): todas las pruebas compartían una IP y
+  quedaban al borde del límite de 10 pedidos cada 10 minutos. Ahora cada prueba entra con su
+  propia IP de cliente y la prueba se puede repetir (20 de 20 con la CPU saturada). El límite
+  real de la tienda no cambió. Capturas visuales de la tienda regeneradas tras el cambio de
+  textos de los medios de pago.
 - **Acceso con Google funcionando en producción.** Las credenciales `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` se limpian
   (espacios o saltos de línea pegados desde el celular hacían que Google respondiera «The OAuth
   client was not found»).

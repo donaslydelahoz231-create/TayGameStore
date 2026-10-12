@@ -630,3 +630,21 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   seguidas en verde (66/66 cada una), sin reintentos configurados. Causa NO VERIFICADA (no se
   reprodujo).
 
+### 2026-10-12 — Revisión final: causa de la prueba intermitente del panel
+
+- **Producción** (solo lectura): deploy `cc8f0ef` en vivo en Render; CI, CodeQL y prueba de
+  producción en verde; en Neon, 2 sellos que cubren los 24 eventos de auditoría (24 de 24).
+  «Tareas programadas» sale «skipped» a propósito (respaldo opcional, apagado sin
+  `ENABLE_SCHEDULED_TASKS`).
+- **Causa encontrada** de la prueba intermitente del panel: el límite de pedidos por IP (10 cada
+  10 minutos). Todas las pruebas compartían la IP 127.0.0.1 y la suite gastaba 9 de los 10; las de
+  manipulación compartían 203.0.113.7 y gastaban 10 de 10. Un solo intento de más daba 429.
+  - Reproducido: repitiendo la prueba con la CPU saturada, fallaron 2 de 12 con 429.
+  - Corrección (solo pruebas): cada prueba entra con su propia IP de cliente (`preparePage`,
+    `workerIndex` + contador). El PIN de la prueba es único por corrida, así que se puede repetir.
+  - Resultado con la CPU saturada: 20 de 20. Suite completa: 66/66.
+  - El límite real de la tienda no cambió.
+- **Capturas visuales desactualizadas**: `03-tienda-pagina-completa` (3 tamaños) no se había
+  regenerado tras `ba2b4b7` (textos de los medios de pago). Se regeneraron; solo cambian esas tres.
+  La CI no ejecuta las capturas visuales.
+

@@ -9,15 +9,16 @@ import { ADMIN_PATH } from './support/admin-path.js';
  * precios, pagos y panel de administración solo los decide el servidor.
  */
 
-// IP propia (rango de documentación 203.0.113.0/24): los límites por IP y el escudo anti-abuso
-// cuentan estos ataques aparte de las demás pruebas, como ocurriría con un atacante real.
-test.use({ extraHTTPHeaders: { 'x-forwarded-for': '203.0.113.7' } });
+// IP propia por prueba (198.19.0.0/16, distinto de los clientes de las demás pruebas; ver
+// preparePage): los límites por IP y el escudo anti-abuso cuentan cada ataque aparte, como
+// ocurriría con un atacante real.
+const ATTACKER = { ipPrefix: '198.19' };
 
 let consoleErrors: string[] = [];
 
 test.beforeEach(async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280', 'seguridad: un solo viewport');
-  consoleErrors = await preparePage(page);
+  consoleErrors = await preparePage(page, ATTACKER);
 });
 
 test.afterEach(() => {
@@ -275,7 +276,7 @@ test.describe('panel de administración', () => {
     const { token } = (await session.json()) as { token: string };
     await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
     const admin = await context.newPage();
-    const adminErrors = await preparePage(admin);
+    const adminErrors = await preparePage(admin, ATTACKER);
     await admin.goto(ADMIN_PATH);
     await expect(admin.locator('#admApp')).toBeVisible();
     await admin.locator('#admSearch').fill(ref);

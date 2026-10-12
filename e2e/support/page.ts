@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, type Page, type Request } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page, type Request } from '@playwright/test';
 
 /**
  * Preparación común de las pruebas e2e: servidor real (e2e/support/server.ts), sin red
@@ -17,10 +17,34 @@ const fontsManifest = JSON.parse(readFileSync(`${FONTS_DIR}/manifest.json`, 'utf
 export interface PrepareOptions {
   /** Fija Date y Math.random para capturas deterministas. */
   deterministic?: boolean;
+  /** Primeros dos octetos de la IP del cliente simulado (por defecto 198.18, rango de pruebas). */
+  ipPrefix?: string;
+}
+
+/**
+ * Cada contexto (cada prueba) entra con su propia IP de cliente (`x-forwarded-for`, el servidor
+ * e2e confía en un proxy). Antes todas compartían 127.0.0.1 y la suite llegaba a 9 de los 10
+ * pedidos permitidos cada 10 minutos por IP: un intento de más daba 429 y la prueba del panel
+ * fallaba sin causa aparente. Así ninguna prueba gasta el límite de otra, como clientes reales.
+ * La IP combina el proceso de Playwright (workerIndex, único en la corrida; --repeat-each usa uno
+ * por repetición) y un contador dentro del proceso.
+ */
+let clientCounter = 0;
+const contextsWithIp = new WeakSet<BrowserContext>();
+
+async function isolateClientIp(context: BrowserContext, prefix: string): Promise<void> {
+  if (contextsWithIp.has(context)) return;
+  contextsWithIp.add(context);
+  clientCounter += 1;
+  const worker = test.info().workerIndex % 256;
+  await context.setExtraHTTPHeaders({
+    'x-forwarded-for': `${prefix}.${worker}.${(clientCounter % 254) + 1}`,
+  });
 }
 
 /** Devuelve la lista (viva) de errores de consola y de página. */
 export async function preparePage(page: Page, options: PrepareOptions = {}): Promise<string[]> {
+  await isolateClientIp(page.context(), options.ipPrefix ?? '198.18');
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() !== 'error') return;

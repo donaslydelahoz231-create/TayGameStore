@@ -932,7 +932,9 @@ test.describe('panel de administración', () => {
     // este pedido y al entregarlo queda usado.
     await admin.locator('[data-tab="inventory"]').click();
     await admin.locator('#iProduct').selectOption({ label: '100 + 10 Diamantes (ff-110)' });
-    await admin.locator('#iCodes').fill('PINE2E0001ABCD');
+    // PIN único por corrida: la prueba se puede repetir (--repeat-each) sin chocar con el anterior.
+    const pin = `PINE2E${Date.now().toString(36).toUpperCase()}`;
+    await admin.locator('#iCodes').fill(pin);
     await admin.locator('#admInventoryForm button[type="submit"]').click();
     await expect(admin.locator('#admMessage')).toHaveText('1 PIN cargados.');
     await expect(admin.locator('#admInventory tr', { hasText: 'ff-110' })).toContainText('1');
@@ -942,7 +944,7 @@ test.describe('panel de administración', () => {
     await admin.locator('[data-f="claim"]').click();
     await admin.locator('[data-f="start"]').click();
     await expect(admin.locator('#admDetail')).toContainText('PIN reservados del inventario');
-    await expect(admin.locator('#admDetail code')).toHaveText('PINE2E0001ABCD');
+    await expect(admin.locator('#admDetail code')).toHaveText(pin);
     await admin.locator('#fEvidence').fill('PIN canjeado al UID del pedido');
     await admin.locator('[data-f="deliver"]').click();
     await expect(admin.locator('#admDetail h2')).toContainText('Entregado');
