@@ -96,6 +96,25 @@ export async function expectReducedMotion(page: Page): Promise<void> {
 export async function enterAsGuest(page: Page): Promise<void> {
   await page.locator('#enterStoreBtn').click();
   await expect(page.locator('#loginModal')).toBeVisible();
+  // Con movimiento activo (motion.spec), el diálogo entra con una animación de 0,65 s. En WebKit
+  // el clic podía agotar su espera de «elemento estable»: se espera a que la entrada termine.
+  // Si una animación del diálogo no terminara nunca, esto falla con un mensaje claro.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const dialog = document.getElementById('loginModal');
+          return document
+            .getAnimations()
+            .filter((a) => a.playState === 'running')
+            .filter((a) => {
+              const target = (a.effect as KeyframeEffect | null)?.target;
+              return target instanceof Node && dialog?.contains(target);
+            }).length;
+        }),
+      { message: 'animaciones del diálogo de acceso en curso', timeout: 10_000 },
+    )
+    .toBe(0);
   await page.locator('#guestBtn').click();
   await expect(page.locator('#loginModal')).toBeHidden();
   await expect(page.locator('#products .product').first()).toBeVisible();

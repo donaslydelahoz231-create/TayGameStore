@@ -608,3 +608,25 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   - e2e 66/66.
 - **NO VERIFICADO**: la comisión real de Mercado Pago (se usa 4 %) y el costo de socio de UniPin.
 
+### 2026-10-12 · Revisión de fallos pendientes y vulnerabilidades
+
+- **Pidió**: el dueño («soluciona todos los fallos pendientes y vulnerabilidades»).
+- **Vulnerabilidades**:
+  - `npm audit`: 0 (producción y desarrollo);
+  - gitleaks en todo el historial: verde en cada commit;
+  - escáner local de datos: 0 coincidencias;
+  - CodeQL termina en verde, pero NO VERIFICADO que haya 0 alertas abiertas (esta sesión no
+    puede listarlas).
+- **Parches disponibles sin instalar** (decisión de seguridad): 10 paquetes con versiones de
+  1 a 4 días (`@fastify/*`, `drizzle-orm`, `nodemailer`, `prettier`, `smtp-server`, `vite`,
+  `zod`). Ninguno corrige una vulnerabilidad. Se espera a Dependabot (lunes, con CI) para no
+  instalar versiones recién publicadas.
+- **Prueba intermitente de WebKit** (`motion.spec`, «element is not stable» en «Continuar como
+  invitado»): `enterAsGuest` espera a que terminen las animaciones del diálogo de acceso antes de
+  pulsar y, si una no terminara, falla con un mensaje claro. No se pudo reproducir aquí (WebKit
+  no está instalado y el proxy bloquea el artefacto del CI). En Chromium la entrada del diálogo
+  dura 0,8 s y termina.
+- **Prueba intermitente del panel** («el operador verifica… y entrega»): 6 corridas completas
+  seguidas en verde (66/66 cada una), sin reintentos configurados. Causa NO VERIFICADA (no se
+  reprodujo).
+
