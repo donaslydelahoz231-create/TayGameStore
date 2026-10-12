@@ -648,3 +648,21 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   regenerado tras `ba2b4b7` (textos de los medios de pago). Se regeneraron; solo cambian esas tres.
   La CI no ejecuta las capturas visuales.
 
+
+### 2026-10-12 · Ronda diaria (01:40 UTC)
+
+- **Verificado**: Render en vivo con `8aeca5b`; prueba de producción y CodeQL en verde; flujos
+  programados («Mantener la tienda activa», «Vigilancia y autorreparación») en verde; «Tareas
+  programadas» omitido a propósito (respaldo opcional apagado); 0 issues abiertos con
+  «incidente».
+- **Logs de Render** (error/warn/fatal desde el 11-oct): solo los `google login failed`
+  (`token_endpoint_401`) de 19:12–19:18, anteriores al arreglo de credenciales de Google
+  (ingresos correctos desde 19:31). Nada nuevo después.
+- **Neon**: 64 498 s de cómputo (≈17,9 CU-h) al 12-oct 01:37. La proyección lineal da ≈84 CU-h
+  al 1-nov (umbral 80), inflada por la sesión de desarrollo del 11-oct: 8 despliegues con su
+  prueba de producción (cada una cuenta como actividad y deja las tareas al ritmo normal 30 min),
+  migraciones y consultas de auditoría. Revisado qué despierta la base en reposo: tanda única de
+  tareas cada 30 min (incluido `sealAudit`), `/api/ready` una vez por hora, y `/api/health` sin
+  base. No se encontró nada que la mantenga despierta sin actividad. En reposo se espera
+  ≈1,5–1,8 CU-h/día → ≈50 CU-h al 1-nov. **NO VERIFICADO**: se medirá en la próxima ronda sin
+  despliegues.
