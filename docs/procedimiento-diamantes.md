@@ -26,6 +26,10 @@ el PIN queda apartado mientras el cliente paga y, al aprobarse el pago, se entre
 pedido y por correo). El dueño solo tiene que **mantener PIN cargados**; la tienda le avisa por los
 pedidos y el inventario muestra cuántos quedan de cada paquete.
 
+> **2026-10-12:** el dueño descartó UniPin. La integración sigue apagada (`TOPUP_PROVIDER=none`).
+> El camino elegido es un distribuidor de PIN de Garena en Colombia, con compra automática por API
+> si la ofrece: [`specs/contacto-proveedores.md`](specs/contacto-proveedores.md).
+
 **Sin PIN, directo al ID:** con un contrato de socio con UniPin (distribuidor oficial) y
 `TOPUP_PROVIDER=unipin`, la tienda recarga sola al ID del jugador y solo marca «Entregado» cuando
 UniPin lo confirma. Si hay PIN en el inventario, se usan primero. Guía y pasos:

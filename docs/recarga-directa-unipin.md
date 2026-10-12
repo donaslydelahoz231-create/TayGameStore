@@ -1,5 +1,9 @@
 # Recarga directa al ID con UniPin (sin PIN)
 
+> **Descartado por el dueño el 2026-10-12** («no veo que sea confiable»). Queda apagado
+> (`TOPUP_PROVIDER=none`): no se envía ningún pedido ni dato a UniPin. Alternativa en curso:
+> distribuidor de PIN de Garena en Colombia ([`specs/contacto-proveedores.md`](specs/contacto-proveedores.md)).
+
 UniPin es un distribuidor oficial de recargas de juegos con API para socios ("In Game Top Up").
 Con esta integración la tienda funciona como LootBar o Pagostore: el cliente escribe su ID, paga
 con Mercado Pago y los diamantes llegan a su cuenta **sin PIN y sin que tú hagas nada**.

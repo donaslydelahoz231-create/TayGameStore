@@ -666,3 +666,18 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   base. No se encontró nada que la mantenga despierta sin actividad. En reposo se espera
   ≈1,5–1,8 CU-h/día → ≈50 CU-h al 1-nov. **NO VERIFICADO**: se medirá en la próxima ronda sin
   despliegues.
+
+### 2026-10-12 · Proveedor: UniPin descartado; propuesta a distribuidores de PIN
+
+- **Pidió el dueño**: no usar UniPin («no veo que sea confiable») y buscar un distribuidor
+  sencillo que acepte los precios de su tienda, sin registrarse con sus datos personales.
+- **Hallazgo**: los precios «antes» de los volantes de la tienda son el precio público de Garena
+  (100 → $4.200 … 5.600 → $182.400). Con la comisión de Mercado Pago (4 %) y 5 % de ganancia
+  mínima, hace falta un descuento de 13–25 % sobre el precio de Garena (17–31 % en promoción).
+  Ningún canal oficial verificable lo publica; **NO VERIFICADO** hasta tener cotizaciones.
+- **Hecho (solo documentación)**: `docs/specs/contacto-proveedores.md` con InComm Colombia
+  (POSA) e Icargas, tabla de costos máximos, mensaje de propuesta de precios y qué se puede hacer
+  sin exponer datos personales (registrarse como empresa, canales de la tienda, documentos solo en
+  el portal oficial). Notas de descarte en `recarga-directa-unipin.md` y
+  `procedimiento-diamantes.md`.
+- **Sin cambios** en precios, variables de Render ni código. UniPin sigue apagado.
