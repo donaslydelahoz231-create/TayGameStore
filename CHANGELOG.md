@@ -7,6 +7,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Verificador público de comprobantes** (tienda → Soporte → «Verificar comprobante»,
+  `POST /api/receipts/verify`):
+  - cualquiera (cliente, proveedor) comprueba con la referencia y el código si un comprobante lo
+    emitió TayGameStore; acepta pegar la línea entera «N.º … · V1-…»;
+  - si es auténtico, muestra solo número, referencia, total, fecha de pago y estado; nunca el
+    correo, el UID, el nombre ni la operación de Mercado Pago;
+  - un código falso, una referencia inventada o un pedido sin pago dan la misma respuesta
+    («No es auténtico»), así que no revela qué pedidos existen;
+  - límite de 10 intentos cada 10 minutos por conexión;
+  - la factura (pantalla, JPG y PDF) indica dónde verificarla.
+- **Nequi como medio de pago propio** en «Elige cómo pagar», separado de «Tarjeta»:
+  - abre Mercado Pago solo con PSE, donde el cliente elige el banco «Nequi» y aprueba en su app;
+  - «Tarjeta» queda para crédito y débito (Visa, Mastercard, Amex) y ya no menciona Nequi;
+  - cada medio muestra debajo una pista de cómo se aprueba ese pago.
 - **Reseñas verificadas** (sección «Opiniones verificadas», migración 0016):
   - solo opina quien hizo un pedido entregado, una vez por pedido, desde «Seguimiento»;
   - se publican cuando el dueño las aprueba (panel → Reseñas) y se muestran con nombre de pila e

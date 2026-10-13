@@ -885,3 +885,61 @@ reseñas, el procedimiento de compra y envío de diamantes, y una automatizació
   - En Render se fijó en `false` para no enviar el UID de los jugadores a un servicio que el dueño
     dejó.
   - No se tocaron la URL ni la llave.
+- **Evidencia tras el despliegue `caad916`:**
+  - el registro «avisos y automatización» muestra `eventosExternos: false`;
+  - la prueba de producción informa «Reseñas publicadas: 0 · plazo de entrega publicado: sí ·
+    correos al cliente: inactivos».
+
+### 2026-10-13 · Anti-falsificación pública y Nequi como medio de pago propio
+
+Pedido del dueño: que sea imposible falsificar información, facturas, pagos y credenciales, y que
+Nequi aparezca aparte de las tarjetas, PSE y Mercado Pago, sin que el cliente se confunda.
+
+- **Problema encontrado:** «Tarjeta» decía «Bancolombia, Davivienda, Nequi…». Un cliente de Nequi
+  la elegía y Mercado Pago le pedía datos de tarjeta.
+- **Nequi separado** (`gateway.ts`, `pay-means.js`):
+  - opción propia «Nequi» que abre Mercado Pago solo con PSE;
+  - la pista indica elegir el banco «Nequi», escribir el celular y aprobar en la app;
+  - «Tarjeta» queda para crédito y débito (Visa, Mastercard, Amex);
+  - cada medio muestra su propia pista.
+- **Investigación (fuentes públicas):**
+  - Mercado Pago Colombia ofrece tarjetas, PSE, Efecty y saldo; Nequi no es un medio propio
+    ([checkout de Mercado Pago](https://www.mercadopago.com.co/herramientas-para-vender/check-out),
+    [medios de pago de Mercado Libre](https://www.mercadolibre.com.co/l/mediosdepago)).
+  - Nequi se usa como banco dentro de PSE
+    ([El Tiempo](https://www.eltiempo.com/tecnosfera/novedades-tecnologia/como-recargar-nequi-por-pse-en-el-2023-paso-a-paso-737066)).
+  - Pasarelas con Nequi directo: Wompi, PayU, Wava
+    ([Tiendanube](https://www.tiendanube.com/blog/pasarelas-de-pago-colombia/),
+    [Orbit Lab](https://orbitlabco.com/recursos/pasarelas-de-pago-colombia/)).
+  - **NO VERIFICADO:** que Nequi aparezca en la lista de PSE del checkout real del dueño. Los pagos
+    siguen apagados y no se simuló ningún pago.
+  - **No se añadió** una segunda pasarela: Mercado Pago sigue siendo la única autoridad de pago.
+    Wompi o PayU serían decisión del dueño.
+- **Dinero y proveedor:**
+  - todos los medios cobran en la misma cuenta de Mercado Pago del dueño;
+  - la tienda no paga sola al proveedor ni divide el cobro;
+  - el modo marketplace de Mercado Pago queda **NO VERIFICADO** para Colombia y no se implementó
+    (`docs/dinero-y-acceso.md`).
+- **Verificador público de comprobantes** (`POST /api/receipts/verify`, tienda → Soporte):
+  - reutiliza el código HMAC con `timingSafeEqual`;
+  - si el comprobante es auténtico, devuelve solo número, referencia, total, fecha de pago y
+    estado;
+  - un código falso, una referencia inexistente o un pedido sin pago dan la misma respuesta
+    `{authentic:false}`;
+  - límite de 10 intentos cada 10 minutos por IP y `cache-control: no-store`;
+  - la factura indica dónde verificarla.
+- **Protecciones anti-falsificación que ya existían** (`docs/seguridad-tienda.md`):
+  - el servidor calcula los precios;
+  - un pago solo vale si Mercado Pago lo confirma con firma y consulta;
+  - los montos son inmutables y la base no permite borrados;
+  - el historial está sellado con hashes;
+  - las sesiones se guardan como hash;
+  - el panel tiene doble factor y responde 404 a quien no es administrador.
+- **Evidencia local:**
+  - formato, lint y typecheck limpios;
+  - unitarias 261/261;
+  - integración 223/223 con rol mínimo y 221 + 2 omitidas sin él;
+  - e2e de escritorio 67/67. Incluye elegir Nequi, verificar un comprobante auténtico y uno
+    falso;
+  - capturas visuales regeneradas (3 tamaños) y revisadas en escritorio y móvil.
+- **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.

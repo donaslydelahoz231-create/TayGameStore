@@ -201,6 +201,64 @@ describe('comprobantes verificables', () => {
     });
   });
 
+  it('verificación pública: el auténtico pasa con datos mínimos; el falso o inexistente responde igual', async () => {
+    const order = await createOrder();
+    const { receipt, paymentId } = await pay(order);
+    const code = receipt?.verificationCode ?? '';
+    const check = (reference: string, value: string, remoteAddress?: string) =>
+      h.app.inject({
+        method: 'POST',
+        url: '/api/receipts/verify',
+        headers: CSRF,
+        payload: { reference, code: value },
+        ...(remoteAddress ? { remoteAddress } : { remoteAddress: `10.98.0.${(ip % 200) + 1}` }),
+      });
+
+    const real = await check(order.reference.toLowerCase(), code.toLowerCase());
+    expect(real.statusCode, real.body).toBe(200);
+    const body = real.json<Record<string, unknown>>();
+    expect(body).toEqual({
+      authentic: true,
+      number: receipt?.number,
+      reference: order.reference,
+      totalCop: order.totalCop,
+      status: 'PAID',
+      paidAt: expect.any(String) as string,
+    });
+    // Nunca el ID del pago, el correo, el nombre ni el UID.
+    expect(real.body).not.toContain(paymentId);
+    expect(real.body).not.toContain('@');
+    expect(real.body).not.toContain('Cliente Seguro');
+
+    const forged = `${code.slice(0, -1)}${code.endsWith('A') ? 'B' : 'A'}`;
+    const responses = await Promise.all([
+      check(order.reference, forged),
+      check('TGS-NOEXISTE00', code),
+      check((await createOrder()).reference, code),
+    ]);
+    for (const res of responses) {
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ authentic: false });
+    }
+    expect((await check('no-es-referencia', code)).statusCode).toBe(400);
+  });
+
+  it('verificación pública: máximo 10 intentos cada 10 minutos por IP', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i += 1) {
+      const res = await h.app.inject({
+        method: 'POST',
+        url: '/api/receipts/verify',
+        headers: CSRF,
+        remoteAddress: '10.97.0.1',
+        payload: { reference: 'TGS-NOEXISTE00', code: `V1-AAAA-AAAA-AAAA-AAA${i % 10}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
   it('el verificador es solo del dueño', async () => {
     const res = await inject({
       method: 'POST',
@@ -309,7 +367,8 @@ describe('sellos de integridad', () => {
     expect(panel.statusCode).toBe(200);
     expect(panel.json()).toMatchObject({
       chain: { ok: true, seals: 1 },
-      lastReceipt: 4,
+      // Cinco pedidos pagados en las pruebas anteriores de comprobantes de este archivo.
+      lastReceipt: 5,
       catalog: { locked: false, products: expect.any(Number) as number },
     });
 

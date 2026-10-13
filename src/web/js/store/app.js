@@ -15,6 +15,7 @@ import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
 import { renderPins } from './features/pins.js';
 import { loadReviews, renderDeliveryTime, renderReviewBox } from './features/reviews.js';
+import { renderPayMeansHint } from './features/pay-means.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
@@ -34,6 +35,7 @@ registerRenderers([
   renderSmartCart,
   renderDrawer,
   renderInvoice,
+  renderPayMeansHint,
   renderChecks,
   renderPins,
   renderReviewBox,

@@ -203,3 +203,66 @@
     transition: none;
   }
 }
+
+/* Medios de pago: el quinto (Saldo MP) ocupa la fila completa. */
+.pay-means-grid .pay-mean:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+/* Verificar comprobante (sección Soporte) */
+.receipt-check {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.receipt-check .step svg {
+  width: 15px;
+  height: 15px;
+}
+.receipt-check-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+.receipt-check .btn {
+  justify-self: start;
+}
+.receipt-check-result {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+.receipt-check-result[data-kind='good'] {
+  border-color: var(--green);
+  background: rgba(57, 224, 138, 0.07);
+}
+.receipt-check-result[data-kind='bad'] {
+  border-color: var(--danger);
+  background: rgba(255, 92, 122, 0.07);
+}
+.receipt-check-result b {
+  display: block;
+  margin-bottom: 6px;
+}
+.receipt-check-result dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px 12px;
+  margin: 0;
+}
+.receipt-check-result dt {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+.receipt-check-result dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .receipt-check-fields {
+    grid-template-columns: 1fr;
+  }
+}

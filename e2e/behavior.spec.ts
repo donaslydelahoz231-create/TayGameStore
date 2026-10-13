@@ -539,8 +539,13 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#customerEmail').fill('directo-e2e@example.com');
       // El medio de pago se elige a la vista (como en otras tiendas de recargas).
       await expect(page.locator('#payBtn')).toBeEnabled();
+      // Nequi va aparte de las tarjetas y explica cómo se paga (PSE → banco «Nequi»).
+      await page.locator('#payMeansNequi').check();
+      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi');
+      await expect(page.locator('#payMeansHint')).toContainText('elige «Nequi»');
       await page.getByRole('radio', { name: /PSE/ }).check();
       await expect(page.locator('#invoiceMethod')).toHaveText('PSE');
+      await expect(page.locator('#payMeansHint')).toContainText('eliges tu banco');
       await page.locator('#acceptTerms').check();
       // Un solo paso: "Pagar" crea el pedido y lleva directo a Mercado Pago, sin esperar al equipo.
       await expect(page.locator('#payBtn')).toHaveText('Pagar $ 3.800 COP');
@@ -550,6 +555,23 @@ test.describe('compra completa (invitado)', () => {
       const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
       await expect(page.locator('#invoiceRegion')).toHaveText('Brasil');
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+
+      // Cualquiera comprueba que el comprobante es real (pegando la línea completa del código);
+      // uno alterado en un solo carácter no pasa.
+      const code = (await page.locator('#invoiceCode').textContent()) ?? '';
+      expect(code).toMatch(/V1-/);
+      await page.locator('#verifyRef').fill(ref.toLowerCase());
+      await page.locator('#verifyCode').fill(code);
+      await page.locator('#verifyReceiptBtn').click();
+      await expect(page.locator('#verifyReceiptResult')).toContainText('Comprobante auténtico');
+      await expect(page.locator('#verifyReceiptResult')).toContainText(
+        'Pago confirmado · recarga por entregar',
+      );
+      await expect(page.locator('#verifyReceiptResult')).toContainText('$ 3.800 COP');
+      const forged = code.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'));
+      await page.locator('#verifyCode').fill(forged);
+      await page.locator('#verifyReceiptBtn').click();
+      await expect(page.locator('#verifyReceiptResult')).toContainText('No es auténtico');
 
       // Antes de entregar no hay formulario de reseña, y la tienda no muestra reseñas inventadas.
       await expect(page.locator('#reviewBox')).toBeHidden();

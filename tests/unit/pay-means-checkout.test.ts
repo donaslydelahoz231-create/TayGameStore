@@ -43,6 +43,14 @@ describe('medio de pago elegido en la tienda', () => {
     expect(excludedPaymentTypes(undefined)).toEqual([]);
   });
 
+  it('«Nequi» abre solo PSE (sin tarjetas ni efectivo): se paga eligiendo el banco Nequi', () => {
+    expect(excludedPaymentTypes('nequi')).toEqual(excludedPaymentTypes('pse'));
+    expect(excludedPaymentTypes('nequi')).not.toContain('bank_transfer');
+    for (const type of ['credit_card', 'debit_card', 'prepaid_card', 'ticket', 'atm']) {
+      expect(excludedPaymentTypes('nequi')).toContain(type);
+    }
+  });
+
   it('con «tarjeta» la preferencia oculta efectivo y PSE', async () => {
     const { gateway, spy } = gatewayWith(async () => ok);
     await gateway.createCheckout({ ...input, payMeans: 'tarjeta' }, 'clave-1');

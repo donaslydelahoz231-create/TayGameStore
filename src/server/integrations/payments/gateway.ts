@@ -13,19 +13,22 @@ export interface CheckoutItem {
 }
 
 /** Medio que el cliente eligió en la tienda; Mercado Pago abre directo ese formulario. */
-export const PAY_MEANS = ['tarjeta', 'pse', 'efecty', 'saldo'] as const;
+export const PAY_MEANS = ['tarjeta', 'nequi', 'pse', 'efecty', 'saldo'] as const;
 export type PayMeans = (typeof PAY_MEANS)[number];
 
 /**
  * Tipos de pago de Mercado Pago que se ocultan según el medio elegido (`payment_methods.
- * excluded_payment_types`). Tarjeta: solo tarjetas (crédito, débito o prepago de cualquier banco:
- * Bancolombia, Davivienda, Nequi…). PSE: solo débito bancario. Efecty: solo efectivo. Saldo de
- * Mercado Pago: sin restricción (el saldo no es un tipo que se pueda dejar solo).
+ * excluded_payment_types`). Tarjeta: solo tarjetas (crédito, débito o prepago de cualquier
+ * banco). Nequi: Mercado Pago no lo ofrece como medio propio en Colombia, así que se paga por
+ * PSE eligiendo el banco «Nequi»: igual que PSE, solo débito bancario. Efecty: solo efectivo.
+ * Saldo de Mercado Pago: sin restricción (el saldo no es un tipo que se pueda dejar solo).
+ * Todos se cobran en Mercado Pago (la única autoridad de pago) y llegan a la cuenta del dueño.
  */
 export function excludedPaymentTypes(payMeans: PayMeans | undefined): string[] {
   switch (payMeans) {
     case 'tarjeta':
       return ['ticket', 'atm', 'bank_transfer'];
+    case 'nequi':
     case 'pse':
       return ['credit_card', 'debit_card', 'prepaid_card', 'ticket', 'atm'];
     case 'efecty':

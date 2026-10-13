@@ -19,6 +19,41 @@ Cliente paga en Mercado Pago ──▶ Cuenta de Mercado Pago del dueño de MP_A
   entidad de destino del retiro (no se pudo verificar desde aquí; Nequi se separó de Bancolombia
   en 2026). Ese ajuste se hace **en Mercado Pago**, nunca en TayGameStore.
 
+## Cómo paga el cliente según lo que elige
+
+En «Elige cómo pagar» cada opción abre Mercado Pago mostrando **solo** ese medio
+(`payment_methods.excluded_payment_types`, `src/server/integrations/payments/gateway.ts`). Todas
+cobran a la **misma cuenta de Mercado Pago del dueño**.
+
+| El cliente elige | Mercado Pago le muestra | Cómo aprueba |
+|---|---|---|
+| **Tarjeta** | Solo tarjetas de crédito, débito o prepago (Visa, Mastercard, Amex) | Datos de la tarjeta |
+| **Nequi** | Solo PSE | En la lista de bancos elige «Nequi», escribe su celular y aprueba en su app Nequi |
+| **PSE** | Solo PSE | Elige su banco y aprueba el débito |
+| **Efecty** | Solo efectivo | Paga el código en un punto Efecty |
+| **Saldo MP** | Todo (incluye el saldo de su cuenta de Mercado Pago) | Entra a su cuenta de Mercado Pago |
+
+- **Por qué Nequi va por PSE:** Mercado Pago no tiene Nequi como medio propio en Colombia; Nequi
+  sí aparece como banco en PSE (fuentes públicas en el registro de auditoría del 2026-10-13).
+  **NO VERIFICADO** en el checkout real del dueño, porque los pagos están apagados. Si Nequi no
+  aparece en la lista de PSE, el cliente puede pagar con la tarjeta débito de su Nequi en
+  «Tarjeta»; la pista de la tienda ya lo dice.
+- **Si Mercado Pago rechaza la restricción**, la tienda abre el pago con todos los medios en vez
+  de fallar (prueba `tests/unit/pay-means-checkout.test.ts`).
+- **Nequi directo (sin PSE)** necesitaría una segunda pasarela (Wompi, PayU…), con otra cuenta,
+  otro webhook y otra comisión. Hoy Mercado Pago es la única autoridad de pago: añadir otra es
+  decisión del dueño y no está hecho.
+
+## Y el proveedor
+
+El dinero del cliente llega **entero a tu cuenta de Mercado Pago**; la tienda no paga al proveedor
+por su cuenta. Tú le pagas desde tu saldo o tu banco, según lo que acuerden (ver
+`docs/proveedor-recargas/`). Así ningún pago sale sin que tú lo decidas.
+
+Mercado Pago tiene un modo «marketplace» que divide el cobro entre dos cuentas. **NO VERIFICADO**
+si está disponible para tu cuenta en Colombia, y exigiría que el proveedor tenga cuenta de Mercado
+Pago y autorice a la tienda. No está implementado.
+
 ## Quién administra
 
 | Capa | Qué la protege |

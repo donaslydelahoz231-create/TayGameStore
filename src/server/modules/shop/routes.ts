@@ -18,6 +18,7 @@ import {
 } from '../../services/orders.js';
 import { startPayment, syncOrderFromReturn } from '../../services/payments.js';
 import { lookupPlayer, lookupSchema, ownerKeyOf } from '../../services/player.js';
+import { publicVerifySchema, verifyReceiptPublic } from '../../services/receipts.js';
 import {
   createReview,
   publicReviews,
@@ -71,6 +72,21 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
         .parse(request.query);
       reply.header('cache-control', 'public, max-age=60');
       return publicReviews(deps, game);
+    },
+  );
+
+  /**
+   * ¿Este comprobante es real? Cualquiera puede comprobarlo con la referencia y el código impresos
+   * en él; un comprobante falso o alterado responde «no auténtico» sin revelar nada más.
+   */
+  app.post(
+    '/api/receipts/verify',
+    { config: { rateLimit: RATE_LIMITS.receiptVerify } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const input = publicVerifySchema.parse(request.body);
+      reply.header('cache-control', 'no-store');
+      return verifyReceiptPublic(deps, input);
     },
   );
 

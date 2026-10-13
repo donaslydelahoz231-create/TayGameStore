@@ -26,6 +26,20 @@ comprobante». Escribe la referencia (`TGS-…`) y el código.
 El panel también muestra el **último comprobante emitido**. Un comprobante con un número mayor que
 ese es falso.
 
+**Verificación pública (para clientes, el proveedor o cualquiera):** tienda → Soporte →
+«Verificar comprobante». Se pega la referencia y el código, o la línea entera «N.º … · V1-…» del
+comprobante.
+
+- **Comprobante auténtico:** muestra solo el número, la referencia, el total, la fecha de pago y
+  el estado del pedido. Nunca muestra el correo, el UID, el nombre ni la operación de Mercado
+  Pago.
+- **No es auténtico:** la misma respuesta para un código falso, una referencia inventada o un
+  pedido sin pago, así que no sirve para averiguar qué pedidos existen.
+- **Límite:** 10 intentos cada 10 minutos por conexión. Adivinar un código (80 bits firmados con la
+  llave del servidor) no es posible.
+- **Para el proveedor:** antes de entregar algo por un pedido, que verifique el comprobante aquí.
+  Una captura de pantalla sola no prueba nada.
+
 ### El conteo y la huella (anti-alteración)
 
 Todo lo importante queda en el **historial**: pagos, entregas, cambios de precio e intentos
@@ -70,6 +84,8 @@ valor que en Render. Si falta, el resumen dice NO VERIFICADO.
 | **Cambiar precios desde el panel** (sesión robada) | Con `CATALOG_LOCKED=true` el panel no puede cambiar precios ni paquetes. El intento queda en el historial con alerta. |
 | **Cambiar precios con SQL directo** | No se puede impedir sin quitarte a ti el acceso, pero **queda registrado**: un trigger de la base escribe en el historial «product.db_change», con el precio anterior, el nuevo y el usuario de la base. La huella del catálogo cambia. |
 | **Pago falso** (webhook inventado, comprobante de Mercado Pago editado) | La tienda solo cree a Mercado Pago: valida la firma del aviso y consulta el pago a Mercado Pago. Un pedido nunca se entrega sin pago aprobado, del importe exacto. |
+| **Comprobante de TayGameStore falso o editado** (captura, PDF o JPG) | El código de verificación es una firma HMAC: cambiar el total, el número o la referencia lo invalida, y sin la llave del servidor no se puede fabricar. Cualquiera lo comprueba en Soporte → «Verificar comprobante». |
+| **Credenciales falsas** (sesión inventada, cookie copiada, panel abierto desde el inspector) | La sesión es un token aleatorio y la base solo guarda su hash; una cookie inventada no coincide con ninguna y no abre nada. El panel responde 404 a quien no es administrador con doble factor (pruebas `tampering`). |
 | **Entrar al panel** | Ruta secreta, Google o contraseña, **doble factor obligatorio**, lista de administradores y escudo contra intentos repetidos. |
 | **Tumbar la tienda con tráfico** | Límite de peticiones por IP y escudo anti-abuso con bloqueo temporal. Render reinicia el servicio si cae y `vigilancia.yml` avisa. |
 

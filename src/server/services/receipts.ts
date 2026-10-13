@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Keyring } from '../config/env.js';
 import type { Tx } from '../db/client.js';
 import { orders, payments } from '../db/schema.js';
@@ -161,5 +162,47 @@ export async function verifyReceipt(
     status: order.status,
     paidAt: payment?.approvedAt?.toISOString() ?? null,
     lastIssued,
+  };
+}
+
+export const publicVerifySchema = z.strictObject({
+  reference: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^TGS-[0-9A-Z]{10}$/),
+  code: z.string().trim().min(5).max(60),
+});
+
+/** Lo que cualquiera puede comprobar de un comprobante: sin datos del cliente ni del pago. */
+export type PublicReceiptCheck =
+  | {
+      authentic: true;
+      number: number;
+      reference: string;
+      totalCop: number;
+      status: string;
+      paidAt: string | null;
+    }
+  | { authentic: false };
+
+/**
+ * Verificación pública (sección Soporte de la tienda): un comprobante falso o alterado no pasa.
+ * Si no es auténtico la respuesta es siempre la misma, exista o no la referencia, para no
+ * revelar qué pedidos existen; y nunca devuelve nombre, correo, UID ni el ID del pago.
+ */
+export async function verifyReceiptPublic(
+  deps: ServiceDeps,
+  input: z.infer<typeof publicVerifySchema>,
+): Promise<PublicReceiptCheck> {
+  const check = await verifyReceipt(deps, input);
+  if (!check.valid) return { authentic: false };
+  return {
+    authentic: true,
+    number: check.number,
+    reference: check.reference,
+    totalCop: check.totalCop,
+    status: check.status,
+    paidAt: check.paidAt,
   };
 }
