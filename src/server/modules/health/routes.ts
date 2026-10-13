@@ -8,6 +8,8 @@ export interface DatabaseHealthCheck {
 export interface HealthRoutesOptions {
   database: DatabaseHealthCheck | undefined;
   readinessTimeoutMs: number;
+  /** SHA completo del commit desplegado; nunca contiene credenciales. */
+  revision?: string | null | undefined;
 }
 
 /**
@@ -18,7 +20,11 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
   // Sin rate limiting: las sondas del hosting no deben recibir 429.
   app.get('/api/health', { config: { rateLimit: false } }, async (_request, reply) => {
     reply.header('cache-control', 'no-store');
-    return { status: 'ok' };
+    const revision = options.revision;
+    return {
+      status: 'ok',
+      revision: revision && /^[0-9a-f]{40}$/i.test(revision) ? revision : null,
+    };
   });
 
   app.get('/api/ready', { config: { rateLimit: false } }, async (request, reply) => {
