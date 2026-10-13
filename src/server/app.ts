@@ -65,6 +65,8 @@ export interface AppDependencies {
   background?: ((task: Promise<unknown>) => void) | undefined;
   now?: () => Date;
   readinessTimeoutMs?: number;
+  /** Revision supplied by Render; null disables it in tests. */
+  revision?: string | null | undefined;
 }
 
 const BODY_LIMIT_BYTES = 64 * 1024;
@@ -168,6 +170,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
 
   await app.register(healthRoutes, {
     database: input.database,
+    revision: input.revision === undefined ? process.env.RENDER_GIT_COMMIT : input.revision,
     // Neon Free puede tardar varios segundos al despertar; dar margen al pool (5 s)
     // antes de marcar la tienda como no preparada. Un fallo real sigue devolviendo 503.
     readinessTimeoutMs: input.readinessTimeoutMs ?? 5_500,
