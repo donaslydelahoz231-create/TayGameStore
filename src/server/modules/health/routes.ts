@@ -21,10 +21,10 @@ export const healthRoutes: FastifyPluginAsync<HealthRoutesOptions> = async (app,
   app.get('/api/health', { config: { rateLimit: false } }, async (_request, reply) => {
     reply.header('cache-control', 'no-store');
     const revision = options.revision;
-    return {
-      status: 'ok',
-      revision: revision && /^[0-9a-f]{40}$/i.test(revision) ? revision : null,
-    };
+    if (revision && /^[0-9a-f]{40}$/i.test(revision)) {
+      reply.header('x-tgs-revision', revision);
+    }
+    return { status: 'ok' };
   });
 
   app.get('/api/ready', { config: { rateLimit: false } }, async (request, reply) => {
