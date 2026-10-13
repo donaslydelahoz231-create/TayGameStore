@@ -17,6 +17,7 @@ import { renderPins } from './features/pins.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
+import { renderPromo, watchPromoChanges } from './features/promo.js';
 import { renderPromoStrip } from './features/tariffs.js';
 import { renderChecks } from './features/tracking.js';
 
@@ -104,6 +105,13 @@ async function init() {
 
   setText('heroTime', formatClock(new Date()));
   setInterval(() => setText('heroTime', formatClock(new Date())), CLOCK_REFRESH_MS);
+  // TAY RADAR empieza o termina con la tienda abierta: precios y avisos del servidor al día.
+  watchPromoChanges(async () => {
+    await bootstrapConfig();
+    await loadCatalog(state.game);
+    renderPromo();
+    renderAll();
+  });
 }
 
 export function startStore() {

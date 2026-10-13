@@ -744,7 +744,10 @@ const MARGIN_STATUS = {
 async function loadMargins() {
   const j = await call('/api/admin/margins');
   $('admMarginPolicy').textContent =
-    `Comisión del pago ${j.policy.feePct} % · ganancia mínima ${j.policy.minMarginPct} % sobre el costo. ` +
+    `Comisión del pago ${j.policy.feePct} %` +
+    (j.policy.feeFixedCop ? ` + ${money(j.policy.feeFixedCop)}` : '') +
+    (j.policy.feeTaxPct ? ` + IVA ${j.policy.feeTaxPct} %` : '') +
+    ` · ganancia mínima ${j.policy.minMarginPct} % sobre el costo. ` +
     '«Costo máximo» es lo más que puedes pagarle a UniPin por ese paquete sin perder. ' +
     (j.providerActive
       ? 'Con el costo de UniPin, la tienda nunca vende por debajo del piso: sube la promo o no vende por UniPin.'

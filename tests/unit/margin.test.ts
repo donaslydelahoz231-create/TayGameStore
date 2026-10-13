@@ -52,7 +52,7 @@ describe('configuración del costo del proveedor', () => {
       'ff-110': { denomination: 'D110', costCop: null },
       'ff-341': { denomination: 'D341', costCop: 9000 },
     });
-    expect(config.margin).toEqual({ feePct: 4, minMarginPct: 5 });
+    expect(config.margin).toEqual({ feePct: 4, minMarginPct: 5, feeFixedCop: 0, feeTaxPct: 0 });
   });
 
   it('rechaza costos inválidos y porcentajes fuera de rango', () => {

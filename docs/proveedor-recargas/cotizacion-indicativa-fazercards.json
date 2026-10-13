@@ -1,0 +1,13 @@
+{
+  "provider": "FazerCards (tabla mayorista pública)",
+  "source": "reseller.fazercards.com/en/catalog/free-fire vista por el buscador el 13-oct-2026; región no indicada (puede no ser LATAM); requiere suscripción mensual y saldo prepago; TRM del 9-oct-2026 según Portafolio",
+  "confirmed": false,
+  "trmCop": 3218.75,
+  "fxSpreadPct": 0,
+  "surchargePct": 0,
+  "costs": {
+    "ff-110": { "usd": 0.79 },
+    "ff-341": { "usd": 2.49 },
+    "ff-572": { "usd": 3.74 }
+  }
+}

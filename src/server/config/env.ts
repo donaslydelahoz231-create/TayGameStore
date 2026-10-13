@@ -289,6 +289,13 @@ const envSchema = z
     PAYMENT_FEE_PCT: z.coerce.number().min(0).max(20).default(4),
     MIN_MARGIN_PCT: z.coerce.number().min(0).max(100).default(5),
     /**
+     * Cargo fijo por pago (pesos) e IVA sobre la comisión (%). Mercado Pago Colombia publica una
+     * comisión con cargo fijo más IVA (docs/proveedor-recargas/FINANZAS.md); con 0 se calcula solo
+     * con el porcentaje, como antes. Verifica los valores de tu cuenta en el panel de Mercado Pago.
+     */
+    PAYMENT_FEE_FIXED_COP: z.coerce.number().int().min(0).max(20_000).default(0),
+    PAYMENT_FEE_TAX_PCT: z.coerce.number().min(0).max(30).default(0),
+    /**
      * true: el catálogo (precios, promociones, paquetes) no se puede cambiar desde el panel, ni
      * siquiera con una sesión de administrador robada. Para cambiar precios, el dueño lo pone en
      * false en Render, hace el cambio y lo vuelve a poner en true.
@@ -489,7 +496,7 @@ export interface AppConfig {
   /** Catálogo bloqueado: el panel no puede crear ni cambiar paquetes ni precios. */
   catalogLocked: boolean;
   /** Ganancia garantizada: comisión del pago y margen mínimo sobre el costo del proveedor (%). */
-  margin: { feePct: number; minMarginPct: number };
+  margin: { feePct: number; minMarginPct: number; feeFixedCop: number; feeTaxPct: number };
   secrets: {
     orderTokenKeys: Keyring;
     mfaKeys: Keyring;
@@ -643,7 +650,12 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     fulfillmentMode: env.FULFILLMENT_MODE,
     catalogLocked: env.CATALOG_LOCKED,
-    margin: { feePct: env.PAYMENT_FEE_PCT, minMarginPct: env.MIN_MARGIN_PCT },
+    margin: {
+      feePct: env.PAYMENT_FEE_PCT,
+      minMarginPct: env.MIN_MARGIN_PCT,
+      feeFixedCop: env.PAYMENT_FEE_FIXED_COP,
+      feeTaxPct: env.PAYMENT_FEE_TAX_PCT,
+    },
     secrets: {
       // Fuera de producción se generan claves efímeras: los tokens dejan de valer al reiniciar.
       orderTokenKeys: env.ORDER_TOKEN_KEYS ?? ephemeralKeyring(),

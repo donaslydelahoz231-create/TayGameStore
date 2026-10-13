@@ -13,7 +13,7 @@ import {
   type FreeFireServer,
   type OrderStatus,
 } from '../db/schema.js';
-import { computeTotals, effectivePrice } from '../domain/pricing.js';
+import { computeTotals, effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { canTransitionOrder, OPEN_ORDER_STATUSES } from '../domain/state-machines.js';
 import {
   keyedHash,
@@ -286,6 +286,28 @@ function publicReceipt(
 }
 
 // ── Checkout ─────────────────────────────────────────────────────────────────
+
+/**
+ * Qué regla de precio se aplicó al crear el pedido: `normal`, `tay-radar` (promo de fin de semana,
+ * hora de Colombia) o `promo` (promoción del producto con PROMO_SCHEDULE=always).
+ */
+function pricingEvidence(
+  deps: ServiceDeps,
+  lines: readonly { unitPriceCop: number; listPriceCop: number }[],
+  now: Date,
+  subtotalCop: number,
+  discountCop: number,
+) {
+  const discounted = lines.some((line) => line.unitPriceCop < line.listPriceCop);
+  const weekends = deps.config.promoSchedule === 'weekends';
+  const rule = !discounted ? 'normal' : weekends ? 'tay-radar' : 'promo';
+  return {
+    priceRule: rule,
+    subtotalCop,
+    discountCop,
+    promoEndsAt: rule === 'tay-radar' ? weekendWindow(now).endsAt.toISOString() : null,
+  };
+}
 
 export const checkoutSchema = z.strictObject({
   checkoutKey: z.uuid(),
@@ -625,6 +647,9 @@ export async function createOrder(
         data: {
           totalCop: created.totalCop,
           items: lines.length,
+          // Regla de precio que fijó el total (queda sellada en el historial): el pedido conserva
+          // ese precio aunque se pague después de terminar TAY RADAR o cambie el catálogo.
+          ...pricingEvidence(deps, lines, now, created.subtotalCop, created.discountCop),
           verification: lookup
             ? `proveedor:${lookup.provider}`
             : selfConfirmed

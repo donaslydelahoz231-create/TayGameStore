@@ -7,6 +7,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Informe de rentabilidad** (`npm run finanzas:margenes`, `docs/proveedor-recargas/`):
+  - costo máximo del proveedor para márgenes del 5, 10 y 15 % en los 6 paquetes, en precio
+    normal y TAY RADAR;
+  - escenarios de comisión de Mercado Pago;
+  - beneficio y equilibrio con una cotización en JSON.
+
+  Solo calcula: no toca la base ni servicios externos.
+- **TAY RADAR:**
+  - cada pedido sella en el historial la regla de precio aplicada (`tay-radar`, `promo` o
+    `normal`), el descuento y el fin de la promo;
+  - la tienda abierta vuelve a pedir precios cuando la promo empieza o termina.
+
+### Corregido
+
+- **Política de ganancia:** la comisión del pago admite cargo fijo e IVA (`PAYMENT_FEE_FIXED_COP`,
+  `PAYMENT_FEE_TAX_PCT`). Antes un 4 % plano subestimaba la comisión de los paquetes pequeños. En
+  0, las cifras son las de antes.
+
 - **Rol de base de datos con privilegios mínimos, listo para adoptar** (H-01,
   `docs/base-datos-rol-minimo.md`):
   - El rol de grupo `tgs_app_rw` no puede desactivar triggers, borrar pedidos ni editar el

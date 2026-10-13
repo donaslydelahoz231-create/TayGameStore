@@ -114,11 +114,12 @@ describe('ganancia garantizada con el costo del proveedor', () => {
     const res = await inject({ method: 'GET', url: '/api/admin/margins', cookies: admin });
     expect(res.statusCode).toBe(200);
     const body = res.json<{
-      policy: { feePct: number; minMarginPct: number };
+      policy: { feePct: number; minMarginPct: number; feeFixedCop: number; feeTaxPct: number };
       providerActive: boolean;
       products: Record<string, unknown>[];
     }>();
-    expect(body.policy).toEqual({ feePct: 4, minMarginPct: 5 });
+    // Sin cargo fijo ni IVA configurados, las cifras son las de siempre.
+    expect(body.policy).toEqual({ feePct: 4, minMarginPct: 5, feeFixedCop: 0, feeTaxPct: 0 });
     expect(body.providerActive).toBe(true);
     const bySku = new Map(body.products.map((p) => [p.sku, p]));
     expect(bySku.get('ff-110')).toMatchObject({

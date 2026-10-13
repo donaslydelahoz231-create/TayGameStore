@@ -740,3 +740,39 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 
   Cada una tiene un cómputo de 0,25 CU que se suspende solo tras 5 min.
 - **Sin cambios** en producción, variables, secretos, precios, pagos ni datos.
+
+### 2026-10-13 · Misión proveedor: TAY RADAR, rentabilidad y proveedores
+
+- **Pidió el dueño:**
+  - auditar TAY RADAR, pedidos y Mercado Pago;
+  - investigar proveedores de recarga por ID y la competencia;
+  - modelo financiero de los 6 paquetes;
+  - implementar y probar lo seguro, sin desplegar ni contactar a nadie.
+- **Producción (solo lectura):** los 6 paquetes coinciden con la tabla oficial de TAY RADAR.
+  `PROMO_SCHEDULE=weekends` y `TOPUP_PROVIDER=none`.
+- **Hallazgos:**
+  - TAY RADAR la decide el servidor y fija el precio al crear el pedido.
+  - Brechas corregidas:
+    - la tienda abierta no se actualizaba al cambiar la promo;
+    - la regla de precio no quedaba registrada;
+    - la comisión del pago no incluía el cargo fijo ni el IVA.
+  - Mercado Pago (página oficial vista por el buscador) cobra 3,29 % + $800 + IVA al instante:
+    unos $1.101 en el paquete de 110 💎 en TAY RADAR.
+- **Proveedores:** la red del entorno bloquea (403) las páginas de los 14 candidatos.
+  - Con lo indexado, ninguno cumple «sin saldo prepago» ni tiene condiciones confirmadas para
+    LATAM.
+  - Volsever queda excluido porque automatiza PagoStore.
+  - No se contactó a nadie.
+- **Pruebas locales:**
+
+  | Suite | Resultado |
+  |---|---|
+  | Unitarias | 259 |
+  | Integración con rol mínimo | 214 |
+  | Integración sin rol mínimo | 212 y 2 omitidas |
+  | e2e y visuales en escritorio | 67 |
+  | Lint, tipos y build | Verde |
+
+  Proveedor y Mercado Pago, simulados.
+- **Sin cambios** en producción, precios, variables ni datos. El commit queda local hasta que el
+  dueño autorice subirlo, porque subirlo despliega.

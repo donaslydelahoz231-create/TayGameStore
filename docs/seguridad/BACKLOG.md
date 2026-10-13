@@ -17,12 +17,13 @@ REQUIERE_APROBACIÓN, COMPLETADA, VERIFICADA, POSPUESTA. Hallazgos: [`HALLAZGOS.
 | B-11 | Fijar acciones de GitHub por SHA (H-05) | 8 | Cadena de suministro | PENDIENTE | Despliegue autorizado | Todos los `uses:` con SHA y comentario de versión |
 | B-12 | Verificación en dos pasos en Google, GitHub, Render, Neon y Mercado Pago | 2 | Robo de cuentas | BLOQUEADA | Dueño | El dueño lo confirma (no verificable desde aquí) |
 | B-13 | Rotar el secreto de Google y borrar la clave de API expuesta | 2 | Credencial expuesta | BLOQUEADA | Dueño | Login con Google sigue funcionando tras rotar |
-| B-14 | Proveedor de diamantes con reventa permitida | 3 | Negocio | BLOQUEADA | Dueño (`docs/specs/contacto-proveedores.md`) | Contrato o condiciones por escrito |
+| B-14 | Proveedor de diamantes con reventa permitida | 3 | Negocio | BLOQUEADA | Dueño: autorizar pedir cotizaciones (`docs/proveedor-recargas/PROVEEDORES.md`) | Cotización por escrito con margen ≥ 5 % en `npm run finanzas:margenes` |
 | B-15 | «Próximamente» en lugar de «Agotado» | 9 | Imagen | REQUIERE_APROBACIÓN | Dueño | e2e verde; ningún cobro posible sin entrega |
 | B-16 | Listar alertas abiertas de CodeQL | 8 | Desconocido | BLOQUEADA | Herramienta de code scanning o el dueño en GitHub → Security | Lista revisada |
 | B-17 | Borrar recursos temporales y ramas superadas (H-10) | 9 | Orden | REQUIERE_APROBACIÓN | Dueño: autorizar borrados | Sin la rama de Neon `prueba-rol-minimo-2026-10-13`; sin las 7 ramas de Git de H-10; PR #12 cerrado |
 | B-18 | Fase 2 del rol mínimo: migrar desde GitHub Actions y dejar en Render solo la URL de `tgs_app` | 6 | Integridad | POSPUESTA | B-01 en producción | Render sin la URL del dueño; migraciones verdes desde Actions |
 | B-19 | Visibilidad del repositorio (H-09) | 9 | Exposición | REQUIERE_APROBACIÓN | Decisión del dueño (costo de Actions si es privado) | Decisión registrada |
+| B-20 | Comisión real de Mercado Pago en la política de ganancia (`PAYMENT_FEE_FIXED_COP`, `PAYMENT_FEE_TAX_PCT`) | 4 | Negocio | REQUIERE_APROBACIÓN | Dueño: confirmar la tarifa en su panel y autorizar el cambio en Render | Panel → Rentabilidad muestra el cargo fijo y el IVA |
 
 ## Completadas en este ciclo
 
