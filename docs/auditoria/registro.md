@@ -776,3 +776,29 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   Proveedor y Mercado Pago, simulados.
 - **Sin cambios** en producción, precios, variables ni datos. El commit queda local hasta que el
   dueño autorice subirlo, porque subirlo despliega.
+
+### 2026-10-13 · Paquetes «Agotado»: la tienda vuelve a vender (entrega manual por el dueño)
+
+- **Reportó el dueño:** el catálogo mostraba todos los paquetes «Agotado» y no podía añadir pedidos.
+- **Causa (reproducida en local con la configuración de producción):**
+  - `SELL_ONLY_WITH_STOCK=true` en Render, sin PIN cargados (0 en la base) y con
+    `TOPUP_PROVIDER=none`.
+  - Resultado: 6 de 6 paquetes «Agotado» y el botón «Agregar» desactivado.
+  - `render.yaml` ya decía `false`; la variable del panel lo anulaba.
+- **Decisión del dueño (13-oct):** operar de verdad, con él como proveedor que entrega cada pedido
+  pagado desde el panel.
+- **Hecho:** `SELL_ONLY_WITH_STOCK=false` en Render. Los demás valores no cambiaron.
+- **Recorrido de compra como cliente** (navegador real, servidor local con la configuración de
+  producción y Mercado Pago simulado; `tools/smoke/compra-cliente.mjs`):
+  - catálogo con 6 de 6 a la venta;
+  - se añade el paquete de 110 💎 ($4.000, día entre semana);
+  - ID escrito dos veces y confirmado;
+  - nombre, correo, PSE y términos;
+  - «Pagar $ 4.000 COP» → «Pago confirmado» con comprobante → el pedido aparece en
+    «Mis pedidos».
+- **Comprobación de producción:** la prueba diaria y la de cada despliegue (`burbujas.mjs`) ahora
+  informan «a la venta / agotados» y avisan si todo sale «Agotado».
+- **Riesgo que el dueño debe conocer:**
+  - Cada pedido pagado obliga a entregar en el plazo de `LEGAL_DELIVERY_TIME`.
+  - Comprar los diamantes al precio público y pagar la comisión de Mercado Pago deja pérdida en
+    los paquetes pequeños (`docs/proveedor-recargas/FINANZAS.md`).

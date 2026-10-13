@@ -49,6 +49,18 @@ try {
       failures.push(`${viewport.width}px`);
     await page.close();
   }
+  // Lo que ve un cliente en el catálogo: cuántos paquetes se pueden comprar y cuántos salen
+  // «Agotado» (SELL_ONLY_WITH_STOCK sin PIN ni proveedor). Solo lee.
+  const catalog = await (await fetch(new URL('/api/catalog?game=freefire', base))).json();
+  const packages = Array.isArray(catalog.products) ? catalog.products : [];
+  const soldOut = packages.filter((p) => p.soldOut).length;
+  console.log(
+    `Catálogo · ${packages.length} paquete(s) · a la venta: ${packages.length - soldOut} · agotados: ${soldOut}`,
+  );
+  if (packages.length && soldOut === packages.length)
+    console.log(
+      '::warning::Todos los paquetes salen «Agotado»: los clientes no pueden comprar (SELL_ONLY_WITH_STOCK=true sin PIN ni proveedor).',
+    );
   const config = await (await fetch(new URL('/api/config', base))).json();
   const auth = Object.entries(config.auth ?? {})
     .map(([name, on]) => `${name}: ${on ? 'activo' : 'sin credenciales'}`)

@@ -59,9 +59,12 @@ const config = loadConfig({
   SERVE_WEB: 'true',
   WEB_DIST_DIR: 'dist/web',
   CHECKOUT_ENABLED: 'true',
-  PROMO_SCHEDULE: 'always',
+  // Por defecto, la configuración de las suites. `npm run compra:cliente` las cambia por las de
+  // producción (E2E_*) para recorrer la compra como un cliente.
+  PROMO_SCHEDULE: process.env.E2E_PROMO_SCHEDULE ?? 'always',
+  SELL_ONLY_WITH_STOCK: process.env.E2E_SELL_ONLY_WITH_STOCK ?? 'false',
   // Las pruebas de la verificación por el equipo; el modo del cliente se activa por prueba.
-  PLAYER_VERIFICATION: 'operator',
+  PLAYER_VERIFICATION: process.env.E2E_PLAYER_VERIFICATION ?? 'operator',
   PAYMENTS_ENABLED: 'true',
   MP_MODE: 'sandbox',
   // Todas las pruebas salen de 127.0.0.1: el límite global por IP se mide en tests/integration.
