@@ -7,6 +7,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Rol de base de datos con privilegios mínimos, listo para adoptar** (H-01,
+  `docs/base-datos-rol-minimo.md`):
+  - El rol de grupo `tgs_app_rw` no puede desactivar triggers, borrar pedidos ni editar el
+    historial.
+  - `MIGRATION_DATABASE_URL` opcional, para migrar con el rol dueño.
+  - La CI corre la integración con ese rol.
+  - Sin efecto en producción hasta que el dueño cree el rol.
+- **Webhook de Mercado Pago:** registra la antigüedad del `ts` firmado para decidir la tolerancia
+  con datos reales (H-04). No rechaza avisos.
+
 - **Ganancia garantizada con el costo del proveedor** (`docs/estrategia-promociones.md`):
   - `UNIPIN_CATALOG` acepta el costo de cada paquete (`costCop`);
   - con la comisión del pago (`PAYMENT_FEE_PCT`, 4 %) y la ganancia mínima (`MIN_MARGIN_PCT`,

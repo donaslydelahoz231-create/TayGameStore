@@ -57,6 +57,9 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://ci:ci@localhost:5432/taygamestore_test
+      # La app de las pruebas usa un rol de privilegios mínimos, como producción tras H-01
+      # (docs/base-datos-rol-minimo.md). Las pruebas lo crean; credencial desechable.
+      TEST_APP_DATABASE_URL: postgres://tgs_app_ci:ci_app@localhost:5432/taygamestore_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

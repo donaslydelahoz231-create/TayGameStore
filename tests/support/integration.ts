@@ -4,6 +4,7 @@ import { buildAppWithDeps } from '../../src/server/app.js';
 import { loadConfig } from '../../src/server/config/env.js';
 import { createDatabase, type Database } from '../../src/server/db/client.js';
 import { runMigrations } from '../../src/server/db/migrate.js';
+import { APP_GROUP_ROLE, createAppGroupRole } from '../../src/server/db/privileges.js';
 import { products, sessions, users } from '../../src/server/db/schema.js';
 import type { GoogleClient, GoogleIdentity } from '../../src/server/integrations/google/oidc.js';
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
@@ -32,6 +33,40 @@ export function testDatabaseUrl(): string {
   return url;
 }
 
+/**
+ * Con TEST_APP_DATABASE_URL la aplicación de las pruebas se conecta con un rol de privilegios
+ * mínimos (miembro de `tgs_app_rw`), como en producción tras H-01; las migraciones y la
+ * preparación siguen con TEST_DATABASE_URL (dueño). Sin ella, todo usa TEST_DATABASE_URL.
+ */
+export function testAppDatabaseUrl(): string | undefined {
+  const raw = process.env.TEST_APP_DATABASE_URL;
+  if (!raw) return undefined;
+  const app = new URL(raw);
+  const owner = new URL(testDatabaseUrl());
+  if (app.pathname !== owner.pathname || app.host !== owner.host) {
+    throw new Error('TEST_APP_DATABASE_URL debe apuntar a la misma base que TEST_DATABASE_URL.');
+  }
+  if (!decodeURIComponent(app.username).startsWith('tgs_app')) {
+    throw new Error('El rol de TEST_APP_DATABASE_URL debe empezar por "tgs_app".');
+  }
+  return raw;
+}
+
+/** Crea (si falta) el rol de prueba con login y lo hace miembro de `tgs_app_rw`. */
+async function ensureTestAppRole(admin: pg.Client, appUrl: string): Promise<void> {
+  const url = new URL(appUrl);
+  const role = admin.escapeIdentifier(decodeURIComponent(url.username));
+  const password = admin.escapeLiteral(decodeURIComponent(url.password));
+  await createAppGroupRole(admin);
+  const exists = await admin.query('select 1 from pg_roles where rolname = $1', [
+    decodeURIComponent(url.username),
+  ]);
+  if (exists.rowCount === 0) {
+    await admin.query(`create role ${role} login password ${password}`);
+  }
+  await admin.query(`grant ${APP_GROUP_ROLE} to ${role}`);
+}
+
 /** Borra y recrea el esquema de la base de pruebas. */
 export async function resetDatabase(url: string): Promise<void> {
   const admin = new pg.Client({ connectionString: url });
@@ -39,6 +74,8 @@ export async function resetDatabase(url: string): Promise<void> {
   await admin.query(
     'drop schema if exists drizzle cascade; drop schema public cascade; create schema public;',
   );
+  const appUrl = testAppDatabaseUrl();
+  if (appUrl) await ensureTestAppRole(admin, appUrl);
   await admin.end();
   await runMigrations(url);
 }
@@ -88,7 +125,7 @@ export async function createHarness(
   env: Record<string, string> = {},
   options: { playerVerifier?: boolean; events?: boolean } = {},
 ): Promise<Harness> {
-  const url = testDatabaseUrl();
+  const url = testAppDatabaseUrl() ?? testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
   const notifier = new RecordingOwnerNotifier();

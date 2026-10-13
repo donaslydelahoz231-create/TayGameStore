@@ -1,6 +1,6 @@
 # Modelo de amenazas (resumen)
 
-Arquitectura confirmada en el código y en los servicios (13-oct-2026).
+Arquitectura confirmada en el código y en los servicios (13-oct-2026, actualizado 15:30 UTC).
 
 ```
 Cliente (navegador) ──HTTPS──► Render: Fastify (API + web estática)
@@ -21,12 +21,12 @@ Apagado o desconocido:
 | Activo | Amenaza | Control actual | Riesgo residual |
 |---|---|---|---|
 | Dinero (precios, pagos) | Cambiar precio desde el navegador; webhook falso; pago de otro pedido | Precio y total solo en servidor; firma HMAC; consulta a la API de Mercado Pago; monto, moneda y `live_mode` deben coincidir; idempotencia | Bajo. Repetición de un aviso firmado sin efecto (H-04) |
-| Pedidos y comprobantes | Borrar o alterar historial; comprobante falso | Triggers sin DELETE y montos inmutables; sellos SHA-256; código HMAC del comprobante | Medio: el rol de la app es dueño de las tablas (H-01) |
+| Pedidos y comprobantes | Borrar o alterar historial; comprobante falso | Triggers sin DELETE y montos inmutables; sellos SHA-256; código HMAC del comprobante | Medio: el rol de la app es dueño de las tablas (H-01; mitigación lista, falta adoptarla) |
 | Panel del dueño | Robo de sesión, fuerza bruta, enumeración | Lista blanca, MFA, huella, ruta oculta, 404 a no administradores, límites y escudo anti-abuso, catálogo bloqueado | Bajo |
 | Datos de clientes | IDOR en pedidos ajenos; XSS | Token del pedido, bloqueo por enumeración, CSP estricta, escape en el panel (e2e) | Bajo |
 | Secretos | Fuga en código, commits o chats | Solo en variables de Render y GitHub; gitleaks en la CI; guardia de datos local | Medio: rotación del secreto de Google pendiente (B-13) |
 | Disponibilidad | Caída, DDoS, cuota de Neon agotada | Vigilancia con reinicio automático, modo reposo, límite global por IP | Medio: plan gratuito, una sola instancia |
-| Datos (pérdida) | Borrado o corrupción | PITR de 6 h; instantánea manual del 7-oct | **Medio-alto:** sin calendario de respaldos (H-02) |
+| Datos (pérdida) | Borrado o corrupción | PITR de 6 h; instantánea del 7-oct; rama de respaldo del 13-oct verificada | Medio: el plan guarda 1 instantánea; la renovación es manual y mensual (H-02) |
 | Cadena de suministro | Paquete o acción comprometida | Lockfile, `npm audit` 0, Dependabot, CodeQL | Bajo-medio: acciones sin SHA (H-05) |
 
 ## Agentes de IA, MCP y automatizaciones

@@ -1,19 +1,23 @@
 # Hallazgos de seguridad y operación
 
-Ciclo del 2026-10-13. Cada hallazgo tiene evidencia redactada, sin secretos ni datos personales.
-Estados: CONFIRMADO, POR VALIDAR, CORREGIDO (local), RIESGO ACEPTADO, INFORMATIVO.
+Ciclo del 2026-10-13, actualizado a las 15:30 UTC (mandato OMNIA). Cada hallazgo tiene evidencia
+redactada, sin secretos ni datos personales.
+Estados: CONFIRMADO, POR VALIDAR, MITIGACIÓN LISTA (falta el dueño), CORREGIDO, RIESGO ACEPTADO,
+INFORMATIVO.
 Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 
 | ID | Severidad | Confianza | Componente | Estado |
 |---|---|---|---|---|
-| H-01 | Media | Alta | Base de datos (rol de la app) | CONFIRMADO |
-| H-02 | Media | Alta | Respaldos de Neon | CONFIRMADO |
+| H-01 | Media | Alta | Base de datos (rol de la app) | MITIGACIÓN LISTA (falta el dueño) |
+| H-02 | Media | Alta | Respaldos de Neon | MITIGADO EN PARTE |
 | H-03 | Media | Alta | Testigo de integridad externo (`CRON_SECRET`) | CONFIRMADO (pendiente del dueño) |
-| H-04 | Baja | Alta (código) / Baja (unidades de `ts`) | Webhook de Mercado Pago | POR VALIDAR |
+| H-04 | Baja | Alta (código) / Baja (unidades de `ts`) | Webhook de Mercado Pago | POR VALIDAR (registro listo) |
 | H-05 | Baja | Alta | CI: acciones sin fijar por SHA | CONFIRMADO |
-| H-06 | Baja | Alta | Prueba e2e del panel (carrera) | CORREGIDO (local) |
+| H-06 | Baja | Alta | Prueba e2e del panel (carrera) | CORREGIDO (CI verde con `8754120`) |
 | H-07 | Baja | Alta | PR de Dependabot | CONFIRMADO |
 | H-08 | Informativo | Alta | Alcance de la auditoría | INFORMATIVO |
+| H-09 | Baja | Alta | Repositorio público | RIESGO ACEPTADO (decisión del dueño) |
+| H-10 | Informativo | Alta | Ramas de Git superadas | CONFIRMADO |
 
 ## H-01 · La aplicación se conecta a la base como dueña de las tablas
 
@@ -30,6 +34,20 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 - **Requiere autorización:** crear el rol y cambiar `DATABASE_URL` en Render (es un secreto).
 - **Verificación:** con el rol nuevo, `ALTER TABLE orders DISABLE TRIGGER ALL` debe fallar y las
   suites de integración deben pasar.
+- **Avance (13-oct, 15:20 UTC):**
+  - Rol de grupo `tgs_app_rw` en `src/server/db/privileges.ts`:
+    - `SELECT/INSERT/UPDATE` en las tablas;
+    - solo agregar en el historial;
+    - `DELETE` solo en sesiones, estados OAuth, retos, códigos MFA, búsquedas y bloqueos.
+  - `MIGRATION_DATABASE_URL` opcional para migrar con el dueño.
+  - Probado:
+    - 210 de 210 pruebas de integración con la app como rol mínimo (también en la CI desde
+      ahora);
+    - en una rama de Neon (PG18), `DISABLE TRIGGER` falla con «must be owner» y `UPDATE` del
+      historial con «permission denied».
+  - En producción el rol no existe: el código es inerte hasta que el dueño siga
+    [`docs/base-datos-rol-minimo.md`](../base-datos-rol-minimo.md).
+  - **Riesgo residual:** la URL del dueño seguiría en las variables de Render (fase 2 en esa guía).
 
 ## H-02 · Respaldos: una sola instantánea manual, del 7 de octubre
 
@@ -45,6 +63,22 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
      gratuito acepta calendario o cuántas instantáneas guarda.
   3. Probar una restauración en una rama (`docs/incident-response.md`).
 - **Requiere autorización:** crear recursos en Neon (instantánea o calendario).
+- **Avance (13-oct, 15:02 UTC):**
+  - `create_snapshot` responde **HTTP 422 «snapshots limit exceeded»**: el plan gratuito
+    (`free_v3`) guarda **una sola instantánea**, y ya la ocupa la del 7-oct. Un calendario
+    tampoco cabe sin borrar esa.
+  - Se creó un respaldo como **rama de Neon** `respaldo-2026-10-13`
+    (`br-quiet-rain-b533qmjv`, copia de producción a las 15:01 UTC). No borra nada y no cambia
+    producción.
+  - **Restauración verificada en la rama:** mismos conteos que producción (1 pedido, 2 ítems,
+    1 intento de pago, 6 productos, 9 usuarios, 24 eventos, 2 sellos). También 26 triggers
+    activos, 16 migraciones, cadena de sellos enlazada y contigua, y huellas md5 iguales de
+    precios y sellos.
+  - **Pendiente:**
+    - Renovar la instantánea: borrar la del 7-oct y crear una nueva. Requiere autorización
+      porque es un borrado.
+    - Probar `restore_snapshot` de esa instantánea. No se hizo: con `finalize` por defecto
+      movería la tienda a la copia vieja. Si se prueba, va con `finalize: false`.
 
 ## H-03 · Sin testigo externo de integridad ni respaldo de tareas desde GitHub
 
@@ -56,6 +90,9 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
   total a la base podría alterarla sin que nadie de afuera lo note a tiempo.
 - **Recomendación:** el dueño crea `CRON_SECRET` con el mismo valor en Render y en GitHub
   (`docs/seguridad-tienda.md`). No se pega en ningún chat.
+- **Evidencia (13-oct):** en «Diagnóstico diario» (ejecución 38391086854), el paso «Testigo de
+  integridad» terminó en 0 s. Eso coincide con la rama que imprime «NO VERIFICADO: falta el secreto
+  CRON_SECRET en GitHub». No se leyó esa línea del registro: **inferido**.
 
 ## H-04 · El webhook acepta firmas válidas sin límite de antigüedad
 
@@ -71,6 +108,11 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
   la conciliación periódica igual confirmaría los pagos, pero con demora.
 - **Recomendación:** primero registrar la diferencia de tiempo sin rechazar nada, y con datos
   reales activar `toleranceSeconds`.
+- **Avance (13-oct):**
+  - Cada aviso con firma válida deja en el log de Render `webhook signature age` con
+    `tsAgeSeconds` y `tsUnit`. `tsUnit` es la unidad detectada: 13 cifras o más = milisegundos.
+  - No rechaza nada. Pruebas en `tests/unit/webhook-age.test.ts`.
+  - Tras el despliegue y los primeros pagos reales, revisar esos valores y decidir la tolerancia.
 
 ## H-05 · Acciones de GitHub fijadas por versión mayor, no por SHA
 
@@ -96,10 +138,47 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 | PR | Contenido | CI | Recomendación |
 |---|---|---|---|
 | #13 | 3 acciones de GitHub | Verde | Fusionar (con autorización) |
-| #14 | 6 dependencias de producción (parches y menores) | Verde salvo la prueba de H-06 | Fusionar tras subir la corrección de H-06 |
+| #14 | 6 dependencias de producción (parches y menores) | Verde salvo la prueba de H-06 | Fusionar (con autorización), tras traer la principal con la corrección de H-06 (`8754120`) |
 | #15 | Dependencias de desarrollo, incluye Playwright 1.56 → 1.64 | WebKit falla siempre en «foco visible con teclado» | Retener: adaptar la prueba al WebKit nuevo (solo verificable en la CI) |
 | #16 | TypeScript 6 → 7 (mayor) | `npm ci` falla: `typescript-eslint` exige `<6.1.0` | Cerrar e ignorar TypeScript mayor en `dependabot.yml` |
 | #12 | Corrección manual de `curl --proto` (10-oct) | — | Su cambio ya está en la rama: cerrar como superado |
+
+## H-09 · El repositorio es público
+
+- **Evidencia:** `list_repos` devuelve `TayGameStore` con visibilidad pública (13-oct).
+- **Impacto:**
+  - Cualquiera puede leer el código y `docs/seguridad/`, incluidos los pendientes como H-01 y
+    H-03.
+  - No hay secretos: gitleaks en la CI y el escáner del repositorio dan 0.
+  - Los datos del dueño están protegidos por la guardia.
+- **Por qué no se cambia solo:**
+  - En un repositorio privado del plan gratuito, GitHub Actions deja de ser ilimitado.
+  - Solo «Mantener la tienda activa» (cada 10 min) ya suma unas 4.300 ejecuciones al mes.
+  - Además, cambiar la visibilidad es una decisión del dueño.
+- **Recomendación:**
+  - Mantenerlo público y no publicar detalles que faciliten un ataque (pasos de explotación,
+    rutas internas, nombres de cuentas).
+  - Si el dueño prefiere privado, primero medir los minutos de Actions.
+
+## H-10 · Ramas de Git superadas sin borrar
+
+- **Evidencia:** `git cherry`, comparación de archivos y escaneo de secretos de cada rama contra
+  la principal (13-oct).
+- **Sin fusionar, pero ya superadas:** la principal tiene versiones más nuevas de los mismos
+  archivos.
+  - `ops/recover-actions-monitoring-20261009` (13 commits): `tareas.yml` es idéntico; el resto
+    (vigilancia, `render.yaml`, `app.ts`, documentos) es más viejo que la principal.
+  - `ops/production-smoke-check-20261009` (1 commit): su cambio ya está en la principal (`git
+    cherry` = equivalente).
+  - `fix/vigilancia-curl-https-20261010` (PR #12): usa `--proto '=https:'`; la principal ya tiene
+    la forma correcta `'=https'`.
+- **Ya fusionadas:**
+  - `fix/vigilancia-curl-proto-20261010`
+  - `ops/redirect-github-pages-20261009`
+  - `security/receipt-proof-hmac-20261011`
+  - `security/refresh-blocklist-cache-20261012`
+- **Sin secretos** en los diffs de las 3 ramas sin fusionar.
+- **Recomendación:** borrar las 7 ramas y cerrar el PR #12. Requiere autorización (borrado).
 
 ## H-08 · Límites de esta auditoría
 

@@ -8,7 +8,7 @@ su archivo.
 
 | Flujo | Frecuencia | Permisos | Qué hace | Última ejecución comprobada |
 |---|---|---|---|---|
-| CI | Cada push y PR | `contents: read` | lint, tipos, unitarias, integración, e2e (3 navegadores), build, gitleaks | 13-oct, verde (`8aeca5b` y `ad9ab59`) |
+| CI | Cada push y PR | `contents: read` | lint, tipos, unitarias, integración (con el rol mínimo de base de datos), e2e (3 navegadores), build, gitleaks | 13-oct, verde (`8754120`) |
 | CodeQL Advanced | Push, PR y lunes 05:20 | `security-events: write`, resto lectura | Análisis estático JS/TS y acciones | 12-oct 05:35, verde |
 | Diagnóstico diario | Diario 11:17 | `contents: read` | `golive:check` contra producción (CSP, HSTS, catálogo, pagos) y navegador real | 13-oct 11:33, verde |
 | Vigilancia y autorreparación | Cada 30 min | `contents: read`, `issues: write` | `/api/ready` o `/api/health`; si cae, abre incidente y reinicia con el deploy hook | 13-oct 14:15, verde |
@@ -43,8 +43,12 @@ El calendario del prompt maestro ya está cubierto sin crear ejecuciones redunda
 - **En cada cambio:** CI completa + CodeQL + prueba de producción.
 - **Diario:** diagnóstico, vigilancia y rutina de Claude (CI, despliegues, logs, Neon, incidentes).
 - **Semanal:** CodeQL programado, Dependabot (npm y acciones) y rutina semanal.
-- **Mensual (manual, con el dueño):** revisar accesos y verificación en dos pasos, permisos de
-  GitHub y Render, retención de datos, y probar una restauración de Neon (B-02).
+- **Mensual (manual, con el dueño):**
+  - revisar accesos y verificación en dos pasos, y permisos de GitHub y Render;
+  - revisar la retención de datos;
+  - **renovar el respaldo de Neon:** crear una rama `respaldo-AAAA-MM-DD` desde producción,
+    comparar conteos y huellas como el 13-oct (`docs/auditoria/registro.md`) y borrar la más
+    vieja con autorización. El plan gratuito guarda 1 instantánea y 10 ramas (B-02).
 
 ## Cómo desactivar cada tarea
 

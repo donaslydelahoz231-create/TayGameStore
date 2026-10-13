@@ -478,6 +478,23 @@ export interface WebhookNotification {
 }
 
 /**
+ * Antigüedad del `ts` firmado en la cabecera `x-signature` («ts=…,v1=…») de Mercado Pago.
+ * Solo se registra (H-04, docs/seguridad/HALLAZGOS.md): con datos reales se decide la tolerancia.
+ * Un `ts` de 13 cifras o más se interpreta como milisegundos y se informa la unidad detectada.
+ */
+export function webhookSignatureAge(
+  signature: string | undefined,
+  now: Date,
+): { seconds: number; unit: 'seconds' | 'milliseconds' } | undefined {
+  const match = /(?:^|,)\s*ts=(\d{9,16})\s*(?:,|$)/.exec(signature ?? '');
+  if (!match?.[1]) return undefined;
+  const raw = Number(match[1]);
+  const unit = raw >= 1e12 ? 'milliseconds' : 'seconds';
+  const signedAtMs = unit === 'milliseconds' ? raw : raw * 1000;
+  return { seconds: Math.round((now.getTime() - signedAtMs) / 1000), unit };
+}
+
+/**
  * Procesa una notificación de Mercado Pago: autentica la firma, deduplica, consulta el pago a
  * Mercado Pago (nunca confía en el cuerpo) y aplica el resultado.
  * Devuelve `accepted=false` solo si la firma no es válida.
@@ -508,6 +525,11 @@ export async function handleWebhook(
     });
     return { accepted: false };
   }
+  const age = webhookSignatureAge(notification.signature, deps.now());
+  deps.log.info(
+    { requestIdMp: notification.requestId, tsAgeSeconds: age?.seconds, tsUnit: age?.unit },
+    'webhook signature age',
+  );
   if (
     notification.topic !== 'payment' ||
     !notification.dataId ||

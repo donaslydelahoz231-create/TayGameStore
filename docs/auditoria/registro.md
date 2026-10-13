@@ -703,3 +703,40 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
 - **Backlog** con aprobaciones pendientes: `docs/seguridad/BACKLOG.md`.
 - **Sin cambios** en producción, variables, secretos, precios ni datos. Nada se desplegó sin
   autorización.
+
+### 2026-10-13 · Mandato OMNIA: inventario, respaldo, rol mínimo y webhook
+
+- **Inventario:**
+  - 1 repositorio accesible (público, H-09) con 11 ramas (H-10).
+  - Neon: un proyecto (`free_v3`) y la rama `production`.
+  - Render: un servicio.
+  - Las 3 ramas sin fusionar están superadas y sin secretos.
+- **Respaldo (H-02):**
+  - Crear una instantánea nueva falla: **HTTP 422 «snapshots limit exceeded»**. El plan guarda 1
+    y la ocupa la del 7-oct.
+  - Se creó la rama `respaldo-2026-10-13` desde producción (15:01 UTC). Comparada con
+    producción, coinciden:
+    - conteos exactos: 1 pedido, 2 ítems, 0 pagos, 1 intento, 6 productos, 9 usuarios, 24
+      eventos y 2 sellos;
+    - 26 triggers activos y 16 migraciones;
+    - cadena de sellos enlazada y contigua;
+    - huellas md5 de precios y de sellos.
+- **Rol mínimo (H-01):**
+  - Rol de grupo `tgs_app_rw` y `MIGRATION_DATABASE_URL` opcional.
+  - Local: 210 de 210 pruebas de integración con la app conectada como rol mínimo; la CI lo hará
+    igual. Sin el rol: 208 y 2 omitidas. E2e: 66 de 66.
+  - Rama de Neon `prueba-rol-minimo-2026-10-13` (PG18), con `tgs_app_rw`:
+    - `DISABLE TRIGGER` → «must be owner»;
+    - `UPDATE audit_events` → «permission denied».
+  - En producción el rol no existe (solo lectura): el cambio es inerte. Guía para el dueño:
+    `docs/base-datos-rol-minimo.md`.
+- **Webhook (H-04):** se registra la antigüedad del `ts` firmado (`webhook signature age`), sin
+  rechazar nada; 4 pruebas unitarias.
+- **Testigo de integridad (H-03):** el paso del diagnóstico del 13-oct duró 0 s. Coincide con la
+  falta de `CRON_SECRET` en GitHub (inferido; no se leyó la línea).
+- **Recursos creados en Neon** (sin borrar nada; su borrado espera autorización, B-17):
+  - `respaldo-2026-10-13` (`br-quiet-rain-b533qmjv`);
+  - `prueba-rol-minimo-2026-10-13` (`br-autumn-breeze-b5wlcja5`).
+
+  Cada una tiene un cómputo de 0,25 CU que se suspende solo tras 5 min.
+- **Sin cambios** en producción, variables, secretos, precios, pagos ni datos.

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
+import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { auditEvents, orders, products } from '../../src/server/db/schema.js';
 import { runJob } from '../../src/server/services/jobs.js';
@@ -12,6 +13,7 @@ import {
   resetDatabase,
   seedProducts,
   sessionFor,
+  testAppDatabaseUrl,
   testDatabaseUrl,
   type Harness,
 } from '../support/integration.js';
@@ -38,6 +40,17 @@ beforeAll(async () => {
 afterAll(async () => {
   await h?.close();
 });
+
+/** Ejecuta SQL como el rol dueño de las tablas (el «acceso total» de un atacante). */
+async function asTableOwner(run: (client: pg.Client) => Promise<unknown>): Promise<void> {
+  const client = new pg.Client({ connectionString: testDatabaseUrl() });
+  await client.connect();
+  try {
+    await run(client);
+  } finally {
+    await client.end();
+  }
+}
 
 let ip = 0;
 const inject = (options: InjectOptions) =>
@@ -320,14 +333,17 @@ describe('sellos de integridad', () => {
       .from(auditEvents)
       .orderBy(auditEvents.id)
       .limit(1);
-    await h.database.db.execute(sql`alter table audit_events disable trigger user`);
-    try {
-      await h.database.db.execute(
-        sql`update audit_events set action = 'order.nada' where id = ${target?.id ?? 0}`,
-      );
-    } finally {
-      await h.database.db.execute(sql`alter table audit_events enable trigger user`);
-    }
+    await asTableOwner(async (owner) => {
+      await owner.query('alter table audit_events disable trigger user');
+      try {
+        await owner.query('update audit_events set action = $1 where id = $2', [
+          'order.nada',
+          target?.id ?? 0,
+        ]);
+      } finally {
+        await owner.query('alter table audit_events enable trigger user');
+      }
+    });
     expect(await verifyChain(h.deps)).toMatchObject({
       ok: false,
       brokenAt: 1,
@@ -340,16 +356,57 @@ describe('sellos de integridad', () => {
     });
     expect(witness.statusCode).toBe(500); // el diagnóstico diario queda en rojo
 
-    await h.database.db.execute(sql`alter table audit_events disable trigger user`);
-    try {
-      await h.database.db.execute(sql`delete from audit_events where id = ${target?.id ?? 0}`);
-    } finally {
-      await h.database.db.execute(sql`alter table audit_events enable trigger user`);
-    }
+    await asTableOwner(async (owner) => {
+      await owner.query('alter table audit_events disable trigger user');
+      try {
+        await owner.query('delete from audit_events where id = $1', [target?.id ?? 0]);
+      } finally {
+        await owner.query('alter table audit_events enable trigger user');
+      }
+    });
     expect(await verifyChain(h.deps)).toMatchObject({
       ok: false,
       brokenAt: 1,
       reason: 'faltan o sobran eventos',
     });
+  });
+});
+
+// H-01 (docs/seguridad/HALLAZGOS.md): con el rol de privilegios mínimos, la aplicación no puede
+// quitar las protecciones de la base. Solo corre con TEST_APP_DATABASE_URL (así en la CI).
+describe.skipIf(!testAppDatabaseUrl())('rol de la aplicación con privilegios mínimos', () => {
+  it('no es dueño de las tablas ni puede desactivar triggers, vaciar o editar el historial', async () => {
+    const [who] = (
+      await h.database.pool.query<{ owner: boolean; bypass: boolean; superuser: boolean }>(
+        `select pg_has_role(current_user, tableowner, 'MEMBER') as owner,
+                r.rolbypassrls as bypass, r.rolsuper as superuser
+           from pg_tables t, pg_roles r
+          where t.schemaname = 'public' and t.tablename = 'orders' and r.rolname = current_user`,
+      )
+    ).rows;
+    expect(who).toEqual({ owner: false, bypass: false, superuser: false });
+    for (const statement of [
+      'alter table orders disable trigger all',
+      'alter table audit_events disable trigger user',
+      "update audit_events set action = 'order.nada'",
+      "update audit_seals set hash = repeat('0', 64)",
+      'truncate sessions',
+      'drop table blocklist',
+      'create table intruso (id int)',
+    ]) {
+      const error = await h.database.db.execute(sql.raw(statement)).then(
+        () => undefined,
+        (e: unknown) => e as { cause?: { code?: string } },
+      );
+      // 42501 = insufficient_privilege (sin permiso o «must be owner»).
+      expect(error?.cause?.code, statement).toBe('42501');
+    }
+  });
+
+  it('sí puede depurar lo temporal (sesiones vencidas) y escribir pedidos', async () => {
+    await expect(
+      h.database.db.execute(sql`delete from sessions where expires_at < now() - interval '1 year'`),
+    ).resolves.toBeDefined();
+    await expect(h.database.db.execute(sql`select count(*) from orders`)).resolves.toBeDefined();
   });
 });
