@@ -61,7 +61,15 @@ try {
     console.log(
       '::warning::Todos los paquetes salen «Agotado»: los clientes no pueden comprar (SELL_ONLY_WITH_STOCK=true sin PIN ni proveedor).',
     );
+  // Reseñas verificadas publicadas y plazo de entrega que ve el cliente. Solo lee.
+  const reviews = await (await fetch(new URL('/api/reviews?game=freefire', base))).json();
   const config = await (await fetch(new URL('/api/config', base))).json();
+  console.log(
+    `Reseñas publicadas: ${reviews.summary?.count ?? 0}` +
+      (reviews.summary?.average ? ` · promedio ${reviews.summary.average}` : '') +
+      ` · plazo de entrega publicado: ${config.deliveryTime ? 'sí' : 'NO'}` +
+      ` · correos al cliente: ${config.emailUpdates ? 'activos' : 'inactivos'}`,
+  );
   const auth = Object.entries(config.auth ?? {})
     .map(([name, on]) => `${name}: ${on ? 'activo' : 'sin credenciales'}`)
     .join(' · ');

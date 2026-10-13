@@ -89,6 +89,8 @@ describe('GET /api/config', () => {
       emailUpdates: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',
+      // Sin LEGAL_DELIVERY_TIME la tienda dice «el plazo indicado en los términos».
+      deliveryTime: null,
       // Horario público de la promo (por defecto, fines de semana en hora de Colombia).
       promo: {
         schedule: 'weekends',

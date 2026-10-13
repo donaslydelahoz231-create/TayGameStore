@@ -47,6 +47,7 @@ export interface AuditInput {
     | 'product'
     | 'blocklist'
     | 'inventory'
+    | 'review'
     | 'user'
     | 'session'
     | 'webhook';

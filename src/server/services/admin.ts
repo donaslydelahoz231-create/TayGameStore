@@ -16,6 +16,7 @@ import { AppError } from '../plugins/errors.js';
 import { isUniqueViolation, toPublicOrder, transitionOrder } from './orders.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { assignReceiptNumber } from './receipts.js';
+import { pendingReviewCount } from './reviews.js';
 import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
 import {
   assignInventory,
@@ -559,6 +560,7 @@ export async function alertSummary(deps: ServiceDeps) {
     deps.db.select({ n: count() }).from(notifications).where(eq(notifications.status, 'FAILED')),
     inventorySummary(deps),
   ]);
+  const reviewsPending = await pendingReviewCount(deps);
   return {
     needsReview: review?.n ?? 0,
     needsRefund: needsRefund?.n ?? 0,
@@ -571,6 +573,8 @@ export async function alertSummary(deps: ServiceDeps) {
     mfaLocks24h: mfaLocks?.n ?? 0,
     activeIpBlocks: activeIpBlocks?.n ?? 0,
     notificationsFailed: notificationsFailed?.n ?? 0,
+    /** Reseñas de clientes esperando que el dueño las publique u oculte. */
+    reviewsPending,
     /** Paquetes con inventario de PIN por debajo del mínimo (reponer). */
     lowStock: stock.filter((line) => line.lowStock).map((line) => line.sku),
   };

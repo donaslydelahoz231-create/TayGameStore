@@ -20,6 +20,7 @@ import { renderInvoice } from './features/invoice.js';
 import { exportInvoice } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { showPins } from './features/pins.js';
+import { submitReview } from './features/reviews.js';
 import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
 
@@ -229,6 +230,7 @@ function bindInvoiceAndCheckout() {
   $('payBtn').onclick = preparePayment;
   $('refreshOrderBtn').onclick = refreshOrder;
   $('showPins').onclick = showPins;
+  $('reviewForm').onsubmit = submitReview;
   $('newInvoiceBtn').onclick = startNewInvoice;
   $('copyRefBtn').onclick = copyInvoiceReference;
   $('jpgBtn').onclick = () => exportInvoice('jpg');

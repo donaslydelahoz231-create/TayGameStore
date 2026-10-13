@@ -39,6 +39,12 @@ import { reconcileOrder } from '../../services/payments.js';
 import { integritySummary } from '../../services/integrity.js';
 import { marginReport } from '../../services/margins.js';
 import { verifyReceipt } from '../../services/receipts.js';
+import {
+  listReviewsForAdmin,
+  moderateReview,
+  moderateSchema,
+  reviewFilterSchema,
+} from '../../services/reviews.js';
 import { AppError } from '../../plugins/errors.js';
 
 export interface AdminRoutesOptions {
@@ -125,6 +131,19 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
       })
       .parse(request.body);
     return verifyReceipt(deps, body);
+  });
+
+  // Reseñas: el dueño publica u oculta; el contenido del cliente no se edita.
+  app.get('/api/admin/reviews', guarded, async (request) => {
+    const { deps } = ctx(request);
+    return { reviews: await listReviewsForAdmin(deps, reviewFilterSchema.parse(request.query)) };
+  });
+
+  app.post('/api/admin/reviews/:id', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await moderateReview(deps, id, moderateSchema.parse(request.body), actor);
+    return { reviews: await listReviewsForAdmin(deps, {}) };
   });
 
   // Rentabilidad: costo máximo, piso y ganancia por paquete (solo lectura).

@@ -63,6 +63,18 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       'google oauth configurado',
     );
   }
+  // Qué avisos y automatizaciones están activos (sí/no, nunca sus valores): con entrega manual,
+  // el dueño necesita al menos un canal que le avise de cada pedido pagado.
+  built.app.log.info(
+    {
+      correo: Boolean(config.smtp),
+      telegram: Boolean(config.ownerNotify.telegram),
+      eventosExternos: Boolean(config.eventsWebhook),
+      cronExterno: Boolean(config.cronSecret),
+      plazoEntrega: Boolean(config.legal.deliveryTime),
+    },
+    'avisos y automatización',
+  );
   if (config.topup) {
     // Qué cubre la recarga directa, sin credenciales.
     const { catalog, env } = config.topup;

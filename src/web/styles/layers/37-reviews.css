@@ -1,0 +1,205 @@
+/* Reseñas verificadas y plazo de entrega. */
+
+.tgs-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.delivery-time {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+/* Sección pública */
+.reviews-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.reviews-summary {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.reviews-average {
+  font-family: var(--display);
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.reviews-stars,
+.review-card-stars,
+.review-done-stars {
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.reviews-stars {
+  font-size: 1.15rem;
+}
+.reviews-summary small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.reviews-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.reviews-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+.review-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(18, 27, 65, 0.75), rgba(8, 13, 35, 0.72));
+}
+.review-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.review-card time {
+  color: var(--muted2);
+  font-size: 0.65rem;
+}
+.review-card p {
+  margin: 0;
+  color: var(--body, var(--ink));
+  font-size: 0.75rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.review-card footer b {
+  display: block;
+  font-size: 0.75rem;
+}
+.review-card footer small {
+  color: var(--green);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+/* Formulario en «Seguimiento» (pedido entregado) */
+.review-box {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--violet);
+  border-radius: 12px;
+  background: rgba(139, 61, 255, 0.07);
+}
+.review-form {
+  display: grid;
+  gap: 8px;
+}
+.review-head b {
+  display: block;
+  color: var(--violet2);
+}
+.review-head small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.review-stars {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.review-stars legend {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.review-stars input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.review-stars label {
+  margin: 0;
+  color: var(--muted2);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.review-stars input:checked ~ label,
+.review-stars label:hover,
+.review-stars label:hover ~ label {
+  color: var(--gold);
+}
+.review-stars input:focus-visible + label {
+  outline: 2px solid var(--violet2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.review-form textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #070c24;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  resize: vertical;
+  outline: none;
+}
+.review-form textarea:focus {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(139, 61, 255, 0.2);
+}
+.review-form .btn {
+  justify-self: start;
+}
+.review-msg:empty {
+  display: none;
+}
+.review-done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.review-done-stars {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 760px) {
+  .reviews-layout,
+  .reviews-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-stars label {
+    transition: none;
+  }
+}

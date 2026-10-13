@@ -1,5 +1,22 @@
 # Automatización de TayGameStore (sin n8n)
 
+> **13-oct-2026: «n8n me pide pago».** No necesitas otro n8n ni pagarlo. Nada de la tienda
+> depende de n8n desde el 11-oct: puedes cancelar o dejar vencer el plan de n8n Cloud sin
+> afectar ventas ni entregas.
+>
+> La automatización que funciona hoy cuesta $0 y Claude la puede leer y reparar con sus
+> herramientas:
+> - **GitHub Actions:** vigilancia, mantener activa, diagnóstico diario y prueba tras cada
+>   publicación;
+> - **el propio servidor:** vence pedidos, concilia pagos con Mercado Pago, reintenta avisos y
+>   modera reseñas desde el panel;
+> - **la rutina diaria de Claude:** revisa, corrige y te deja el informe.
+>
+> El registro de Render **«avisos y automatización»** muestra al arrancar qué avisos al dueño
+> están activos (correo, Telegram), sin mostrar sus valores. Si los dos dicen `false`, solo te
+> avisa el panel abierto. Configura al menos uno (paso 1 o 2 de abajo) para no perder pedidos
+> pagados.
+
 El 2026-10-11 el dueño pidió dejar n8n (su plan de n8n Cloud dejó de ejecutar flujos el
 2026-10-08) por una automatización **gratuita**. Todo quedó repartido entre tres piezas que no
 cuestan nada:

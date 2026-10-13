@@ -35,6 +35,8 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       emailUpdates: options.emailUpdatesAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
       termsVersion: config.orders.termsVersion,
+      /** Plazo de entrega publicado en los términos (LEGAL_DELIVERY_TIME); null si falta. */
+      deliveryTime: config.legal.deliveryTime ?? null,
       promo: promoInfo(config, options.now()),
       limits: {
         maxUnitsPerProduct: config.orders.maxUnitsPerProduct,

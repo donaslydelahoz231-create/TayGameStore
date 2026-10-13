@@ -7,6 +7,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Reseñas verificadas** (sección «Opiniones verificadas», migración 0016):
+  - solo opina quien hizo un pedido entregado, una vez por pedido, desde «Seguimiento»;
+  - se publican cuando el dueño las aprueba (panel → Reseñas) y se muestran con nombre de pila e
+    inicial, fecha y paquete comprado; nunca el correo, el UID ni la referencia;
+  - la base de datos impide editar las estrellas o el texto y borrar reseñas, también con SQL
+    directo; ocultar las retira de la tienda sin borrarlas;
+  - sin reseñas publicadas, la tienda lo dice: nunca muestra reseñas de ejemplo.
+- **«Así llegan tus diamantes»:** el recorrido después de pagar (pago confirmado → recarga →
+  entrega → reseña) con el plazo de entrega publicado (`LEGAL_DELIVERY_TIME`, ahora en
+  `/api/config`). Reemplaza la sección «Tay Lab».
+- **Preguntas frecuentes:** cuánto tarda la recarga, qué pasa si el ID está mal y si las reseñas
+  son reales. «Cómo funciona» suma el paso 5, «Recibe».
+- **Registro al arrancar** `avisos y automatización`: qué canales de aviso al dueño están activos
+  (correo, Telegram, eventos, cron, plazo de entrega), solo sí/no.
+- **Prueba de producción:** informa las reseñas publicadas, si hay plazo de entrega publicado y si
+  los correos al cliente están activos.
 - **Informe de rentabilidad** (`npm run finanzas:margenes`, `docs/proveedor-recargas/`):
   - costo máximo del proveedor para márgenes del 5, 10 y 15 % en los 6 paquetes, en precio
     normal y TAY RADAR;

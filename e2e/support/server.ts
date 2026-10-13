@@ -16,6 +16,7 @@ import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-example.js';
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
 import { addInventory, addInventorySchema } from '../../src/server/services/inventory.js';
+import { listReviewsForAdmin, moderateReview } from '../../src/server/services/reviews.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
 import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
 import { FakeSocialClient } from '../../tests/support/fake-social.js';
@@ -175,6 +176,19 @@ app.post('/__e2e__/deliver', async (request) => {
   }
   await fulfillmentAction(deps, id, { action: 'deliver', evidence: 'Entrega e2e' }, actor);
   return { ok: true };
+});
+
+/**
+ * El dueño publica u oculta todas las reseñas (como los botones del panel). Las pruebas las
+ * ocultan al terminar para que la captura visual siga mostrando la tienda sin reseñas.
+ */
+app.post('/__e2e__/moderate-reviews', async (request) => {
+  const { action } = request.body as { action: 'publish' | 'hide' };
+  const all = await listReviewsForAdmin(deps, {});
+  for (const review of all) {
+    await moderateReview(deps, review.id, { action }, { type: 'admin', userId: operator.id });
+  }
+  return { moderated: all.length };
 });
 
 /** Cambia el modo de verificación del jugador (los workers de Playwright van de uno en uno). */

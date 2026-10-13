@@ -14,6 +14,7 @@ import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
 import { renderPins } from './features/pins.js';
+import { loadReviews, renderDeliveryTime, renderReviewBox } from './features/reviews.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
@@ -35,6 +36,7 @@ registerRenderers([
   renderInvoice,
   renderChecks,
   renderPins,
+  renderReviewBox,
   renderPlayer,
   renderPlayerMode,
   renderSupport,
@@ -100,7 +102,13 @@ async function init() {
 
   // Ninguna espera bloquea la primera interacción; cada carga tiene su propio timeout.
   await bootstrapConfig();
-  await Promise.allSettled([loadCatalog('freefire'), bootstrapSession(), resumeOrder()]);
+  renderDeliveryTime();
+  await Promise.allSettled([
+    loadCatalog('freefire'),
+    bootstrapSession(),
+    resumeOrder(),
+    loadReviews(),
+  ]);
   renderAll();
 
   setText('heroTime', formatClock(new Date()));

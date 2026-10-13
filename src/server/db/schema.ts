@@ -700,6 +700,48 @@ export const blocklist = pgTable(
   ],
 );
 
+export const REVIEW_STATUSES = ['PENDING', 'PUBLISHED', 'HIDDEN'] as const;
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
+/**
+ * Reseñas de compras verificadas: una por pedido entregado, escrita por quien hizo el pedido.
+ * Se publican solo cuando el dueño las aprueba; ocultar no borra (queda el registro).
+ */
+export const reviews = pgTable(
+  'reviews',
+  {
+    id: id(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id),
+    game: text('game').notNull(),
+    rating: integer('rating').notNull(),
+    comment: text('comment'),
+    /** Nombre público: el primer nombre del pedido y la inicial del segundo («Laura M.»). */
+    authorName: text('author_name').notNull(),
+    status: text('status').$type<ReviewStatus>().notNull().default('PENDING'),
+    moderatedBy: uuid('moderated_by').references(() => users.id, { onDelete: 'set null' }),
+    moderatedAt: timestamp('moderated_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('reviews_order_key').on(t.orderId),
+    index('reviews_status_idx').on(t.status, t.createdAt),
+    index('reviews_moderated_by_idx')
+      .on(t.moderatedBy)
+      .where(sql`${t.moderatedBy} is not null`),
+    check('reviews_status_check', inList('status', REVIEW_STATUSES)),
+    check('reviews_game_check', inList('game', ['freefire'])),
+    check('reviews_rating_check', sql`${t.rating} between 1 and 5`),
+    check(
+      'reviews_comment_check',
+      sql`${t.comment} is null or char_length(${t.comment}) between 1 and 400`,
+    ),
+    check('reviews_author_check', sql`char_length(${t.authorName}) between 1 and 40`),
+  ],
+);
+
 /** Registro de auditoría append-only. */
 export const auditEvents = pgTable(
   'audit_events',

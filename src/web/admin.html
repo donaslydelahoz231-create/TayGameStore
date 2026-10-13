@@ -172,6 +172,7 @@
           <button type="button" data-tab="orders" class="active">Pedidos</button>
           <button type="button" data-tab="products">Catálogo</button>
           <button type="button" data-tab="inventory">Inventario</button>
+          <button type="button" data-tab="reviews">Reseñas</button>
           <button type="button" data-tab="blocklist">Bloqueos</button>
           <button type="button" data-tab="audit">Auditoría</button>
           <button type="button" data-tab="integrity">Integridad</button>
@@ -313,6 +314,38 @@
             ><input id="iSource" maxlength="80" placeholder="Red y número de factura" />
             <div class="adm-actions"><button class="adm-btn" type="submit">Cargar</button></div>
           </form>
+        </section>
+
+        <section id="tab-reviews" class="adm-tab" hidden>
+          <div class="adm-card">
+            <h2>Reseñas de clientes</h2>
+            <p class="adm-muted">
+              Solo pueden opinar compradores con un pedido entregado. Publica las que quieras
+              mostrar en la tienda u ocúltalas; el texto del cliente no se puede editar ni borrar.
+            </p>
+            <label for="rStatus">Mostrar</label>
+            <select id="rStatus">
+              <option value="PENDING">Por revisar</option>
+              <option value="PUBLISHED">Publicadas</option>
+              <option value="HIDDEN">Ocultas</option>
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: Reseñas">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Estrellas</th>
+                  <th>Comentario</th>
+                  <th>Cliente y compra</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="admReviews"></tbody>
+            </table>
+          </div>
         </section>
 
         <section id="tab-blocklist" class="adm-tab" hidden>

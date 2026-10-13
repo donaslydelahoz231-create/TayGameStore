@@ -37,6 +37,8 @@ const APPROVED_ADMIN_ROUTES = [
   'GET /api/admin/orders',
   'GET /api/admin/orders/:id',
   'GET /api/admin/products',
+  // Reseñas de clientes: listar y publicar u ocultar (no edita el texto ni toca dinero).
+  'GET /api/admin/reviews',
   'POST /api/admin/blocklist',
   'POST /api/admin/inventory',
   'POST /api/admin/inventory/:id',
@@ -52,6 +54,7 @@ const APPROVED_ADMIN_ROUTES = [
   'POST /api/admin/products',
   // Verificar un comprobante (solo lectura: recalcula el código, no cambia nada).
   'POST /api/admin/receipts/verify',
+  'POST /api/admin/reviews/:id',
   // Baja la propia sesión a cliente ("Ver tienda como cliente"); nunca sube privilegios.
   'POST /api/admin/sesion/cliente',
   'PUT /api/admin/products/:id',

@@ -825,3 +825,40 @@ Autorización del dueño en el chat: «autorizacion concedido total tienes permi
 | Visibilidad del repositorio | Sigue público | Recomendación de H-09. La autorización no dice en qué sentido cambiarlo, y no hay herramienta para hacerlo |
 | Contactar proveedores | **Preparado, no enviado** | Mensajes listos en `docs/proveedor-recargas/SOLICITUD-COTIZACION.md`. No hay canal autorizado: Gmail del dueño excluido, sin Telegram y sin acceso de red a los proveedores |
 | Dominios de proveedores en la red del entorno | Pendiente del dueño | Se cambia en la configuración del entorno (acceso a red), fuera del repositorio |
+
+### 2026-10-13 · Tienda profesional: reseñas verificadas, recorrido de entrega y automatización sin n8n
+
+Pedido del dueño: perfeccionar la tienda para que funcione como una tienda real de recargas, con
+reseñas, el procedimiento de compra y envío de diamantes, y una automatización que no cobre.
+
+- **Reseñas verificadas** (migración 0016, `src/server/services/reviews.ts`):
+  - **Quién opina:** solo quien hizo un pedido entregado, una vez por pedido. Lo hace desde
+    «Seguimiento», con la misma autorización que para ver su pedido.
+  - **Publicación:** el dueño publica u oculta desde el panel (pestaña «Reseñas»). Se muestra el
+    nombre de pila con la inicial, la fecha y el paquete; nunca el correo, el UID ni la referencia.
+  - **Protección en la base de datos:**
+    - no se pueden editar las estrellas, el texto, el nombre ni la fecha;
+    - no se pueden borrar, tampoco con SQL directo del dueño de las tablas.
+  - **Sin reseñas publicadas:** la tienda dice «Aún no hay reseñas publicadas». No se creó
+    ninguna reseña de ejemplo ni en producción ni en el código.
+- **Recorrido de entrega para el cliente:**
+  - nueva sección «Así llegan tus diamantes», que reemplaza «Tay Lab»;
+  - paso 5 en «Cómo funciona»;
+  - tres preguntas frecuentes nuevas: plazo, ID equivocado y si las reseñas son reales;
+  - el plazo sale de `LEGAL_DELIVERY_TIME`, ahora en `/api/config`.
+- **Privacidad:** la política explica qué publica una reseña y cómo retirarla.
+- **Procedimiento del dueño** (`docs/procedimiento-diamantes.md`, «Cómo opera la tienda hoy»):
+  - catálogo y precios (normal y TAY RADAR);
+  - lo que queda de cada venta tras la comisión de Mercado Pago;
+  - lista de pasos por pedido pagado;
+  - moderación de reseñas.
+- **n8n:** el dueño reportó que n8n le pide pago. No hace falta: desde el 11-oct nada depende de
+  n8n (`docs/automatizacion.md`). El servidor ahora registra al arrancar «avisos y automatización»
+  (sí/no por canal) para comprobar si el dueño recibe avisos de pedidos pagados.
+  - **NO VERIFICADO** hasta el despliegue: si producción tiene correo o Telegram configurados.
+    La tabla `notifications` está vacía porque todavía no hubo pagos.
+- **Pruebas:**
+  - 7 de integración, con y sin rol mínimo: eligibilidad, ajeno = 404, una por pedido,
+    moderación, validación sin enlaces, contenido inmutable y panel;
+  - e2e: entrega → reseña → publicación → visible en la tienda;
+  - capturas visuales de página completa regeneradas (3 tamaños) con las secciones nuevas.

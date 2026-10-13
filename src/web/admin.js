@@ -358,6 +358,7 @@ document.querySelectorAll('.adm-tabs button').forEach((button) =>
       orders: loadOrdersTab,
       products: loadProducts,
       inventory: loadInventory,
+      reviews: loadReviews,
       blocklist: loadBlocks,
       audit: loadAudit,
       integrity: loadIntegrity,
@@ -454,6 +455,7 @@ async function loadAlerts() {
     ['activeIpBlocks', 'IPs bloqueadas ahora', 'warn'],
     ['mfaLocks24h', 'Cuentas admin con MFA bloqueado (24 h)', 'bad'],
     ['notificationsFailed', 'Avisos sin enviar (correo/Telegram/n8n)', 'bad'],
+    ['reviewsPending', 'Reseñas por revisar', 'warn'],
   ];
   const lowStock = Array.isArray(a.lowStock) ? a.lowStock : [];
   $('admAlerts').innerHTML =
@@ -847,6 +849,50 @@ $('admInventoryForm').onsubmit = (e) => {
     await loadInventory();
   });
 };
+
+// ── Reseñas ──
+
+const REVIEW_STATES = { PENDING: 'Por revisar', PUBLISHED: 'Publicada', HIDDEN: 'Oculta' };
+
+async function loadReviews() {
+  await run(async () => {
+    const status = $('rStatus').value;
+    const j = await call('/api/admin/reviews' + (status ? '?status=' + status : ''));
+    const body = $('admReviews');
+    body.replaceChildren();
+    if (!j.reviews.length) {
+      body.innerHTML = '<tr><td colspan="6">No hay reseñas en esta lista.</td></tr>';
+      return;
+    }
+    for (const r of j.reviews) {
+      const tr = document.createElement('tr');
+      const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+      const actions = [
+        r.status !== 'PUBLISHED' ? ['publish', 'Publicar'] : null,
+        r.status !== 'HIDDEN' ? ['hide', 'Ocultar'] : null,
+      ].filter(Boolean);
+      tr.innerHTML = `<td>${fmtDate(r.createdAt)}</td><td title="${r.rating} de 5">${stars}</td><td>${r.comment ? esc(r.comment) : '<em>Sin comentario</em>'}</td><td>${esc(r.author)}<br><small>${esc(r.purchase)}</small></td><td>${esc(REVIEW_STATES[r.status] || r.status)}</td><td>${actions.map(([action, label]) => `<button class="adm-btn${action === 'hide' ? ' ghost' : ''}" type="button" data-action="${action}">${label}</button>`).join(' ')}</td>`;
+      tr.querySelectorAll('button').forEach((button) => {
+        button.onclick = () =>
+          run(
+            async () => {
+              await call('/api/admin/reviews/' + r.id, {
+                method: 'POST',
+                body: { action: button.dataset.action },
+              });
+              await Promise.all([loadReviews(), loadAlerts()]);
+            },
+            button.dataset.action === 'publish'
+              ? 'Reseña publicada en la tienda.'
+              : 'Reseña oculta.',
+          );
+      });
+      body.appendChild(tr);
+    }
+  });
+}
+
+$('rStatus').onchange = loadReviews;
 
 // ── Bloqueos ──
 

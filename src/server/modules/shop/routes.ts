@@ -18,6 +18,12 @@ import {
 } from '../../services/orders.js';
 import { startPayment, syncOrderFromReturn } from '../../services/payments.js';
 import { lookupPlayer, lookupSchema, ownerKeyOf } from '../../services/player.js';
+import {
+  createReview,
+  publicReviews,
+  reviewForOrder,
+  reviewSchema,
+} from '../../services/reviews.js';
 import type { PlayerVerifier } from '../../integrations/player/verifier.js';
 import { PAY_MEANS } from '../../integrations/payments/gateway.js';
 
@@ -51,6 +57,20 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
         .parse(request.query);
       reply.header('cache-control', 'no-store');
       return { game, products: await listCatalog(deps, game) };
+    },
+  );
+
+  /** Reseñas publicadas (solo de pedidos entregados y aprobadas por el dueño). */
+  app.get(
+    '/api/reviews',
+    { config: { rateLimit: RATE_LIMITS.catalog } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { game } = z
+        .object({ game: z.literal('freefire').default('freefire') })
+        .parse(request.query);
+      reply.header('cache-control', 'public, max-age=60');
+      return publicReviews(deps, game);
     },
   );
 
@@ -131,6 +151,37 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
       return {
         pins: await pinsForOrder(deps, ref, accessOf(request), actorOf(request, 'customer')),
       };
+    },
+  );
+
+  /** ¿Puede el comprador reseñar este pedido? Y su reseña, si ya la dejó. */
+  app.get(
+    '/api/orders/:ref/review',
+    { config: { rateLimit: RATE_LIMITS.orderRead } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { ref } = refParams.parse(request.params);
+      reply.header('cache-control', 'no-store');
+      return reviewForOrder(deps, ref, accessOf(request));
+    },
+  );
+
+  app.post(
+    '/api/orders/:ref/review',
+    { config: { rateLimit: RATE_LIMITS.orderWrite } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { ref } = refParams.parse(request.params);
+      const input = reviewSchema.parse(request.body);
+      const review = await createReview(
+        deps,
+        ref,
+        accessOf(request),
+        input,
+        actorOf(request, 'customer'),
+      );
+      reply.code(201).header('cache-control', 'no-store');
+      return { review };
     },
   );
 

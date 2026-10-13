@@ -551,10 +551,41 @@ test.describe('compra completa (invitado)', () => {
       await expect(page.locator('#invoiceRegion')).toHaveText('Brasil');
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
 
+      // Antes de entregar no hay formulario de reseña, y la tienda no muestra reseñas inventadas.
+      await expect(page.locator('#reviewBox')).toBeHidden();
+      await expect(page.locator('#reviewsCount')).toHaveText('Aún no hay reseñas publicadas');
+      await expect(page.locator('#reviewsList .review-card')).toHaveCount(0);
+
       expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
       await page.locator('#refreshOrderBtn').click();
       await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
+
+      // Entregado: el comprador califica su compra (estrellas + comentario opcional).
+      await expect(page.locator('#reviewForm')).toBeVisible();
+      await page.locator('#reviewSubmit').click();
+      await expect(page.locator('#reviewMsg')).toHaveText('Elige de 1 a 5 estrellas.');
+      await page.locator('label[for="rate5"]').click();
+      await page.locator('#reviewComment').fill('Me llegaron los diamantes rápido. Recomendada.');
+      await page.locator('#reviewSubmit').click();
+      await expect(page.locator('#reviewDone')).toContainText(
+        'Publicaremos tu reseña cuando la revisemos',
+      );
+      await expect(page.locator('#reviewForm')).toBeHidden();
+
+      // El dueño la publica y aparece en la tienda con nombre de pila e inicial.
+      expect((await operator(page, 'moderate-reviews', { action: 'publish' })).ok()).toBe(true);
+      await page.reload();
+      await expect(page.locator('#reviewsCount')).toHaveText('1 reseña verificada');
+      await expect(page.locator('#reviewsAverage')).toHaveText('5,0');
+      const card = page.locator('#reviewsList .review-card');
+      await expect(card).toHaveCount(1);
+      await expect(card).toContainText('Me llegaron los diamantes rápido. Recomendada.');
+      await expect(card).toContainText('Cliente D.');
+      await expect(card).toContainText('Compra verificada · 100 + 10 Diamantes');
+      await expect(card).not.toContainText('directo-e2e@example.com');
+      await expect(card).not.toContainText('734567812');
     } finally {
+      await operator(page, 'moderate-reviews', { action: 'hide' });
       await operator(page, 'player-verification', { mode: 'operator' });
     }
   });
