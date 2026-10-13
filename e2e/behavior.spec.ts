@@ -917,11 +917,19 @@ test.describe('panel de administración', () => {
 
     // El panel avisa del pago nuevo: notificación del sistema y contador en el título.
     await admin.locator('#admReload').click();
+    // Se espera al aviso, no al título: pedidos pagados de pruebas anteriores ya ponen el
+    // contador en el título, y leer los avisos en ese momento llegaba antes que la respuesta
+    // del botón «Actualizar» (CI, 13-oct).
+    await expect
+      .poll(
+        () =>
+          admin.evaluate(() =>
+            (window as unknown as { __notices: { title: string }[] }).__notices.map((n) => n.title),
+          ),
+        { message: 'aviso del sistema del pago nuevo' },
+      )
+      .toContain('Pedido pagado por entregar');
     await expect(admin).toHaveTitle(/^\(\d+\) Pagados por entregar · /);
-    const notices = await admin.evaluate(
-      () => (window as unknown as { __notices: { title: string }[] }).__notices,
-    );
-    expect(notices.map((n) => n.title)).toContain('Pedido pagado por entregar');
     // Aunque la notificación falle, la alerta del panel muestra la misma cifra que el título.
     const pending = Number(/^\((\d+)\)/.exec(await admin.title())?.[1]);
     await expect(

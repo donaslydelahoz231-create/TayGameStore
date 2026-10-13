@@ -681,3 +681,25 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   el portal oficial). Notas de descarte en `recarga-directa-unipin.md` y
   `procedimiento-diamantes.md`.
 - **Sin cambios** en precios, variables de Render ni código. UniPin sigue apagado.
+
+### 2026-10-13 · Ciclo del prompt maestro (auditoría, backlog y operaciones)
+
+- **Línea base local:** lint, tipos, formato, 238 unitarias, 208 de integración y build en verde;
+  `npm audit` 0; escáner de datos 0.
+- **Producción (solo lectura):**
+  - Render en vivo con `ad9ab59`.
+  - Sin errores en logs.
+  - Neon: 26 triggers activos y 24 de 24 eventos sellados.
+  - Tareas programadas con última ejecución comprobada (`docs/seguridad/TAREAS-PROGRAMADAS.md`).
+- **Hallazgos** (`docs/seguridad/HALLAZGOS.md`):
+  - rol de base de datos dueño de las tablas (H-01);
+  - una sola instantánea de Neon, del 7-oct, sin calendario (H-02);
+  - sin testigo externo de integridad (H-03);
+  - webhook sin tolerancia de `ts`, por validar (H-04);
+  - acciones de GitHub sin SHA (H-05).
+- **Corregido en local:** carrera en la prueba e2e del panel vista en la CI del PR #14 (H-06).
+- **Dependabot:** #16 (TypeScript 7) es incompatible con `typescript-eslint`; se ignora la versión
+  mayor en `dependabot.yml`. #15 falla siempre en WebKit con Playwright 1.64. #13 está verde.
+- **Backlog** con aprobaciones pendientes: `docs/seguridad/BACKLOG.md`.
+- **Sin cambios** en producción, variables, secretos, precios ni datos. Nada se desplegó sin
+  autorización.

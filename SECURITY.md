@@ -29,3 +29,4 @@ Fuera de alcance: servicios de terceros (Mercado Pago, Google, Render) — repó
 proveedor.
 
 Procedimiento interno de respuesta: [`docs/incident-response.md`](docs/incident-response.md).
+Hallazgos, backlog, modelo de amenazas y tareas programadas: [`docs/seguridad/`](docs/seguridad/).

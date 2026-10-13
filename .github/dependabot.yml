@@ -22,6 +22,10 @@ updates:
       # Debe coincidir con la versión de Node del servidor (24 LTS, .nvmrc).
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # typescript-eslint 8 exige typescript <6.1: la versión mayor rompe `npm ci` (PR #16).
+      # Se sube junto con typescript-eslint cuando este la soporte.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
