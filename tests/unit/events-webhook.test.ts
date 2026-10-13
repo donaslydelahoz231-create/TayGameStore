@@ -123,4 +123,15 @@ describe('configuración del webhook de eventos', () => {
       loadConfig({ ...env, EVENTS_WEBHOOK_URL: 'https://n8n.example/webhook/x' }),
     ).toMatchObject({ eventsWebhook: { url: 'https://n8n.example/webhook/x', secret: SECRET } });
   });
+
+  it('EVENTS_WEBHOOK_ENABLED=false apaga los eventos sin borrar la URL ni la llave', () => {
+    const env = {
+      ...PRODUCTION,
+      EVENTS_WEBHOOK_URL: 'https://n8n.example/webhook/x',
+      EVENTS_WEBHOOK_SECRET: SECRET,
+    };
+    expect(issues({ ...env, EVENTS_WEBHOOK_ENABLED: 'false' })).toEqual([]);
+    expect(loadConfig({ ...env, EVENTS_WEBHOOK_ENABLED: 'false' }).eventsWebhook).toBeUndefined();
+    expect(loadConfig({ ...env, EVENTS_WEBHOOK_ENABLED: 'true' }).eventsWebhook).toBeDefined();
+  });
 });

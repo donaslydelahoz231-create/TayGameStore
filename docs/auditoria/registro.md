@@ -862,3 +862,26 @@ reseñas, el procedimiento de compra y envío de diamantes, y una automatizació
     moderación, validación sin enlaces, contenido inmutable y panel;
   - e2e: entrega → reseña → publicación → visible en la tienda;
   - capturas visuales de página completa regeneradas (3 tamaños) con las secciones nuevas.
+- **Evidencia en producción tras el despliegue `10098fa` (19:22 UTC):**
+  - Neon: tabla `reviews` con 0 filas y 3 triggers de protección. `tgs_app_rw` puede leer,
+    insertar y actualizar, pero no borrar. Migración 0016 aplicada.
+  - Registro «avisos y automatización»:
+
+    | Canal | Valor |
+    |---|---|
+    | `correo` | false |
+    | `telegram` | false |
+    | `eventosExternos` | true |
+    | `cronExterno` | true |
+    | `plazoEntrega` | true |
+
+    Consecuencias:
+    - El dueño **no recibe avisos de pedidos pagados** salvo con el panel abierto:
+      **PENDIENTE DEL DUEÑO** (SMTP de Gmail o Telegram).
+    - `CRON_SECRET` sí existe en Render; solo falta en GitHub (H-03).
+    - Los eventos seguían configurados hacia n8n.
+- **Eventos hacia n8n apagados:**
+  - Nueva variable `EVENTS_WEBHOOK_ENABLED` (por defecto `true`), con prueba unitaria.
+  - En Render se fijó en `false` para no enviar el UID de los jugadores a un servicio que el dueño
+    dejó.
+  - No se tocaron la URL ni la llave.

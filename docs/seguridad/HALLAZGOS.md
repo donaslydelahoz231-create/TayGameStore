@@ -104,7 +104,7 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 - **Evidencia:**
   - «Tareas programadas» sale `skipped` en cada ejecución.
   - El paso de integridad de «Diagnóstico diario» depende de `CRON_SECRET`, que no existe en
-    GitHub. **NO VERIFICADO** en Render.
+    GitHub. En Render sí existe (registro «avisos y automatización», `cronExterno: true`, 13-oct).
 - **Impacto:** la cadena de sellos solo la verifica el propio servidor. Un atacante con acceso
   total a la base podría alterarla sin que nadie de afuera lo note a tiempo.
 - **Recomendación:** el dueño crea `CRON_SECRET` con el mismo valor en Render y en GitHub

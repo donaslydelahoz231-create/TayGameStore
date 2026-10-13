@@ -373,6 +373,11 @@ const envSchema = z
      */
     EVENTS_WEBHOOK_URL: z.url().max(500).optional(),
     EVENTS_WEBHOOK_SECRET: z.string().min(32).max(256).optional(),
+    /**
+     * Apaga el envío de eventos sin tocar la URL ni la llave (p. ej. cuando el dueño dejó n8n).
+     * Por defecto encendido: con URL y llave configuradas, se envían.
+     */
+    EVENTS_WEBHOOK_ENABLED: z.stringbool().default(true),
     TELEGRAM_CHAT_ID: z
       .string()
       .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
@@ -747,7 +752,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     cronSecret: env.CRON_SECRET,
     eventsWebhook:
-      env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
+      env.EVENTS_WEBHOOK_ENABLED && env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
         ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }
         : undefined,
     smtp:

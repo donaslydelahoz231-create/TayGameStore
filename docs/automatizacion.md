@@ -16,6 +16,20 @@
 > están activos (correo, Telegram), sin mostrar sus valores. Si los dos dicen `false`, solo te
 > avisa el panel abierto. Configura al menos uno (paso 1 o 2 de abajo) para no perder pedidos
 > pagados.
+>
+> **Estado comprobado el 13-oct (19:22 UTC):**
+>
+> | Canal | Estado |
+> |---|---|
+> | `correo` | false |
+> | `telegram` | false |
+> | `cronExterno` | true: `CRON_SECRET` existe en Render |
+> | `plazoEntrega` | true |
+> | `eventosExternos` | true: la URL de n8n seguía configurada |
+>
+> Se puso `EVENTS_WEBHOOK_ENABLED=false` en Render para dejar de enviar eventos (con el UID del
+> jugador) a un n8n que ya no se usa. La URL y la llave siguen en Render sin uso; puedes
+> borrarlas cuando quieras.
 
 El 2026-10-11 el dueño pidió dejar n8n (su plan de n8n Cloud dejó de ejecutar flujos el
 2026-10-08) por una automatización **gratuita**. Todo quedó repartido entre tres piezas que no
