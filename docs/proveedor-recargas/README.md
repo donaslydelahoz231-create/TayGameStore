@@ -11,6 +11,7 @@ cambios en producción.**
 | [COMPETENCIA.md](COMPETENCIA.md) | Precios de la competencia en Colombia (C) |
 | [FINANZAS.md](FINANZAS.md) | Rentabilidad de los 6 paquetes (D) |
 | [PLAN-ACTIVACION.md](PLAN-ACTIVACION.md) | Qué falta y en qué orden activar (F) |
+| [SOLICITUD-COTIZACION.md](SOLICITUD-COTIZACION.md) | Mensajes listos para pedir cotización a los proveedores |
 
 ## Resumen en cinco puntos
 

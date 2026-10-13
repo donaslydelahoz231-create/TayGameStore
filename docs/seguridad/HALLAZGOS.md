@@ -1,6 +1,6 @@
 # Hallazgos de seguridad y operación
 
-Ciclo del 2026-10-13, actualizado a las 15:30 UTC (mandato OMNIA). Cada hallazgo tiene evidencia
+Ciclo del 2026-10-13, actualizado a las 18:45 UTC (autorización total del dueño). Cada hallazgo tiene evidencia
 redactada, sin secretos ni datos personales.
 Estados: CONFIRMADO, POR VALIDAR, MITIGACIÓN LISTA (falta el dueño), CORREGIDO, RIESGO ACEPTADO,
 INFORMATIVO.
@@ -8,16 +8,16 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 
 | ID | Severidad | Confianza | Componente | Estado |
 |---|---|---|---|---|
-| H-01 | Media | Alta | Base de datos (rol de la app) | MITIGACIÓN LISTA (falta el dueño) |
-| H-02 | Media | Alta | Respaldos de Neon | MITIGADO EN PARTE |
+| H-01 | Media | Alta | Base de datos (rol de la app) | MITIGACIÓN LISTA (rol de grupo en producción; falta `tgs_app` con la clave del dueño) |
+| H-02 | Media | Alta | Respaldos de Neon | CORREGIDO (instantánea del 13-oct) |
 | H-03 | Media | Alta | Testigo de integridad externo (`CRON_SECRET`) | CONFIRMADO (pendiente del dueño) |
 | H-04 | Baja | Alta (código) / Baja (unidades de `ts`) | Webhook de Mercado Pago | POR VALIDAR (registro listo) |
 | H-05 | Baja | Alta | CI: acciones sin fijar por SHA | CONFIRMADO |
 | H-06 | Baja | Alta | Prueba e2e del panel (carrera) | CORREGIDO (CI verde con `8754120`) |
-| H-07 | Baja | Alta | PR de Dependabot | CONFIRMADO |
+| H-07 | Baja | Alta | PR de Dependabot | EN PARTE (#13 y #14 fusionados; #15 retenido) |
 | H-08 | Informativo | Alta | Alcance de la auditoría | INFORMATIVO |
 | H-09 | Baja | Alta | Repositorio público | RIESGO ACEPTADO (decisión del dueño) |
-| H-10 | Informativo | Alta | Ramas de Git superadas | CONFIRMADO |
+| H-10 | Informativo | Alta | Ramas de Git superadas | EN PARTE (PR #12 cerrado; faltan 7 ramas) |
 
 ## H-01 · La aplicación se conecta a la base como dueña de las tablas
 
@@ -48,6 +48,21 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
   - En producción el rol no existe: el código es inerte hasta que el dueño siga
     [`docs/base-datos-rol-minimo.md`](../base-datos-rol-minimo.md).
   - **Riesgo residual:** la URL del dueño seguiría en las variables de Render (fase 2 en esa guía).
+- **Avance (13-oct, 18:40 UTC, con autorización del dueño):**
+  - Se creó en producción el rol de grupo `tgs_app_rw` (`NOLOGIN`, sin clave). El despliegue
+    `dep-db77h0u7bikc73aclv90` migró y aplicó los permisos.
+  - Comprobado con `has_table_privilege` y `has_schema_privilege` en producción:
+
+    | Permiso | Resultado |
+    |---|---|
+    | Leer y actualizar pedidos | Sí |
+    | Borrar pedidos o vaciar pagos | No |
+    | Agregar al historial | Sí |
+    | Editar el historial | No |
+    | Borrar sesiones | Sí |
+    | Crear tablas | No |
+  - **Falta:** el rol con acceso `tgs_app` y el cambio de `DATABASE_URL`. Llevan una clave, así que
+    los hace el dueño; nunca pasa por un chat (pasos 2 y 3 de la guía).
 
 ## H-02 · Respaldos: una sola instantánea manual, del 7 de octubre
 
@@ -79,6 +94,10 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
       porque es un borrado.
     - Probar `restore_snapshot` de esa instantánea. No se hizo: con `finalize` por defecto
       movería la tienda a la copia vieja. Si se prueba, va con `finalize: false`.
+- **Avance (13-oct, 18:37 UTC, con autorización del dueño):**
+  - Se borró `respaldo-2026-10-07` y se creó la instantánea `respaldo-2026-10-13`
+    (`snap-empty-dew-b5cu82in`) de producción.
+  - La rama `respaldo-2026-10-13` sigue como segunda copia.
 
 ## H-03 · Sin testigo externo de integridad ni respaldo de tareas desde GitHub
 
@@ -93,6 +112,10 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 - **Evidencia (13-oct):** en «Diagnóstico diario» (ejecución 38391086854), el paso «Testigo de
   integridad» terminó en 0 s. Eso coincide con la rama que imprime «NO VERIFICADO: falta el secreto
   CRON_SECRET en GitHub». No se leyó esa línea del registro: **inferido**.
+- **13-oct, 18:45 UTC:** sigue pendiente del dueño aun con su autorización total, por dos motivos:
+  - el valor tiene que estar igual en Render y en los secretos de GitHub, y esta sesión no puede
+    escribir secretos de GitHub;
+  - crearlo aquí lo dejaría escrito en la conversación.
 
 ## H-04 · El webhook acepta firmas válidas sin límite de antigüedad
 
@@ -143,6 +166,17 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
 | #16 | TypeScript 6 → 7 (mayor) | `npm ci` falla: `typescript-eslint` exige `<6.1.0` | Cerrar e ignorar TypeScript mayor en `dependabot.yml` |
 | #12 | Corrección manual de `curl --proto` (10-oct) | — | Su cambio ya está en la rama: cerrar como superado |
 
+**13-oct, 18:45 UTC (autorización del dueño):**
+- **#13 y #14:** fusionados en la rama. Antes de subirlos, en local:
+  - formato, lint y tipos en verde;
+  - 259 pruebas unitarias;
+  - 214 de integración con el rol mínimo;
+  - build y `npm audit` con 0 vulnerabilidades;
+  - 67 de 67 e2e y visuales en escritorio.
+- **#12:** cerrado como superado.
+- **#15:** sigue retenido: su CI falla en WebKit.
+- **#16:** ya no figura entre los PR abiertos.
+
 ## H-09 · El repositorio es público
 
 - **Evidencia:** `list_repos` devuelve `TayGameStore` con visibilidad pública (13-oct).
@@ -159,6 +193,13 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
   - Mantenerlo público y no publicar detalles que faciliten un ataque (pasos de explotación,
     rutas internas, nombres de cuentas).
   - Si el dueño prefiere privado, primero medir los minutos de Actions.
+- **13-oct, 18:45 UTC:** se mantiene público, como recomienda este hallazgo.
+  - La autorización total del dueño no dice en qué sentido cambiarlo.
+  - Pasarlo a privado tendría estos efectos en el plan gratuito:
+    - limita los minutos de Actions;
+    - CodeQL deja de correr;
+    - GitHub Pages se apaga.
+  - Esta sesión tampoco tiene una herramienta para cambiar la visibilidad.
 
 ## H-10 · Ramas de Git superadas sin borrar
 
@@ -179,6 +220,14 @@ Plan de acción: [`BACKLOG.md`](BACKLOG.md).
   - `security/refresh-blocklist-cache-20261012`
 - **Sin secretos** en los diffs de las 3 ramas sin fusionar.
 - **Recomendación:** borrar las 7 ramas y cerrar el PR #12. Requiere autorización (borrado).
+- **Avance (13-oct, 18:45 UTC, con autorización del dueño):**
+  - PR #12 cerrado con un comentario.
+  - Revisión de nuevo antes de borrar: las 7 ramas siguen como arriba (4 fusionadas y 3
+    superadas).
+  - El borrado (`git push --delete`) lo rechaza el proxy de esta sesión con HTTP 403: solo deja
+    escribir en la rama de trabajo. Lo hace el dueño en GitHub → Branches.
+  - **Rama nueva, sin revisar:** `fix/smoke-deployed-revision-20261013`, 3 commits del 13-oct que
+    no están en la principal. No se toca.
 
 ## H-08 · Límites de esta auditoría
 

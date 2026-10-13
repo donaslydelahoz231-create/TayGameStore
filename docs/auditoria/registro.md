@@ -802,3 +802,26 @@ valores de secretos (requisitos 16–18 de `docs/datos-del-propietario.md`). Fec
   - Cada pedido pagado obliga a entregar en el plazo de `LEGAL_DELIVERY_TIME`.
   - Comprar los diamantes al precio público y pagar la comisión de Mercado Pago deja pérdida en
     los paquetes pequeños (`docs/proveedor-recargas/FINANZAS.md`).
+- **Evidencia en producción (18:18 UTC):**
+  - la prueba del despliegue `50a9c2b` dio «Catálogo · 6 paquete(s) · a la venta: 6 · agotados: 0»;
+  - CI y CodeQL en verde, incluidas las e2e en Chromium, Firefox y WebKit;
+  - sin errores ni respuestas 5xx en Render.
+
+### 2026-10-13 · Autorización total del dueño: pendientes ejecutados
+
+Autorización del dueño en el chat: «autorizacion concedido total tienes permiso».
+
+| Pendiente | Resultado | Evidencia |
+|---|---|---|
+| Rama de Neon `prueba-rol-minimo-2026-10-13` | Borrada | Ya no aparece en `list_branches`; la rama `respaldo-2026-10-13` sigue |
+| Instantánea de Neon | Renovada | Se borró `respaldo-2026-10-07` y se creó `respaldo-2026-10-13` (`snap-empty-dew-b5cu82in`) |
+| Comisión de Mercado Pago en Render | Aplicada | `PAYMENT_FEE_PCT=3.29`, `PAYMENT_FEE_FIXED_COP=800`, `PAYMENT_FEE_TAX_PCT=19`; despliegue `dep-db77h0u7bikc73aclv90` activo. Tarifa de la página pública: **NO VERIFICADA** en el panel del dueño |
+| Rol mínimo de la base (H-01) | En parte | Rol de grupo `tgs_app_rw` creado y permisos aplicados por la migración del despliegue; `has_table_privilege` igual al diseño. Falta `tgs_app` con la clave del dueño y el cambio de `DATABASE_URL`: la clave no pasa por el chat |
+| PR #13 y #14 (Dependabot) | Fusionados | En local: formato, lint, tipos, 259 unitarias, 214 de integración con rol mínimo, build, `npm audit` sin vulnerabilidades y 67 de 67 e2e y visuales |
+| PR #15 (Playwright 1.64) | Retenido | Su CI falla en WebKit; no estaba en la lista autorizada |
+| PR #12 | Cerrado | Comentario en el PR: superado (H-10) |
+| 7 ramas de Git superadas | **No borradas** | El proxy de la sesión rechaza `git push --delete` (HTTP 403). Las borra el dueño en GitHub → Branches |
+| `CRON_SECRET` | **Pendiente del dueño** | Tiene que estar igual en Render y en GitHub, y esta sesión no puede escribir secretos de GitHub. Crearlo aquí lo dejaría en la conversación |
+| Visibilidad del repositorio | Sigue público | Recomendación de H-09. La autorización no dice en qué sentido cambiarlo, y no hay herramienta para hacerlo |
+| Contactar proveedores | **Preparado, no enviado** | Mensajes listos en `docs/proveedor-recargas/SOLICITUD-COTIZACION.md`. No hay canal autorizado: Gmail del dueño excluido, sin Telegram y sin acceso de red a los proveedores |
+| Dominios de proveedores en la red del entorno | Pendiente del dueño | Se cambia en la configuración del entorno (acceso a red), fuera del repositorio |

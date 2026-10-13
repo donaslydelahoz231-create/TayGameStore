@@ -17,7 +17,7 @@ expresa del dueño.
 - **Arquitectura de recarga por ID** (puerto `TopupProvider`, servicio idempotente, revisión,
   pausa, avisos). Falta un adaptador para el proveedor que se elija.
 
-Todo esto está en un commit local. **Subirlo despliega en Render** → [AUTORIZACIÓN].
+Todo esto se subió y está desplegado en Render desde el 13-oct.
 
 ## 2. Qué depende del proveedor
 
@@ -28,7 +28,8 @@ Todo esto está en un commit local. **Subirlo despliega en Render** → [AUTORIZ
    - depósito mínimo y forma de fondeo;
    - reembolso de fallidas.
 
-   Contactar → [AUTORIZACIÓN] (orden sugerida en [PROVEEDORES.md](PROVEEDORES.md)).
+   Contactar → autorizado el 13-oct. Mensajes listos para enviar en
+   [SOLICITUD-COTIZACION.md](SOLICITUD-COTIZACION.md); los envía el dueño.
 2. **Pasar la cotización por el informe:**
    `npm run finanzas:margenes -- --costos cotizacion.json`. Solo sigue si deja ≥ 5 % neto en los
    paquetes a automatizar.
@@ -86,10 +87,11 @@ Local, sin riesgo externo, una vez existan 2 y 3:
 Todos **[AUTORIZACIÓN]**, en este orden:
 
 1. Subir el commit de esta misión, que despliega en Render. Comprobar CI, CodeQL y la prueba de
-   producción en verde.
+   producción en verde. **Hecho el 13-oct.**
 2. En Render, ajustar la política de ganancia con los valores del panel de Mercado Pago:
    `PAYMENT_FEE_PCT=3.29`, `PAYMENT_FEE_FIXED_COP=800`, `PAYMENT_FEE_TAX_PCT=19`. Revisar Panel →
-   Rentabilidad.
+   Rentabilidad. **Hecho el 13-oct**, con la tarifa de la página pública. El dueño la confirma en
+   su panel de Mercado Pago.
 3. Con el adaptador desplegado: cargar credenciales y el mapa de paquetes con costos, con las
    entregas pausadas (`FULFILLMENT_ENABLED=false`): los pagos se guardan, pero no se recarga.
 4. Comando de verificación de credenciales. Luego `FULFILLMENT_ENABLED=true` y un pedido real

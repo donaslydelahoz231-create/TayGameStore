@@ -4,9 +4,12 @@ Hoy la tienda se conecta a Neon como `neondb_owner`, que es el dueño de las tab
 desactivar los triggers que impiden borrar pedidos o alterar montos. Con este cambio, la
 aplicación usa un rol sin propiedad, `tgs_app`, y el dueño queda solo para las migraciones.
 
-**Estado:** código listo y probado. En producción **no se ha cambiado nada**: el rol no existe y
-el código no hace nada hasta que el dueño siga estos pasos. Requiere su autorización porque
-cambia un secreto (`DATABASE_URL`) y los privilegios de la base.
+**Estado (13-oct, 18:45 UTC):**
+
+- El código está desplegado.
+- El rol de grupo `tgs_app_rw` existe en producción, con sus permisos aplicados y comprobados.
+- La tienda **sigue conectándose como `neondb_owner`**. Falta el rol con acceso `tgs_app` y el
+  cambio de `DATABASE_URL`. Los dos llevan una clave, así que los hace el dueño: pasos 2 y 3.
 
 ## Qué puede y qué no puede el rol de la aplicación
 
@@ -31,19 +34,28 @@ solo si el rol de grupo `tgs_app_rw` existe.
   - `ALTER TABLE orders DISABLE TRIGGER ALL` falla con «must be owner of table orders»;
   - `UPDATE audit_events` falla con «permission denied»;
   - no tiene `DELETE` en pedidos, `TRUNCATE` en pagos ni `CREATE` en el esquema.
-- **Producción:** el rol `tgs_app_rw` no existe (comprobado en solo lectura), así que el cambio
-  de código es inerte.
+- **Producción (13-oct, 18:40 UTC):**
+  - `tgs_app_rw` creado.
+  - El despliegue `dep-db77h0u7bikc73aclv90` aplicó los permisos.
+  - `has_table_privilege` confirma que puede:
+    - leer y actualizar pedidos;
+    - agregar al historial;
+    - borrar sesiones.
+  - Y que no puede:
+    - borrar pedidos ni vaciar pagos;
+    - editar el historial;
+    - crear tablas.
+  - Aún no tiene miembros con acceso.
 
 ## Pasos para el dueño (con autorización; unos 15 minutos)
 
 Antes de empezar, el respaldo `respaldo-2026-10-13` (rama de Neon) ya existe.
 
-1. **Desplegar primero este código** (el commit que agrega `MIGRATION_DATABASE_URL`).
-2. **Crear los roles en Neon.** Ve a Neon → SQL Editor, rama `production`, base `neondb`, y
-   ejecuta:
+1. **Desplegar primero este código** (el commit que agrega `MIGRATION_DATABASE_URL`). **Hecho.**
+2. **Crear el rol con acceso en Neon.** El rol de grupo `tgs_app_rw` ya existe (13-oct). Ve a
+   Neon → SQL Editor, rama `production`, base `neondb`, y ejecuta solo:
 
    ```sql
-   CREATE ROLE tgs_app_rw NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
    CREATE ROLE tgs_app LOGIN IN ROLE tgs_app_rw PASSWORD 'CLAVE_NUEVA';
    ```
 
