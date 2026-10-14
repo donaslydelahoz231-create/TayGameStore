@@ -823,6 +823,27 @@ async function loadInventory() {
   });
 }
 
+$('admExportExcel').onclick = () =>
+  busy($('admExportExcel'), () =>
+    run(async () => {
+      const { blob, filename } = await call('/api/admin/export/inventario.xlsx', {
+        as: 'file',
+        headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        timeoutMs: 60000,
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        link.remove();
+      }, 1000);
+    }, 'Excel descargado: inventario, facturas y pedidos al día.'),
+  );
+
 $('admInventoryForm').onsubmit = (e) => {
   e.preventDefault();
   const codes = $('iCodes')

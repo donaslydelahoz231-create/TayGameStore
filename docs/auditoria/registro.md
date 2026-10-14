@@ -943,3 +943,41 @@ Nequi aparezca aparte de las tarjetas, PSE y Mercado Pago, sin que el cliente se
     falso;
   - capturas visuales regeneradas (3 tamaños) y revisadas en escritorio y móvil.
 - **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.
+
+### 2026-10-14 · Facturas solo reales y Excel de inventario y facturas
+
+Pedido del dueño: «que las facturas no sean de borrador, ficticias, inexistentes o fantasma», que
+salgan «según el inventario» y que haya un Excel «bien guardado y organizado».
+
+- **Problema encontrado:** la tienda dejaba descargar en JPG o PDF un comprobante con la
+  referencia «BORRADOR» y el código «--------» antes de crear el pedido, y uno de pedido sin pagar.
+- **Corregido en la tienda** (`invoice.js`, `invoice-export.js`, `index.html`):
+  - sin pedido, la tarjeta dice «RESUMEN» y explica que no es factura;
+  - con pedido sin pagar, la tienda indica que el comprobante se emite al confirmarse el pago;
+  - JPG, PDF y Compartir solo se activan cuando el servidor devuelve el comprobante (pedido
+    pagado: número consecutivo y código HMAC);
+  - el comprobante descargado indica dónde verificarlo.
+- **Excel de inventario y facturas** (`src/server/lib/xlsx.ts`,
+  `src/server/services/inventory-export.ts`, panel → Inventario → «Descargar Excel»):
+  - se arma con la base en el momento; hojas Resumen, Inventario, Facturas y Pedidos;
+  - Facturas = solo pedidos con comprobante; Pedidos marca los no pagados como «Sin pago (no es
+    factura)»;
+  - sin nombres, correos, ID de jugador ni PIN (no aumenta la exposición de datos);
+  - texto como cadena en línea (sin inyección de fórmulas) y hojas protegidas sin contraseña;
+  - ruta solo de administrador con doble factor (404 para los demás), en la lista aprobada de
+    `owner-only.test.ts`; cada descarga queda en la Auditoría (`inventory.exported`, solo
+    cantidades);
+  - sin dependencias nuevas.
+- **Evidencia local:**
+  - lint, typecheck y formato limpios;
+  - unitarias 265/265 (4 nuevas del generador: ZIP válido con CRC, sin fórmulas, nombres de hoja
+    válidos);
+  - integración 225/225 con rol mínimo y 223 + 2 omitidas sin él (2 nuevas: contenido real,
+    facturas solo pagadas, sin datos personales ni PIN, auditoría, 404 para no administradores);
+  - e2e de escritorio 68/68 (comprobante solo tras el pago; descarga del Excel desde el panel);
+  - capturas visuales regeneradas (3 tamaños);
+  - el archivo descargado del panel pasó una validación estructural con Python (XML bien formado,
+    relaciones y tipos de contenido completos, 4 hojas con sus encabezados).
+  - **NO VERIFICADO:** abrirlo en Excel o LibreOffice reales. LibreOffice no funciona en este
+    contenedor: no carga ni un CSV simple.
+- **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.

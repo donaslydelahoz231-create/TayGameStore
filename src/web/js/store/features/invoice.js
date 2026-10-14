@@ -6,10 +6,17 @@ import { runtime, state } from '../state.js';
 import { humanStatus, paymentInProgress } from './order-status.js';
 import { chosenPayMeans, PAY_MEANS } from './pay-means.js';
 
-// Comprobante en vivo. Antes de crear el pedido es un borrador con los precios del catálogo;
-// después muestra exactamente la orden del servidor (referencia, totales, estado).
+// Antes de crear el pedido, la tarjeta es solo un RESUMEN de la compra (no es factura ni se puede
+// descargar). Con pedido muestra exactamente la orden del servidor; el comprobante descargable
+// existe únicamente cuando Mercado Pago aprobó el pago y el servidor le dio número y código.
 
-export const invoiceReference = () => state.currentOrder?.reference || 'BORRADOR';
+/** Lo que se ve en lugar de la referencia mientras no hay pedido. */
+export const SUMMARY_LABEL = 'RESUMEN';
+
+export const invoiceReference = () => state.currentOrder?.reference || SUMMARY_LABEL;
+
+/** ¿Hay comprobante real? Solo un pedido pagado, con número y código del servidor. */
+export const hasReceipt = () => Boolean(state.currentOrder?.receipt);
 
 /**
  * Pedido pagado: número consecutivo del comprobante y código de verificación (los asigna el
@@ -20,8 +27,31 @@ export const invoiceCode = () => {
   if (order?.receipt) {
     return `N.º ${String(order.receipt.number).padStart(6, '0')} · ${order.receipt.verificationCode}`;
   }
-  return order?.receiptCode || '--------';
+  return order?.receiptCode || '—';
 };
+
+/** Estado de la descarga del comprobante (JPG, PDF, compartir). */
+function exportState(lines) {
+  const order = state.currentOrder;
+  if (hasReceipt()) {
+    return {
+      enabled: true,
+      text: `Comprobante N.º ${String(order.receipt.number).padStart(6, '0')} listo para descargar.`,
+    };
+  }
+  if (order) {
+    return {
+      enabled: false,
+      text: `Pedido ${order.reference} registrado. El comprobante se emite cuando Mercado Pago confirma el pago.`,
+    };
+  }
+  return {
+    enabled: false,
+    text: lines.length
+      ? 'Esto es un resumen, no una factura. El comprobante se emite cuando Mercado Pago confirma el pago.'
+      : 'Agrega una recarga para empezar tu compra.',
+  };
+}
 
 /** Líneas del comprobante: las de la orden si existe, si no las del carrito. */
 export function invoiceLines() {
@@ -142,7 +172,7 @@ export function renderInvoice() {
   );
   setText('invoiceTotal', money(invoiceTotal()));
   setText('invoiceCode', invoiceCode());
-  setText('invoiceState', order ? humanStatus(order) : 'Pendiente');
+  setText('invoiceState', order ? humanStatus(order) : 'Sin pedido');
   const stateEl = $('invoiceState');
   if (stateEl) stateEl.className = order ? 'ready' : 'pending';
   const means = chosenPayMeans();
@@ -171,12 +201,11 @@ export function renderInvoice() {
   setText('payBtn', button.text);
   $('paymentState').className = 'payment-state ' + (button.ok ? 'ok' : '');
   $('paymentState').querySelector('span').textContent = button.note;
-  setText(
-    'exportMsg',
-    lines.length
-      ? 'Comprobante listo para generar.'
-      : 'Agrega una recarga para habilitar el comprobante.',
-  );
+  const exportInfo = exportState(lines);
+  for (const id of ['jpgBtn', 'pdfBtn', 'shareBtn']) {
+    if ($(id)) $(id).disabled = !exportInfo.enabled;
+  }
+  setText('exportMsg', exportInfo.text);
   if ($('customerName') && !order && $('customerName').value !== state.customerName)
     $('customerName').value = state.customerName;
 }

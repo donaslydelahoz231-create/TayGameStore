@@ -28,6 +28,9 @@ const APPROVED_ADMIN_ROUTES = [
   'GET /api/admin/alerts',
   'GET /api/admin/audit',
   'GET /api/admin/blocklist',
+  // Excel de inventario y facturas: solo lectura, sin datos personales ni PIN (pedido del dueño
+  // el 2026-10-14).
+  'GET /api/admin/export/inventario.xlsx',
   // Integridad: solo lectura (cadena de sellos, último comprobante, huella del catálogo).
   'GET /api/admin/integrity',
   // Inventario de PIN de recargas (aprobado por el dueño el 2026-10-06).

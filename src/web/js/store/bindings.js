@@ -32,7 +32,7 @@ const onEnter = (action) => (e) => {
   }
 };
 
-/** "Nueva factura": empieza un pedido nuevo (el anterior sigue guardado en el servidor). */
+/** "Nuevo pedido": empieza un pedido nuevo (el anterior sigue guardado en el servidor). */
 function startNewInvoice() {
   stopPolling();
   setCurrentOrder(null);
@@ -53,7 +53,7 @@ function startNewInvoice() {
   result.replaceChildren();
   saveLocal();
   renderAll();
-  toast('Nueva factura creada.', 'good');
+  toast('Listo para un pedido nuevo.', 'good');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

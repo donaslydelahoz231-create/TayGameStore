@@ -19,7 +19,7 @@ export function setQty(id, qty) {
   else if (pendingOrder() && !orderNoticeShown) {
     // El pedido creado no cambia con el carrito: se avisa una vez para evitar confusiones.
     orderNoticeShown = true;
-    toast('Tu pedido en curso no cambia. Usa "Nueva factura" para preparar otro.');
+    toast('Tu pedido en curso no cambia. Usa "Nuevo pedido" para preparar otro.');
   }
   if (n) state.qty[id] = n;
   else delete state.qty[id];

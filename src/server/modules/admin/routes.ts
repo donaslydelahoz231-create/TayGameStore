@@ -27,6 +27,8 @@ import {
   inventoryActionSchema,
   inventorySummary,
 } from '../../services/inventory.js';
+import { exportInventoryWorkbook } from '../../services/inventory-export.js';
+import { XLSX_MIME } from '../../lib/xlsx.js';
 import {
   createProduct,
   listAllProducts,
@@ -179,6 +181,16 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
   app.get('/api/admin/inventory', guarded, async (request) => {
     const { deps } = ctx(request);
     return { lines: await inventorySummary(deps) };
+  });
+
+  // Excel de inventario y facturas: se arma con la base en el momento; sin datos personales ni PIN.
+  app.get('/api/admin/export/inventario.xlsx', guarded, async (request, reply) => {
+    const { deps, actor } = ctx(request);
+    const file = await exportInventoryWorkbook(deps, actor);
+    return reply
+      .header('content-type', XLSX_MIME)
+      .header('content-disposition', `attachment; filename="${file.name}"`)
+      .send(file.data);
   });
 
   app.post('/api/admin/inventory', guarded, async (request, reply) => {

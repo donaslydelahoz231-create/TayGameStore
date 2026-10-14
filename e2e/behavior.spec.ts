@@ -665,14 +665,16 @@ test.describe('compra completa (invitado)', () => {
     expect(all).not.toContain('@example.com');
   });
 
-  test('"Nueva factura" empieza un pedido nuevo sin borrar el anterior del servidor', async ({
+  test('"Nuevo pedido" empieza un pedido nuevo sin borrar el anterior del servidor', async ({
     page,
   }) => {
     await page.goto('/');
     await enterAsGuest(page);
     await createOrder(page, '765432200');
     await page.locator('#newInvoiceBtn').click();
-    await expect(page.locator('#invoiceRef')).toHaveText('BORRADOR');
+    // Sin pedido no hay factura: solo el resumen de la compra.
+    await expect(page.locator('#invoiceRef')).toHaveText('RESUMEN');
+    await expect(page.locator('#jpgBtn')).toBeDisabled();
     await expect(page.locator('#playerUid')).toHaveValue('');
     await expect(page.locator('#payBtn')).toHaveText('Pagar');
     await page.evaluate(() => document.getElementById('menuHistory')?.click());
@@ -764,21 +766,50 @@ test.describe('compra completa (invitado)', () => {
 });
 
 test.describe('comprobante', () => {
-  test('exporta el comprobante como JPG y PDF', async ({ page }) => {
-    await page.goto('/');
-    await enterAsGuest(page);
-    await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
-    const [jpg] = await Promise.all([
-      page.waitForEvent('download'),
-      page.locator('#jpgBtn').click(),
-    ]);
-    expect(jpg.suggestedFilename()).toBe('Comprobante-BORRADOR.jpg');
-    const [pdf] = await Promise.all([
-      page.waitForEvent('download'),
-      page.locator('#pdfBtn').click(),
-    ]);
-    const bytes = await readFile(await pdf.path());
-    expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+  test('sin pago no hay comprobante; pagado, se descarga en JPG y PDF con su referencia real', async ({
+    page,
+  }) => {
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      // Antes del pedido: un resumen, nunca un «borrador» descargable.
+      await expect(page.locator('#invoiceRef')).toHaveText('RESUMEN');
+      await expect(page.locator('#exportMsg')).toContainText('no una factura');
+      for (const id of ['#jpgBtn', '#pdfBtn']) await expect(page.locator(id)).toBeDisabled();
+
+      await page.locator('#playerUid').fill('734567890');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567890');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567890 confirmado ✓');
+      await page.locator('#customerName').fill('Cliente Comprobante');
+      await page.locator('#customerEmail').fill('comprobante-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/);
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
+      await expect(page.locator('#invoiceCode')).toContainText(/N\.º \d{6} · V1-/);
+      await expect(page.locator('#exportMsg')).toContainText('listo para descargar');
+
+      const [jpg] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('#jpgBtn').click(),
+      ]);
+      expect(jpg.suggestedFilename()).toBe(`Comprobante-${ref}.jpg`);
+      const [pdf] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('#pdfBtn').click(),
+      ]);
+      const bytes = await readFile(await pdf.path());
+      expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
   });
 });
 
@@ -917,6 +948,28 @@ test.describe('panel de administración', () => {
     // Volver al panel exige autenticarse otra vez (Google + código).
     await expect(page.locator('#admLogin')).toBeVisible();
     await expect(page.locator('#admApp')).toBeHidden();
+  });
+
+  test('el dueño descarga el Excel de inventario y facturas desde el panel', async ({
+    page,
+    context,
+  }) => {
+    const { token } = (await (await operator(page, 'admin-session', {})).json()) as {
+      token: string;
+    };
+    await context.addCookies([{ name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' }]);
+    await page.goto(ADMIN_PATH);
+    await expect(page.locator('#admApp')).toBeVisible();
+    await page.locator('.adm-tabs button[data-tab="inventory"]').click();
+    const [file] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('#admExportExcel').click(),
+    ]);
+    expect(file.suggestedFilename()).toMatch(/^TayGameStore-inventario-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const bytes = await readFile(await file.path());
+    // Un .xlsx es un ZIP («PK»).
+    expect(bytes.subarray(0, 2).toString()).toBe('PK');
+    await expect(page.locator('#admMessage')).toContainText('Excel descargado');
   });
 
   test('el operador verifica el jugador y entrega el pedido desde el panel', async ({

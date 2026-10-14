@@ -7,6 +7,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Excel de inventario y facturas** (panel → Inventario → «Descargar Excel»,
+  `GET /api/admin/export/inventario.xlsx`):
+  - se arma con la base de datos en el momento: hojas Resumen, Inventario, Facturas y Pedidos;
+  - **Facturas** solo lista pedidos pagados, con número, operación de Mercado Pago y código de
+    verificación; los pedidos sin pagar van en **Pedidos** como «Sin pago (no es factura)»;
+  - sin nombres, correos, ID de jugador ni PIN; hojas protegidas sin contraseña, con filtro y
+    encabezado fijo; el texto nunca se interpreta como fórmula;
+  - generador `.xlsx` propio (`src/server/lib/xlsx.ts`), sin dependencias nuevas;
+  - cada descarga queda en la Auditoría (`inventory.exported`).
 - **Verificador público de comprobantes** (tienda → Soporte → «Verificar comprobante»,
   `POST /api/receipts/verify`):
   - cualquiera (cliente, proveedor) comprueba con la referencia y el código si un comprobante lo
@@ -51,6 +60,12 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Corregido
 
+- **Sin facturas de borrador ni fantasma en la tienda:**
+  - antes del pedido, la tarjeta es un «Resumen» (antes decía «BORRADOR») y no se descarga;
+  - con pedido sin pagar tampoco hay comprobante: lo dice la tienda;
+  - JPG, PDF y Compartir solo funcionan con pedido pagado, con número y código de verificación
+    del servidor;
+  - textos alineados: «Tu pedido», «Nuevo pedido» y «Comprobante verificable».
 - **Política de ganancia:** la comisión del pago admite cargo fijo e IVA (`PAYMENT_FEE_FIXED_COP`,
   `PAYMENT_FEE_TAX_PCT`). Antes un 4 % plano subestimaba la comisión de los paquetes pequeños. En
   0, las cifras son las de antes.

@@ -49,6 +49,30 @@ El precio lo fija el servidor al crear el pedido y queda en el comprobante. Cifr
 6. **Plazo:** el que publica la tienda (`LEGAL_DELIVERY_TIME`). Si vas a estar fuera, actívalo en
    `MAINTENANCE_MODE` o ajusta el plazo antes de recibir pagos que no podrás atender.
 
+### Facturas reales e inventario en Excel
+
+- **En la tienda no hay facturas de borrador.** Antes del pago, el cliente ve un «Resumen» que no
+  se puede descargar. El comprobante (JPG o PDF) solo existe cuando Mercado Pago aprueba el pago:
+  lleva el número consecutivo y el código de verificación del servidor.
+- **Panel → Inventario → «Descargar Excel»** arma, con la base de datos en ese momento, un archivo
+  `TayGameStore-inventario-AAAA-MM-DD.xlsx` con cuatro hojas:
+
+  | Hoja | Qué contiene |
+  |---|---|
+  | **Resumen** | Paquetes, PIN disponibles, comprobantes emitidos, total facturado y pedidos sin pagar |
+  | **Inventario** | Cada paquete: precio, promo, PIN disponibles, reservados, entregados y anulados, costo promedio y lo vendido |
+  | **Facturas** | Solo los pedidos pagados: N.º, referencia, fecha de pago, detalle, totales, operación de Mercado Pago y código de verificación |
+  | **Pedidos** | Todos los pedidos; los que no se pagaron dicen «Sin pago (no es factura)» |
+
+- **Sin datos personales ni PIN:** no lleva nombres, correos, ID de jugador ni PIN. Se puede
+  guardar o compartir con un contador.
+- Las hojas vienen protegidas sin contraseña: se filtran y ordenan, pero no se editan por
+  accidente. Si necesitas editarlas: Revisar → Desproteger hoja.
+- Cada descarga queda en la Auditoría (`inventory.exported`).
+- **Guárdalo una vez por semana** (y al cerrar el mes), por ejemplo en tu Google Drive o tu
+  computador: así tienes copia fuera de la tienda. Para comprobar una factura, usa la tienda →
+  Soporte → «Verificar comprobante».
+
 ### Reseñas
 
 **Panel → Reseñas** («Por revisar»):

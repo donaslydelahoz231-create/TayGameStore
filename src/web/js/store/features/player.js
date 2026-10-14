@@ -207,7 +207,7 @@ function clearPlayerChoice() {
 export function resetPlayer(clearUid = true) {
   if (hasOpenOrder()) {
     toast(
-      'Ya hay un pedido en curso con este jugador. Usa "Nueva factura" para empezar otro.',
+      'Ya hay un pedido en curso con este jugador. Usa "Nuevo pedido" para empezar otro.',
       'bad',
     );
     return;
@@ -358,7 +358,7 @@ export async function finderSearch() {
   if (hasOpenOrder()) {
     setHtml(
       'finderResult',
-      '<div class="finder-error">Ya hay un pedido en curso. Usa "Nueva factura" para buscar otro jugador.</div>',
+      '<div class="finder-error">Ya hay un pedido en curso. Usa "Nuevo pedido" para buscar otro jugador.</div>',
     );
     return;
   }

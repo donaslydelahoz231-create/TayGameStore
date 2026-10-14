@@ -47,6 +47,12 @@ export async function api(path, options = {}) {
     }
     throw new ApiError('NETWORK', NETWORK_MESSAGE);
   }
+  // Descargas (Excel del panel): el archivo y su nombre, tal como los envía el servidor.
+  if (options.as === 'file' && response.ok) {
+    const disposition = response.headers.get('content-disposition') || '';
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] || 'descarga';
+    return { blob: await response.blob(), filename };
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = data && typeof data.error === 'object' ? data.error : {};

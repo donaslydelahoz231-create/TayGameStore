@@ -266,3 +266,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Comprobante: JPG/PDF solo con pedido pagado; inactivos se ven inactivos. */
+.export-grid .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}

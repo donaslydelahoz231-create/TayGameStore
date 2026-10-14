@@ -61,8 +61,8 @@ export function search(e) {
     },
   });
   found.push({
-    name: 'Factura viva',
-    info: 'Revisar pedido',
+    name: 'Tu pedido',
+    info: 'Resumen y comprobante',
     action: () => scrollToSection('factura'),
   });
   found.slice(0, MAX_RESULTS).forEach((r) => {

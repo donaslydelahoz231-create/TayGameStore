@@ -1,17 +1,24 @@
 import { $, setText } from '../dom.js';
 import { money } from '../format.js';
 import { toast } from '../ui.js';
-import { invoiceCode, invoiceLines, invoiceReference, invoiceTotal } from './invoice.js';
+import {
+  hasReceipt,
+  invoiceCode,
+  invoiceLines,
+  invoiceReference,
+  invoiceTotal,
+} from './invoice.js';
 
-// Exportación del comprobante a JPG/PDF, generada íntegramente en el navegador.
-// Es una representación visual: no es un documento fiscal.
+// Exportación del comprobante a JPG/PDF, generada íntegramente en el navegador. Solo existe para
+// pedidos pagados: número y código de verificación del servidor (sin borradores ni comprobantes
+// de pedidos sin pagar). Es una representación visual: no es un documento fiscal.
 
 const FONT = 'Oxanium,Segoe UI,sans-serif';
 
 function invoiceCanvas() {
   const items = invoiceLines(),
     W = 760,
-    H = 540 + items.length * 72,
+    H = 562 + items.length * 72,
     S = 2,
     cv = document.createElement('canvas');
   cv.width = W * S;
@@ -123,12 +130,12 @@ function invoiceCanvas() {
   c.fillText('Recarga por ID. Nunca solicita contraseña del juego.', 42, y);
   y += 21;
   c.fillText(
-    invoiceReference() === 'BORRADOR'
-      ? 'Borrador: el pedido aún no se ha creado. Los precios los confirma el servidor.'
-      : 'Estado confirmado por el servidor de TayGameStore. No es una factura electrónica.',
+    'Estado confirmado por el servidor de TayGameStore. No es una factura electrónica.',
     42,
     y,
   );
+  y += 21;
+  c.fillText('Verifícalo en TayGameStore → Soporte → «Verificar comprobante».', 42, y);
   return cv;
 }
 
@@ -191,8 +198,8 @@ function jpegToPdf(jpegBytes, width, height) {
 }
 
 export async function exportInvoice(type) {
-  if (!invoiceLines().length) {
-    toast('Agrega una recarga primero.', 'bad');
+  if (!hasReceipt()) {
+    toast('El comprobante se emite cuando Mercado Pago confirma el pago.', 'bad');
     return;
   }
   const cv = invoiceCanvas(),
