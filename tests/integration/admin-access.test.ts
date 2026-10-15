@@ -6,6 +6,7 @@ import type {
 } from '@simplewebauthn/server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { auditEvents, passkeys, users } from '../../src/server/db/schema.js';
+import { totp } from '../../src/server/lib/totp.js';
 import {
   ADMIN_EMAIL,
   createHarness,
@@ -26,6 +27,8 @@ const CODE = 'frase-de-activacion-solo-del-dueno';
 const PASSWORD = 'Contraseña-larga-del-dueño-2026';
 let h: Harness;
 let ip = 0;
+/** Llave del dueño registrada en la prueba de la huella (la usan las pruebas siguientes). */
+let ownerPhone: SoftAuthenticator | undefined;
 
 beforeAll(async () => {
   await resetDatabase(testDatabaseUrl());
@@ -167,6 +170,7 @@ describe('acceso del administrador', () => {
 
   it('huella: la frase activa la PRIMERA llave; entrar con ella abre el panel (dos pasos)', async () => {
     const phone = new SoftAuthenticator(ORIGIN, 'localhost');
+    ownerPhone = phone;
     const { finish, creation } = await passkeySetup(phone);
     expect(finish?.statusCode, finish?.body).toBe(200);
     expect(creation?.authenticatorSelection?.userVerification).toBe('required');
@@ -249,6 +253,51 @@ describe('acceso del administrador', () => {
     expect(accounts).toHaveLength(1);
     expect(accounts[0]).toMatchObject({ id: before?.id, googleSub: 'g-dueno', role: 'admin' });
     expect(accounts[0]?.passwordHash).toBe(before?.passwordHash);
+  });
+
+  it('con llaves registradas, un solo factor (Google o contraseña) no puede activar un TOTP propio', async () => {
+    // Estado del dueño: contraseña y llaves, sin TOTP. Quien entra solo con Google (o solo con la
+    // contraseña) no debe poder añadir su app autenticadora y abrir así el panel completo.
+    const start = await inject({ method: 'GET', url: '/auth/google?modo=admin' });
+    const state = new URL(String(start.headers.location)).searchParams.get('state') ?? '';
+    const stateCookie = start.cookies.find((c) => c.name === 'tgs_oauth');
+    const callback = await inject({
+      method: 'GET',
+      url: `/auth/google/callback?code=codigo&state=${state}`,
+      cookies: { tgs_oauth: stateCookie?.value ?? '' },
+    });
+    const single = sessionCookie(callback);
+    expect((await me(single)).admin).toEqual({ mfaEnabled: false, mfaVerified: false });
+
+    expect((await post('/api/admin/mfa/setup', {}, single)).statusCode).toBe(403);
+    expect((await post('/api/admin/mfa/enable', { code: '123456' }, single)).statusCode).toBe(403);
+    expect((await orders(single)).statusCode).toBe(403);
+    const [owner] = await h.database.db.select().from(users).where(eq(users.email, ADMIN_EMAIL));
+    expect(owner?.mfaEnabledAt).toBeNull();
+    expect(owner?.mfaSecretEnc).toBeNull();
+    const alerts = await h.database.db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.action, 'admin.mfa_enroll_blocked'));
+    expect(alerts.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('con la sesión de la huella (dos pasos) el dueño sí puede activar el código TOTP', async () => {
+    if (!ownerPhone) throw new Error('falta la llave del dueño');
+    // Contador por encima del último aceptado (la prueba de la huella lo dejó en 50).
+    const login = await passkeyLogin(ownerPhone, { counter: 1000 });
+    expect(login.finish.statusCode, login.finish.body).toBe(200);
+    const cookie = sessionCookie(login.finish);
+    const setup = await post('/api/admin/mfa/setup', {}, cookie);
+    expect(setup.statusCode, setup.body).toBe(200);
+    const { secret } = setup.json<{ secret: string }>();
+    const enable = await post(
+      '/api/admin/mfa/enable',
+      { code: totp(secret, h.clock.now.getTime()) },
+      cookie,
+    );
+    expect(enable.statusCode, enable.body).toBe(200);
+    expect(enable.json<{ recoveryCodes: string[] }>().recoveryCodes).toHaveLength(10);
   });
 
   it('un cliente con sesión no puede añadir llaves ni ver el panel', async () => {

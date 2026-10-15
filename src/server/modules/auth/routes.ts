@@ -9,6 +9,7 @@ import { SocialAuthError, type SocialClient } from '../../integrations/social/pr
 import { AppError } from '../../plugins/errors.js';
 import { clearCookie, readCookie, RATE_LIMITS, setCookie } from '../../plugins/security.js';
 import {
+  assertTotpEnrollmentAllowed,
   beginMfaSetup,
   consumeOAuthState,
   createOAuthState,
@@ -531,6 +532,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     async (request, reply) => {
       const deps = requireDeps(options.deps);
       const user = requireAdmin(deps, request, { mfa: false });
+      await assertTotpEnrollmentAllowed(
+        deps,
+        user,
+        request.auth.session?.mfaVerified ?? false,
+        actorOf(request, 'admin'),
+      );
       reply.header('cache-control', 'no-store');
       return beginMfaSetup(deps, user);
     },
@@ -543,6 +550,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       const deps = requireDeps(options.deps);
       const user = requireAdmin(deps, request, { mfa: false });
       const { code } = z.strictObject({ code: totpCode }).parse(request.body);
+      await assertTotpEnrollmentAllowed(
+        deps,
+        user,
+        request.auth.session?.mfaVerified ?? false,
+        actorOf(request, 'admin'),
+      );
       const recoveryCodes = await enableMfa(deps, user, code, actorOf(request, 'admin'));
       const session = request.auth.session;
       if (!session) throw new AppError('UNAUTHORIZED', 401, 'Debes iniciar sesión.');

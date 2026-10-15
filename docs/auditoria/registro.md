@@ -981,3 +981,32 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - **NO VERIFICADO:** abrirlo en Excel o LibreOffice reales. LibreOffice no funciona en este
     contenedor: no carga ni un CSV simple.
 - **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.
+
+### 2026-10-15 · Seguridad: segundo paso del panel y auditoría de webhooks falsos
+
+- **Pidió**: el dueño (auditoría y fortalecimiento de seguridad; sin desplegar).
+- **Autorizó la publicación**: el dueño, después de revisar el informe y el parche («Quiero que
+  hagas funcionamiento en producción»). Se publica exactamente el parche revisado más este
+  registro.
+- **S1 confirmada (crítica con credencial):** con solo la contraseña del dueño (o su Google), la
+  sesión «pendiente del segundo paso» podía generar y activar un TOTP propio
+  (`/api/admin/mfa/setup` y `/enable`) y abrir el panel completo, aunque la cuenta ya tuviera
+  llaves. Reproducida con una prueba temporal: pedidos 403 → setup 200 → pedidos 200. Producción
+  (Neon, solo conteos): contraseña y 3 llaves, TOTP sin activar (estado explotable).
+- **Corrección S1** (`services/auth.ts`, `modules/auth/routes.ts`): con una llave registrada, el
+  TOTP solo se genera o activa desde una sesión que ya pasó el segundo paso; cada intento
+  bloqueado se audita (`admin.mfa_enroll_blocked`, alerta). Pruebas nuevas en
+  `admin-access.test.ts`; prueba de mutación: sin la corrección, la prueba falla.
+- **S2 confirmada (media, disponibilidad):** cada aviso al webhook con firma falsa escribía una
+  fila en la auditoría (solo inserción); 25 avisos → 25 filas. **Corrección**
+  (`services/payments.ts`): como mucho 1 por minuto y por conexión (30/min en total), con el
+  conteo de repetidas. Prueba nueva en `commerce.test.ts` (25 → 1).
+- **Evidencia local:** formato, lint y typecheck limpios; unitarias 265/265; integración 228/228
+  con rol mínimo y 226 + 2 omitidas sin él; e2e de escritorio 67/68: falla
+  `visual.spec.ts` (03, 536 px en los botones JPG/PDF desactivados), **igual sin estos cambios**
+  (referencia desactualizada desde `04f0768`; CI no ejecuta las visuales); escáner de secretos
+  0 coincidencias.
+- **NO VERIFICADO:** el comportamiento en vivo (el proxy de esta sesión no alcanza el sitio); el
+  estado del despliegue (Render y CI) se informa al dueño con evidencia después del push. Que
+  `ADMIN_SETUP_CODE` siga en Render (la API no muestra valores); recomendado borrarla.
+- **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.

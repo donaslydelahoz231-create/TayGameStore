@@ -4,6 +4,7 @@ import {
   blocklist,
   mfaRecoveryCodes,
   oauthStates,
+  passkeys,
   sessions,
   users,
   type SocialProvider,
@@ -256,6 +257,37 @@ export async function rotateSession(
 }
 
 // ── MFA (TOTP + códigos de recuperación) ─────────────────────────────────────
+
+/**
+ * Activar el código TOTP desde una sesión que no pasó el segundo factor solo vale en el alta
+ * inicial (la cuenta aún no tiene ninguno). Con una huella o llave ya registrada, la contraseña o
+ * Google solos no bastan: quien conozca uno de ellos no puede añadir su propia app autenticadora
+ * y saltarse el segundo paso. El intento queda en la auditoría como alerta.
+ */
+export async function assertTotpEnrollmentAllowed(
+  deps: ServiceDeps,
+  user: AuthUser,
+  mfaVerified: boolean,
+  actor: Actor,
+): Promise<void> {
+  if (mfaVerified) return;
+  const [row] = await deps.db
+    .select({ n: count() })
+    .from(passkeys)
+    .where(eq(passkeys.userId, user.id));
+  if ((row?.n ?? 0) === 0) return;
+  await audit(deps.db, actor, {
+    entityType: 'user',
+    entityId: user.id,
+    action: 'admin.mfa_enroll_blocked',
+    data: { alert: true },
+  });
+  throw new AppError(
+    'FORBIDDEN',
+    403,
+    'Entra con tu huella o llave de acceso para activar el código de la app.',
+  );
+}
 
 export async function beginMfaSetup(deps: ServiceDeps, user: AuthUser) {
   if (user.mfaEnabled)

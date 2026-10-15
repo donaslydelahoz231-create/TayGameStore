@@ -495,6 +495,36 @@ export function webhookSignatureAge(
 }
 
 /**
+ * Una firma inválida se registra en la auditoría como mucho una vez por minuto y por IP (y 30 por
+ * minuto en total): la auditoría es de solo inserción y el escudo no bloquea esta ruta, así que sin
+ * límite cualquiera podría llenar (y mantener despierta) la base de datos con avisos falsos. Las
+ * repeticiones se cuentan en el siguiente evento (`suppressed`); el log del servidor las ve todas.
+ */
+const INVALID_AUDIT_WINDOW_MS = 60_000;
+const INVALID_AUDIT_MAX_PER_WINDOW = 30;
+const invalidAudits = new Map<string, { at: number; suppressed: number }>();
+let invalidWindow = { start: 0, count: 0 };
+
+function invalidWebhookAudit(key: string, nowMs: number): { due: boolean; suppressed: number } {
+  if (nowMs - invalidWindow.start >= INVALID_AUDIT_WINDOW_MS) {
+    invalidWindow = { start: nowMs, count: 0 };
+  }
+  const last = invalidAudits.get(key);
+  if (
+    (last && nowMs - last.at < INVALID_AUDIT_WINDOW_MS) ||
+    invalidWindow.count >= INVALID_AUDIT_MAX_PER_WINDOW
+  ) {
+    if (last) last.suppressed += 1;
+    return { due: false, suppressed: 0 };
+  }
+  // Memoria acotada: pasadas mil IPs distintas se empieza de nuevo.
+  if (invalidAudits.size >= 1000) invalidAudits.clear();
+  invalidAudits.set(key, { at: nowMs, suppressed: 0 });
+  invalidWindow.count += 1;
+  return { due: true, suppressed: last?.suppressed ?? 0 };
+}
+
+/**
  * Procesa una notificación de Mercado Pago: autentica la firma, deduplica, consulta el pago a
  * Mercado Pago (nunca confía en el cuerpo) y aplica el resultado.
  * Devuelve `accepted=false` solo si la firma no es válida.
@@ -517,12 +547,15 @@ export async function handleWebhook(
       { requestIdMp: notification.requestId, alert: 'webhook_invalid' },
       'invalid webhook signature',
     );
-    await audit(deps.db, actor, {
-      entityType: 'webhook',
-      entityId: notification.dataId ?? 'unknown',
-      action: 'webhook.invalid_signature',
-      data: { alert: true },
-    });
+    const record = invalidWebhookAudit(actor.ipHash ?? 'sin-ip', deps.now().getTime());
+    if (record.due) {
+      await audit(deps.db, actor, {
+        entityType: 'webhook',
+        entityId: notification.dataId ?? 'unknown',
+        action: 'webhook.invalid_signature',
+        data: { alert: true, suppressed: record.suppressed },
+      });
+    }
     return { accepted: false };
   }
   const age = webhookSignatureAge(notification.signature, deps.now());

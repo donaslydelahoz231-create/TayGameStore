@@ -491,6 +491,30 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('firmas inválidas repetidas no llenan la auditoría (como mucho una por minuto e IP)', async () => {
+    // La auditoría no se puede borrar y el escudo no bloquea la ruta del webhook: sin límite,
+    // cualquiera podría llenar la base de datos (y despertarla) con avisos falsos.
+    const invalidCount = async () =>
+      (
+        await h.database.db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(auditEvents)
+          .where(eq(auditEvents.action, 'webhook.invalid_signature'))
+      )[0]?.n ?? 0;
+    const before = await invalidCount();
+    for (let i = 1; i <= 25; i += 1) {
+      const res = await h.app.inject({
+        method: 'POST',
+        url: `/api/webhooks/mercadopago?data.id=${i}&type=payment`,
+        remoteAddress: '10.250.0.7',
+        headers: { 'x-signature': 'firma-falsa', 'x-request-id': randomUUID() },
+        payload: { type: 'payment', data: { id: String(i) } },
+      });
+      expect(res.statusCode).toBe(401);
+    }
+    expect((await invalidCount()) - before).toBe(1);
+  });
+
   it('pago aprobado → PAID + entrega lista; webhook duplicado sin efectos dobles', async () => {
     const ready = await readyToPay();
     await pay(ready.order.reference, ready.cookies);

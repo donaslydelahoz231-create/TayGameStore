@@ -58,6 +58,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
     `normal`), el descuento y el fin de la promo;
   - la tienda abierta vuelve a pedir precios cuando la promo empieza o termina.
 
+### Seguridad
+
+- **El segundo paso del panel ya no se puede saltar activando un TOTP propio**
+  (`services/auth.ts`, `modules/auth/routes.ts`):
+  - antes, quien entraba solo con la contraseña del dueño (o solo con su Google) podía generar y
+    activar su propia app autenticadora y abrir el panel completo, aunque la cuenta ya tuviera
+    huellas o llaves registradas;
+  - ahora, con una llave registrada, generar o activar el código TOTP exige una sesión que ya
+    pasó el segundo paso (entrar con la huella o llave);
+  - cada intento bloqueado queda en la Auditoría como alerta (`admin.mfa_enroll_blocked`);
+  - el alta inicial de una cuenta sin ningún segundo factor no cambia.
+- **Avisos falsos al webhook de Mercado Pago ya no llenan la auditoría**
+  (`services/payments.ts`): una firma inválida queda registrada como mucho una vez por minuto y
+  por conexión (máximo 30 por minuto en total). Las repeticiones se cuentan en el siguiente
+  evento y el log del servidor las registra todas.
+
 ### Corregido
 
 - **Sin facturas de borrador ni fantasma en la tienda:**
