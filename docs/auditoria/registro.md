@@ -1032,10 +1032,40 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     tocar datos.
 - **Evidencia local:** cifras reales en el informe de esta misión. La e2e corrió solo en
   escritorio con Chromium; Firefox y WebKit quedan para CI.
+- **Evidencia de la publicación** (commit `78ca935`, 45 archivos, +6317/−87):
+  - push sin forzar `1eafc5a..78ca935`; `git ls-remote` devuelve `78ca935`;
+  - Render `dep-dbaiqcjm8hqs73bfevdg`: `live` a las 20:34:55 UTC; el build registró «Migraciones
+    aplicadas.»;
+  - Neon (solo lectura): 18 migraciones registradas; existen `payment_attempts.pay_means`,
+    `payments.payment_method_id` y `payments.payment_type_id`; el CHECK de avisos admite
+    `sheets`;
+  - arranque: «Server listening» y «avisos y automatización» con `correo:false`,
+    `telegram:false` y `hojaGoogle:false`; sin logs error/warn/fatal desde el despliegue;
+  - CI en verde: lint, formato, typecheck, esquema y migraciones sincronizados, unitarias, build,
+    auditoría de dependencias, integración con PostgreSQL, e2e en Chromium, Firefox y WebKit y
+    gitleaks; CodeQL y «Production smoke check» en verde (este terminó a las 20:34:41, antes de
+    que el despliegue quedara `live`, así que probó la versión anterior); con la versión nueva
+    ya `live`, «Vigilancia y autorreparación» respondió bien a las 20:52 UTC (`/api/health`);
+  - ronda de mantenimiento de las 20:52 UTC: 11 pedidos, todos vencidos; 0 pagos, 0 pagados por
+    entregar, 0 en revisión, 0 por reembolsar, 0 reseñas pendientes y 0 avisos fallidos; Neon
+    33,2 CU-h usadas, proyección de 68,9 CU-h al cierre del mes (límite 100).
 - **NO VERIFICADO:**
-  - el comportamiento en vivo (el proxy de esta sesión no alcanza el sitio); el estado del
-    despliegue (Render, CI y CodeQL) se informa al dueño con evidencia después del push;
+  - el comportamiento en vivo del seguimiento privado y del panel nuevo (el proxy de esta sesión
+    no alcanza el sitio; la prueba de humo y la vigilancia solo revisan la página, `/api/health`,
+    `/api/ready` y las burbujas de soporte);
   - la conexión real con Google Sheets (sin credenciales);
   - un pago real de punta a punta (pendiente con autorización del dueño).
 - **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*`, datos del dueño
   ni infraestructura.
+- **Este bloque de evidencia** se publicó en un commit aparte, solo con este registro, autorizado
+  por el dueño («Autorizo el commit del registro con la evidencia»).
+
+### 2026-10-18 · Decisión del dueño: no usar Telegram
+
+- **Decidió**: el dueño («no quiero uso de telegram»).
+- **Estado actual:** Telegram está apagado en producción (`telegram:false` en el arranque del
+  despliegue `78ca935`): no hay credenciales cargadas y no se envía nada por ese canal.
+- **Consecuencia:** los avisos al dueño quedan para el correo (SMTP) y el panel. No se deben
+  cargar las variables `TELEGRAM_*` ni recomendarlas en informes o rutinas.
+- **Sin cambios de código** en este registro. El código del canal sigue en el repositorio, inactivo
+  sin variables; quitarlo o actualizar las guías que lo mencionan necesita otro commit autorizado.
