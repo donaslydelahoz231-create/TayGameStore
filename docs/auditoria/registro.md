@@ -1010,3 +1010,32 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   estado del despliegue (Render y CI) se informa al dueño con evidencia después del push. Que
   `ADMIN_SETUP_CODE` siga en Render (la API no muestra valores); recomendado borrarla.
 - **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*` ni datos del dueño.
+
+### 2026-10-18 · Pedidos con recarga manual: estados separados, panel, seguimiento privado y Sheets
+
+- **Pidió**: el dueño, en la misión «Implementar el sistema de pedidos, pagos y recargas
+  manuales». Prohibido sin autorización explícita: despliegue, variables de producción y
+  operaciones reales.
+- **Autorizó la publicación**: el dueño, después de recibir el informe, el parche y los hashes de
+  los 45 archivos («Autorizo publicar en producción el parche de pedidos manuales (45 archivos,
+  migración 0017)»). Antes del commit se comprobó que los 45 archivos seguían idénticos a los
+  revisados; solo cambió esta parte del registro.
+- **Qué cambia:**
+  - estados de pago y de recarga derivados en el servidor;
+  - panel con filtros por fecha y juego, páginas, notas internas, historial completo con autor
+    y alertas de pedidos atascados;
+  - corrección del cambio de medio de pago (A2) y del reembolso parcial (M6);
+  - enlace y consulta privados del pedido;
+  - canal opcional de Google Sheets, apagado sin credenciales;
+  - evaluación de Wompi y Nequi;
+  - migración aditiva 0017: tres columnas opcionales y un canal más en el CHECK de avisos, sin
+    tocar datos.
+- **Evidencia local:** cifras reales en el informe de esta misión. La e2e corrió solo en
+  escritorio con Chromium; Firefox y WebKit quedan para CI.
+- **NO VERIFICADO:**
+  - el comportamiento en vivo (el proxy de esta sesión no alcanza el sitio); el estado del
+    despliegue (Render, CI y CodeQL) se informa al dueño con evidencia después del push;
+  - la conexión real con Google Sheets (sin credenciales);
+  - un pago real de punta a punta (pendiente con autorización del dueño).
+- **Sin cambios** en `PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`, secretos, `LEGAL_*`, datos del dueño
+  ni infraestructura.

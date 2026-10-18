@@ -65,6 +65,10 @@ export interface ProviderPayment {
   approvedAt: Date | undefined;
   /** `live_mode` de Mercado Pago: true = pago real; false = pago de prueba (sandbox). */
   liveMode: boolean | undefined;
+  /** `payment_method_id` (p. ej. «pse», «visa»). Solo informativo para el panel. */
+  paymentMethodId?: string | undefined;
+  /** `payment_type_id` (p. ej. «bank_transfer», «credit_card»). Solo informativo. */
+  paymentTypeId?: string | undefined;
 }
 
 export interface WebhookInput {

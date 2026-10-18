@@ -194,6 +194,15 @@
               <option value="REJECTED">Rechazado</option>
               <option value="REFUNDED">Reembolsado</option>
             </select>
+            <label for="admGame">Juego</label>
+            <select id="admGame">
+              <option value="">Todos</option>
+              <option value="freefire">Free Fire</option>
+            </select>
+            <label for="admFrom">Desde</label>
+            <input id="admFrom" type="date" />
+            <label for="admTo">Hasta</label>
+            <input id="admTo" type="date" />
             <label for="admSearch">Buscar</label>
             <input id="admSearch" placeholder="Referencia, UID o correo" maxlength="80" />
             <button id="admReload" class="adm-btn ghost" type="button">Actualizar</button>
@@ -204,14 +213,22 @@
                 <thead>
                   <tr>
                     <th>Referencia</th>
-                    <th>Estado</th>
-                    <th>UID</th>
-                    <th>Total</th>
                     <th>Creado</th>
+                    <th>Paquete</th>
+                    <th>UID · servidor</th>
+                    <th>Total</th>
+                    <th>Pago</th>
+                    <th>Recarga</th>
+                    <th>Actualizado</th>
                   </tr>
                 </thead>
                 <tbody id="admOrders"></tbody>
               </table>
+              <div class="adm-pager">
+                <button id="admPrev" class="adm-btn ghost" type="button" disabled>Anterior</button>
+                <span id="admPage" aria-live="polite">Página 1</span>
+                <button id="admNext" class="adm-btn ghost" type="button" disabled>Siguiente</button>
+              </div>
             </div>
             <aside id="admDetail" class="adm-card adm-detail"><p>Selecciona un pedido.</p></aside>
           </div>

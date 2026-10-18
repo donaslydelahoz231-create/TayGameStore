@@ -15,6 +15,7 @@ import {
 } from '../db/schema.js';
 import { computeTotals, effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { canTransitionOrder, OPEN_ORDER_STATUSES } from '../domain/state-machines.js';
+import { orderStates, type PaymentState, type RechargeState } from '../domain/order-states.js';
 import {
   keyedHash,
   publicOrderRef,
@@ -134,6 +135,11 @@ export interface PublicOrder {
     region: string | null;
   };
   payment: { status: string | null; canPay: boolean; checkoutAvailable: boolean };
+  /**
+   * Estado del pago y estado de la recarga, separados (derivados del estado guardado en el
+   * servidor; ver domain/order-states.ts). El pago confirmado no implica la recarga entregada.
+   */
+  states: { payment: PaymentState; recharge: RechargeState };
   /** `pins`: cantidad de PIN entregados (el cliente los abre con «Ver mi PIN»). */
   fulfillment: { status: string | null; deliveredAt: string | null; pins: number };
   /** Comprobante verificable (pedido pagado): número consecutivo y código de verificación. */
@@ -141,9 +147,12 @@ export interface PublicOrder {
 }
 
 type OrderItemRow = typeof orderItems.$inferSelect;
-interface OrderRelations {
+export interface OrderRelations {
   items: OrderItemRow[];
-  payments: Pick<typeof payments.$inferSelect, 'status' | 'isOrderPayment' | 'providerPaymentId'>[];
+  payments: Pick<
+    typeof payments.$inferSelect,
+    'status' | 'isOrderPayment' | 'providerPaymentId' | 'providerStatusDetail' | 'paymentMethodId'
+  >[];
   fulfillment: Pick<typeof fulfillments.$inferSelect, 'status' | 'deliveredAt'> | undefined;
   pins: number;
 }
@@ -152,7 +161,7 @@ interface OrderRelations {
  * Carga partidas, pagos y entrega de varias órdenes con 3 consultas en total (no 3 por orden):
  * evita el N+1 en el listado del cliente.
  */
-async function loadOrderRelations(
+export async function loadOrderRelations(
   db: DbOrTx,
   orderIds: readonly string[],
 ): Promise<Map<string, OrderRelations>> {
@@ -173,6 +182,8 @@ async function loadOrderRelations(
         status: payments.status,
         isOrderPayment: payments.isOrderPayment,
         providerPaymentId: payments.providerPaymentId,
+        providerStatusDetail: payments.providerStatusDetail,
+        paymentMethodId: payments.paymentMethodId,
       })
       .from(payments)
       .where(inArray(payments.orderId, ids))
@@ -258,6 +269,11 @@ function buildPublicOrder(
         deps.gateway !== undefined,
       checkoutAvailable: deps.config.flags.paymentsEnabled && deps.gateway !== undefined,
     },
+    states: orderStates({
+      status: order.status,
+      payments: orderPayments,
+      fulfillment: fulfillment?.status,
+    }),
     fulfillment: {
       status: fulfillment?.status ?? null,
       deliveredAt: fulfillment?.deliveredAt?.toISOString() ?? null,

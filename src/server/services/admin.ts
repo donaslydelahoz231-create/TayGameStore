@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   auditEvents,
@@ -10,10 +10,12 @@ import {
   paymentAttempts,
   payments,
   topups,
+  users,
 } from '../db/schema.js';
+import { orderStates } from '../domain/order-states.js';
 import { canTransitionFulfillment } from '../domain/state-machines.js';
 import { AppError } from '../plugins/errors.js';
-import { isUniqueViolation, toPublicOrder, transitionOrder } from './orders.js';
+import { isUniqueViolation, loadOrderRelations, toPublicOrder, transitionOrder } from './orders.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { assignReceiptNumber } from './receipts.js';
 import { pendingReviewCount } from './reviews.js';
@@ -27,83 +29,153 @@ import {
 
 // ── Órdenes ──────────────────────────────────────────────────────────────────
 
+/** Día calendario (AAAA-MM-DD) en hora de Colombia (UTC−5, sin horario de verano). */
+const colombiaDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((day) => !Number.isNaN(Date.parse(`${day}T00:00:00-05:00`)), 'Fecha inválida.');
+
+export const ADMIN_PAGE_SIZE = 50;
+
 export const orderFilterSchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   q: z.string().trim().max(80).optional(),
+  game: z.enum(['freefire']).optional(),
+  /** Desde este día (incluido) y hasta este día (incluido), en hora de Colombia. */
+  from: colombiaDay.optional(),
+  to: colombiaDay.optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
 
+const startOfColombiaDay = (day: string) => new Date(`${day}T00:00:00-05:00`);
+
+/**
+ * Pedidos del panel: filtros por estado, juego, fechas y búsqueda exacta (referencia, UID o
+ * correo), 50 por página. Cada fila trae el estado del pago y el de la recarga por separado.
+ */
 export async function listOrdersForAdmin(
   deps: ServiceDeps,
   filter: z.infer<typeof orderFilterSchema>,
 ) {
   const conditions = [
     filter.status ? eq(orders.status, filter.status) : undefined,
+    filter.game ? eq(orders.game, filter.game) : undefined,
+    filter.from ? gte(orders.createdAt, startOfColombiaDay(filter.from)) : undefined,
+    filter.to
+      ? lt(orders.createdAt, new Date(startOfColombiaDay(filter.to).getTime() + 24 * 3_600_000))
+      : undefined,
     filter.q
       ? sql`(${orders.publicRef} = ${filter.q.toUpperCase()} or ${orders.playerUid} = ${filter.q} or ${orders.customerEmail} = ${filter.q.toLowerCase()})`
       : undefined,
   ].filter((condition) => condition !== undefined);
-  return deps.db
+  const rows = await deps.db
     .select({
       id: orders.id,
       reference: orders.publicRef,
       status: orders.status,
+      game: orders.game,
       verificationStatus: orders.verificationStatus,
       playerUid: orders.playerUid,
+      playerServer: orders.playerServer,
       customerEmail: orders.customerEmail,
       totalCop: orders.totalCop,
+      currency: orders.currency,
       createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
       expiresAt: orders.expiresAt,
     })
     .from(orders)
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(orders.createdAt))
-    .limit(100);
+    .orderBy(desc(orders.createdAt), desc(orders.id))
+    .limit(ADMIN_PAGE_SIZE + 1)
+    .offset((filter.page - 1) * ADMIN_PAGE_SIZE);
+  const page = rows.slice(0, ADMIN_PAGE_SIZE);
+  const ids = page.map((row) => row.id);
+  const [relations, attempts] = await Promise.all([
+    loadOrderRelations(deps.db, ids),
+    ids.length
+      ? deps.db
+          .select({ orderId: paymentAttempts.orderId, payMeans: paymentAttempts.payMeans })
+          .from(paymentAttempts)
+          .where(inArray(paymentAttempts.orderId, ids))
+          .orderBy(desc(paymentAttempts.createdAt))
+      : Promise.resolve([]),
+  ]);
+  const chosenMeans = new Map<string, string | null>();
+  for (const attempt of attempts) {
+    if (!chosenMeans.has(attempt.orderId)) chosenMeans.set(attempt.orderId, attempt.payMeans);
+  }
+  return {
+    orders: page.map((row) => {
+      const relation = relations.get(row.id);
+      const orderPayment = relation?.payments.find((payment) => payment.isOrderPayment);
+      return {
+        ...row,
+        items: (relation?.items ?? []).map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+        })),
+        states: orderStates({
+          status: row.status,
+          payments: relation?.payments ?? [],
+          fulfillment: relation?.fulfillment?.status,
+        }),
+        /** Medio que eligió el cliente en la tienda (último intento de pago). */
+        payMeans: chosenMeans.get(row.id) ?? null,
+        /** Pago que pagó el pedido según Mercado Pago (referencia de la transacción y medio). */
+        providerPaymentId: orderPayment?.providerPaymentId ?? null,
+        paymentMethodId: orderPayment?.paymentMethodId ?? null,
+      };
+    }),
+    page: filter.page,
+    hasMore: rows.length > ADMIN_PAGE_SIZE,
+  };
 }
 
 export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
   const [order] = await deps.db.select().from(orders).where(eq(orders.id, orderId));
   if (!order) throw notFound();
-  const [view, paymentRows, attempts, fulfillment, history, inventory, topupRows] =
-    await Promise.all([
-      toPublicOrder(deps, deps.db, order),
-      deps.db
-        .select()
-        .from(payments)
-        .where(eq(payments.orderId, order.id))
-        .orderBy(desc(payments.createdAt)),
-      deps.db
-        .select({
-          id: paymentAttempts.id,
-          status: paymentAttempts.status,
-          preferenceId: paymentAttempts.preferenceId,
-          createdAt: paymentAttempts.createdAt,
-          expiresAt: paymentAttempts.expiresAt,
-        })
-        .from(paymentAttempts)
-        .where(eq(paymentAttempts.orderId, order.id))
-        .orderBy(desc(paymentAttempts.createdAt)),
-      deps.db.select().from(fulfillments).where(eq(fulfillments.orderId, order.id)),
-      deps.db
-        .select()
-        .from(auditEvents)
-        .where(and(eq(auditEvents.entityType, 'order'), eq(auditEvents.entityId, order.id)))
-        .orderBy(desc(auditEvents.id))
-        .limit(50),
-      inventoryForOrder(deps, order.id),
-      deps.db
-        .select({
-          referenceNo: topups.referenceNo,
-          status: topups.status,
-          attempt: topups.attempt,
-          providerTransaction: topups.providerTransaction,
-          errorCode: topups.errorCode,
-          checks: topups.checks,
-          updatedAt: topups.updatedAt,
-        })
-        .from(topups)
-        .where(eq(topups.orderId, order.id))
-        .orderBy(asc(topups.referenceNo)),
-    ]);
+  const [view, paymentRows, attempts, fulfillment, inventory, topupRows] = await Promise.all([
+    toPublicOrder(deps, deps.db, order),
+    deps.db
+      .select()
+      .from(payments)
+      .where(eq(payments.orderId, order.id))
+      .orderBy(desc(payments.createdAt)),
+    deps.db
+      .select({
+        id: paymentAttempts.id,
+        status: paymentAttempts.status,
+        payMeans: paymentAttempts.payMeans,
+        preferenceId: paymentAttempts.preferenceId,
+        createdAt: paymentAttempts.createdAt,
+        expiresAt: paymentAttempts.expiresAt,
+      })
+      .from(paymentAttempts)
+      .where(eq(paymentAttempts.orderId, order.id))
+      .orderBy(desc(paymentAttempts.createdAt)),
+    deps.db.select().from(fulfillments).where(eq(fulfillments.orderId, order.id)),
+    inventoryForOrder(deps, order.id),
+    deps.db
+      .select({
+        referenceNo: topups.referenceNo,
+        status: topups.status,
+        attempt: topups.attempt,
+        providerTransaction: topups.providerTransaction,
+        errorCode: topups.errorCode,
+        checks: topups.checks,
+        updatedAt: topups.updatedAt,
+      })
+      .from(topups)
+      .where(eq(topups.orderId, order.id))
+      .orderBy(asc(topups.referenceNo)),
+  ]);
+  const history = await orderHistory(deps, {
+    orderId: order.id,
+    fulfillmentIds: fulfillment.map((row) => row.id),
+    paymentIds: paymentRows.map((row) => row.id),
+    attemptIds: attempts.map((row) => row.id),
+  });
   return {
     id: order.id,
     order: view,
@@ -125,6 +197,8 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
       currency: p.currency,
       amountMatches: p.amountMatches,
       isOrderPayment: p.isOrderPayment,
+      paymentMethodId: p.paymentMethodId,
+      paymentTypeId: p.paymentTypeId,
       approvedAt: p.approvedAt,
       lastSyncedAt: p.lastSyncedAt,
     })),
@@ -136,6 +210,101 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
     /** Recargas directas con UniPin (una por unidad e intento). */
     topups: topupRows,
   };
+}
+
+/**
+ * Historial completo del pedido (pedido, entrega, pagos e intentos de pago), del más reciente al
+ * más antiguo, con quién hizo cada cambio y su motivo. Sale de `audit_events`: la aplicación solo
+ * puede insertar ahí (sin UPDATE ni DELETE, y triggers en la base), y los sellos de integridad
+ * detectan cualquier cambio hecho por fuera.
+ */
+async function orderHistory(
+  deps: ServiceDeps,
+  ids: { orderId: string; fulfillmentIds: string[]; paymentIds: string[]; attemptIds: string[] },
+) {
+  const byEntity = (entityType: string, entityIds: string[]) =>
+    entityIds.length
+      ? and(eq(auditEvents.entityType, entityType), inArray(auditEvents.entityId, entityIds))
+      : undefined;
+  const scopes = [
+    // `fulfillment.ready` se registra con el id del pedido.
+    byEntity('order', [ids.orderId]),
+    byEntity('fulfillment', [ids.orderId, ...ids.fulfillmentIds]),
+    byEntity('payment', ids.paymentIds),
+    byEntity('payment_attempt', ids.attemptIds),
+  ].filter((scope) => scope !== undefined);
+  const rows = await deps.db
+    .select({
+      id: auditEvents.id,
+      entityType: auditEvents.entityType,
+      action: auditEvents.action,
+      fromStatus: auditEvents.fromStatus,
+      toStatus: auditEvents.toStatus,
+      actorType: auditEvents.actorType,
+      actorId: auditEvents.actorId,
+      data: auditEvents.data,
+      createdAt: auditEvents.createdAt,
+    })
+    .from(auditEvents)
+    .where(or(...scopes))
+    .orderBy(desc(auditEvents.id))
+    .limit(100);
+  const adminIds = [
+    ...new Set(
+      rows
+        .filter((row) => row.actorType === 'admin' && row.actorId)
+        .map((row) => row.actorId as string),
+    ),
+  ].filter((id) => z.uuid().safeParse(id).success);
+  const admins = adminIds.length
+    ? await deps.db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(inArray(users.id, adminIds))
+    : [];
+  const emails = new Map(admins.map((row) => [row.id, row.email]));
+  return rows.map(({ data, actorId, ...row }) => {
+    const detail = (data ?? {}) as Record<string, unknown>;
+    const text = [detail.note, detail.reason, detail.resolution].find(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    );
+    return {
+      ...row,
+      actorEmail: row.actorType === 'admin' && actorId ? (emails.get(actorId) ?? null) : null,
+      /** Nota del dueño o motivo del cambio (texto ya validado al guardarlo). */
+      note: text ?? null,
+    };
+  });
+}
+
+// ── Notas internas del pedido ────────────────────────────────────────────────
+
+export const orderNoteSchema = z.strictObject({
+  note: z.string().trim().min(3).max(500),
+});
+
+/**
+ * Observación interna del dueño sobre un pedido (no la ve el cliente). Queda en la auditoría
+ * de solo inserción: no se puede editar ni borrar desde la aplicación.
+ */
+export async function addOrderNote(
+  deps: ServiceDeps,
+  orderId: string,
+  input: z.infer<typeof orderNoteSchema>,
+  actor: Actor,
+): Promise<void> {
+  if (!actor.userId) throw new AppError('FORBIDDEN', 403, 'Acción no permitida.');
+  const [order] = await deps.db
+    .select({ id: orders.id, status: orders.status })
+    .from(orders)
+    .where(eq(orders.id, orderId));
+  if (!order) throw notFound();
+  await audit(deps.db, actor, {
+    entityType: 'order',
+    entityId: order.id,
+    action: 'order.note',
+    data: { note: input.note, status: order.status },
+  });
 }
 
 // ── Verificación manual del jugador ──────────────────────────────────────────
@@ -489,10 +658,34 @@ export async function listBlocks(deps: ServiceDeps) {
 
 // ── Alertas y auditoría ──────────────────────────────────────────────────────
 
+/** Una recarga «en proceso» más de 2 h o una revisión de más de 24 h se marcan como atascadas. */
+export const STUCK_DELIVERING_MS = 2 * 3_600_000;
+export const STUCK_REVIEW_MS = 24 * 3_600_000;
+
 export async function alertSummary(deps: ServiceDeps) {
   const now = deps.now();
   const paidWaitingSince = new Date(now.getTime() - 30 * 60_000);
   const pendingSince = new Date(now.getTime() - 60 * 60_000);
+  const [[deliveringStuck], [reviewStuck]] = await Promise.all([
+    deps.db
+      .select({ n: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.status, 'DELIVERING'),
+          lt(orders.updatedAt, new Date(now.getTime() - STUCK_DELIVERING_MS)),
+        ),
+      ),
+    deps.db
+      .select({ n: count() })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.status, 'NEEDS_REVIEW'),
+          lt(orders.updatedAt, new Date(now.getTime() - STUCK_REVIEW_MS)),
+        ),
+      ),
+  ]);
   const [
     [review],
     [needsRefund],
@@ -565,6 +758,10 @@ export async function alertSummary(deps: ServiceDeps) {
     needsReview: review?.n ?? 0,
     needsRefund: needsRefund?.n ?? 0,
     paidWithoutDelivery: paidWaiting?.n ?? 0,
+    /** Recargas iniciadas que siguen «en proceso» más de 2 h (¿se entregó y no se marcó?). */
+    deliveringTooLong: deliveringStuck?.n ?? 0,
+    /** Pedidos en revisión desde hace más de 24 h. */
+    reviewTooLong: reviewStuck?.n ?? 0,
     paidToDeliver: paidToDeliver?.n ?? 0,
     paymentsPendingTooLong: pendingLong?.n ?? 0,
     awaitingVerification: awaitingVerification?.n ?? 0,

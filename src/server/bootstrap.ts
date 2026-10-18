@@ -8,6 +8,7 @@ import { WebhookEventSink } from './integrations/notify/events.js';
 import { TelegramOwnerNotifier } from './integrations/notify/owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
 import { UniPinTopupProvider } from './integrations/topup/unipin.js';
+import { GoogleSheetsLog } from './integrations/sheets/google-sheets.js';
 import { FacebookClient } from './integrations/social/providers.js';
 
 export interface Server extends BuiltApp {
@@ -42,6 +43,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       : undefined,
     mailer: config.smtp ? new SmtpMailer(config.smtp) : undefined,
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
+    orderSheet: config.sheets ? new GoogleSheetsLog(config.sheets) : undefined,
     topupProvider: config.topup ? new UniPinTopupProvider(config.topup) : undefined,
     googleClient: config.google ? new HttpGoogleClient(config.google) : undefined,
     socialClients: {
@@ -70,6 +72,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       correo: Boolean(config.smtp),
       telegram: Boolean(config.ownerNotify.telegram),
       eventosExternos: Boolean(config.eventsWebhook),
+      hojaGoogle: Boolean(config.sheets),
       cronExterno: Boolean(config.cronSecret),
       plazoEntrega: Boolean(config.legal.deliveryTime),
     },

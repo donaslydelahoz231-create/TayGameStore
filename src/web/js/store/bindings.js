@@ -22,6 +22,7 @@ import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/o
 import { showPins } from './features/pins.js';
 import { submitReview } from './features/reviews.js';
 import { verifyReceipt } from './features/receipt-verify.js';
+import { copyTrackLink, lookupOrder } from './features/order-access.js';
 import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
 
@@ -230,6 +231,8 @@ function bindInvoiceAndCheckout() {
   $('payMeans').onchange = () => renderAll();
   $('payBtn').onclick = preparePayment;
   $('refreshOrderBtn').onclick = refreshOrder;
+  $('copyTrackLink').onclick = copyTrackLink;
+  $('consultar-pedido').onsubmit = lookupOrder;
   $('showPins').onclick = showPins;
   $('reviewForm').onsubmit = submitReview;
   $('verificar-comprobante').onsubmit = verifyReceipt;

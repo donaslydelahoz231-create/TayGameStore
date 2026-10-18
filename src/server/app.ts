@@ -39,6 +39,7 @@ import { registerSecurity } from './plugins/security.js';
 import { registerShield } from './plugins/shield.js';
 import type { ServiceDeps } from './services/context.js';
 import type { TopupProvider } from './integrations/topup/provider.js';
+import type { OrderSheetLog } from './integrations/sheets/google-sheets.js';
 import { AbuseShield } from './services/shield.js';
 
 export interface AppDependencies {
@@ -61,6 +62,8 @@ export interface AppDependencies {
   eventSink?: OrderEventSink | undefined;
   /** Recarga directa al ID con el distribuidor (UniPin si está configurado). */
   topupProvider?: TopupProvider | undefined;
+  /** Registro auxiliar de pedidos en Google Sheets (si está configurado). */
+  orderSheet?: OrderSheetLog | undefined;
   /** Para pruebas: recibe las tareas en segundo plano (recargas) para poder esperarlas. */
   background?: ((task: Promise<unknown>) => void) | undefined;
   now?: () => Date;
@@ -146,6 +149,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         notifier: input.ownerNotifier,
         mailer: input.mailer,
         events: input.eventSink,
+        sheets: input.orderSheet,
         topup: config.topup ? input.topupProvider : undefined,
         background: input.background,
       }

@@ -49,6 +49,8 @@ const APPROVED_ADMIN_ROUTES = [
   'POST /api/admin/mfa/setup',
   'POST /api/admin/mfa/verify',
   'POST /api/admin/orders/:id/fulfillment',
+  // Notas internas del dueño (misión de pedidos manuales, 2026-10-18): solo agregan historial.
+  'POST /api/admin/orders/:id/note',
   'POST /api/admin/orders/:id/reconcile',
   'POST /api/admin/orders/:id/review',
   'POST /api/admin/orders/:id/verification',

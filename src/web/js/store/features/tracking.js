@@ -16,6 +16,42 @@ const MESSAGES = {
   REFUNDED: 'El pago fue reembolsado.',
 };
 
+// Estado del pago y estado de la recarga: los calcula el servidor (`order.states`) a partir de lo
+// que confirmó Mercado Pago y de la entrega registrada. El navegador solo los muestra.
+const PAYMENT_TEXT = {
+  PENDING: 'Esperando pago',
+  CONFIRMED: 'Pago confirmado',
+  DECLINED: 'Pago rechazado: puedes intentarlo de nuevo',
+  EXPIRED: 'Vencido sin pago',
+  IN_REVIEW: 'Pago en revisión',
+  REFUNDED: 'Reembolsado',
+};
+const RECHARGE_TEXT = {
+  PENDING: 'Pendiente',
+  IN_PROGRESS: 'En proceso',
+  COMPLETED: 'Recarga entregada',
+  NEEDS_REVIEW: 'En revisión',
+  CANCELLED: 'Cancelada',
+};
+
+function paymentText(order) {
+  const state = order?.states?.payment;
+  if (!order || !state)
+    return order?.status === 'AWAITING_PAYMENT' ? 'Esperando pago' : 'Esperando requisitos';
+  if (state === 'PENDING' && order.status === 'AWAITING_VERIFICATION')
+    return 'Esperando requisitos';
+  if (state === 'DECLINED' && order.status === 'REJECTED') return 'Sin cobro';
+  return PAYMENT_TEXT[state] || 'Pendiente';
+}
+
+function rechargeText(order) {
+  const state = order?.states?.recharge;
+  if (state === 'COMPLETED' && order.fulfillment?.pins) return 'PIN entregado';
+  // Pagado y esperando turno: la recarga la hace una persona, no es automática.
+  if (state === 'PENDING' && order.states?.payment === 'CONFIRMED') return 'En cola de entrega';
+  return (state && RECHARGE_TEXT[state]) || 'Pendiente';
+}
+
 /** Checklist previa al pago y "Ruta de seguimiento" (estado real del servidor). */
 export function renderChecks() {
   const order = state.currentOrder;
@@ -50,21 +86,15 @@ export function renderChecks() {
     : order
       ? 'Verificando'
       : 'Esperando UID';
-  $('trackPayment').classList.toggle('done', paid);
-  $('trackPayment').querySelector('small').textContent = paid
-    ? 'Pago confirmado'
-    : status === 'AWAITING_PAYMENT'
-      ? 'Esperando pago'
-      : 'Esperando requisitos';
-  $('trackDelivery').classList.toggle('done', status === 'DELIVERED');
-  $('trackDelivery').querySelector('small').textContent =
-    status === 'DELIVERED'
-      ? order.fulfillment?.pins
-        ? 'PIN entregado'
-        : 'Recarga entregada'
-      : status === 'DELIVERING'
-        ? 'En proceso'
-        : 'Pendiente';
+  $('trackPayment').classList.toggle('done', paid || order?.states?.payment === 'CONFIRMED');
+  $('trackPayment').querySelector('small').textContent = order
+    ? paymentText(order)
+    : 'Esperando requisitos';
+  $('trackDelivery').classList.toggle(
+    'done',
+    status === 'DELIVERED' || order?.states?.recharge === 'COMPLETED',
+  );
+  $('trackDelivery').querySelector('small').textContent = order ? rechargeText(order) : 'Pendiente';
   setText(
     'trackingMessage',
     order
@@ -75,6 +105,6 @@ export function renderChecks() {
         ? 'Selecciona una recarga para comenzar.'
         : !uidOk
           ? 'Escribe el UID del jugador.'
-          : 'Factura lista. El siguiente paso es crear el pedido.',
+          : 'Resumen listo. El siguiente paso es crear el pedido.',
   );
 }

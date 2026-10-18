@@ -1,0 +1,27 @@
+/* Seguimiento privado: enlace para guardar el pedido y consulta desde otro dispositivo. */
+.track-access {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(55, 214, 255, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+.track-access b {
+  display: block;
+}
+.track-access small {
+  color: var(--muted);
+}
+.track-access-actions .btn svg {
+  width: 15px;
+  height: 15px;
+}
+.order-lookup .step svg {
+  width: 15px;
+  height: 15px;
+}

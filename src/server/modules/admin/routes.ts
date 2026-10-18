@@ -4,6 +4,7 @@ import { actorOf, requireAdmin, requireDeps } from '../../http/context.js';
 import { RATE_LIMITS } from '../../plugins/security.js';
 import {
   addBlock,
+  addOrderNote,
   alertSummary,
   blockSchema,
   fulfillmentAction,
@@ -13,6 +14,7 @@ import {
   listBlocks,
   listOrdersForAdmin,
   orderFilterSchema,
+  orderNoteSchema,
   removeBlock,
   resolveReview,
   resolveReviewSchema,
@@ -77,7 +79,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
 
   app.get('/api/admin/orders', guarded, async (request) => {
     const { deps } = ctx(request);
-    return { orders: await listOrdersForAdmin(deps, orderFilterSchema.parse(request.query)) };
+    return listOrdersForAdmin(deps, orderFilterSchema.parse(request.query));
   });
 
   app.get('/api/admin/orders/:id', guarded, async (request) => {
@@ -104,6 +106,14 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
     const { deps, actor } = ctx(request);
     const { id } = idParams.parse(request.params);
     await resolveReview(deps, id, resolveReviewSchema.parse(request.body), actor);
+    return getOrderForAdmin(deps, id);
+  });
+
+  /** Observación interna (el cliente no la ve); queda en el historial, que no se puede editar. */
+  app.post('/api/admin/orders/:id/note', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await addOrderNote(deps, id, orderNoteSchema.parse(request.body), actor);
     return getOrderForAdmin(deps, id);
   });
 

@@ -765,6 +765,52 @@ test.describe('compra completa (invitado)', () => {
   });
 });
 
+test.describe('seguimiento privado (sin cuenta, desde otro dispositivo)', () => {
+  test('el enlace privado abre el pedido en otro navegador y la consulta pide referencia + código', async ({
+    page,
+    browser,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    const ref = await createOrder(page, '765432301');
+    await expect(page.locator('#trackAccess')).toBeVisible();
+    const code = await page.evaluate((r) => sessionStorage.getItem('tgs_ot_' + r), ref);
+    expect(code).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    const origin = new URL(page.url()).origin;
+
+    // Otro dispositivo: el enlace con el código en el fragmento abre el pedido y se limpia.
+    const other = await browser.newContext();
+    const second = await other.newPage();
+    const secondErrors = await preparePage(second);
+    await second.goto(`${origin}/#pedido=${ref}&codigo=${code}`);
+    await expect(second.locator('#trackingRef')).toHaveText(ref);
+    await expect(second.locator('#trackPayment small')).toHaveText('Esperando requisitos');
+    expect(second.url()).not.toContain('codigo=');
+    expect(unexpectedErrors(secondErrors)).toEqual([]);
+    await other.close();
+
+    // Un tercer navegador sin enlace: la referencia sola no muestra nada; con el código, sí.
+    const third = await browser.newContext();
+    const lookup = await third.newPage();
+    const lookupErrors = await preparePage(lookup);
+    await lookup.goto(`${origin}/`);
+    await enterAsGuest(lookup);
+    await lookup.locator('#lookupRef').fill(ref);
+    await lookup.locator('#lookupCode').fill('x'.repeat(43));
+    await lookup.locator('#lookupBtn').click();
+    await expect(lookup.locator('#lookupResult')).toContainText('No encontramos un pedido');
+    await expect(lookup.locator('#trackingRef')).not.toHaveText(ref);
+    await lookup.locator('#lookupRef').fill(`${origin}/#pedido=${ref}&codigo=${code}`);
+    await lookup.locator('#lookupCode').fill('');
+    await lookup.locator('#lookupBtn').click();
+    await expect(lookup.locator('#lookupResult')).toContainText('Pedido encontrado');
+    await expect(lookup.locator('#trackingRef')).toHaveText(ref);
+    // 404 del intento con código falso: esperado en la consola del navegador.
+    expect(unexpectedErrors(lookupErrors).filter((e) => !e.includes('404'))).toEqual([]);
+    await third.close();
+  });
+});
+
 test.describe('comprobante', () => {
   test('sin pago no hay comprobante; pagado, se descarga en JPG y PDF con su referencia real', async ({
     page,

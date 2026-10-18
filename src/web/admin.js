@@ -37,10 +37,44 @@ const pillClass = (s) =>
       ? 'bad'
       : 'warn';
 const pill = (s, label) => `<span class="adm-pill ${pillClass(s)}">${esc(label || s)}</span>`;
+
+// Estado del pago y estado de la recarga: los calcula el servidor (domain/order-states.ts).
+const PAYMENT_STATE_LABEL = {
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmado',
+  DECLINED: 'Rechazado',
+  EXPIRED: 'Vencido',
+  IN_REVIEW: 'En revisión',
+  REFUNDED: 'Reembolsado',
+};
+const RECHARGE_STATE_LABEL = {
+  PENDING: 'Pendiente',
+  IN_PROGRESS: 'En proceso',
+  COMPLETED: 'Completado',
+  NEEDS_REVIEW: 'Requiere revisión',
+  CANCELLED: 'Cancelado',
+};
+const PAY_MEANS_LABEL = {
+  tarjeta: 'Tarjeta',
+  nequi: 'Nequi (PSE)',
+  pse: 'PSE',
+  efecty: 'Efecty',
+  saldo: 'Saldo Mercado Pago',
+};
+const stateClass = (s) =>
+  ['CONFIRMED', 'COMPLETED'].includes(s)
+    ? 'ok'
+    : ['DECLINED', 'EXPIRED', 'IN_REVIEW', 'NEEDS_REVIEW', 'REFUNDED', 'CANCELLED'].includes(s)
+      ? 'bad'
+      : 'warn';
+const statePill = (s, labels) =>
+  `<span class="adm-pill ${stateClass(s)}">${esc(labels[s] || s || '—')}</span>`;
+const payMeansText = (m) => (m ? esc(PAY_MEANS_LABEL[m] || m) : 'Sin preferencia');
 const fmtDate = (v) =>
   v ? new Date(v).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
 let selectedOrderId = null;
+let ordersPage = 1;
 
 function message(text, type = '') {
   const el = $('admMessage');
@@ -447,6 +481,8 @@ async function loadAlerts() {
     ['paidToDeliver', 'Pagados por entregar', 'ok'],
     ['awaitingVerification', 'Por verificar', 'warn'],
     ['paidWithoutDelivery', 'Pagados sin entregar (+30 min)', 'bad'],
+    ['deliveringTooLong', 'Recargas en proceso (+2 h)', 'bad'],
+    ['reviewTooLong', 'En revisión (+24 h)', 'bad'],
     ['needsReview', 'En revisión', 'bad'],
     ['needsRefund', 'Pagos por reembolsar', 'bad'],
     ['paymentsPendingTooLong', 'Pagos pendientes (+1 h)', 'warn'],
@@ -475,18 +511,28 @@ async function loadAlerts() {
 async function loadOrders() {
   const params = new URLSearchParams();
   if ($('admStatus').value) params.set('status', $('admStatus').value);
+  if ($('admGame').value) params.set('game', $('admGame').value);
+  if ($('admFrom').value) params.set('from', $('admFrom').value);
+  if ($('admTo').value) params.set('to', $('admTo').value);
   if ($('admSearch').value.trim()) params.set('q', $('admSearch').value.trim());
+  params.set('page', String(ordersPage));
   const j = await call('/api/admin/orders?' + params);
   const body = $('admOrders');
   body.replaceChildren();
-  if (!j.orders.length) body.innerHTML = '<tr><td colspan="5">Sin pedidos.</td></tr>';
+  if (!j.orders.length) body.innerHTML = '<tr><td colspan="8">Sin pedidos.</td></tr>';
   for (const o of j.orders) {
     const tr = document.createElement('tr');
     tr.className = o.id === selectedOrderId ? 'selected' : '';
-    tr.innerHTML = `<td>${esc(o.reference)}</td><td>${pill(o.status, STATUS_LABEL[o.status])}</td><td>${esc(o.playerUid)}</td><td>${money(o.totalCop)}</td><td>${fmtDate(o.createdAt)}</td>`;
+    const items = (o.items || []).map((i) => `${i.quantity}× ${esc(i.name)}`).join('<br>');
+    const server = o.playerServer ? ' · ' + esc(serverLabel(o.playerServer) || o.playerServer) : '';
+    tr.innerHTML = `<td>${esc(o.reference)}</td><td>${fmtDate(o.createdAt)}</td><td>${items || '—'}</td><td>${esc(o.playerUid)}${server}</td><td>${money(o.totalCop)}</td><td>${statePill(o.states?.payment, PAYMENT_STATE_LABEL)}</td><td>${statePill(o.states?.recharge, RECHARGE_STATE_LABEL)}</td><td>${fmtDate(o.updatedAt)}</td>`;
+    tr.title = STATUS_LABEL[o.status] || o.status;
     tr.onclick = () => selectOrder(o.id);
     body.appendChild(tr);
   }
+  $('admPage').textContent = `Página ${j.page || ordersPage}`;
+  $('admPrev').disabled = ordersPage <= 1;
+  $('admNext').disabled = !j.hasMore;
 }
 
 async function loadOrdersTab() {
@@ -496,10 +542,27 @@ async function loadOrdersTab() {
   });
 }
 
-$('admReload').onclick = loadOrdersTab;
-$('admStatus').onchange = loadOrdersTab;
+/** Un filtro nuevo vuelve a la primera página. */
+const reloadFromFirstPage = () => {
+  ordersPage = 1;
+  return loadOrdersTab();
+};
+$('admReload').onclick = reloadFromFirstPage;
+$('admStatus').onchange = reloadFromFirstPage;
+$('admGame').onchange = reloadFromFirstPage;
+$('admFrom').onchange = reloadFromFirstPage;
+$('admTo').onchange = reloadFromFirstPage;
 $('admSearch').onkeydown = (e) => {
-  if (e.key === 'Enter') loadOrdersTab();
+  if (e.key === 'Enter') reloadFromFirstPage();
+};
+$('admPrev').onclick = () => {
+  if (ordersPage <= 1) return;
+  ordersPage -= 1;
+  run(loadOrders);
+};
+$('admNext').onclick = () => {
+  ordersPage += 1;
+  run(loadOrders);
 };
 
 async function orderAction(path, body, success) {
@@ -544,14 +607,21 @@ function renderDetail(d) {
   const v = d.verification;
   const f = d.fulfillment;
   const box = $('admDetail');
+  const orderPayment = d.payments.find((p) => p.isOrderPayment);
+  const lastAttempt = d.attempts[0];
   box.innerHTML = `<h2>${esc(o.reference)} ${pill(o.status, STATUS_LABEL[o.status])}</h2>
     <dl>
+      <dt>Pago</dt><dd>${statePill(o.states?.payment, PAYMENT_STATE_LABEL)}</dd>
+      <dt>Recarga</dt><dd>${statePill(o.states?.recharge, RECHARGE_STATE_LABEL)}</dd>
+      <dt>Creado</dt><dd>${fmtDate(o.createdAt)}</dd>
       <dt>Cliente</dt><dd>${esc(o.customerName)} · ${esc(o.customerEmail)}</dd>
       <dt>UID</dt><dd>${esc(o.playerUid)}</dd>
       <dt>Servidor</dt><dd>${serverText(o.playerServer)}</dd>
       <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}${v.note === 'cliente' ? ' · ID confirmado por el cliente (escrito dos veces): entrégalo a este UID' : ''}</dd>
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
-      <dt>Total</dt><dd>${money(o.totalCop)}</dd>
+      <dt>Total</dt><dd>${money(o.totalCop)} ${esc(o.currency)}</dd>
+      <dt>Medio elegido</dt><dd>${lastAttempt ? payMeansText(lastAttempt.payMeans) : '—'}</dd>
+      <dt>Transacción MP</dt><dd>${orderPayment ? esc(orderPayment.providerPaymentId) + (orderPayment.paymentMethodId ? ' · ' + esc(orderPayment.paymentMethodId) : '') + (orderPayment.paymentTypeId ? ' (' + esc(orderPayment.paymentTypeId) + ')' : '') : '—'}</dd>
       <dt>Vence</dt><dd>${fmtDate(o.expiresAt)}</dd>
       <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.mode === 'provider' ? ' · recarga directa UniPin' : '') + (f.evidence ? ' · ' + esc(f.evidence) : '') + (f.failureReason ? ' · ' + esc(f.failureReason) : '') : '—'}</dd>
     </dl>
@@ -567,13 +637,22 @@ function renderDetail(d) {
         )
         .join('') || '<tr><td colspan="5">Sin pagos.</td></tr>'
     }</tbody></table></div>
+    <h3>Notas internas</h3>
+    <p class="adm-small">Solo las ves tú. Quedan en el historial y no se pueden editar ni borrar.</p>
+    <label for="nText">Nueva nota</label><textarea id="nText" rows="2" maxlength="500"></textarea>
+    <div class="adm-actions"><button class="adm-btn ghost" id="nSave" type="button">Guardar nota</button></div>
     <h3>Historial</h3>
-    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: historial del pedido"><table class="adm-table"><tbody>${d.history
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: historial del pedido"><table class="adm-table"><thead><tr><th>Fecha</th><th>Acción</th><th>Cambio</th><th>Quién</th><th>Nota o motivo</th></tr></thead><tbody>${d.history
       .map(
         (h) =>
-          `<tr><td>${fmtDate(h.createdAt)}</td><td>${esc(h.action)}</td><td>${esc(h.fromStatus || '')} → ${esc(h.toStatus || '')}</td><td>${esc(h.actorType)}</td></tr>`,
+          `<tr><td>${fmtDate(h.createdAt)}</td><td>${esc(h.action)}</td><td>${h.fromStatus || h.toStatus ? `${esc(h.fromStatus || '')} → ${esc(h.toStatus || '')}` : ''}</td><td>${esc(h.actorEmail || h.actorType)}</td><td class="adm-history-note">${esc(h.note || '')}</td></tr>`,
       )
       .join('')}</tbody></table></div>`;
+  $('nSave').addEventListener('click', () => {
+    const note = $('nText').value.trim();
+    if (note.length < 3) return message('Escribe al menos 3 caracteres.', 'bad');
+    orderAction('note', { note }, 'Nota guardada.');
+  });
   renderActions(d);
   bindInventoryBlock();
 }

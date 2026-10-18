@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { Tx } from '../db/client.js';
 import {
   FREE_FIRE_SERVER_LABELS,
@@ -9,10 +9,18 @@ import {
   payments,
   type NotificationChannel,
   type NotificationKind,
+  type OrderStatus,
 } from '../db/schema.js';
 import { paidOrderText } from '../integrations/notify/owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
 import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
+import {
+  orderStates,
+  PAYMENT_STATE_LABELS,
+  RECHARGE_STATE_LABELS,
+  type PaymentState,
+  type RechargeState,
+} from '../domain/order-states.js';
 import type { ServiceDeps } from './context.js';
 import { deliveredPinCounts, deliveredPins } from './inventory.js';
 import { receiptVerificationCode } from './receipts.js';
@@ -73,6 +81,10 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
     planned.push({ kind: 'order_refunded_customer', channel: 'email' });
   }
   if (deps.events) planned.push({ kind: EVENT_KINDS[event], channel: 'webhook' });
+  // Registro auxiliar en Google Sheets: solo pedidos pagados y sus cambios (sin datos personales).
+  if (deps.sheets && event !== 'awaiting_verification') {
+    planned.push({ kind: EVENT_KINDS[event], channel: 'sheets' });
+  }
   return planned;
 }
 
@@ -474,6 +486,79 @@ function eventPayload(
   };
 }
 
+const SHEET_EVENT_LABELS: Record<EventKind, string> = {
+  order_verification_event: 'Pedido por verificar',
+  order_paid_event: 'Pago confirmado',
+  order_delivered_event: 'Recarga entregada',
+  order_refunded_event: 'Reembolso',
+};
+
+const bogotaTime = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'America/Bogota',
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+/** Encabezados de la hoja (fila 1, la escribe el dueño una vez; ver docs/google-sheets.md). */
+export const SHEET_COLUMNS = [
+  'Fecha (Colombia)',
+  'Referencia',
+  'Evento',
+  'Paquete',
+  'Total',
+  'Moneda',
+  'Estado del pago',
+  'Estado de la recarga',
+  'Comprobante',
+  'Id del registro',
+] as const;
+
+/**
+ * Fila del registro auxiliar. Solo datos de la operación: nunca correo, nombre, UID, nickname
+ * ni PIN (la hoja sale de la base y puede compartirse por error). El «Id del registro» permite
+ * detectar una fila repetida si Google respondió tarde y se reintentó.
+ */
+export function sheetRow(
+  row: { id: string; createdAt: Date },
+  kind: EventKind,
+  order: Pick<OrderSnapshot, 'reference' | 'totalCop' | 'items'> & {
+    receipt: { number: number } | null;
+  },
+  states: { payment: PaymentState; recharge: RechargeState },
+): (string | number)[] {
+  return [
+    bogotaTime.format(row.createdAt),
+    order.reference,
+    SHEET_EVENT_LABELS[kind],
+    order.items.map((item) => `${item.quantity}× ${item.name}`).join('; '),
+    order.totalCop,
+    'COP',
+    PAYMENT_STATE_LABELS[states.payment],
+    RECHARGE_STATE_LABELS[states.recharge],
+    order.receipt ? String(order.receipt.number).padStart(6, '0') : '',
+    row.id,
+  ];
+}
+
+async function currentStates(deps: ServiceDeps, orderId: string, status: OrderStatus) {
+  const [paymentRows, [fulfillment]] = await Promise.all([
+    deps.db
+      .select({
+        status: payments.status,
+        isOrderPayment: payments.isOrderPayment,
+        providerStatusDetail: payments.providerStatusDetail,
+      })
+      .from(payments)
+      .where(eq(payments.orderId, orderId))
+      .orderBy(desc(payments.updatedAt)),
+    deps.db
+      .select({ status: fulfillments.status })
+      .from(fulfillments)
+      .where(eq(fulfillments.orderId, orderId)),
+  ]);
+  return orderStates({ status, payments: paymentRows, fulfillment: fulfillment?.status });
+}
+
 async function sendOne(
   deps: ServiceDeps,
   row: {
@@ -486,6 +571,12 @@ async function sendOne(
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
+  if (isEventKind(row.kind) && row.channel === 'sheets') {
+    if (!deps.sheets) throw new Error('Google Sheets no está configurado');
+    const states = await currentStates(deps, row.orderId, order.status as OrderStatus);
+    await deps.sheets.appendRow(sheetRow(row, row.kind, order, states));
+    return;
+  }
   if (isEventKind(row.kind)) {
     if (row.channel !== 'webhook') throw new Error('canal inválido para un evento');
     if (!deps.events) throw new Error('el webhook de eventos no está configurado');

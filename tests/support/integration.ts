@@ -16,6 +16,7 @@ import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
 import { FakeTopupProvider } from './fake-topup.js';
+import type { OrderSheetLog } from '../../src/server/integrations/sheets/google-sheets.js';
 import type { AbuseShield } from '../../src/server/services/shield.js';
 
 export function testDatabaseUrl(): string {
@@ -123,7 +124,7 @@ export const ADMIN_EMAIL = 'admin@example.com';
 
 export async function createHarness(
   env: Record<string, string> = {},
-  options: { playerVerifier?: boolean; events?: boolean } = {},
+  options: { playerVerifier?: boolean; events?: boolean; sheets?: OrderSheetLog } = {},
 ): Promise<Harness> {
   const url = testAppDatabaseUrl() ?? testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
@@ -166,6 +167,7 @@ export async function createHarness(
     ownerNotifier: notifier,
     mailer,
     eventSink: options.events ? events : undefined,
+    orderSheet: options.sheets,
     topupProvider: topup,
     background: (task) => pending.push(task),
     now: () => clock.now,

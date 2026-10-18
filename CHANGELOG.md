@@ -7,6 +7,49 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Pedidos con recarga manual: estado del pago y estado de la recarga, separados**
+  (`src/server/domain/order-states.ts`):
+  - el servidor los calcula del estado guardado; no son columnas nuevas ni los puede fijar el
+    navegador;
+  - pago: pendiente, confirmado, rechazado, vencido, en revisión o reembolsado (este último solo
+    si Mercado Pago lo informa);
+  - recarga: pendiente, en proceso, completado (solo con evidencia), requiere revisión o
+    cancelado;
+  - se ven en el seguimiento del cliente y en el panel.
+- **Panel → Pedidos:**
+  - filtros por juego y por fechas (hora de Colombia), además de estado y búsqueda;
+  - 50 pedidos por página;
+  - columnas de paquete, pago, recarga y última actualización;
+  - en el detalle: medio elegido y transacción de Mercado Pago (id y medio con que pagó);
+  - **notas internas** (`POST /api/admin/orders/:id/note`), que no se pueden editar ni borrar;
+  - **historial completo** (pedido, entrega, pagos e intentos) con quién hizo cada cambio y por
+    qué;
+  - alertas de recargas «en proceso» más de 2 h y revisiones de más de 24 h.
+- **Seguimiento privado sin cuenta:**
+  - enlace privado (`/#pedido=…&codigo=…`; el código no viaja al servidor en la URL) y formulario
+    «Consultar un pedido» con la referencia y el código;
+  - la referencia sola, un código equivocado o el de otro pedido responden igual que un pedido
+    inexistente.
+- **Google Sheets como registro auxiliar** (opcional, apagado sin credenciales;
+  `docs/google-sheets.md`):
+  - canal `sheets` en la cola de avisos, con reintentos y alerta en el panel;
+  - cuenta de servicio con firma JWT RS256 propia, sin dependencias nuevas;
+  - filas sin correo, nombre, UID ni PIN, escritas como texto literal.
+- Evaluación de Wompi y Nequi Negocios (`docs/pagos-colombia.md`), sin implementar otra
+  pasarela.
+
+### Corregido
+
+- **Cambio de medio de pago:** elegir otro medio (Tarjeta → Nequi) ya no reutiliza la preferencia
+  anterior.
+  - Se cierra el intento y se crea otro.
+  - Un pago hecho en la preferencia anterior se aplica igual por la referencia del pedido.
+  - Se guarda el medio elegido (`payment_attempts.pay_means`) y el medio informado por Mercado
+    Pago (`payments.payment_method_id` y `payment_type_id`), en la migración aditiva 0017.
+- **Reembolso parcial:** un pago aprobado con devolución parcial (`partially_refunded`) lleva el
+  pedido a revisión y el pago a «en revisión».
+- El seguimiento ya no dice «Factura lista» antes de crear el pedido: dice «Resumen listo».
+
 - **Excel de inventario y facturas** (panel → Inventario → «Descargar Excel»,
   `GET /api/admin/export/inventario.xlsx`):
   - se arma con la base de datos en el momento: hojas Resumen, Inventario, Facturas y Pedidos;

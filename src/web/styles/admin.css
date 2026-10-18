@@ -207,6 +207,21 @@ label {
   width: auto;
   margin: 0;
 }
+.adm-pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 10px;
+}
+.adm-pager span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.adm-history-note {
+  white-space: normal;
+  color: var(--muted);
+}
 .adm-split {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);

@@ -10,6 +10,7 @@ import {
   payments,
   type PaymentStatus,
 } from '../db/schema.js';
+import { PARTIAL_REFUND_DETAIL } from '../domain/order-states.js';
 import {
   mapMercadoPagoStatus,
   PaymentProviderError,
@@ -76,15 +77,34 @@ export async function startPayment(
         ),
       )
       .for('update');
+    const means = payMeans ?? null;
     if (open?.status === 'OPEN' && open.checkoutUrl) {
-      return { order, attempt: open, reuse: true };
+      if ((open.payMeans ?? null) === means) return { order, attempt: open, reuse: true };
+      // Otro medio: la preferencia anterior solo ofrece el medio viejo. Se cierra este intento y
+      // se crea otro. Un pago hecho en la preferencia anterior se sigue aplicando por la
+      // referencia del pedido, y un segundo pago aprobado queda para reembolso (nunca dos
+      // entregas).
+      await tx
+        .update(paymentAttempts)
+        .set({ status: 'CLOSED', lastError: 'pay_means_changed', updatedAt: sql`now()` })
+        .where(and(eq(paymentAttempts.id, open.id), eq(paymentAttempts.status, 'OPEN')));
+      await audit(tx, actor, {
+        entityType: 'payment_attempt',
+        entityId: open.id,
+        action: 'payment_attempt.closed',
+        fromStatus: 'OPEN',
+        toStatus: 'CLOSED',
+        data: { orderId: order.id, reason: 'pay_means_changed', from: open.payMeans, to: means },
+      });
+    } else if (open) {
+      return { order, attempt: open, reuse: false };
     }
-    if (open) return { order, attempt: open, reuse: false };
     const [attempt] = await tx
       .insert(paymentAttempts)
       .values({
         orderId: order.id,
         status: 'CREATING',
+        payMeans: means,
         idempotencyKey: randomUUID(),
         amountCop: order.totalCop,
         currency: 'COP',
@@ -97,7 +117,7 @@ export async function startPayment(
       entityId: attempt.id,
       action: 'payment_attempt.created',
       toStatus: 'CREATING',
-      data: { orderId: order.id, amountCop: order.totalCop },
+      data: { orderId: order.id, amountCop: order.totalCop, payMeans: means },
     });
     return { order, attempt, reuse: false };
   });
@@ -235,6 +255,8 @@ export async function applyProviderPayment(
       currency: payment.currency ?? 'UNKNOWN',
       amountMatches,
       approvedAt: payment.approvedAt ?? null,
+      paymentMethodId: payment.paymentMethodId ?? null,
+      paymentTypeId: payment.paymentTypeId ?? null,
       lastSyncedAt: deps.now(),
     };
     let row: typeof existing;
@@ -249,7 +271,12 @@ export async function applyProviderPayment(
           providerPaymentId: payment.id,
         })
         .returning();
-    } else if (existing.status !== status || existing.providerStatus !== payment.status) {
+    } else if (
+      existing.status !== status ||
+      existing.providerStatus !== payment.status ||
+      // Un reembolso parcial deja el estado en `approved` y solo cambia el detalle.
+      existing.providerStatusDetail !== (payment.statusDetail ?? null)
+    ) {
       [row] = await tx
         .update(payments)
         .set({ ...values, updatedAt: sql`now()` })
@@ -273,6 +300,7 @@ export async function applyProviderPayment(
         orderId: order.id,
         providerPaymentId: payment.id,
         providerStatus: payment.status,
+        providerStatusDetail: payment.statusDetail ?? null,
         amountMatches,
         liveMode: payment.liveMode ?? null,
         modeMatches,
@@ -381,6 +409,11 @@ async function applyOrderEffects(
   };
 
   if (status === 'APPROVED') {
+    // Mercado Pago devolvió parte del dinero: el pago ya no cubre el pedido completo. Revisión
+    // humana, se haya entregado o no (el reembolso total sí cierra el pedido, más abajo).
+    if (payment.providerStatusDetail === PARTIAL_REFUND_DETAIL) {
+      return review('payment_partially_refunded');
+    }
     if (!amountMatches) return review('amount_or_currency_mismatch');
     if (!modeMatches) return review('live_mode_mismatch');
     if (payment.isOrderPayment) return;

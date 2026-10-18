@@ -181,6 +181,7 @@ const ROUTES: Route[] = [
   { method: 'POST', path: '/api/admin/orders/:id/fulfillment', admin: true },
   { method: 'POST', path: '/api/admin/orders/:id/review', admin: true },
   { method: 'POST', path: '/api/admin/orders/:id/reconcile', admin: true },
+  { method: 'POST', path: '/api/admin/orders/:id/note', admin: true },
   { method: 'GET', path: '/api/admin/products', admin: true },
   { method: 'POST', path: '/api/admin/products', admin: true },
   { method: 'PUT', path: '/api/admin/products/:id', admin: true },

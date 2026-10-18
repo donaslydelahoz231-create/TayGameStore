@@ -13,6 +13,7 @@ import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
+import { consumeAccessFragment, renderTrackAccess } from './features/order-access.js';
 import { renderPins } from './features/pins.js';
 import { loadReviews, renderDeliveryTime, renderReviewBox } from './features/reviews.js';
 import { renderPayMeansHint } from './features/pay-means.js';
@@ -37,6 +38,7 @@ registerRenderers([
   renderInvoice,
   renderPayMeansHint,
   renderChecks,
+  renderTrackAccess,
   renderPins,
   renderReviewBox,
   renderPlayer,
@@ -62,15 +64,22 @@ async function resumeOrder() {
       location.pathname + (params.toString() ? '?' + params : '') + location.hash,
     );
   }
+  // Enlace privado de seguimiento (#pedido=…&codigo=…), abierto en este u otro dispositivo.
+  const linked = consumeAccessFragment();
   const reference =
-    returned && /^TGS-[0-9A-Z]{10}$/.test(returned) ? returned : lastOrderReference();
+    returned && /^TGS-[0-9A-Z]{10}$/.test(returned) ? returned : (linked ?? lastOrderReference());
   if (!reference) return;
   try {
     // Al volver de Mercado Pago el servidor consulta el pago; el navegador no decide nada.
     const order = returned ? await syncOrder(reference) : await loadOrder(reference);
-    if (!order) return;
+    if (!order) {
+      if (linked)
+        toast('Ese enlace de seguimiento no es válido o no corresponde a un pedido.', 'bad');
+      return;
+    }
     revealStore();
     if (!isFinalOrderStatus(order.status)) startPolling();
+    if (linked && !returned) scrollToSection('seguimiento');
     if (returned) {
       toast(
         order.status === 'PAID' || order.status === 'DELIVERING' || order.status === 'DELIVERED'

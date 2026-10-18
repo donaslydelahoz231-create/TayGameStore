@@ -1,7 +1,16 @@
 import type { PromoSchedule } from '../domain/pricing.js';
-import { randomBytes } from 'node:crypto';
+import { createPrivateKey, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { FREE_FIRE_SERVERS, type FreeFireServer } from '../db/schema.js';
+
+/** La llave de la cuenta de servicio se puede leer como llave privada (sin mostrarla nunca). */
+function isReadablePrivateKey(value: string): boolean {
+  try {
+    return createPrivateKey(value).type === 'private';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Configuración del servidor, validada al arrancar.
@@ -382,6 +391,33 @@ const envSchema = z
       .string()
       .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
       .optional(),
+    /**
+     * Registro auxiliar de pedidos en Google Sheets (opcional; nunca es la fuente de verdad).
+     * Cuenta de servicio de Google Cloud con la hoja compartida con su correo. Van juntas.
+     * La llave es el campo `private_key` del JSON de la cuenta; admite saltos de línea escritos
+     * como \n (así queda al pegarla en una sola línea). Se comprueba que sea una llave legible.
+     */
+    GOOGLE_SHEETS_SPREADSHEET_ID: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{20,100}$/, 'el id que aparece en la URL de la hoja')
+      .optional(),
+    GOOGLE_SHEETS_CLIENT_EMAIL: z
+      .email()
+      .refine((value) => value.endsWith('.iam.gserviceaccount.com'), {
+        message: 'correo de una cuenta de servicio (…@….iam.gserviceaccount.com)',
+      })
+      .optional(),
+    GOOGLE_SHEETS_PRIVATE_KEY: z
+      .string()
+      .min(100)
+      .max(5000)
+      .transform((value) => value.replace(/\\n/g, '\n'))
+      .refine(isReadablePrivateKey, { message: 'no es una llave privada legible' })
+      .optional(),
+    GOOGLE_SHEETS_TAB: z
+      .string()
+      .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
+      .default('Pedidos'),
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
@@ -399,6 +435,17 @@ const envSchema = z
     }
     if (Boolean(env.TELEGRAM_BOT_TOKEN) !== Boolean(env.TELEGRAM_CHAT_ID)) {
       issue('TELEGRAM_CHAT_ID', 'TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID van juntos');
+    }
+    const sheets = [
+      env.GOOGLE_SHEETS_SPREADSHEET_ID,
+      env.GOOGLE_SHEETS_CLIENT_EMAIL,
+      env.GOOGLE_SHEETS_PRIVATE_KEY,
+    ];
+    if (sheets.some(Boolean) && !sheets.every(Boolean)) {
+      issue(
+        'GOOGLE_SHEETS_SPREADSHEET_ID',
+        'GOOGLE_SHEETS_SPREADSHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL y GOOGLE_SHEETS_PRIVATE_KEY van juntas',
+      );
     }
     if (Boolean(env.EVENTS_WEBHOOK_URL) !== Boolean(env.EVENTS_WEBHOOK_SECRET)) {
       issue('EVENTS_WEBHOOK_SECRET', 'EVENTS_WEBHOOK_URL y EVENTS_WEBHOOK_SECRET van juntas');
@@ -569,6 +616,9 @@ export interface AppConfig {
   ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
   /** Eventos de pedidos hacia una automatización externa (n8n). */
   eventsWebhook: { url: string; secret: string } | undefined;
+  /** Registro auxiliar en Google Sheets (cuenta de servicio). Sin él no se escribe nada. */
+  sheets:
+    { spreadsheetId: string; clientEmail: string; privateKey: string; tab: string } | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
@@ -751,6 +801,17 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
           : undefined,
     },
     cronSecret: env.CRON_SECRET,
+    sheets:
+      env.GOOGLE_SHEETS_SPREADSHEET_ID &&
+      env.GOOGLE_SHEETS_CLIENT_EMAIL &&
+      env.GOOGLE_SHEETS_PRIVATE_KEY
+        ? {
+            spreadsheetId: env.GOOGLE_SHEETS_SPREADSHEET_ID,
+            clientEmail: env.GOOGLE_SHEETS_CLIENT_EMAIL,
+            privateKey: env.GOOGLE_SHEETS_PRIVATE_KEY,
+            tab: env.GOOGLE_SHEETS_TAB,
+          }
+        : undefined,
     eventsWebhook:
       env.EVENTS_WEBHOOK_ENABLED && env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
         ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }

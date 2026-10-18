@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { PAY_MEANS, type PayMeans } from '../integrations/payments/gateway.js';
 
 /**
  * Esquema de TayGameStore. Dinero: enteros en pesos colombianos (COP) con moneda explícita.
@@ -449,6 +450,11 @@ export const paymentAttempts = pgTable(
       .references(() => orders.id),
     provider: text('provider').notNull().default('mercadopago'),
     status: text('status').$type<AttemptStatus>().notNull(),
+    /**
+     * Medio que eligió el cliente para este intento (null: sin preferencia). Si elige otro, se
+     * cierra este intento y se crea otra preferencia: nunca se reutiliza la del medio anterior.
+     */
+    payMeans: text('pay_means').$type<PayMeans>(),
     idempotencyKey: text('idempotency_key').notNull(),
     preferenceId: text('preference_id'),
     checkoutUrl: text('checkout_url'),
@@ -467,6 +473,10 @@ export const paymentAttempts = pgTable(
       .on(t.orderId)
       .where(sql`${t.status} in ('CREATING', 'OPEN')`),
     check('payment_attempts_status_check', inList('status', ATTEMPT_STATUSES)),
+    check(
+      'payment_attempts_pay_means_check',
+      sql`${t.payMeans} is null or ${inList('pay_means', PAY_MEANS)}`,
+    ),
     check('payment_attempts_amount_check', sql`${t.amountCop} > 0`),
   ],
 );
@@ -484,6 +494,10 @@ export const payments = pgTable(
     status: text('status').$type<PaymentStatus>().notNull(),
     providerStatus: text('provider_status').notNull(),
     providerStatusDetail: text('provider_status_detail'),
+    /** Medio con el que se pagó según Mercado Pago (`payment_method_id`, p. ej. «pse», «visa»). */
+    paymentMethodId: text('payment_method_id'),
+    /** Tipo de medio según Mercado Pago (`payment_type_id`, p. ej. «bank_transfer», «credit_card»). */
+    paymentTypeId: text('payment_type_id'),
     amountCop: cop('amount_cop').notNull(),
     currency: text('currency').notNull(),
     amountMatches: boolean('amount_matches').notNull(),
@@ -810,7 +824,8 @@ export const NOTIFICATION_KINDS = [
   'topup_problem_owner',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
-export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook'] as const;
+/** `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad). */
+export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook', 'sheets'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
