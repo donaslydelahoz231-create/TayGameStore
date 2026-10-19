@@ -147,7 +147,7 @@ export interface PublicOrder {
     checkoutAvailable: boolean;
     /** Métodos que la tienda ofrece ahora, cada uno según su propia configuración. */
     methods: Record<PaymentMethod, boolean>;
-    /** Puede cambiar de método con el procedimiento explícito (sin pagos registrados). */
+    /** Puede pasar de Mercado Pago a Nequi con el procedimiento explícito (sin pagos registrados). */
     canChangeMethod: boolean;
     /** Instrucciones y estado de la transferencia (solo pedidos Nequi). */
     nequi: ReturnType<typeof nequiCustomerView>;
@@ -299,9 +299,11 @@ function buildPublicOrder(
         (order.paymentMethod === null || order.paymentMethod === 'mercadopago'),
       checkoutAvailable: methods.mercadopago,
       methods,
+      // Solo de Mercado Pago a Nequi: un pedido de Nequi nunca pasa a Mercado Pago.
       canChangeMethod:
         awaitingPayment &&
-        order.paymentMethod !== null &&
+        order.paymentMethod === 'mercadopago' &&
+        methods.nequi_manual &&
         orderPayments.length === 0 &&
         !relations?.nequi.some((transfer) => transfer.status === 'REPORTED'),
       nequi: nequiCustomerView(deps, order, relations?.nequi[0]),

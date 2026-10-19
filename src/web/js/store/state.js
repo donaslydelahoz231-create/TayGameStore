@@ -38,6 +38,7 @@ export const state = {
 /** Estado transitorio de ejecución (no se persiste). */
 export const runtime = {
   playerBusy: false,
+  /** `false`, `true` (abriendo Mercado Pago) o `'nequi'` (paso de Nequi: nunca Mercado Pago). */
   paymentBusy: false,
   orderBusy: false,
   pollTimer: null,

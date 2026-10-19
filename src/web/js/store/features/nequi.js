@@ -23,7 +23,7 @@ function showNequiBox() {
 /** El pedido queda con Nequi como método y se muestran las instrucciones. */
 export async function startNequi(order) {
   if (!order || runtime.paymentBusy) return;
-  runtime.paymentBusy = true;
+  runtime.paymentBusy = 'nequi';
   renderAll();
   try {
     const j = await api(orderPath(order, '/nequi'), { method: 'POST' });
@@ -38,20 +38,22 @@ export async function startNequi(order) {
   }
 }
 
-/** Cambio explícito de método: solo si el cliente confirma que no pagó con el anterior. */
-export async function changePaymentMethod(order, to) {
+/**
+ * Cambio explícito de Mercado Pago a Nequi: solo si el cliente confirma que no pagó en Mercado
+ * Pago. Lo contrario no se ofrece: un pedido de Nequi nunca abre Mercado Pago (para pagar con
+ * Mercado Pago, el cliente empieza un pedido nuevo).
+ */
+export async function changePaymentMethod(order) {
   if (!order || runtime.paymentBusy) return false;
   const question =
-    to === 'mercadopago'
-      ? '¿Pagar con Mercado Pago? Hazlo solo si NO transferiste por Nequi: así no pagas dos veces.'
-      : '¿Pagar por Nequi? Hazlo solo si NO pagaste en Mercado Pago: así no pagas dos veces.';
+    '¿Pagar por Nequi? Hazlo solo si NO pagaste en Mercado Pago: así no pagas dos veces.';
   if (!window.confirm(question)) return false;
-  runtime.paymentBusy = true;
+  runtime.paymentBusy = 'nequi';
   renderAll();
   try {
     const j = await api(orderPath(order, '/payment-method'), {
       method: 'POST',
-      body: { to, confirm: true },
+      body: { to: 'nequi_manual', confirm: true },
     });
     setCurrentOrder(j.order);
     return true;
@@ -80,7 +82,7 @@ export async function reportNequi(event) {
     toast('La referencia solo lleva letras, números o guiones (4 a 40).', 'bad');
     return;
   }
-  runtime.paymentBusy = true;
+  runtime.paymentBusy = 'nequi';
   renderAll();
   try {
     const j = await api(orderPath(order, '/nequi/report'), {
@@ -130,8 +132,5 @@ export function renderNequi() {
   setText('nequiStatus', statusText(nequi));
   const reported = nequi.transfer?.status === 'REPORTED';
   setText('nequiReportBtn', reported ? 'Corregir mi aviso' : 'Ya transferí');
-  $('nequiReportBtn').disabled = runtime.paymentBusy;
-  $('changeMethodBtn').hidden = !(
-    order.payment.canChangeMethod && order.payment.methods?.mercadopago
-  );
+  $('nequiReportBtn').disabled = Boolean(runtime.paymentBusy);
 }

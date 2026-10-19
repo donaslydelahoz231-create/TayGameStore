@@ -58,9 +58,14 @@ export function chosenMpMeans() {
 /** Muestra solo los métodos activos y explica qué pasa con el medio elegido. */
 export function renderPayMeansHint() {
   const methods = state.serverConfig?.paymentMethods;
+  const order = state.currentOrder;
+  // Pedido que ya va por Nequi: solo Nequi. Mercado Pago no se muestra ni se abre (para pagar con
+  // Mercado Pago, el cliente empieza un pedido nuevo).
+  const nequiOrder =
+    order?.status === 'AWAITING_PAYMENT' && order.payment?.method === 'nequi_manual';
   // Sin configuración todavía: Mercado Pago visible (como siempre) y Nequi oculto.
-  const showMp = methods ? methods.mercadopago !== false : true;
-  const showNequi = methods?.nequiManual === true;
+  const showMp = !nequiOrder && (methods ? methods.mercadopago !== false : true);
+  const showNequi = nequiOrder || methods?.nequiManual === true;
   const mp = $('payProviderMp');
   if (mp) mp.hidden = !showMp;
   const nequi = $('payProviderNequi');
@@ -68,6 +73,8 @@ export function renderPayMeansHint() {
   // Un medio que dejó de estar disponible no queda elegido a escondidas.
   const checked = document.querySelector('input[name="payMeans"]:checked');
   if (checked && checked.closest('[hidden]')) checked.checked = false;
+  const nequiInput = $('payMeansNequi');
+  if (nequiOrder && nequiInput) nequiInput.checked = true;
   const faq = $('faqNequi');
   if (faq) faq.hidden = !showNequi;
   const none = showNequi ? (showMp ? NONE_HINTS.both : NONE_HINTS.nequi) : NONE_HINTS.mp;

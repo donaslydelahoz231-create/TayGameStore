@@ -201,17 +201,14 @@ export async function preparePayment() {
     const method = order.payment.method;
     const wanted = chosenMethod();
     if (method === 'nequi_manual') {
-      // Pedido de Nequi: sigue con Nequi, salvo que el cliente pida cambiar de forma explícita.
-      if (wanted === 'mercadopago') {
-        if (await changePaymentMethod(order, 'mercadopago')) await goToCheckout(state.currentOrder);
-        return;
-      }
+      // Pedido de Nequi: siempre sigue con Nequi y nunca abre Mercado Pago (para pagar con
+      // Mercado Pago, el cliente empieza un pedido nuevo).
       scrollToSection('factura');
       setTimeout(() => $('nequiBox')?.focus({ preventScroll: true }), 450);
       return;
     }
     if (wanted === 'nequi_manual') {
-      if (method === 'mercadopago' && !(await changePaymentMethod(order, 'nequi_manual'))) return;
+      if (method === 'mercadopago' && !(await changePaymentMethod(order))) return;
       await startNequi(state.currentOrder);
       return;
     }

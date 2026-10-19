@@ -84,7 +84,9 @@ export const changePaymentMethodSchema = z.strictObject({
 
 /**
  * Cambio explícito de método de pago. Solo mientras el pedido espera pago y sin ningún pago
- * registrado (de ningún proveedor) ni transferencia Nequi avisada. Cierra los intentos abiertos
+ * registrado (de ningún proveedor) ni transferencia Nequi avisada. Un pedido de Nequi nunca pasa
+ * a Mercado Pago (decisión del dueño, 2026-10-19): quien quiera pagar con Mercado Pago empieza un
+ * pedido nuevo. Cierra los intentos abiertos
  * de Mercado Pago sin llamarlo; si aun así llegara un pago del método anterior, nunca paga el
  * pedido: queda para reembolso (ver `applyProviderPayment`). Así no hay cobros ni entregas dobles.
  */
@@ -106,6 +108,13 @@ export async function changePaymentMethod(
     if (!from) {
       await lockPaymentMethod(tx, actor, order, to);
       return order;
+    }
+    if (from === 'nequi_manual') {
+      throw new AppError(
+        'PAYMENT_METHOD_LOCKED',
+        409,
+        'Este pedido se paga por Nequi y no se abre en Mercado Pago. Para pagar con Mercado Pago, empieza un pedido nuevo.',
+      );
     }
     const [anyPayment] = await tx
       .select({ id: payments.id })

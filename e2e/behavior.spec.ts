@@ -532,10 +532,30 @@ test.describe('compra completa (invitado)', () => {
       await expect(page.locator('#invoiceMethod')).toHaveText('Nequi');
       await expect(page.locator('#payMeansHint')).toContainText('Sin Mercado Pago');
       await page.locator('#acceptTerms').check();
+      await expect(page.locator('#payBtn')).toHaveText('Pagar por Nequi $ 3.800 COP');
+      await expect(page.locator('#paymentState')).toContainText('no pasa por Mercado Pago');
+      // Ningún texto del botón habla de Mercado Pago mientras se prepara el pago por Nequi.
+      const payTexts: string[] = [];
+      await page.exposeFunction('tgsPayText', (text: string) => payTexts.push(text));
+      await page.evaluate(() => {
+        const button = document.getElementById('payBtn');
+        if (!button) return;
+        new MutationObserver(() =>
+          (window as unknown as { tgsPayText: (t: string) => void }).tgsPayText(
+            button.textContent ?? '',
+          ),
+        ).observe(button, { childList: true, characterData: true, subtree: true });
+      });
       await page.locator('#payBtn').click();
       // Nunca se abre Mercado Pago: quedan las instrucciones de la transferencia.
       await expect(page.locator('#nequiBox')).toBeVisible();
       expect(page.url()).not.toContain('mercadopago');
+      expect(payTexts.join(' | ')).not.toContain('Mercado Pago');
+      // Con el pedido en Nequi, las opciones de Mercado Pago desaparecen (no hay botón para
+      // abrirlo): solo Nequi.
+      await expect(page.locator('#payProviderMp')).toBeHidden();
+      await expect(page.locator('#payMeansNequi')).toBeChecked();
+      await expect(page.locator('#nequiBox')).not.toContainText('Mercado Pago');
       const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
       expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
       await expect(page.locator('#nequiPhone')).toHaveText('3001234567');

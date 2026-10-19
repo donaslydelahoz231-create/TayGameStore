@@ -1264,3 +1264,23 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:** una compra real con Nequi en producción (Nequi está apagado hasta que el
   dueño cargue `NEQUI_MANUAL_*`); el PR de dependencias de desarrollo con axe-core 4.14 debe
   volver a correr sobre esta base para confirmar que queda en verde.
+
+### 2026-10-19 · Al elegir Nequi nunca se abre Mercado Pago (local, sin publicar)
+
+- **Pedido del dueño:** «no quiero que cuando selecciona nequi … abra el apartado de mercado pago».
+- **Causa encontrada:** con Nequi elegido, mientras se preparaba el pago el botón decía
+  «Abriendo Mercado Pago…»; el cuadro de Nequi tenía «Pagar con Mercado Pago en su lugar» y las
+  opciones de Mercado Pago seguían a la vista; la API permitía pasar un pedido de Nequi a Mercado
+  Pago.
+- **Corregido:**
+  - tienda: botón «Pagar por Nequi $ …» y «Preparando Nequi…»; en un pedido de Nequi se ocultan las
+    opciones de Mercado Pago y se quitó el botón hacia Mercado Pago;
+  - servidor: un pedido de Nequi no pasa a Mercado Pago (`PAYMENT_METHOD_LOCKED`); solo se permite
+    de Mercado Pago a Nequi, con confirmación y sin pagos;
+  - pruebas: integración (el pedido de Nequi no crea preferencia ni cambia de método, antes y
+    después del aviso) y e2e (texto del botón, sin «Mercado Pago» en ningún momento, opciones de
+    Mercado Pago ocultas).
+- **Evidencia local:** tipos y lint OK; unitarias 304/304; integración 281/281; e2e 69/69;
+  visuales 3/3.
+- **NO VERIFICADO en producción:** Nequi sigue apagado allí (`NEQUI_MANUAL_ENABLED`), así que la
+  opción no se ve hasta que el dueño lo active.

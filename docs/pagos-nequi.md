@@ -62,10 +62,14 @@ Tres capas; cada una basta por sí sola para impedir una confirmación cruzada.
    horas (24 por defecto) para verificarlo. Si corrige su aviso, solo se actualizan los datos: no
    se te vuelve a escribir ni se alarga el plazo (así nadie puede inundar tu correo ni dejar un
    pedido abierto sin fin). Tras un rechazo tuyo, un aviso nuevo sí te escribe otra vez.
-4. Si se equivocó de método y **no pagó** con el anterior, puede cambiar de forma explícita
-   («Pagar con Mercado Pago en su lugar»), con confirmación. El cambio se niega si ya hay un pago
-   o si ya avisó una transferencia; la preferencia vieja de Mercado Pago se cierra y un pago tardío
-   de ella va a reembolso, no a entrega.
+4. **Al elegir Nequi nunca se abre Mercado Pago** (decisión del dueño, 2026-10-19): el botón dice
+   «Pagar por Nequi», y con el pedido en Nequi las opciones de Mercado Pago desaparecen y no hay
+   ningún botón hacia Mercado Pago. El servidor también lo impide: un pedido de Nequi no pasa a
+   Mercado Pago (`PAYMENT_METHOD_LOCKED`). Si el cliente prefiere Mercado Pago, empieza un pedido
+   nuevo.
+5. Al revés sí: si empezó con Mercado Pago y **no pagó**, puede elegir Nequi con confirmación. Se
+   niega si ya hay un pago; la preferencia vieja de Mercado Pago se cierra y un pago tardío de ella
+   va a reembolso, no a entrega.
 
 El celular del dueño solo lo ve el comprador de **su propio** pedido Nequi y solo mientras espera
 pago. No aparece en `/api/config`, en el código, en los correos ni en la hoja de Google.

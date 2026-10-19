@@ -63,7 +63,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   - **Nequi Push** reservado y deshabilitado: no hay acceso oficial y no se inventó ninguna API;
   - cada pedido guarda su método (`orders.payment_method`, migración 0021); un pago de un
     proveedor nunca confirma un pedido del otro (código, disparadores de la base de datos y
-    restricción del proveedor). Cambio de método solo explícito y sin pagos;
+    restricción del proveedor). Cambio de método solo explícito, sin pagos y solo de Mercado
+    Pago a Nequi: **al elegir Nequi nunca se abre Mercado Pago** (botón «Pagar por Nequi», sin
+    opciones ni botones de Mercado Pago en un pedido de Nequi; el servidor lo impide con
+    `PAYMENT_METHOD_LOCKED`). Antes, mientras se preparaba el pago por Nequi, el botón decía
+    «Abriendo Mercado Pago…» y el cuadro de Nequi ofrecía «Pagar con Mercado Pago en su lugar»;
   - configuración propia (`NEQUI_MANUAL_*`): un valor mal escrito apaga Nequi sin impedir el
     arranque; en producción basta un método activo (Mercado Pago o Nequi) para vender;
   - correo al dueño «Transferencia Nequi por verificar», filtro y alerta en el panel; textos de

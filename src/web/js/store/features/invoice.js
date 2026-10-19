@@ -88,6 +88,12 @@ function payButtonState() {
   const cfg = state.serverConfig;
   if (state.previewOnly)
     return { text: 'Requiere servidor', enabled: false, note: 'Vista previa visual' };
+  if (runtime.paymentBusy === 'nequi')
+    return {
+      text: 'Preparando Nequi…',
+      enabled: false,
+      note: 'Pago directo por Nequi, sin Mercado Pago',
+    };
   if (runtime.paymentBusy)
     return { text: 'Abriendo Mercado Pago…', enabled: false, note: 'Te llevamos al pago seguro' };
   if (!order || ['REJECTED', 'EXPIRED', 'REFUNDED'].includes(order.status)) {
@@ -101,11 +107,17 @@ function payButtonState() {
           : '';
     // Un solo botón, como en las tiendas de recargas: crea el pedido y lleva al cobro.
     const amount = cartItems().length ? ' ' + money(total()) : '';
+    const nequi = chosenPayMeans() === 'nequi_manual';
     return {
-      text: runtime.orderBusy ? 'Creando pedido…' : 'Pagar' + amount,
+      text: runtime.orderBusy ? 'Creando pedido…' : (nequi ? 'Pagar por Nequi' : 'Pagar') + amount,
       enabled: !blocked && !runtime.orderBusy,
       note:
-        blocked || (ready ? 'Requisitos completos' : 'Completa jugador, datos y método de pago'),
+        blocked ||
+        (!ready
+          ? 'Completa jugador, datos y método de pago'
+          : nequi
+            ? 'Te mostramos el celular Nequi y el total; no pasa por Mercado Pago'
+            : 'Requisitos completos'),
       ok: ready && !blocked,
     };
   }

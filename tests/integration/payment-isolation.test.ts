@@ -628,13 +628,21 @@ describe('8. la entrega sigue protegida contra pagos falsos, duplicados e incons
     ).rejects.toThrow();
   });
 
-  it('después de avisar una transferencia no se puede cambiar a Mercado Pago', async () => {
+  it('un pedido de Nequi nunca pasa a Mercado Pago (ni antes ni después de avisar)', async () => {
     const o = await order();
     expect((await customer(h, o, '/nequi')).statusCode).toBe(200);
+    expect((await view(h, o)).payment.canChangeMethod).toBe(false);
+    const before = await customer(h, o, '/payment-method', { to: 'mercadopago', confirm: true });
+    expect(before.statusCode).toBe(409);
+    expect(before.json<{ error: { code: string } }>().error.code).toBe('PAYMENT_METHOD_LOCKED');
     expect((await customer(h, o, '/nequi/report', { senderLast4: '5555' })).statusCode).toBe(200);
-    const res = await customer(h, o, '/payment-method', { to: 'mercadopago', confirm: true });
-    expect(res.statusCode).toBe(409);
-    expect(res.json<{ error: { code: string } }>().error.code).toBe('NEQUI_TRANSFER_REPORTED');
+    const after = await customer(h, o, '/payment-method', { to: 'mercadopago', confirm: true });
+    expect(after.statusCode).toBe(409);
+    expect((await view(h, o)).payment.method).toBe('nequi_manual');
+    // Ni una preferencia ni una consulta a Mercado Pago para este pedido.
+    expect(h.gateway.createdRefs).not.toContain(o.ref);
+    expect((await customer(h, o, '/pay', { payMeans: 'tarjeta' })).statusCode).toBe(409);
+    expect(h.gateway.createdRefs).not.toContain(o.ref);
   });
 
   it('una transferencia que llega tarde (pedido vencido) va a revisión, nunca directo a entrega', async () => {
