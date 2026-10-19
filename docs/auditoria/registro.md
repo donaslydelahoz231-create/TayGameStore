@@ -1242,3 +1242,25 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   integración 281/281 (28 archivos); e2e 69/69; visuales 3/3; escáner de datos sensibles: 0
   coincidencias.
 - **Sin publicar.** Pendiente de autorización del dueño: push (despliega en Render).
+
+### 2026-10-19 · Publicación de «Entregas» en tiempo real, Nequi (apagado) y correcciones
+
+- **Autorización del dueño:** «Autorizo el push» y «Ejecuta» (2026-10-19).
+- **Publicado:** `1730452`, `b8a2901` y `445ba93` en `claude/taygamestore-production-pfctbn`
+  (avance rápido desde `d9b7fee`; `git ls-remote` = `445ba93`). Antes del push: árbol limpio y
+  escáner de datos sensibles con 0 coincidencias.
+- **Render:** despliegue `dep-dbb8ltqvcj2c73c82tn0` en `live` a las 21:27 UTC. Registro de
+  arranque: «Migraciones aplicadas.», `métodos de pago` con `mercadoPago: true`,
+  `nequiTransferencia: false` y `nequiPush: false` (Nequi sigue apagado: no se cambió ninguna
+  variable); `correo: false` y `hojaGoogle: false` como antes. Sin registros error/warn/fatal.
+- **Neon (solo lectura):** 22 migraciones; tabla `nequi_transfers`, columna
+  `orders.payment_method` y los 3 disparadores nuevos presentes; los 14 pedidos existentes
+  quedaron con método `mercadopago` (todos tenían un intento de pago) y ninguno sin método.
+  Pedidos por entregar, en revisión, reembolsos, reseñas pendientes y avisos fallidos: 0.
+- **GitHub Actions de `445ba93`:** CI completo en verde (lint, formato, tipos, esquema,
+  unitarias, build, auditoría de dependencias, integración, gitleaks y e2e en Chromium, Firefox
+  y WebKit), CodeQL en verde y «Production smoke check» en verde contra producción.
+- **Hoja de Google:** permisos sin cambios (solo el dueño y la cuenta de servicio).
+- **NO VERIFICADO:** una compra real con Nequi en producción (Nequi está apagado hasta que el
+  dueño cargue `NEQUI_MANUAL_*`); el PR de dependencias de desarrollo con axe-core 4.14 debe
+  volver a correr sobre esta base para confirmar que queda en verde.
