@@ -40,6 +40,14 @@ import {
 import type { ServiceDeps } from '../../services/context.js';
 import type { AbuseShield } from '../../services/shield.js';
 import { reconcileOrder } from '../../services/payments.js';
+import {
+  confirmNequiSchema,
+  confirmNequiTransfer,
+  nequiRefundSchema,
+  recordNequiRefund,
+  rejectNequiSchema,
+  rejectNequiTransfer,
+} from '../../services/nequi-manual.js';
 import { integritySummary } from '../../services/integrity.js';
 import { marginReport } from '../../services/margins.js';
 import { verifyReceipt } from '../../services/receipts.js';
@@ -117,12 +125,45 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
     return getOrderForAdmin(deps, id);
   });
 
+  // Nequi por transferencia: solo el dueño confirma, rechaza o registra la devolución.
+  app.post('/api/admin/orders/:id/nequi/confirm', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await confirmNequiTransfer(deps, id, confirmNequiSchema.parse(request.body), actor);
+    return getOrderForAdmin(deps, id);
+  });
+
+  app.post('/api/admin/orders/:id/nequi/reject', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await rejectNequiTransfer(deps, id, rejectNequiSchema.parse(request.body), actor);
+    return getOrderForAdmin(deps, id);
+  });
+
+  app.post('/api/admin/orders/:id/nequi/refund', guarded, async (request) => {
+    const { deps, actor } = ctx(request);
+    const { id } = idParams.parse(request.params);
+    await recordNequiRefund(deps, id, nequiRefundSchema.parse(request.body), actor);
+    return getOrderForAdmin(deps, id);
+  });
+
   app.post('/api/admin/orders/:id/reconcile', guarded, async (request) => {
     const { deps, actor } = ctx(request);
     const { id } = idParams.parse(request.params);
     const detail = await getOrderForAdmin(deps, id);
     if (!deps.gateway)
       throw new AppError('PAYMENTS_DISABLED', 503, 'Mercado Pago no está configurado.');
+    // Solo pedidos de Mercado Pago (o con algún pago suyo, p. ej. uno para reembolsar).
+    if (
+      detail.order.payment.method !== 'mercadopago' &&
+      !detail.payments.some((payment) => payment.provider === 'mercadopago')
+    ) {
+      throw new AppError(
+        'INVALID_STATE',
+        409,
+        'Este pedido no se paga con Mercado Pago: no hay nada que consultarle.',
+      );
+    }
     await reconcileOrder(deps, detail.order.reference, actor);
     return getOrderForAdmin(deps, id);
   });

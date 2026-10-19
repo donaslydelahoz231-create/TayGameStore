@@ -22,6 +22,8 @@ export function paymentInProgress(order) {
 export function humanStatus(order) {
   if (!order) return 'Pendiente';
   if (paymentInProgress(order)) return 'Pago en proceso';
+  if (order.status === 'AWAITING_PAYMENT' && order.payment?.nequi?.transfer?.status === 'REPORTED')
+    return 'Transferencia Nequi por verificar';
   if (order.status === 'AWAITING_VERIFICATION' && order.verification?.status === 'VERIFIED') {
     return 'Confirma tu cuenta';
   }

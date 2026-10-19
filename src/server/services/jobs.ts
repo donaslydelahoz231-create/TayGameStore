@@ -34,11 +34,19 @@ export type JobName = keyof typeof JOB_LOCKS;
 /** Todas las tareas, en el orden en que conviene ejecutarlas en una pasada. */
 export const JOB_NAMES = Object.keys(JOB_LOCKS) as JobName[];
 
-/** Expira órdenes vencidas sin pagos en curso. Antes concilia con Mercado Pago. */
+/**
+ * Expira órdenes vencidas sin pagos en curso. Las de Mercado Pago se concilian antes con Mercado
+ * Pago; las de otro método (Nequi) nunca se le consultan ni dependen de que responda.
+ */
 export async function expireOrders(deps: ServiceDeps): Promise<number> {
   const now = deps.now();
   const due = await deps.db
-    .select({ id: orders.id, ref: orders.publicRef, status: orders.status })
+    .select({
+      id: orders.id,
+      ref: orders.publicRef,
+      status: orders.status,
+      paymentMethod: orders.paymentMethod,
+    })
     .from(orders)
     .where(
       and(
@@ -49,7 +57,11 @@ export async function expireOrders(deps: ServiceDeps): Promise<number> {
     .limit(50);
   let expired = 0;
   for (const candidate of due) {
-    if (candidate.status === 'AWAITING_PAYMENT' && deps.gateway) {
+    if (
+      candidate.status === 'AWAITING_PAYMENT' &&
+      candidate.paymentMethod === 'mercadopago' &&
+      deps.gateway
+    ) {
       try {
         await reconcileOrder(deps, candidate.ref, SYSTEM_ACTOR);
       } catch (error) {

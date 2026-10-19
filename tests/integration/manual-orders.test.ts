@@ -132,7 +132,7 @@ const webhook = (paymentId: string) =>
 
 async function paidOrder(extra: { paymentMethodId?: string; paymentTypeId?: string } = {}) {
   const ready = await readyToPay();
-  expect((await payWith(ready.order.reference, ready.cookies, 'nequi')).statusCode).toBe(200);
+  expect((await payWith(ready.order.reference, ready.cookies, 'pse')).statusCode).toBe(200);
   const paymentId = String(Math.floor(Math.random() * 1e12));
   h.gateway.setPayment({
     id: paymentId,
@@ -221,14 +221,14 @@ describe('cambio de medio de pago', () => {
     expect(again.json()).toEqual(first.json());
     expect(h.gateway.preferences.size).toBe(before + 1);
 
-    const nequi = await payWith(ready.order.reference, ready.cookies, 'nequi');
-    expect(nequi.statusCode).toBe(200);
-    expect(nequi.json<{ checkoutUrl: string }>().checkoutUrl).not.toBe(
+    const efecty = await payWith(ready.order.reference, ready.cookies, 'efecty');
+    expect(efecty.statusCode).toBe(200);
+    expect(efecty.json<{ checkoutUrl: string }>().checkoutUrl).not.toBe(
       first.json<{ checkoutUrl: string }>().checkoutUrl,
     );
     expect(h.gateway.preferences.size).toBe(before + 2);
     const newest = [...h.gateway.preferences.values()].at(-1);
-    expect(newest?.input.payMeans).toBe('nequi');
+    expect(newest?.input.payMeans).toBe('efecty');
 
     const attempts = await h.database.db
       .select({ status: paymentAttempts.status, payMeans: paymentAttempts.payMeans })
@@ -238,7 +238,7 @@ describe('cambio de medio de pago', () => {
     expect(attempts).toEqual(
       expect.arrayContaining([
         { status: 'CLOSED', payMeans: 'tarjeta' },
-        { status: 'OPEN', payMeans: 'nequi' },
+        { status: 'OPEN', payMeans: 'efecty' },
       ]),
     );
     const closed = await h.database.db
@@ -246,6 +246,17 @@ describe('cambio de medio de pago', () => {
       .from(auditEvents)
       .where(eq(auditEvents.action, 'payment_attempt.closed'));
     expect(closed.some((event) => (event.data as { reason?: string }).reason)).toBe(true);
+  });
+
+  it('«nequi» ya no se cobra por Mercado Pago: la API lo rechaza sin crear preferencia', async () => {
+    const ready = await readyToPay();
+    const before = h.gateway.createCalls;
+    const res = await payWith(ready.order.reference, ready.cookies, 'nequi');
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ error: { message: string } }>().error.message).toContain(
+      'Nequi no se paga con Mercado Pago',
+    );
+    expect(h.gateway.createCalls).toBe(before);
   });
 
   it('un pago hecho en la preferencia anterior se aplica igual (por la referencia del pedido)', async () => {
@@ -319,7 +330,8 @@ describe('panel: pedidos, filtros y páginas', () => {
       reference: paid.order.reference,
       states: { payment: 'CONFIRMED', recharge: 'PENDING' },
       items: [{ name: '100 + 10 Diamantes', quantity: 1 }],
-      payMeans: 'nequi',
+      payMeans: 'pse',
+      paymentMethod: 'mercadopago',
       providerPaymentId: paid.paymentId,
       paymentMethodId: 'pse',
       game: 'freefire',
@@ -332,7 +344,7 @@ describe('panel: pedidos, filtros y páginas', () => {
       paymentMethodId: 'pse',
       paymentTypeId: 'bank_transfer',
     });
-    expect(detail.attempts[0]?.payMeans).toBe('nequi');
+    expect(detail.attempts[0]?.payMeans).toBe('pse');
   });
 
   it('filtra por fecha (hora de Colombia), juego y estado', async () => {

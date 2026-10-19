@@ -4,6 +4,7 @@ import {
   FREE_FIRE_SERVER_LABELS,
   fulfillments,
   notifications,
+  nequiTransfers,
   orderItems,
   orders,
   payments,
@@ -40,8 +41,10 @@ import { receiptVerificationCode } from './receipts.js';
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
- * Al cliente solo se le escribe después de un pago confirmado por Mercado Pago: nadie puede
- * usar la tienda para enviar correos a una dirección ajena escribiéndola en un pedido sin pagar.
+ * Al cliente solo se le escribe después de un pago confirmado por el proveedor de su pedido
+ * (Mercado Pago, o el dueño al verificar una transferencia Nequi): nadie puede usar la tienda para
+ * enviar correos a una dirección ajena escribiéndola en un pedido sin pagar. Además, si un cliente
+ * avisa una transferencia Nequi, el dueño recibe un correo para verificarla en su app Nequi.
  */
 
 export type OrderEvent = 'awaiting_verification' | 'paid' | 'delivered' | 'refunded';
@@ -176,8 +179,8 @@ interface OrderSnapshot {
   customerEmail: string;
   receiptCode: string;
   items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
-  /** El pago de Mercado Pago que pagó el pedido (si ya existe). */
-  payment: { providerPaymentId: string; approvedAt: Date | null } | null;
+  /** El pago que pagó el pedido (si ya existe) y su proveedor (Mercado Pago o Nequi). */
+  payment: { provider: string; providerPaymentId: string; approvedAt: Date | null } | null;
   /** Comprobante verificable: número consecutivo y código (si el pedido ya está pagado). */
   receipt: { number: number; verificationCode: string } | null;
   /** PIN entregados (entrega automática): solo se cargan para el correo de entrega. */
@@ -188,6 +191,8 @@ interface OrderSnapshot {
   topup?: boolean;
   /** Motivo de la recarga directa fallida (aviso al dueño). */
   topupProblem?: string | null;
+  /** Transferencia Nequi que avisó el cliente (aviso al dueño para verificarla). */
+  nequiReport?: { senderLast4: string | null; customerReference: string | null } | null;
 }
 
 /** Comprobante: datos que la tienda generó o que confirmó Mercado Pago (nada de texto libre). */
@@ -296,6 +301,14 @@ const bogota = new Intl.DateTimeFormat('es-CO', {
   timeZone: 'America/Bogota',
 });
 
+const isNequi = (order: Pick<OrderSnapshot, 'payment'>) =>
+  order.payment?.provider === 'nequi_manual';
+/** Medio con el que se pagó, según el proveedor del pago (nunca se mezclan). */
+const paymentLabel = (order: Pick<OrderSnapshot, 'payment'>) =>
+  isNequi(order) ? 'Nequi (transferencia)' : 'Mercado Pago';
+const operationLabel = (order: Pick<OrderSnapshot, 'payment'>) =>
+  isNequi(order) ? 'Referencia de Nequi' : 'Operación de Mercado Pago';
+
 function paymentReceipt(order: OrderSnapshot): Receipt {
   const player = [order.playerUid, order.nickname, order.region ?? order.server]
     .filter(Boolean)
@@ -317,9 +330,9 @@ function paymentReceipt(order: OrderSnapshot): Receipt {
             ],
           ]
         : []),
-      ['Medio', 'Mercado Pago'],
+      ['Medio', paymentLabel(order)],
       ...(order.payment
-        ? [['Operación de Mercado Pago', order.payment.providerPaymentId] as [string, string]]
+        ? [[operationLabel(order), order.payment.providerPaymentId] as [string, string]]
         : []),
       ['Jugador', player],
     ],
@@ -381,7 +394,9 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         'Recibimos tu pago',
         [
           hello,
-          `Mercado Pago confirmó tu pago de ${cop.format(order.totalCop)} para el pedido ${order.reference}.`,
+          isNequi(order)
+            ? `Verificamos tu transferencia Nequi de ${cop.format(order.totalCop)} para el pedido ${order.reference}.`
+            : `Mercado Pago confirmó tu pago de ${cop.format(order.totalCop)} para el pedido ${order.reference}.`,
           paymentReceipt(order),
           `Tu recarga va al ID de jugador ${playerText(order)}. Ya la estamos preparando y te escribiremos de nuevo cuando esté hecha.`,
           `Puedes ver el estado en ${base}/#seguimiento desde el navegador con el que compraste.`,
@@ -427,8 +442,21 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
           paidOrderText(order),
           order.topupProblem ??
             'La recarga directa no cubre este pedido (servidor o paquete fuera del catálogo de UniPin).',
-          'El cliente ya pagó. En tu panel puedes «Reanudar la entrega» (reintenta solo las unidades que no se recargaron) o entregarla a mano. Si no se puede entregar, reembolsa en Mercado Pago.',
+          `El cliente ya pagó. En tu panel puedes «Reanudar la entrega» (reintenta solo las unidades que no se recargaron) o entregarla a mano. Si no se puede entregar, ${isNequi(order) ? 'devuélvele el dinero por Nequi y regístralo en el panel' : 'reembolsa en Mercado Pago'}.`,
           'Antes de reintentar una recarga «sin confirmar», revisa la transacción en tu panel de UniPin: así nunca se recarga dos veces.',
+        ],
+      );
+    case 'nequi_reported_owner':
+      return compose(
+        deps,
+        [...deps.config.adminEmails],
+        `Transferencia Nequi por verificar · ${order.reference}`,
+        `Verifica la transferencia Nequi del pedido ${order.reference}`,
+        [
+          `El cliente avisa que transfirió ${cop.format(order.totalCop)} a tu Nequi${order.nequiReport?.senderLast4 ? ` desde un Nequi terminado en ${order.nequiReport.senderLast4}` : ''}${order.nequiReport?.customerReference ? ` (referencia que vio: ${order.nequiReport.customerReference})` : ''}.`,
+          `Pedido:\n${itemsText(order)}`,
+          'Abre tu app Nequi y busca ese movimiento. El aviso del cliente NO es un pago: solo cuenta lo que veas en tu app.',
+          'Si llegó el total exacto, confírmalo en el panel con la referencia del movimiento. Si no llegó, recházalo con el motivo; el pedido sigue esperando pago.',
         ],
       );
     case 'order_refunded_customer':
@@ -439,8 +467,15 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         'Registramos tu reembolso',
         [
           hello,
-          `Mercado Pago registró el reembolso de tu pago de ${cop.format(order.totalCop)} del pedido ${order.reference}.`,
-          'El tiempo en que lo ves reflejado depende de tu medio de pago y de Mercado Pago.',
+          ...(isNequi(order)
+            ? [
+                `Te devolvimos por Nequi los ${cop.format(order.totalCop)} del pedido ${order.reference}.`,
+                'Lo ves en los movimientos de tu app Nequi.',
+              ]
+            : [
+                `Mercado Pago registró el reembolso de tu pago de ${cop.format(order.totalCop)} del pedido ${order.reference}.`,
+                'El tiempo en que lo ves reflejado depende de tu medio de pago y de Mercado Pago.',
+              ]),
         ],
       );
   }
@@ -481,7 +516,11 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
   const [payment] = await deps.db
-    .select({ providerPaymentId: payments.providerPaymentId, approvedAt: payments.approvedAt })
+    .select({
+      provider: payments.provider,
+      providerPaymentId: payments.providerPaymentId,
+      approvedAt: payments.approvedAt,
+    })
     .from(payments)
     .where(and(eq(payments.orderId, orderId), eq(payments.isOrderPayment, true)));
   const { playerServer, receiptNumber, verifiedBy, ...rest } = order;
@@ -612,7 +651,7 @@ export const DELIVERY_COLUMNS = [
   'Estado de la recarga',
   'Comprobante',
   'Código de verificación',
-  'Operación de Mercado Pago',
+  'Operación de pago',
   'Evidencia o motivo',
   'Actualizado (Colombia)',
 ] as const;
@@ -680,7 +719,7 @@ type DeliveryOrder = Pick<
 /**
  * Fila de «Entregas»: el estado actual del pedido, con lo que hace falta para recargar (ID,
  * nickname, cómo se confirmó, servidor y región) y sus referencias (comprobante, código de
- * verificación, operación de Mercado Pago, evidencia). Nunca correo, nombre ni PIN. Con
+ * verificación, operación de pago con su medio, evidencia). Nunca correo, nombre ni PIN. Con
  * `valueInputOption=RAW` el ID queda como texto y nada se toma como fórmula.
  */
 export function deliveryRow(
@@ -718,7 +757,7 @@ export function deliveryRow(
     RECHARGE_STATE_LABELS[states.recharge],
     sheetReceipt(order),
     order.receipt?.verificationCode ?? '',
-    order.payment?.providerPaymentId ?? '',
+    order.payment ? `${paymentLabel(order)} · ${order.payment.providerPaymentId}` : '',
     note,
     bogotaTime.format(updatedAt),
   ];
@@ -793,6 +832,18 @@ async function sendOne(
       .from(fulfillments)
       .where(eq(fulfillments.orderId, row.orderId));
     order.topupProblem = fulfillment?.failureReason ?? null;
+  }
+  if (row.kind === 'nequi_reported_owner') {
+    const [report] = await deps.db
+      .select({
+        senderLast4: nequiTransfers.senderLast4,
+        customerReference: nequiTransfers.customerReference,
+      })
+      .from(nequiTransfers)
+      .where(and(eq(nequiTransfers.orderId, row.orderId), eq(nequiTransfers.status, 'REPORTED')));
+    // Ya se revisó (confirmada o rechazada): no hay nada que verificar.
+    if (!report) return;
+    order.nequiReport = report;
   }
   if (row.kind === 'order_paid_owner') {
     order.pinCount = (await deliveredPinCounts(deps.db, [row.orderId])).get(row.orderId) ?? 0;

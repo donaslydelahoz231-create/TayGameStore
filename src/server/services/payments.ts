@@ -14,25 +14,19 @@ import { PARTIAL_REFUND_DETAIL } from '../domain/order-states.js';
 import {
   mapMercadoPagoStatus,
   PaymentProviderError,
-  type PayMeans,
+  type MpPayMeans,
   type ProviderPayment,
 } from '../integrations/payments/gateway.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
-import { deliverFromInventory } from './inventory.js';
-import { kickTopups, routeToProvider } from './topups.js';
-import { assignReceiptNumber } from './receipts.js';
+import { kickTopups } from './topups.js';
+import { belongsToOrder, lockPaymentMethod, markOrderPaid } from './order-payment.js';
 import {
   deliverNotifications,
   enqueueOrderNotifications,
   enqueueSheetSync,
 } from './notifications.js';
-import {
-  closeOpenAttempts,
-  loadOrderForAccess,
-  transitionOrder,
-  type OrderAccess,
-} from './orders.js';
+import { loadOrderForAccess, transitionOrder, type OrderAccess } from './orders.js';
 
 const unavailable = () =>
   new AppError(
@@ -55,7 +49,7 @@ export async function startPayment(
   publicRef: string,
   access: OrderAccess,
   actor: Actor,
-  payMeans?: PayMeans,
+  payMeans?: MpPayMeans,
 ): Promise<{ checkoutUrl: string }> {
   const gateway = requireGateway(deps);
   const base = deps.config.publicBaseUrl;
@@ -71,6 +65,8 @@ export async function startPayment(
     if (order.expiresAt.getTime() <= now.getTime()) {
       throw new AppError('ORDER_EXPIRED', 409, 'El tiempo para pagar este pedido terminó.');
     }
+    // El pedido queda con Mercado Pago como método; si eligió otro (Nequi), aquí no se paga.
+    await lockPaymentMethod(tx, actor, order, 'mercadopago');
     const [open] = await tx
       .select()
       .from(paymentAttempts)
@@ -311,6 +307,32 @@ export async function applyProviderPayment(
       },
     });
 
+    // Aislamiento de proveedores: un pago de Mercado Pago solo afecta a pedidos que se pagan con
+    // Mercado Pago. Si llega uno para un pedido de otro método (p. ej. Nequi), se guarda tal como
+    // lo informa Mercado Pago, nunca paga el pedido y, si está aprobado, queda para reembolso.
+    if (!belongsToOrder(order, 'mercadopago')) {
+      if (status === 'APPROVED') {
+        await tx
+          .update(payments)
+          .set({ status: 'NEEDS_REFUND', updatedAt: sql`now()` })
+          .where(eq(payments.id, row.id));
+        await audit(tx, actor, {
+          entityType: 'payment',
+          entityId: row.id,
+          action: 'payment.foreign_method_needs_refund',
+          fromStatus: 'APPROVED',
+          toStatus: 'NEEDS_REFUND',
+          data: { orderId: order.id, orderMethod: order.paymentMethod, alert: true },
+        });
+      }
+      return {
+        orderRef: ref,
+        paymentStatus: status === 'APPROVED' ? ('NEEDS_REFUND' as const) : status,
+        ignored: false,
+        notifyOrderId: undefined,
+      };
+    }
+
     const effect = await applyOrderEffects(
       deps,
       tx,
@@ -335,58 +357,6 @@ export async function applyProviderPayment(
     kickTopups(deps, notifyOrderId);
   }
   return result;
-}
-
-const PIN_EVIDENCE =
-  'PIN del inventario entregado automáticamente al cliente (canje en pagostore.com).';
-
-/**
- * PIN_AUTO_DELIVERY: con PIN para todas las unidades, el pedido recién pagado queda entregado
- * en la misma transacción (nunca dos veces: la orden y la entrega cambian con CAS). Sin PIN
- * suficientes, o con las entregas pausadas, sigue en la cola manual.
- */
-async function autoDeliverPins(
-  deps: ServiceDeps,
-  tx: Tx,
-  actor: Actor,
-  order: typeof orders.$inferSelect,
-): Promise<void> {
-  if (!deps.config.orders.pinAutoDelivery || !deps.config.flags.fulfillmentEnabled) return;
-  // La entrega debe seguir en cola y bloqueada para esta transacción; si no, no se toca nada
-  // (el pago ya quedó registrado y el pedido sigue el camino manual).
-  const [ready] = await tx
-    .select({ id: fulfillments.id })
-    .from(fulfillments)
-    .where(
-      and(eq(fulfillments.orderId, order.id), eq(fulfillments.status, 'READY_FOR_FULFILLMENT')),
-    )
-    .for('update');
-  if (!ready) return;
-  const now = deps.now();
-  const pins = await deliverFromInventory(tx, order.id, now);
-  if (!pins) return;
-  await transitionOrder(tx, actor, order, 'DELIVERING');
-  await tx
-    .update(fulfillments)
-    .set({
-      status: 'DELIVERED',
-      startedAt: now,
-      deliveredAt: now,
-      evidence: PIN_EVIDENCE,
-      updatedAt: sql`now()`,
-    })
-    .where(eq(fulfillments.id, ready.id));
-  await audit(tx, actor, {
-    entityType: 'fulfillment',
-    entityId: ready.id,
-    action: 'fulfillment.auto_pin',
-    fromStatus: 'READY_FOR_FULFILLMENT',
-    toStatus: 'DELIVERED',
-    // Solo la cantidad: nunca los PIN.
-    data: { orderId: order.id, pins },
-  });
-  await transitionOrder(tx, actor, order, 'DELIVERED', {}, { method: 'pin' });
-  await enqueueOrderNotifications(deps, tx, order.id, 'delivered');
 }
 
 async function applyOrderEffects(
@@ -448,29 +418,8 @@ async function applyOrderEffects(
       .set({ isOrderPayment: true, updatedAt: sql`now()` })
       .where(eq(payments.id, payment.id));
     if (order.status === 'AWAITING_PAYMENT') {
-      await transitionOrder(tx, actor, order, 'PAID', {}, { paymentId: payment.id });
-      // Comprobante N.º consecutivo: existe si y solo si el pago quedó guardado.
-      await assignReceiptNumber(tx, order.id);
-      await closeOpenAttempts(tx, order.id, 'CLOSED');
-      await tx
-        .insert(fulfillments)
-        .values({
-          orderId: order.id,
-          mode: deps.config.fulfillmentMode,
-          status: 'READY_FOR_FULFILLMENT',
-        })
-        .onConflictDoNothing();
-      await audit(tx, actor, {
-        entityType: 'fulfillment',
-        entityId: order.id,
-        action: 'fulfillment.ready',
-        toStatus: 'READY_FOR_FULFILLMENT',
-      });
-      // Aviso al dueño y al cliente: existe si y solo si el pago quedó guardado.
-      await enqueueOrderNotifications(deps, tx, order.id, 'paid');
-      await autoDeliverPins(deps, tx, actor, order);
-      // Sin PIN: si el distribuidor cubre el pedido, la recarga directa se encarga.
-      await routeToProvider(deps, tx, order);
+      // Comprobante, cola de entrega, avisos, PIN y recarga directa: comunes a todo proveedor.
+      await markOrderPaid(deps, tx, actor, order, payment.id);
       return 'PAID';
     }
     // Pago aprobado de una orden que no lo esperaba (expirada, rechazada…): revisión humana.
@@ -684,8 +633,9 @@ export async function syncOrderFromReturn(
   access: OrderAccess,
   actor: Actor,
 ): Promise<void> {
-  await loadOrderForAccess(deps, deps.db, publicRef, access);
-  if (!deps.gateway) return;
+  const order = await loadOrderForAccess(deps, deps.db, publicRef, access);
+  // Un pedido de otro método (Nequi) nunca se consulta a Mercado Pago.
+  if (!deps.gateway || !belongsToOrder(order, 'mercadopago')) return;
   try {
     await reconcileOrder(deps, publicRef, actor);
   } catch (error) {
@@ -694,7 +644,10 @@ export async function syncOrderFromReturn(
   }
 }
 
-/** Órdenes con pagos por resolver (intentos abiertos, pagos pendientes o eventos fallidos). */
+/**
+ * Órdenes con pagos de Mercado Pago por resolver (intentos abiertos, pagos pendientes o eventos
+ * fallidos). Solo pagos de Mercado Pago: nunca se le pregunta por pagos de otro proveedor.
+ */
 export async function ordersNeedingReconciliation(
   deps: ServiceDeps,
   limit: number,
@@ -707,8 +660,13 @@ export async function ordersNeedingReconciliation(
     .leftJoin(payments, eq(payments.orderId, orders.id))
     .where(
       or(
-        and(eq(paymentAttempts.status, 'OPEN'), lt(paymentAttempts.updatedAt, staleBefore)),
         and(
+          eq(paymentAttempts.provider, 'mercadopago'),
+          eq(paymentAttempts.status, 'OPEN'),
+          lt(paymentAttempts.updatedAt, staleBefore),
+        ),
+        and(
+          eq(payments.provider, 'mercadopago'),
           inArray(payments.status, ['PENDING', 'UNKNOWN', 'DISPUTED', 'NEEDS_REFUND']),
           lt(payments.lastSyncedAt, staleBefore),
         ),

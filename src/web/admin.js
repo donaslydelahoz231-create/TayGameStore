@@ -56,7 +56,8 @@ const RECHARGE_STATE_LABEL = {
 };
 const PAY_MEANS_LABEL = {
   tarjeta: 'Tarjeta',
-  nequi: 'Nequi (PSE)',
+  // Intentos antiguos: antes «Nequi» se cobraba por PSE dentro de Mercado Pago.
+  nequi: 'Nequi por PSE (Mercado Pago, antiguo)',
   pse: 'PSE',
   efecty: 'Efecty',
   saldo: 'Saldo Mercado Pago',
@@ -70,6 +71,14 @@ const stateClass = (s) =>
 const statePill = (s, labels) =>
   `<span class="adm-pill ${stateClass(s)}">${esc(labels[s] || s || '—')}</span>`;
 const payMeansText = (m) => (m ? esc(PAY_MEANS_LABEL[m] || m) : 'Sin preferencia');
+/** Método de pago del pedido: cada uno es un proveedor independiente. */
+const METHOD_LABEL = {
+  mercadopago: 'Mercado Pago',
+  nequi_manual: 'Nequi (transferencia)',
+  nequi_push: 'Nequi (app)',
+};
+const PROVIDER_LABEL = { ...METHOD_LABEL, nequi_manual: 'Nequi' };
+const methodText = (m) => (m ? esc(METHOD_LABEL[m] || m) : 'Sin elegir');
 const fmtDate = (v) =>
   v ? new Date(v).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
@@ -478,6 +487,7 @@ function announcePaid(total) {
 async function loadAlerts() {
   const a = await call('/api/admin/alerts');
   const items = [
+    ['nequiToVerify', 'Transferencias Nequi por verificar', 'bad'],
     ['paidToDeliver', 'Pagados por entregar', 'ok'],
     ['awaitingVerification', 'Por verificar', 'warn'],
     ['paidWithoutDelivery', 'Pagados sin entregar (+30 min)', 'bad'],
@@ -512,6 +522,7 @@ async function loadOrders() {
   const params = new URLSearchParams();
   if ($('admStatus').value) params.set('status', $('admStatus').value);
   if ($('admGame').value) params.set('game', $('admGame').value);
+  if ($('admPayment').value) params.set('payment', $('admPayment').value);
   if ($('admFrom').value) params.set('from', $('admFrom').value);
   if ($('admTo').value) params.set('to', $('admTo').value);
   if ($('admSearch').value.trim()) params.set('q', $('admSearch').value.trim());
@@ -525,7 +536,7 @@ async function loadOrders() {
     tr.className = o.id === selectedOrderId ? 'selected' : '';
     const items = (o.items || []).map((i) => `${i.quantity}× ${esc(i.name)}`).join('<br>');
     const server = o.playerServer ? ' · ' + esc(serverLabel(o.playerServer) || o.playerServer) : '';
-    tr.innerHTML = `<td>${esc(o.reference)}</td><td>${fmtDate(o.createdAt)}</td><td>${items || '—'}</td><td>${esc(o.playerUid)}${server}</td><td>${money(o.totalCop)}</td><td>${statePill(o.states?.payment, PAYMENT_STATE_LABEL)}</td><td>${statePill(o.states?.recharge, RECHARGE_STATE_LABEL)}</td><td>${fmtDate(o.updatedAt)}</td>`;
+    tr.innerHTML = `<td>${esc(o.reference)}</td><td>${fmtDate(o.createdAt)}</td><td>${items || '—'}</td><td>${esc(o.playerUid)}${server}</td><td>${money(o.totalCop)}</td><td>${statePill(o.states?.payment, PAYMENT_STATE_LABEL)}${o.paymentMethod === 'nequi_manual' ? ' · Nequi' : ''}${o.nequiPending ? ' <span class="adm-pill bad">Verificar Nequi</span>' : ''}</td><td>${statePill(o.states?.recharge, RECHARGE_STATE_LABEL)}</td><td>${fmtDate(o.updatedAt)}</td>`;
     tr.title = STATUS_LABEL[o.status] || o.status;
     tr.onclick = () => selectOrder(o.id);
     body.appendChild(tr);
@@ -550,6 +561,7 @@ const reloadFromFirstPage = () => {
 $('admReload').onclick = reloadFromFirstPage;
 $('admStatus').onchange = reloadFromFirstPage;
 $('admGame').onchange = reloadFromFirstPage;
+$('admPayment').onchange = reloadFromFirstPage;
 $('admFrom').onchange = reloadFromFirstPage;
 $('admTo').onchange = reloadFromFirstPage;
 $('admSearch').onkeydown = (e) => {
@@ -620,22 +632,25 @@ function renderDetail(d) {
       <dt>Jugador</dt><dd>${pill(v.status)} ${esc(v.nickname || '')} ${esc(v.region || '')}${v.note === 'cliente' ? ' · ID confirmado por el cliente (escrito dos veces): entrégalo a este UID' : ''}</dd>
       <dt>Productos</dt><dd>${o.items.map((i) => `${i.quantity}× ${esc(i.name)} (${money(i.lineTotalCop)})`).join('<br>')}</dd>
       <dt>Total</dt><dd>${money(o.totalCop)} ${esc(o.currency)}</dd>
-      <dt>Medio elegido</dt><dd>${lastAttempt ? payMeansText(lastAttempt.payMeans) : '—'}</dd>
-      <dt>Transacción MP</dt><dd>${orderPayment ? esc(orderPayment.providerPaymentId) + (orderPayment.paymentMethodId ? ' · ' + esc(orderPayment.paymentMethodId) : '') + (orderPayment.paymentTypeId ? ' (' + esc(orderPayment.paymentTypeId) + ')' : '') : '—'}</dd>
+      <dt>Método de pago</dt><dd>${methodText(d.paymentMethod)}</dd>
+      ${d.paymentMethod === 'nequi_manual' ? '' : `<dt>Medio elegido</dt><dd>${lastAttempt ? payMeansText(lastAttempt.payMeans) : '—'}</dd>`}
+      <dt>Operación de pago</dt><dd>${orderPayment ? esc(PROVIDER_LABEL[orderPayment.provider] || orderPayment.provider) + ' · ' + esc(orderPayment.providerPaymentId) + (orderPayment.paymentMethodId ? ' · ' + esc(orderPayment.paymentMethodId) : '') + (orderPayment.paymentTypeId ? ' (' + esc(orderPayment.paymentTypeId) + ')' : '') : '—'}</dd>
       <dt>Vence</dt><dd>${fmtDate(o.expiresAt)}</dd>
       <dt>Entrega</dt><dd>${f ? pill(f.status) + (f.mode === 'provider' ? ' · recarga directa UniPin' : '') + (f.evidence ? ' · ' + esc(f.evidence) : '') + (f.failureReason ? ' · ' + esc(f.failureReason) : '') : '—'}</dd>
     </dl>
     <div id="admDetailActions"></div>
     ${inventoryBlock(d)}
     ${topupBlock(d)}
-    <h3>Pagos (Mercado Pago)</h3>
-    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: pagos de Mercado Pago"><table class="adm-table"><thead><tr><th>ID MP</th><th>Estado</th><th>MP</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
+    ${nequiBlock(d)}
+    <h3>Pagos</h3>
+    <p class="adm-small">Cada pago es de un solo proveedor y solo puede pagar un pedido de su mismo método.</p>
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: pagos del pedido"><table class="adm-table"><thead><tr><th>Proveedor</th><th>Operación</th><th>Estado</th><th>Detalle</th><th>Importe</th><th>Correcto</th></tr></thead><tbody>${
       d.payments
         .map(
           (p) =>
-            `<tr><td>${esc(p.providerPaymentId)}</td><td>${pill(p.status)}${p.isOrderPayment ? ' ★' : ''}</td><td>${esc(p.providerStatus)} ${esc(p.providerStatusDetail || '')}</td><td>${money(p.amountCop)} ${esc(p.currency)}</td><td>${p.amountMatches ? 'Sí' : 'NO'}</td></tr>`,
+            `<tr><td>${esc(PROVIDER_LABEL[p.provider] || p.provider)}</td><td>${esc(p.providerPaymentId)}</td><td>${pill(p.status)}${p.isOrderPayment ? ' ★' : ''}</td><td>${esc(p.providerStatus)} ${esc(p.providerStatusDetail || '')}</td><td>${money(p.amountCop)} ${esc(p.currency)}</td><td>${p.amountMatches ? 'Sí' : 'NO'}</td></tr>`,
         )
-        .join('') || '<tr><td colspan="5">Sin pagos.</td></tr>'
+        .join('') || '<tr><td colspan="6">Sin pagos.</td></tr>'
     }</tbody></table></div>
     <h3>Notas internas</h3>
     <p class="adm-small">Solo las ves tú. Quedan en el historial y no se pueden editar ni borrar.</p>
@@ -655,6 +670,28 @@ function renderDetail(d) {
   });
   renderActions(d);
   bindInventoryBlock();
+}
+
+const NEQUI_STATUS_LABEL = {
+  REPORTED: 'Avisada por el cliente',
+  CONFIRMED: 'Confirmada por ti',
+  REJECTED: 'Rechazada',
+};
+
+/** Transferencias Nequi del pedido: avisos del cliente y revisiones del dueño. */
+function nequiBlock(d) {
+  if (d.paymentMethod !== 'nequi_manual') return '';
+  const rows = d.nequiTransfers || [];
+  return `<h3>Transferencia Nequi</h3>
+    <p class="adm-note">El aviso del cliente NO es un pago. Confirma solo lo que veas en tu app Nequi: el total exacto (${money(d.order.totalCop)}) con la referencia ${esc(d.order.reference)}.</p>
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: transferencias Nequi"><table class="adm-table"><thead><tr><th>Estado</th><th>Nequi del cliente</th><th>Referencia del cliente</th><th>Avisada</th><th>Referencia Nequi</th><th>Monto</th><th>Motivo</th></tr></thead><tbody>${
+      rows
+        .map(
+          (t) =>
+            `<tr><td>${esc(NEQUI_STATUS_LABEL[t.status] || t.status)}</td><td>${t.senderLast4 ? '••••' + esc(t.senderLast4) : '—'}</td><td>${esc(t.customerReference || '—')}</td><td>${fmtDate(t.reportedAt)}</td><td>${esc(t.nequiReference || '—')}</td><td>${t.amountCop ? money(t.amountCop) : '—'}</td><td>${esc(t.rejectionReason || '')}</td></tr>`,
+        )
+        .join('') || '<tr><td colspan="7">El cliente aún no avisa ninguna transferencia.</td></tr>'
+    }</tbody></table></div>`;
 }
 
 /** PIN del inventario reservados para el pedido: copiar, liberar (sin usar) o anular. */
@@ -736,14 +773,29 @@ function renderActions(d) {
       <div class="adm-actions"><button class="adm-btn" data-f="deliver" type="button">Marcar entregado</button></div>
       ${input('fReason', 'Motivo del fallo', 'maxlength="300"')}<div class="adm-actions"><button class="adm-btn danger" data-f="fail" type="button">Marcar fallida</button></div>`);
   }
+  const nequi = d.paymentMethod === 'nequi_manual';
+  const nequiReported = (d.nequiTransfers || []).some((t) => t.status === 'REPORTED');
+  if (nequi && ['AWAITING_PAYMENT', 'EXPIRED'].includes(o.status)) {
+    parts.push(`<h3>Confirmar transferencia Nequi</h3><p class="adm-small">Abre tu app Nequi y busca el movimiento. Escribe su referencia y el monto que llegó; si no es el total exacto no se confirma.</p>
+      ${input('qRef', 'Referencia del movimiento en tu app Nequi', 'maxlength="40" autocomplete="off"')}${input('qAmount', 'Monto recibido (COP)', 'inputmode="numeric" autocomplete="off"')}
+      <div class="adm-actions"><button class="adm-btn" id="qConfirm" type="button">Confirmar pago Nequi</button></div>
+      ${nequiReported ? `${input('qReason', 'Motivo si no llegó', 'maxlength="200"')}<div class="adm-actions"><button class="adm-btn danger" id="qReject" type="button">No llegó: rechazar aviso</button></div>` : ''}`);
+  }
+  if (nequi && ['PAID', 'DELIVERING', 'DELIVERED', 'NEEDS_REVIEW'].includes(o.status)) {
+    parts.push(`<h3>Devolución por Nequi</h3><p class="adm-small">Primero devuélvele el dinero al cliente desde tu app Nequi; después regístralo aquí. El pedido queda reembolsado.</p>
+      ${input('qRefundRef', 'Referencia de la devolución en tu app Nequi', 'maxlength="40" autocomplete="off"')}${input('qRefundNote', 'Motivo', 'maxlength="200"')}
+      <div class="adm-actions"><button class="adm-btn danger" id="qRefund" type="button">Registrar devolución Nequi</button></div>`);
+  }
   if (o.status === 'NEEDS_REVIEW') {
-    parts.push(`<h3>Resolver revisión</h3><p class="adm-small">Los reembolsos se hacen en el panel de Mercado Pago; después pulsa "Conciliar".</p>
+    parts.push(`<h3>Resolver revisión</h3><p class="adm-small">${nequi ? 'Pedido de Nequi: si devolviste el dinero, usa «Registrar devolución Nequi».' : 'Los reembolsos se hacen en el panel de Mercado Pago; después pulsa "Conciliar".'}</p>
       <label for="rRes">Resolución</label><select id="rRes"><option value="resume_fulfillment">Reanudar entrega (pago válido)</option><option value="close">Cerrar (sin cobro vigente)</option></select>
       ${input('rNote', 'Nota', 'maxlength="300"')}<div class="adm-actions"><button class="adm-btn" id="rSave" type="button">Resolver</button></div>`);
   }
-  parts.push(
-    '<div class="adm-actions"><button class="adm-btn ghost" id="cRec" type="button">Conciliar con Mercado Pago</button></div>',
-  );
+  // Solo pedidos de Mercado Pago (o con algún pago suyo): un pedido Nequi nunca se le consulta.
+  if (d.paymentMethod === 'mercadopago' || d.payments.some((p) => p.provider === 'mercadopago'))
+    parts.push(
+      '<div class="adm-actions"><button class="adm-btn ghost" id="cRec" type="button">Conciliar con Mercado Pago</button></div>',
+    );
   box.innerHTML = parts.join('');
   $('vSave')?.addEventListener('click', () => {
     const result = $('vResult').value;
@@ -774,6 +826,36 @@ function renderActions(d) {
       'Revisión resuelta.',
     ),
   );
+  $('qConfirm')?.addEventListener('click', () => {
+    const nequiReference = $('qRef').value.trim();
+    const amountCop = Number($('qAmount').value.replace(/\D/g, ''));
+    if (!/^[A-Za-z0-9-]{4,40}$/.test(nequiReference))
+      return message(
+        'Escribe la referencia del movimiento (4 a 40 letras, números o guiones).',
+        'bad',
+      );
+    if (!amountCop) return message('Escribe el monto que llegó.', 'bad');
+    if (
+      !confirm(`¿Confirmar el pago Nequi de ${money(amountCop)}? Hazlo solo si lo ves en tu app.`)
+    )
+      return;
+    orderAction('nequi/confirm', { nequiReference, amountCop }, 'Pago Nequi confirmado.');
+  });
+  $('qReject')?.addEventListener('click', () => {
+    const reason = $('qReason').value.trim();
+    if (reason.length < 3) return message('Escribe el motivo (al menos 3 caracteres).', 'bad');
+    orderAction('nequi/reject', { reason }, 'Aviso Nequi rechazado.');
+  });
+  $('qRefund')?.addEventListener('click', () => {
+    const refundReference = $('qRefundRef').value.trim();
+    const note = $('qRefundNote').value.trim();
+    if (!/^[A-Za-z0-9-]{4,40}$/.test(refundReference))
+      return message('Escribe la referencia de la devolución en tu app Nequi.', 'bad');
+    if (note.length < 3) return message('Escribe el motivo (al menos 3 caracteres).', 'bad');
+    if (!confirm('¿Registrar la devolución? Hazlo solo si ya devolviste el dinero por Nequi.'))
+      return;
+    orderAction('nequi/refund', { refundReference, note }, 'Devolución Nequi registrada.');
+  });
   $('cRec')?.addEventListener('click', () =>
     orderAction('reconcile', undefined, 'Conciliado con Mercado Pago.'),
   );

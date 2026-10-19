@@ -2,6 +2,7 @@ import type { PromoSchedule } from '../domain/pricing.js';
 import { createPrivateKey, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { FREE_FIRE_SERVERS, type FreeFireServer } from '../db/schema.js';
+import { nequiSettings, type NequiSettings } from './nequi.js';
 
 /** La llave de la cuenta de servicio se puede leer como llave privada (sin mostrarla nunca). */
 function isReadablePrivateKey(value: string): boolean {
@@ -254,6 +255,15 @@ const envSchema = z
       .regex(/^[A-Za-z0-9 ]{1,22}$/)
       .optional(),
     MP_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+
+    /**
+     * Nequi por transferencia, independiente de Mercado Pago (config/nequi.ts). Texto libre a
+     * propósito: un valor mal escrito apaga Nequi pero nunca impide arrancar la tienda.
+     */
+    NEQUI_MANUAL_ENABLED: z.string().max(10).optional(),
+    NEQUI_MANUAL_PHONE: z.string().max(20).optional(),
+    NEQUI_MANUAL_HOLDER: z.string().max(80).optional(),
+    NEQUI_MANUAL_REVIEW_HOURS: z.string().max(5).optional(),
     /**
      * Cuenta de Mercado Pago declarada: `sandbox` (cuenta vendedora de prueba) o `production`.
      * Las credenciales de prueba también empiezan por APP_USR, así que no se puede deducir del
@@ -503,9 +513,13 @@ const envSchema = z
     if (env.TOPUP_PROVIDER === 'unipin' && env.UNIPIN_ENV !== 'production') {
       issue('UNIPIN_ENV', 'en producción debe ser production (staging no entrega diamantes)');
     }
-    // No se aceptan órdenes que no se puedan pagar.
-    if (env.CHECKOUT_ENABLED && !env.PAYMENTS_ENABLED) {
-      issue('CHECKOUT_ENABLED', 'en producción requiere PAYMENTS_ENABLED=true (Mercado Pago)');
+    // No se aceptan órdenes que no se puedan pagar: hace falta al menos un método activo, sea
+    // Mercado Pago o Nequi por transferencia (ninguno depende del otro).
+    if (env.CHECKOUT_ENABLED && !env.PAYMENTS_ENABLED && !nequiSettings(env).manual) {
+      issue(
+        'CHECKOUT_ENABLED',
+        'en producción requiere un método de pago activo: PAYMENTS_ENABLED=true (Mercado Pago) o Nequi por transferencia (NEQUI_MANUAL_*)',
+      );
     }
   });
 
@@ -562,6 +576,8 @@ export interface AppConfig {
   /** Ruta del panel. Sin ADMIN_PATH (desarrollo y pruebas) es /admin.html. */
   adminPath: string;
   adminSetupCode: string | undefined;
+  /** Nequi, con su propia configuración (nunca la de Mercado Pago). */
+  nequi: NequiSettings;
   mercadoPago:
     | {
         accessToken: string;
@@ -741,6 +757,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     adminEmails: env.ADMIN_EMAILS,
     adminPath: env.ADMIN_PATH ?? '/admin.html',
     adminSetupCode: env.ADMIN_SETUP_CODE,
+    nequi: nequiSettings(env),
     mercadoPago:
       env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET
         ? {

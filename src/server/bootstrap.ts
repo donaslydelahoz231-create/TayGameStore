@@ -73,6 +73,21 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     },
     'avisos y automatización',
   );
+  // Métodos de pago, cada uno por su lado (sí/no, nunca valores ni credenciales).
+  built.app.log.info(
+    {
+      mercadoPago: config.flags.paymentsEnabled && Boolean(config.mercadoPago),
+      nequiTransferencia: Boolean(config.nequi.manual),
+      nequiPush: false,
+    },
+    'métodos de pago',
+  );
+  if (config.nequi.problem) {
+    built.app.log.warn(
+      { problema: config.nequi.problem },
+      'Nequi por transferencia queda apagado (Mercado Pago no se ve afectado)',
+    );
+  }
   if (config.topup) {
     // Qué cubre la recarga directa, sin credenciales.
     const { catalog, env } = config.topup;

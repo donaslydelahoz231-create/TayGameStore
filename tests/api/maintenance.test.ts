@@ -81,7 +81,8 @@ describe('GET /api/config', () => {
       checkoutEnabled: false,
       paymentsEnabled: false,
       paymentsMode: null,
-      paymentMethod: 'mercadopago',
+      // Cada método por su lado: sin Mercado Pago ni Nequi configurados, ninguno disponible.
+      paymentMethods: { mercadopago: false, nequiManual: false, nequiPush: false },
       auth: { google: false, facebook: false },
       playerLookup: false,
       // Sin proveedor de consulta, el cliente confirma su propio ID (valor por defecto).

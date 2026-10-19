@@ -265,3 +265,35 @@ body.entry-locked .support-float {
   cursor: not-allowed;
   opacity: 0.65;
 }
+
+/* Cada proveedor en su propio grupo: Mercado Pago y Nequi no se mezclan. */
+.pay-provider {
+  margin: 8px 0 5px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.pay-means-grid .pay-mean-wide {
+  grid-column: 1 / -1;
+}
+
+/* Instrucciones de la transferencia Nequi (solo en pedidos que eligieron Nequi). */
+.nequi-box {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #070c24;
+}
+.nequi-box[hidden] {
+  display: none;
+}
+.nequi-steps {
+  margin: 8px 0 10px;
+  padding-left: 18px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.nequi-steps strong {
+  color: var(--cyan);
+  word-break: break-all;
+}

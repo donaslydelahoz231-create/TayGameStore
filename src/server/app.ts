@@ -89,7 +89,13 @@ export function assertLegalPagesReady(config: AppConfig, root: string): void {
   if (config.env !== 'production' || !config.flags.checkoutEnabled) return;
   // Sandbox de Mercado Pago: ningún pago es real (los de producción van a revisión, nunca a
   // entrega), así que se puede probar la compra completa antes de terminar los textos legales.
-  if (config.flags.paymentsEnabled && config.mercadoPago?.mode === 'sandbox') return;
+  // Con Nequi por transferencia activo sí hay dinero real: los textos deben estar completos.
+  if (
+    config.flags.paymentsEnabled &&
+    config.mercadoPago?.mode === 'sandbox' &&
+    !config.nequi.manual
+  )
+    return;
   const pending = pendingLegalFields(config, root);
   if (pending.size) {
     throw new Error(

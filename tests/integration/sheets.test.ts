@@ -266,7 +266,7 @@ describe('registro auxiliar en Google Sheets', () => {
     expect(row?.slice(12, 14)).toEqual(['Confirmado', 'Completado']);
     expect(row?.[14]).toMatch(/^\d{6}$/); // comprobante N.º
     expect(String(row?.[15])).not.toBe(''); // código de verificación
-    expect(row?.[16]).toBe(paid.paymentId); // operación de Mercado Pago
+    expect(row?.[16]).toBe(`Mercado Pago · ${paid.paymentId}`); // medio y operación de pago
     expect(row?.[17]).toBe('Recarga hecha en el canal oficial (prueba)');
     expect(await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery')).toMatchObject({
       status: 'SENT',

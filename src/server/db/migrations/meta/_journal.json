@@ -148,6 +148,13 @@
       "when": 1792418520206,
       "tag": "0020_hoja_entregas_estado",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792428069167,
+      "tag": "0021_pagos_nequi_independiente",
+      "breakpoints": true
     }
   ]
 }

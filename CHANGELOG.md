@@ -46,6 +46,36 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   - la política de privacidad lo informa (punto 4) en lugar de n8n, que ya no se usa.
 - Evaluación de Wompi y Nequi Negocios (`docs/pagos-colombia.md`), sin implementar otra
   pasarela.
+- **«Entregas»: una fila por pedido con su estado en tiempo real** (migración 0020):
+  - la fila aparece al confirmarse el pago y se reescribe (buscada por la referencia) al tomar,
+    empezar, entregar, fallar, revisar o reembolsar: «⏳ Por entregar», «🔄 En proceso», «✅
+    Entregado con éxito», «⚠️ Requiere revisión», «↩️ Reembolsado», «✖️ Cancelado»;
+  - 19 columnas: pagado y entregado, minutos hasta la entrega, comprobante y código, operación
+    del pago y evidencia o motivo (`docs/google-sheets.md`);
+  - la cola nunca envía dos actualizaciones del mismo pedido a la vez y la última lleva el estado
+    más reciente.
+- **Nequi como método de pago independiente de Mercado Pago** (decisión del dueño, 2026-10-19;
+  `docs/pagos-nequi.md`). Apagado por defecto (`NEQUI_MANUAL_ENABLED=false`):
+  - **Nequi por transferencia**: el cliente transfiere desde su app Nequi y avisa «Ya
+    transferí» con los 4 últimos dígitos; el pedido queda pendiente hasta que el dueño ve el
+    movimiento en su app y lo confirma en el panel (referencia y monto exacto). Rechazo del aviso,
+    devolución registrada y transferencias tardías a revisión;
+  - **Nequi Push** reservado y deshabilitado: no hay acceso oficial y no se inventó ninguna API;
+  - cada pedido guarda su método (`orders.payment_method`, migración 0021); un pago de un
+    proveedor nunca confirma un pedido del otro (código, disparadores de la base de datos y
+    restricción del proveedor). Cambio de método solo explícito y sin pagos;
+  - configuración propia (`NEQUI_MANUAL_*`): un valor mal escrito apaga Nequi sin impedir el
+    arranque; en producción basta un método activo (Mercado Pago o Nequi) para vender;
+  - correo al dueño «Transferencia Nequi por verificar», filtro y alerta en el panel; textos de
+    correos, comprobante, términos y privacidad según el proveedor;
+  - pruebas: 23 de aislamiento (los 8 puntos del requisito), 6 de configuración y una compra e2e.
+
+### Cambiado
+
+- Nequi ya no se ofrece como medio dentro de Mercado Pago (vía PSE): `/api/orders/:ref/pay`
+  rechaza `payMeans: "nequi"` y lo indica. Los pedidos antiguos con ese medio no cambian.
+- `/api/config` informa `paymentMethods` (`mercadopago`, `nequiManual`, `nequiPush`) en lugar de
+  `paymentMethod`.
 
 ### Eliminado
 

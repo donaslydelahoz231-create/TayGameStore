@@ -26,7 +26,15 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
         config.flags.paymentsEnabled && options.paymentsAvailable
           ? (config.mercadoPago?.mode ?? null)
           : null,
-      paymentMethod: 'mercadopago',
+      /**
+       * Métodos de pago, cada uno según su propia configuración (ninguno depende del otro). Sin
+       * datos de cuentas: el celular de Nequi solo lo ve quien elige Nequi en su propio pedido.
+       */
+      paymentMethods: {
+        mercadopago: config.flags.paymentsEnabled && options.paymentsAvailable,
+        nequiManual: config.nequi.manual !== undefined,
+        nequiPush: false,
+      },
       auth: { google: options.googleAvailable, ...options.socialAvailable },
       playerLookup: options.playerLookupAvailable,
       /** Sin consulta de proveedor: `customer` (el cliente confirma su ID) u `operator`. */

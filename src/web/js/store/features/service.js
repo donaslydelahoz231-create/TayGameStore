@@ -6,9 +6,15 @@ import { updateOAuthUI } from './account.js';
 /** Estado del servicio (cabecera, panel del hero y sección de jugador) según /api/config. */
 export function renderService() {
   const cfg = state.serverConfig;
-  const live = !!cfg && cfg.checkoutEnabled && cfg.paymentsEnabled && !cfg.maintenanceMode;
-  // Cuenta de prueba de Mercado Pago: se dice en todas partes que no se cobra dinero real.
-  const sandbox = live && cfg.paymentsMode === 'sandbox';
+  // Cada método por su lado: la tienda opera si al menos uno está activo (Mercado Pago o Nequi).
+  const methods = cfg?.paymentMethods ?? { mercadopago: !!cfg?.paymentsEnabled };
+  const anyMethod = !!methods.mercadopago || !!methods.nequiManual;
+  const live = !!cfg && cfg.checkoutEnabled && anyMethod && !cfg.maintenanceMode;
+  // Cuenta de prueba de Mercado Pago (sin Nequi real): no se cobra dinero real.
+  const sandbox = live && cfg.paymentsMode === 'sandbox' && !methods.nequiManual;
+  const methodNames = [methods.mercadopago && 'Mercado Pago', methods.nequiManual && 'Nequi']
+    .filter(Boolean)
+    .join(' y ');
   const e = $('serverState');
   let label;
   if (state.previewOnly) label = 'Vista previa visual';
@@ -17,7 +23,7 @@ export function renderService() {
       state.serverReachable === false ? 'Sin conexión con el servidor' : 'Comprobando servicio';
   else if (cfg.maintenanceMode) label = 'Mantenimiento · solo consulta';
   else if (sandbox) label = 'Modo prueba · sin cobros reales';
-  else if (live) label = 'Tienda operativa · Mercado Pago';
+  else if (live) label = 'Tienda operativa · ' + methodNames;
   else if (cfg.checkoutEnabled) label = 'Pedidos habilitados · pagos pendientes';
   else label = 'Compras pausadas temporalmente';
   if (e) {
@@ -36,7 +42,7 @@ export function renderService() {
       : sandbox
         ? 'Pagos de prueba: no se cobra dinero real'
         : live
-          ? 'Catálogo, verificación y pagos con Mercado Pago'
+          ? 'Catálogo, verificación y pagos con ' + methodNames
           : label,
   );
 }

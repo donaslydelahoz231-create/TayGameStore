@@ -1152,3 +1152,47 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - las tres variables en Render;
   - la primera fila real en las pestañas: hace falta un pago confirmado, y los pagos siguen
     apagados.
+
+### 2026-10-19 · «Entregas» en tiempo real y Nequi independiente de Mercado Pago (local, sin publicar)
+
+- **Pedidos del dueño:** (1) reportes organizados con referencias, comprobantes y estado del pedido
+  actualizado en la hoja («enviado / completado» → «Entregado con éxito»); (2) «REQUISITO CRÍTICO:
+  Nequi totalmente independiente de Mercado Pago», sin inventar APIs ni credenciales de Nequi y
+  sin modificar producción.
+- **«Entregas», una fila por pedido** (commit local `1730452`, migración 0020): la fila se
+  reescribe en cada cambio de estado; 19 columnas (`docs/google-sheets.md`).
+- **Hoja de Google** (Drive del dueño, el id no se escribe aquí): pestañas «Por entregar» y
+  «Reporte diario», bloque de entregas en «Resumen», «Léeme» reescrito; encabezado Q de
+  «Entregas» cambiado a «Operación de pago» y dos líneas del «Léeme» que nombraban solo a
+  Mercado Pago. Ninguna fila de pedido real (los pagos siguen apagados).
+- **Nequi** (`docs/pagos-nequi.md`, migración 0021, apagado por defecto):
+  - módulos: Nequi por transferencia (confirma solo el dueño en el panel), Nequi Push reservado y
+    deshabilitado (sin API), coordinador de pago del pedido y selector de métodos;
+  - Mercado Pago sin cambios de comportamiento: solo guardas para que sus pagos no afecten
+    pedidos de otro método y para no consultarle por pedidos Nequi;
+  - aislamiento en código, en la base de datos (disparadores
+    `orders_payment_method_guard` y `payments_provider_matches_order`, referencia única) y en la
+    configuración (`NEQUI_MANUAL_*`; un valor inválido apaga Nequi sin impedir el arranque);
+  - el celular Nequi del dueño solo sale de `NEQUI_MANUAL_PHONE` (lo escribe el dueño en Render),
+    solo al comprador de su propio pedido Nequi y mientras espera pago. No está en el código, en
+    `/api/config`, en correos ni en la hoja. En las pruebas: números ficticios;
+  - términos y privacidad: describen el pago por Nequi, los datos que se guardan (4 últimos
+    dígitos y referencias) y la devolución por Nequi.
+- **Evidencia local:**
+  - lint, formato, tipos y `drizzle-kit check`: OK;
+  - unitarias: 304/304;
+  - integración: 280/280 (28 archivos), con PostgreSQL y rol mínimo; incluye
+    `payment-isolation.test.ts` (23 casos, los 8 puntos del requisito);
+  - e2e: 69/69, incluida la compra Nequi en el navegador sin pasar por Mercado Pago;
+  - escáner de datos sensibles: 0 coincidencias.
+- **Sin publicar.** No se hizo push, no se cambiaron variables de Render ni se activó ningún pago.
+- **Pendiente de autorización del dueño:**
+  - publicar (push a la rama desplegada = despliegue en Render, con las migraciones 0020 y 0021);
+  - decidir publicar el celular Nequi y escribir `NEQUI_MANUAL_*` en Render;
+  - actualizar la regla de `CLAUDE.md` «Mercado Pago es la única autoridad de pago» y añadir
+    `NEQUI_MANUAL_ENABLED` a los interruptores que requieren autorización (requisito 15).
+- **NO VERIFICADO:**
+  - el formato exacto de la referencia de un movimiento en la app Nequi (el panel acepta de 4 a 40
+    letras, números o guiones);
+  - cualquier acceso oficial a una API de Nequi (no se usó ninguno);
+  - el funcionamiento en producción.

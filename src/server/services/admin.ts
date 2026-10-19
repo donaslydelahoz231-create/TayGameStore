@@ -4,6 +4,7 @@ import {
   auditEvents,
   blocklist,
   fulfillments,
+  nequiTransfers,
   notifications,
   ORDER_STATUSES,
   orders,
@@ -19,6 +20,8 @@ import { isUniqueViolation, loadOrderRelations, toPublicOrder, transitionOrder }
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { assignReceiptNumber } from './receipts.js';
 import { pendingReviewCount } from './reviews.js';
+import { nequiTransfersFor } from './nequi-view.js';
+import { pendingNequiCount } from './nequi-manual.js';
 import {
   deliverNotifications,
   enqueueOrderNotifications,
@@ -48,6 +51,8 @@ export const orderFilterSchema = z.object({
   /** Desde este día (incluido) y hasta este día (incluido), en hora de Colombia. */
   from: colombiaDay.optional(),
   to: colombiaDay.optional(),
+  /** Método de pago, o `nequi_pending`: transferencias Nequi avisadas sin revisar. */
+  payment: z.enum(['mercadopago', 'nequi_manual', 'nequi_pending']).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
 
@@ -71,6 +76,12 @@ export async function listOrdersForAdmin(
     filter.q
       ? sql`(${orders.publicRef} = ${filter.q.toUpperCase()} or ${orders.playerUid} = ${filter.q} or ${orders.customerEmail} = ${filter.q.toLowerCase()})`
       : undefined,
+    filter.payment === 'mercadopago' || filter.payment === 'nequi_manual'
+      ? eq(orders.paymentMethod, filter.payment)
+      : undefined,
+    filter.payment === 'nequi_pending'
+      ? sql`exists (select 1 from ${nequiTransfers} where ${nequiTransfers.orderId} = ${orders.id} and ${nequiTransfers.status} = 'REPORTED')`
+      : undefined,
   ].filter((condition) => condition !== undefined);
   const rows = await deps.db
     .select({
@@ -84,6 +95,7 @@ export async function listOrdersForAdmin(
       customerEmail: orders.customerEmail,
       totalCop: orders.totalCop,
       currency: orders.currency,
+      paymentMethod: orders.paymentMethod,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       expiresAt: orders.expiresAt,
@@ -126,9 +138,11 @@ export async function listOrdersForAdmin(
         }),
         /** Medio que eligió el cliente en la tienda (último intento de pago). */
         payMeans: chosenMeans.get(row.id) ?? null,
-        /** Pago que pagó el pedido según Mercado Pago (referencia de la transacción y medio). */
+        /** Pago que pagó el pedido según su proveedor (referencia de la transacción y medio). */
         providerPaymentId: orderPayment?.providerPaymentId ?? null,
         paymentMethodId: orderPayment?.paymentMethodId ?? null,
+        /** Transferencia Nequi avisada por el cliente y sin revisar. */
+        nequiPending: relation?.nequi.some((transfer) => transfer.status === 'REPORTED') ?? false,
       };
     }),
     page: filter.page,
@@ -193,6 +207,7 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
     },
     payments: paymentRows.map((p) => ({
       id: p.id,
+      provider: p.provider,
       providerPaymentId: p.providerPaymentId,
       status: p.status,
       providerStatus: p.providerStatus,
@@ -207,6 +222,9 @@ export async function getOrderForAdmin(deps: ServiceDeps, orderId: string) {
       lastSyncedAt: p.lastSyncedAt,
     })),
     attempts,
+    paymentMethod: order.paymentMethod,
+    /** Transferencias Nequi (avisos del cliente y revisiones del dueño), la más reciente primero. */
+    nequiTransfers: (await nequiTransfersFor(deps.db, [order.id])).get(order.id) ?? [],
     fulfillment: fulfillment[0] ?? null,
     history,
     /** PIN del inventario asignados a este pedido (solo administradores con doble factor). */
@@ -760,8 +778,13 @@ export async function alertSummary(deps: ServiceDeps) {
     deps.db.select({ n: count() }).from(notifications).where(eq(notifications.status, 'FAILED')),
     inventorySummary(deps),
   ]);
-  const reviewsPending = await pendingReviewCount(deps);
+  const [reviewsPending, nequiToVerify] = await Promise.all([
+    pendingReviewCount(deps),
+    pendingNequiCount(deps),
+  ]);
   return {
+    /** Transferencias Nequi que un cliente avisó y el dueño aún no revisa en su app Nequi. */
+    nequiToVerify,
     needsReview: review?.n ?? 0,
     needsRefund: needsRefund?.n ?? 0,
     paidWithoutDelivery: paidWaiting?.n ?? 0,

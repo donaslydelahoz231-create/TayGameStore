@@ -7,8 +7,10 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
 
 ## Qué hace y qué no
 
-- Agrega **una fila por evento** (pago confirmado, recarga entregada y reembolso) en **dos
-  pestañas** de la misma hoja.
+- Escribe en **dos pestañas** de la misma hoja:
+  - «Pedidos»: **una fila por evento** (pago confirmado, recarga entregada y reembolso), como
+    historial;
+  - «Entregas»: **una fila por pedido** que se reescribe con cada cambio de estado.
 - **«Pedidos»** (`GOOGLE_SHEETS_TAB`), sin datos personales:
   - Fecha (Colombia)
   - Referencia
@@ -20,39 +22,55 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
   - Estado de la recarga
   - Comprobante
   - Id del registro
-- **«Entregas»** (`GOOGLE_SHEETS_DELIVERY_TAB`): lo que hace falta para recargar. Pedido del
-  dueño (2026-10-19):
-  - Fecha (Colombia)
-  - Referencia
-  - Evento
-  - ID del jugador (como texto: conserva los ceros a la izquierda)
-  - Nickname confirmado (el de la búsqueda de ID o el que verificó el dueño)
-  - Confirmación del jugador: «Confirmado con la búsqueda de ID», «Confirmado por el cliente
-    (escribió su ID dos veces)» o «Verificado por el dueño y aceptado por el cliente». La nota
-    libre del operador nunca se copia.
-  - Servidor elegido (el que declaró el cliente)
-  - Región detectada (la que devolvió la búsqueda de ID o anotó el dueño)
-  - Paquete
-  - Total
-  - Estado del pago
-  - Estado de la recarga
-  - Comprobante
-  - Id del registro
+- **«Entregas»** (`GOOGLE_SHEETS_DELIVERY_TAB`): lo que hace falta para recargar, en tiempo real.
+  Pedido del dueño (2026-10-19):
+  - la fila del pedido aparece al confirmarse el pago y se **actualiza** (misma fila, buscada por
+    la referencia de la columna A) al tomarla, empezar, entregar, fallar, pasar a revisión o
+    reembolsar. Solo pedidos que llegaron a pagados;
+  - columna «Estado»: «⏳ Por entregar», «🔄 En proceso», «✅ Entregado con éxito», «⚠️ Requiere
+    revisión», «↩️ Reembolsado» o «✖️ Cancelado»;
+  - 19 columnas, en este orden:
+    1. Referencia
+    2. Estado
+    3. Pagado (Colombia)
+    4. Entregado (Colombia)
+    5. Minutos hasta la entrega
+    6. ID del jugador (como texto: conserva los ceros a la izquierda)
+    7. Nickname confirmado (el de la búsqueda de ID o el que verificó el dueño)
+    8. Confirmación del jugador: «Confirmado con la búsqueda de ID», «Confirmado por el cliente
+       (escribió su ID dos veces)» o «Verificado por el dueño y aceptado por el cliente». La nota
+       libre del operador nunca se copia.
+    9. Servidor elegido (el que declaró el cliente)
+    10. Región detectada (la que devolvió la búsqueda de ID o anotó el dueño)
+    11. Paquete
+    12. Total
+    13. Estado del pago
+    14. Estado de la recarga
+    15. Comprobante
+    16. Código de verificación (del comprobante)
+    17. Operación de pago: proveedor y número, p. ej. «Mercado Pago · 123…» o «Nequi
+        (transferencia) · referencia del movimiento»
+    18. Evidencia o motivo (de la entrega, el fallo o la revisión)
+    19. Actualizado (Colombia)
 - **Nunca** escribe correo, nombre del cliente ni PIN. «Pedidos» tampoco lleva UID ni nickname.
 - Las dos pestañas deben llamarse distinto: si coinciden, el servidor no arranca (así los datos
   del jugador nunca caen en «Pedidos»).
 - Cada pestaña va por su propio aviso de la cola (`sheets` y `sheets_delivery`): si una falla, la
   otra no se repite.
 - **No es la base de datos ni la autoridad de nada.** Editar o borrar una celda no cambia ningún
-  pedido: la tienda solo escribe en la hoja y nunca la lee.
+  pedido. De la hoja la tienda solo lee la columna A de «Entregas», para encontrar la fila del
+  pedido que reescribe; si la borras, la siguiente actualización la vuelve a crear al final.
 - Escribe con `valueInputOption=RAW`: ningún texto se interpreta como fórmula.
 - Va por la cola de avisos:
   - si Google falla, el pedido y el pago siguen igual;
   - la fila se reintenta (1, 5, 15 y 60 min);
   - tras 5 intentos queda como «Aviso sin enviar» en el panel.
 - La compra **no depende** de Google: la fila se escribe después de confirmar el pago.
-- **Duplicados:** cada evento se escribe una vez por pedido. Si Google tardara en responder y se
-  reintentara, la columna «Id del registro» permite detectar la fila repetida.
+- **Duplicados:** en «Pedidos», cada evento se escribe una vez por pedido; si Google tardara en
+  responder y se reintentara, la columna «Id del registro» permite detectar la fila repetida. En
+  «Entregas» hay una sola fila por pedido: la cola nunca envía dos actualizaciones del mismo
+  pedido a la vez y la última siempre lleva el estado más reciente (`order_sheet_sync`,
+  migración 0020).
 
 ## Cómo activarlo (dueño)
 
@@ -61,7 +79,8 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
 3. Crea una **llave JSON**. El archivo descargado contiene `client_email` y `private_key`.
    **Guárdalo fuera del repositorio** y bórralo cuando termines.
 4. Crea una hoja de cálculo privada con las pestañas **Pedidos** y **Entregas**. En la fila 1 de
-   cada una escribe los encabezados de su lista de columnas de arriba.
+   cada una escribe los encabezados de su lista de columnas de arriba (la fila 1 nunca se
+   reescribe).
 5. Comparte la hoja **solo** con el `client_email` de la cuenta de servicio, como **Editor**.
    No la publiques ni la compartas con enlace.
 6. En Render → Environment (variables protegidas), carga:

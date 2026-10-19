@@ -1,13 +1,19 @@
 # Pagos en Colombia: Mercado Pago, Wompi y Nequi Negocios (evaluación)
 
-**Decisión vigente:** Mercado Pago es la única autoridad de pago (`CLAUDE.md`). Esta evaluación
-**no implementa** otra pasarela. Cambiarla es una decisión del dueño.
+**Decisión vigente (actualizada el 2026-10-19 por el dueño):** dos métodos independientes.
+
+- **Mercado Pago** confirma sus propios pagos (webhook firmado + consulta a su API).
+- **Nequi por transferencia** lo confirma solo el dueño, al ver el movimiento en su app Nequi; está
+  apagado por defecto y no usa nada de Mercado Pago. Guía y garantías de aislamiento:
+  [`pagos-nequi.md`](pagos-nequi.md).
+
+Esta evaluación **no implementa** Wompi ni una API de Nequi. Cambiarlo es una decisión del dueño.
 
 ## Lo que ya funciona con Mercado Pago (comprobado en el código y en producción)
 
 - **Checkout Pro** con el SDK oficial `mercadopago`.
-  - Medios en la tienda: Tarjeta, Nequi (vía PSE: el cliente elige el banco Nequi y aprueba en su
-    app), PSE, Efecty y saldo de Mercado Pago.
+  - Medios en la tienda: Tarjeta, PSE, Efecty y saldo de Mercado Pago. Nequi ya no se ofrece a
+    través de Mercado Pago: es un método aparte (`pagos-nequi.md`).
   - En producción se crearon 10 preferencias reales (`payment_attempts`).
   - **Ningún pago aprobado todavía.**
 - **Webhook:**
@@ -70,8 +76,9 @@ Antes de implementar hay que leerlos en la documentación oficial vigente.
   - que una persona natural pueda obtener credenciales de API propias de Nequi;
   - que un enlace o QR de Nequi Negocios se pueda crear y confirmar automáticamente desde un
     servidor.
-- Una cuenta Nequi personal **no** es una integración: un pago recibido allí no lo puede confirmar
-  la tienda de forma verificable, así que **no se usa** como confirmación.
+- Una cuenta Nequi personal **no** es una integración: la tienda no puede confirmar sola un pago
+  recibido allí. Por eso, en Nequi por transferencia, **solo el dueño** confirma, después de verlo
+  en su app; el aviso del cliente o una captura nunca confirman (`pagos-nequi.md`).
 
 ## Recomendación
 

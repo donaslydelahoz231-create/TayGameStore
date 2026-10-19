@@ -29,7 +29,9 @@ describe('función de Vercel', () => {
   it('atiende la API como el servidor normal', async () => {
     const res = await fetch(`${base}/api/config`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ paymentMethod: 'mercadopago' });
+    expect(await res.json()).toMatchObject({
+      paymentMethods: { mercadopago: false, nequiManual: false, nequiPush: false },
+    });
   });
 
   it('sin base de datos, /api/ready responde 503 (no se cae)', async () => {

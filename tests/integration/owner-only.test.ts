@@ -49,6 +49,11 @@ const APPROVED_ADMIN_ROUTES = [
   'POST /api/admin/mfa/setup',
   'POST /api/admin/mfa/verify',
   'POST /api/admin/orders/:id/fulfillment',
+  // Nequi por transferencia (pedido del dueño, 2026-10-19): confirmar lo que el dueño ve en su app
+  // Nequi, rechazar un aviso o registrar una devolución. Ninguna cambia la cuenta que recibe.
+  'POST /api/admin/orders/:id/nequi/confirm',
+  'POST /api/admin/orders/:id/nequi/refund',
+  'POST /api/admin/orders/:id/nequi/reject',
   // Notas internas del dueño (misión de pedidos manuales, 2026-10-18): solo agregan historial.
   'POST /api/admin/orders/:id/note',
   'POST /api/admin/orders/:id/reconcile',
@@ -84,7 +89,10 @@ describe('solo el propietario administra; el dinero no se puede desviar', () => 
       'withdraw',
       'retiro',
       'bank',
-      'nequi',
+      'account',
+      'cuenta',
+      'phone',
+      'celular',
       'admins',
       'users',
       'roles',
@@ -92,6 +100,16 @@ describe('solo el propietario administra; el dinero no se puede desviar', () => 
     ]) {
       expect(tree, word).not.toContain(word);
     }
+    // Nequi solo tiene estas rutas: elegirlo, avisar una transferencia, y que el dueño confirme,
+    // rechace o registre una devolución. La cuenta Nequi que recibe el dinero solo se configura
+    // en el hosting (NEQUI_MANUAL_PHONE): ninguna ruta la lee aparte ni la cambia.
+    expect([...new Set(h.routes.filter((r) => r.toLowerCase().includes('nequi')))].sort()).toEqual([
+      'POST /api/admin/orders/:id/nequi/confirm',
+      'POST /api/admin/orders/:id/nequi/refund',
+      'POST /api/admin/orders/:id/nequi/reject',
+      'POST /api/orders/:ref/nequi',
+      'POST /api/orders/:ref/nequi/report',
+    ]);
   });
 
   it('las respuestas públicas nunca incluyen las credenciales de Mercado Pago', async () => {

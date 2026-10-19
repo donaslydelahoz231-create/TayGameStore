@@ -17,6 +17,7 @@ import { consumeAccessFragment, renderTrackAccess } from './features/order-acces
 import { renderPins } from './features/pins.js';
 import { loadReviews, renderDeliveryTime, renderReviewBox } from './features/reviews.js';
 import { renderPayMeansHint } from './features/pay-means.js';
+import { renderNequi } from './features/nequi.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
 import { renderSupport } from './features/support.js';
@@ -37,6 +38,7 @@ registerRenderers([
   renderDrawer,
   renderInvoice,
   renderPayMeansHint,
+  renderNequi,
   renderChecks,
   renderTrackAccess,
   renderPins,

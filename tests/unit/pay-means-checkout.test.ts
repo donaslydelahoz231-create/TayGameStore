@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { excludedPaymentTypes } from '../../src/server/integrations/payments/gateway.js';
+import {
+  excludedPaymentTypes,
+  MP_PAY_MEANS,
+} from '../../src/server/integrations/payments/gateway.js';
 import { MercadoPagoPaymentGateway } from '../../src/server/integrations/payments/mercadopago.js';
 
 type CreateArgs = { body: Record<string, unknown>; requestOptions: { idempotencyKey: string } };
@@ -43,12 +46,9 @@ describe('medio de pago elegido en la tienda', () => {
     expect(excludedPaymentTypes(undefined)).toEqual([]);
   });
 
-  it('«Nequi» abre solo PSE (sin tarjetas ni efectivo): se paga eligiendo el banco Nequi', () => {
-    expect(excludedPaymentTypes('nequi')).toEqual(excludedPaymentTypes('pse'));
-    expect(excludedPaymentTypes('nequi')).not.toContain('bank_transfer');
-    for (const type of ['credit_card', 'debit_card', 'prepaid_card', 'ticket', 'atm']) {
-      expect(excludedPaymentTypes('nequi')).toContain(type);
-    }
+  it('Nequi ya no es un medio de Mercado Pago: es un método de pago independiente', () => {
+    expect(MP_PAY_MEANS).toEqual(['tarjeta', 'pse', 'efecty', 'saldo']);
+    expect(MP_PAY_MEANS).not.toContain('nequi');
   });
 
   it('con «tarjeta» la preferencia oculta efectivo y PSE', async () => {

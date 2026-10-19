@@ -76,6 +76,23 @@ export const FREE_FIRE_SERVER_LABELS: Record<FreeFireServer, string> = {
   no_seguro: 'No está seguro (confirmar antes de entregar)',
 };
 
+/**
+ * Método de pago de un pedido. Cada uno es un proveedor independiente, con su propio flujo, su
+ * propia configuración y su propia confirmación; solo comparten el pedido:
+ * - `mercadopago`: Checkout Pro; lo confirma Mercado Pago (webhook firmado + consulta a su API).
+ * - `nequi_manual`: transferencia a la cuenta Nequi del dueño; la confirma solo el dueño en el
+ *   panel, después de ver el movimiento en su app Nequi.
+ * - `nequi_push`: API oficial de Nequi. Deshabilitado: no hay acceso oficial ni credenciales.
+ * Se fija al elegir cómo pagar y no cambia en silencio (`changePaymentMethod`). Un pago solo
+ * puede ser el pago del pedido si su proveedor es el método del pedido (trigger
+ * `payments_provider_matches_order`, migración 0021).
+ */
+export const PAYMENT_METHODS = ['mercadopago', 'nequi_manual', 'nequi_push'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const NEQUI_TRANSFER_STATUSES = ['REPORTED', 'CONFIRMED', 'REJECTED'] as const;
+export type NequiTransferStatus = (typeof NEQUI_TRANSFER_STATUSES)[number];
+
 export const ATTEMPT_STATUSES = ['CREATING', 'OPEN', 'CLOSED', 'EXPIRED', 'FAILED'] as const;
 export type AttemptStatus = (typeof ATTEMPT_STATUSES)[number];
 
@@ -374,6 +391,8 @@ export const orders = pgTable(
      * Junto con el código de verificación permite al dueño comprobar que un comprobante es real.
      */
     receiptNumber: integer('receipt_number'),
+    /** Método de pago elegido (PAYMENT_METHODS); null mientras el cliente no elige. */
+    paymentMethod: text('payment_method').$type<PaymentMethod>(),
     ipHash: text('ip_hash'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -399,6 +418,10 @@ export const orders = pgTable(
       sql`${t.playerServer} is null or ${inList('player_server', FREE_FIRE_SERVERS)}`,
     ),
     check('orders_currency_check', sql`${t.currency} = 'COP'`),
+    check(
+      'orders_payment_method_check',
+      sql`${t.paymentMethod} is null or ${inList('payment_method', PAYMENT_METHODS)}`,
+    ),
     check(
       'orders_totals_check',
       sql`${t.subtotalCop} > 0 and ${t.discountCop} >= 0 and ${t.totalCop} = ${t.subtotalCop} - ${t.discountCop} and ${t.totalCop} > 0 and ${t.totalCop} <= 1000000`,
@@ -519,6 +542,74 @@ export const payments = pgTable(
     index('payments_order_idx').on(t.orderId),
     index('payments_status_idx').on(t.status),
     check('payments_status_check', inList('status', PAYMENT_STATUSES)),
+    check('payments_provider_check', inList('provider', PAYMENT_METHODS)),
+  ],
+);
+
+/**
+ * Transferencias a la cuenta Nequi del dueño (método `nequi_manual`), separadas de los pagos de
+ * Mercado Pago. El cliente puede avisar que transfirió (4 últimos dígitos de su Nequi y, si
+ * quiere, la referencia de su comprobante); solo el dueño confirma, después de ver el movimiento
+ * en su app Nequi, con la referencia de ese movimiento. Confirmar crea el pago `nequi_manual` del
+ * pedido. Una referencia de Nequi confirma un solo pedido. Nunca se guarda el celular completo.
+ */
+export const nequiTransfers = pgTable(
+  'nequi_transfers',
+  {
+    id: id(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id),
+    status: text('status').$type<NequiTransferStatus>().notNull(),
+    /** 4 últimos dígitos del Nequi desde el que el cliente dice que transfirió. */
+    senderLast4: text('sender_last4'),
+    /** Referencia del comprobante que vio el cliente (opcional, solo ayuda a buscar). */
+    customerReference: text('customer_reference'),
+    reportedAt: timestamp('reported_at', { withTimezone: true }),
+    /** Referencia del movimiento que el dueño vio en su app Nequi (al confirmar). */
+    nequiReference: text('nequi_reference'),
+    /** Monto que el dueño vio recibido (al confirmar). */
+    amountCop: cop('amount_cop'),
+    paymentId: uuid('payment_id').references(() => payments.id),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    rejectionReason: text('rejection_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index('nequi_transfers_order_idx').on(t.orderId),
+    index('nequi_transfers_status_idx').on(t.status, t.reportedAt),
+    index('nequi_transfers_payment_idx')
+      .on(t.paymentId)
+      .where(sql`${t.paymentId} is not null`),
+    index('nequi_transfers_reviewed_by_idx')
+      .on(t.reviewedBy)
+      .where(sql`${t.reviewedBy} is not null`),
+    // Un solo aviso abierto por pedido; una referencia de Nequi confirma un solo pedido.
+    uniqueIndex('nequi_transfers_one_open_per_order')
+      .on(t.orderId)
+      .where(sql`${t.status} = 'REPORTED'`),
+    uniqueIndex('nequi_transfers_reference_key')
+      .on(t.nequiReference)
+      .where(sql`${t.status} = 'CONFIRMED'`),
+    check('nequi_transfers_status_check', inList('status', NEQUI_TRANSFER_STATUSES)),
+    check(
+      'nequi_transfers_last4_check',
+      sql`${t.senderLast4} is null or ${t.senderLast4} ~ '^[0-9]{4}$'`,
+    ),
+    check(
+      'nequi_transfers_references_check',
+      sql`(${t.customerReference} is null or ${t.customerReference} ~ '^[A-Za-z0-9-]{4,40}$') and (${t.nequiReference} is null or ${t.nequiReference} ~ '^[A-Za-z0-9-]{4,40}$')`,
+    ),
+    check(
+      'nequi_transfers_confirmed_check',
+      sql`${t.status} <> 'CONFIRMED' or (${t.nequiReference} is not null and ${t.amountCop} > 0 and ${t.paymentId} is not null and ${t.reviewedAt} is not null)`,
+    ),
+    check(
+      'nequi_transfers_rejected_check',
+      sql`${t.status} <> 'REJECTED' or (${t.rejectionReason} is not null and ${t.reviewedAt} is not null)`,
+    ),
   ],
 );
 
@@ -827,6 +918,8 @@ export const NOTIFICATION_KINDS = [
    * vuelve a encolar con cada cambio de estado y se reescribe con el estado actual (migración 0020).
    */
   'order_sheet_sync',
+  /** Al dueño: un cliente avisa que transfirió por Nequi; hay que verificarlo en la app Nequi. */
+  'nequi_reported_owner',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 /**

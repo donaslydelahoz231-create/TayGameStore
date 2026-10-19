@@ -9,16 +9,20 @@ import { runtime, state } from '../state.js';
 import { storeOrderToken } from '../storage.js';
 import { toast } from '../ui.js';
 import { loadCatalog } from './catalog.js';
-import { chosenPayMeans } from './pay-means.js';
+import { chosenMethod, chosenMpMeans, chosenPayMeans } from './pay-means.js';
+import { changePaymentMethod, startNequi } from './nequi.js';
 import { lookupExpired, verifyPlayer } from './player.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
-// Checkout con Mercado Pago (Checkout Pro):
+// Checkout: el pedido sigue SOLO el flujo del método elegido.
 //   1. "Pagar": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
-//   2. Si el cliente ya confirmó su ID, en el mismo paso el servidor crea la preferencia y se
-//      redirige a Mercado Pago (como en las tiendas de recargas: un solo botón).
+//   2. Mercado Pago: si el cliente ya confirmó su ID, en el mismo paso el servidor crea la
+//      preferencia y se redirige a Mercado Pago (un solo botón, como en las tiendas de recargas).
+//      Nequi: el pedido queda con Nequi y se muestran el celular, el total y la referencia; el
+//      cliente transfiere desde su app y avisa. Nequi nunca pasa por Mercado Pago.
 //   3. Con verificación del equipo, el cliente confirma su cuenta y "Pagar" lleva al cobro.
-// El navegador nunca decide que algo está pagado: lo confirma el servidor con Mercado Pago.
+// El navegador nunca decide que algo está pagado: lo confirma el servidor con el proveedor del
+// pedido (Mercado Pago, o el dueño al ver la transferencia Nequi).
 
 function newCheckoutKey() {
   runtime.checkoutKey = uuid();
@@ -66,8 +70,7 @@ function missingRequirement() {
   if (!state.customerName.trim()) return ['Escribe el nombre del cliente.', 'factura'];
   if (!EMAIL_PATTERN.test(state.customerEmail.trim()))
     return ['Escribe un correo válido para el pedido.', 'factura'];
-  if (!chosenPayMeans())
-    return ['Elige cómo pagar: tarjeta, PSE, Efecty o saldo de Mercado Pago.', 'factura'];
+  if (!chosenPayMeans()) return ['Elige cómo pagar.', 'factura'];
   if (!$('acceptTerms').checked) return ['Debes aceptar los términos de la compra.', 'factura'];
   return null;
 }
@@ -116,7 +119,10 @@ async function createOrder() {
     resetCheckoutKey();
     setCurrentOrder(j.order);
     startPolling();
-    if (j.order.status === 'AWAITING_PAYMENT' && j.order.payment?.canPay) {
+    if (j.order.status === 'AWAITING_PAYMENT' && chosenMethod() === 'nequi_manual') {
+      runtime.orderBusy = false;
+      await startNequi(j.order);
+    } else if (j.order.status === 'AWAITING_PAYMENT' && j.order.payment?.canPay) {
       // Como en las tiendas de recargas: un solo paso, del pedido directo al cobro.
       toast('Pedido creado. Te llevamos a Mercado Pago para pagar…', 'good');
       runtime.orderBusy = false;
@@ -192,6 +198,23 @@ export async function preparePayment() {
     return;
   }
   if (order.status === 'AWAITING_PAYMENT') {
+    const method = order.payment.method;
+    const wanted = chosenMethod();
+    if (method === 'nequi_manual') {
+      // Pedido de Nequi: sigue con Nequi, salvo que el cliente pida cambiar de forma explícita.
+      if (wanted === 'mercadopago') {
+        if (await changePaymentMethod(order, 'mercadopago')) await goToCheckout(state.currentOrder);
+        return;
+      }
+      scrollToSection('factura');
+      setTimeout(() => $('nequiBox')?.focus({ preventScroll: true }), 450);
+      return;
+    }
+    if (wanted === 'nequi_manual') {
+      if (method === 'mercadopago' && !(await changePaymentMethod(order, 'nequi_manual'))) return;
+      await startNequi(state.currentOrder);
+      return;
+    }
     if (!order.payment.canPay) {
       toast('Los pagos no están disponibles en este momento. Tu pedido sigue guardado.', 'bad');
       return;
@@ -209,7 +232,7 @@ async function goToCheckout(order) {
   renderAll();
   try {
     // El medio elegido hace que Mercado Pago abra directo ese formulario (tarjeta, PSE…).
-    const payMeans = chosenPayMeans();
+    const payMeans = chosenMpMeans();
     const j = await api('/api/orders/' + encodeURIComponent(order.reference) + '/pay', {
       method: 'POST',
       ...(payMeans ? { body: { payMeans } } : {}),

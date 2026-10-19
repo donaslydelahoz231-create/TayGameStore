@@ -12,6 +12,7 @@ import {
   products,
   type FreeFireServer,
   type OrderStatus,
+  type PaymentMethod,
 } from '../db/schema.js';
 import { computeTotals, effectivePrice, weekendWindow } from '../domain/pricing.js';
 import { canTransitionOrder, OPEN_ORDER_STATUSES } from '../domain/state-machines.js';
@@ -31,6 +32,8 @@ import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 import { providerCovers, providerSkus, withPromoFloor } from './topup-coverage.js';
 import { receiptVerificationCode } from './receipts.js';
+import { nequiCustomerView, nequiTransfersFor, type NequiTransferView } from './nequi-view.js';
+import { paymentMethodAvailability } from './payment-methods.js';
 
 export type OrderRow = typeof orders.$inferSelect;
 
@@ -134,7 +137,21 @@ export interface PublicOrder {
     nickname: string | null;
     region: string | null;
   };
-  payment: { status: string | null; canPay: boolean; checkoutAvailable: boolean };
+  payment: {
+    status: string | null;
+    /** Método elegido para este pedido (null: aún no elige). */
+    method: PaymentMethod | null;
+    /** Puede abrir Mercado Pago (solo pedidos sin método o de Mercado Pago). */
+    canPay: boolean;
+    /** Mercado Pago está disponible en la tienda. */
+    checkoutAvailable: boolean;
+    /** Métodos que la tienda ofrece ahora, cada uno según su propia configuración. */
+    methods: Record<PaymentMethod, boolean>;
+    /** Puede cambiar de método con el procedimiento explícito (sin pagos registrados). */
+    canChangeMethod: boolean;
+    /** Instrucciones y estado de la transferencia (solo pedidos Nequi). */
+    nequi: ReturnType<typeof nequiCustomerView>;
+  };
   /**
    * Estado del pago y estado de la recarga, separados (derivados del estado guardado en el
    * servidor; ver domain/order-states.ts). El pago confirmado no implica la recarga entregada.
@@ -155,6 +172,8 @@ export interface OrderRelations {
   >[];
   fulfillment: Pick<typeof fulfillments.$inferSelect, 'status' | 'deliveredAt'> | undefined;
   pins: number;
+  /** Transferencias Nequi del pedido (la más reciente primero). */
+  nequi: NequiTransferView[];
 }
 
 /**
@@ -166,11 +185,14 @@ export async function loadOrderRelations(
   orderIds: readonly string[],
 ): Promise<Map<string, OrderRelations>> {
   const relations = new Map<string, OrderRelations>(
-    orderIds.map((id) => [id, { items: [], payments: [], fulfillment: undefined, pins: 0 }]),
+    orderIds.map((id) => [
+      id,
+      { items: [], payments: [], fulfillment: undefined, pins: 0, nequi: [] },
+    ]),
   );
   if (!orderIds.length) return relations;
   const ids = [...orderIds];
-  const [itemRows, paymentRows, fulfillmentRows, pinCounts] = await Promise.all([
+  const [itemRows, paymentRows, fulfillmentRows, pinCounts, transfers] = await Promise.all([
     db
       .select()
       .from(orderItems)
@@ -197,7 +219,12 @@ export async function loadOrderRelations(
       .from(fulfillments)
       .where(inArray(fulfillments.orderId, ids)),
     deliveredPinCounts(db, ids),
+    nequiTransfersFor(db, ids),
   ]);
+  for (const [orderId, rows] of transfers) {
+    const entry = relations.get(orderId);
+    if (entry) entry.nequi = rows;
+  }
   for (const [orderId, n] of pinCounts) {
     const entry = relations.get(orderId);
     if (entry) entry.pins = n;
@@ -231,6 +258,9 @@ function buildPublicOrder(
   const paymentStatus =
     orderPayments.find((p) => p.isOrderPayment)?.status ?? orderPayments[0]?.status ?? null;
   const fulfillment = relations?.fulfillment;
+  const methods = paymentMethodAvailability(deps);
+  const awaitingPayment =
+    order.status === 'AWAITING_PAYMENT' && order.expiresAt.getTime() > deps.now().getTime();
   return {
     reference: order.publicRef,
     status: order.status,
@@ -262,12 +292,19 @@ function buildPublicOrder(
     },
     payment: {
       status: paymentStatus,
+      method: order.paymentMethod ?? null,
       canPay:
-        order.status === 'AWAITING_PAYMENT' &&
-        order.expiresAt.getTime() > deps.now().getTime() &&
-        deps.config.flags.paymentsEnabled &&
-        deps.gateway !== undefined,
-      checkoutAvailable: deps.config.flags.paymentsEnabled && deps.gateway !== undefined,
+        awaitingPayment &&
+        methods.mercadopago &&
+        (order.paymentMethod === null || order.paymentMethod === 'mercadopago'),
+      checkoutAvailable: methods.mercadopago,
+      methods,
+      canChangeMethod:
+        awaitingPayment &&
+        order.paymentMethod !== null &&
+        orderPayments.length === 0 &&
+        !relations?.nequi.some((transfer) => transfer.status === 'REPORTED'),
+      nequi: nequiCustomerView(deps, order, relations?.nequi[0]),
     },
     states: orderStates({
       status: order.status,

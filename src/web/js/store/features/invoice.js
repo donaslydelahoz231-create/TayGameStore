@@ -117,6 +117,18 @@ function payButtonState() {
       note: verified ? 'Revisa el jugador y confírmalo' : 'El equipo está verificando el jugador',
     };
   }
+  if (order.status === 'AWAITING_PAYMENT' && order.payment.method === 'nequi_manual') {
+    // Pedido de Nequi: el botón lleva a las instrucciones; nunca abre Mercado Pago.
+    const reported = order.payment.nequi?.transfer?.status === 'REPORTED';
+    return {
+      text: reported ? 'Transferencia por verificar' : 'Ver cómo pagar por Nequi',
+      enabled: !runtime.paymentBusy,
+      note: reported
+        ? 'Verificamos tu transferencia en nuestra cuenta Nequi. No transfieras de nuevo.'
+        : 'Transfiere desde tu app Nequi y pulsa «Ya transferí»',
+      ok: false,
+    };
+  }
   if (paymentInProgress(order)) {
     // Efecty o PSE pueden tardar en acreditarse: avisar antes de abrir otro pago.
     return {
@@ -176,10 +188,16 @@ export function renderInvoice() {
   const stateEl = $('invoiceState');
   if (stateEl) stateEl.className = order ? 'ready' : 'pending';
   const means = chosenPayMeans();
+  const orderMethod =
+    order?.payment?.method === 'nequi_manual'
+      ? 'Nequi'
+      : order?.payment?.method === 'mercadopago' || !means || means !== 'nequi_manual'
+        ? 'Mercado Pago'
+        : 'Nequi';
   setText(
     'invoiceMethod',
     order
-      ? 'Mercado Pago · ' + humanStatus(order)
+      ? orderMethod + ' · ' + humanStatus(order)
       : means
         ? PAY_MEANS[means].split(' (')[0]
         : 'Pendiente',

@@ -15,6 +15,7 @@ import { orders, products, sessions, users } from '../../src/server/db/schema.js
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-example.js';
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
+import { confirmNequiTransfer } from '../../src/server/services/nequi-manual.js';
 import { addInventory, addInventorySchema } from '../../src/server/services/inventory.js';
 import { listReviewsForAdmin, moderateReview } from '../../src/server/services/reviews.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
@@ -189,6 +190,35 @@ app.post('/__e2e__/moderate-reviews', async (request) => {
     await moderateReview(deps, review.id, { action }, { type: 'admin', userId: operator.id });
   }
   return { moderated: all.length };
+});
+
+/**
+ * Enciende o apaga Nequi por transferencia (datos ficticios). Apagado por defecto: así el resto de
+ * pruebas y las capturas siguen viendo la tienda en «modo prueba» de Mercado Pago.
+ */
+app.post('/__e2e__/nequi', async (request) => {
+  const { enabled } = request.body as { enabled: boolean };
+  config.nequi.manual = enabled
+    ? { phone: '3001234567', holder: 'Tienda de Pruebas', reviewHours: 24 }
+    : undefined;
+  return { ok: true };
+});
+
+/** El dueño confirma la transferencia Nequi del pedido (como el botón del panel). */
+app.post('/__e2e__/confirm-nequi', async (request) => {
+  const { ref } = request.body as { ref: string };
+  const id = await orderIdByRef(ref);
+  const [row] = await database.db
+    .select({ total: orders.totalCop })
+    .from(orders)
+    .where(eq(orders.id, id));
+  await confirmNequiTransfer(
+    deps,
+    id,
+    { nequiReference: `ME2E${Date.now()}`, amountCop: row?.total ?? 0 },
+    { type: 'admin', userId: operator.id },
+  );
+  return { ok: true };
 });
 
 /** Cambia el modo de verificación del jugador (los workers de Playwright van de uno en uno). */

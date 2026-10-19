@@ -508,6 +508,55 @@ test.describe('compra completa (invitado)', () => {
     await expect(page.locator('#historyList')).toContainText('Recarga completada');
   });
 
+  test('Nequi: transferencia directa sin pasar por Mercado Pago; el dueño la confirma', async ({
+    page,
+  }) => {
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    expect((await operator(page, 'nequi', { enabled: true })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      // Dos grupos separados: Mercado Pago y Nequi (cada uno con su propio flujo).
+      await expect(page.locator('#payProviderMp')).toBeVisible();
+      await expect(page.locator('#payProviderNequi')).toBeVisible();
+      await expect(page.locator('#faqNequi')).not.toHaveAttribute('hidden', '');
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567855');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567855');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567855 confirmado ✓');
+      await page.locator('#customerName').fill('Cliente Nequi');
+      await page.locator('#customerEmail').fill('nequi-e2e@example.com');
+      await page.locator('#payMeansNequi').check();
+      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi');
+      await expect(page.locator('#payMeansHint')).toContainText('Sin Mercado Pago');
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      // Nunca se abre Mercado Pago: quedan las instrucciones de la transferencia.
+      await expect(page.locator('#nequiBox')).toBeVisible();
+      expect(page.url()).not.toContain('mercadopago');
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
+      await expect(page.locator('#nequiPhone')).toHaveText('3001234567');
+      await expect(page.locator('#nequiAmount')).toHaveText('$ 3.800 COP');
+      await expect(page.locator('#nequiRef')).toHaveText(ref);
+      // El aviso del cliente no es un pago: el pedido sigue esperando la verificación.
+      await page.locator('#nequiLast4').fill('4321');
+      await page.locator('#nequiReportBtn').click();
+      await expect(page.locator('#nequiStatus')).toContainText('Recibimos tu aviso');
+      await expect(page.locator('#invoiceState')).toHaveText('Transferencia Nequi por verificar');
+      expect((await operator(page, 'confirm-nequi', { ref })).ok()).toBe(true);
+      await page.locator('#refreshOrderBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      await expect(page.locator('#nequiBox')).toBeHidden();
+      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi · Pago confirmado');
+    } finally {
+      await operator(page, 'nequi', { enabled: false });
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
   test('estilo LootBar: ID → lo repito y confirmo → pedido listo → pago → entrega, sin esperar al equipo', async ({
     page,
   }) => {
@@ -539,10 +588,9 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#customerEmail').fill('directo-e2e@example.com');
       // El medio de pago se elige a la vista (como en otras tiendas de recargas).
       await expect(page.locator('#payBtn')).toBeEnabled();
-      // Nequi va aparte de las tarjetas y explica cómo se paga (PSE → banco «Nequi»).
-      await page.locator('#payMeansNequi').check();
-      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi');
-      await expect(page.locator('#payMeansHint')).toContainText('elige «Nequi»');
+      // Nequi es un método aparte (sin Mercado Pago): sin activarlo, la tienda no lo ofrece.
+      await expect(page.locator('#payProviderNequi')).toBeHidden();
+      await expect(page.locator('#faqNequi')).toBeHidden();
       await page.getByRole('radio', { name: /PSE/ }).check();
       await expect(page.locator('#invoiceMethod')).toHaveText('PSE');
       await expect(page.locator('#payMeansHint')).toContainText('eliges tu banco');

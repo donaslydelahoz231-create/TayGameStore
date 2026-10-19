@@ -320,7 +320,11 @@ describe('Google Sheets: fila de «Entregas»', () => {
     totalCop: 3800,
     items: [{ name: '100 + 10 Diamantes', quantity: 2, unitPriceCop: 1900, lineTotalCop: 3800 }],
     receipt: { number: 12, verificationCode: 'ABCD-EFGH-JKLM' },
-    payment: { providerPaymentId: '123456789012', approvedAt: new Date('2026-10-18T17:05:00Z') },
+    payment: {
+      provider: 'mercadopago',
+      providerPaymentId: '123456789012',
+      approvedAt: new Date('2026-10-18T17:05:00Z'),
+    },
     playerUid: '0123456789',
     nickname: 'JugadorPro',
     region: 'CO',
@@ -355,7 +359,7 @@ describe('Google Sheets: fila de «Entregas»', () => {
       'Pendiente',
       '000012',
       'ABCD-EFGH-JKLM',
-      '123456789012',
+      'Mercado Pago · 123456789012',
       '',
       '2026-10-18 12:20',
     ]);
