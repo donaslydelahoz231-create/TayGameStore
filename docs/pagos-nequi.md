@@ -59,7 +59,9 @@ Tres capas; cada una basta por sí sola para impedir una confirmación cruzada.
 3. Transfiere y escribe los **4 últimos dígitos** de su Nequi (y, si quiere, la referencia de su
    comprobante). Pulsa «Ya transferí». El aviso **no es un pago**: el dueño recibe un correo
    «Transferencia Nequi por verificar» y el pedido se mantiene abierto `NEQUI_MANUAL_REVIEW_HOURS`
-   horas (24 por defecto) para verificarlo.
+   horas (24 por defecto) para verificarlo. Si corrige su aviso, solo se actualizan los datos: no
+   se te vuelve a escribir ni se alarga el plazo (así nadie puede inundar tu correo ni dejar un
+   pedido abierto sin fin). Tras un rechazo tuyo, un aviso nuevo sí te escribe otra vez.
 4. Si se equivocó de método y **no pagó** con el anterior, puede cambiar de forma explícita
    («Pagar con Mercado Pago en su lugar»), con confirmación. El cambio se niega si ya hay un pago
    o si ya avisó una transferencia; la preferencia vieja de Mercado Pago se cierra y un pago tardío
@@ -136,7 +138,7 @@ aplicarlo, idempotencia y pruebas de aislamiento iguales a las de `nequi_manual`
 
 ## Pruebas
 
-- `tests/integration/payment-isolation.test.ts` (23 casos): los 8 puntos de aislamiento, con datos
+- `tests/integration/payment-isolation.test.ts` (24 casos): los 8 puntos de aislamiento, con datos
   ficticios — Nequi no llama a Mercado Pago; Mercado Pago no toca Nequi; webhook de Mercado Pago
   no confirma un pedido Nequi (ni con SQL directo); Nequi no confirma un pedido de Mercado Pago;
   sin variables (o mal escritas) Mercado Pago sigue; errores de Nequi no afectan a Mercado Pago y

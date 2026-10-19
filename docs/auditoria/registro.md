@@ -1196,3 +1196,49 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     letras, números o guiones);
   - cualquier acceso oficial a una API de Nequi (no se usó ninguno);
   - el funcionamiento en producción.
+
+### 2026-10-19 · Ronda de mantenimiento, fallos de dependencias y correcciones (local, sin publicar)
+
+- **Pedido del dueño:** «Ejecuta nuevamente y arregla los fallos y errores y vulnerabilidades y
+  solucionalo profundamente».
+- **Producción (solo lectura, 18:30 UTC aprox.):**
+  - Render: despliegue activo `d9b7fee` (`live`); sin registros error/warn/fatal desde las 12:50
+    UTC; el arranque dice `correo: false` y `hojaGoogle: false`;
+  - GitHub Actions: CI, CodeQL y «Production smoke check» de `d9b7fee` en verde; flujos
+    programados («Diagnóstico diario», «Vigilancia y autorreparación», «Mantener la tienda
+    activa») en verde; sin issues abiertos con la etiqueta «incidente»;
+  - Neon: 0 pedidos por entregar, 0 en revisión, 0 pagos para reembolso, 0 reseñas pendientes, 0
+    avisos fallidos; 13 pedidos en total, los últimos dos de hoy vencidos sin pago; consumo 35,5
+    CU-h en 13 días (proyección ≈ 69 CU-h al cierre del periodo, bajo el límite de 100);
+  - hoja de Google: permisos solo del dueño y de la cuenta de servicio; sin conectar (variables
+    pendientes en Render).
+- **Vulnerabilidades:** `npm audit` 0 (ninguna severidad). PR de dependencias de producción
+  (Dependabot, 4 paquetes): todas las comprobaciones en verde. PR de desarrollo (8 paquetes): e2e
+  en rojo en los 3 navegadores.
+- **Causa del rojo del PR de desarrollo:** axe-core 4.14 marca como grave
+  `label-content-name-mismatch` (WCAG 2.5.3): el nombre accesible de «Cuenta», «Carrito» y el
+  logotipo no contenía su texto visible. Defecto real de accesibilidad, no de la prueba.
+  - Corregido sin cambio visual: separación de palabras en el documento (contenedores flex) y
+    logotipo sin `aria-label`, con «inicio» solo para lectores de pantalla.
+  - Evidencia: con axe-core 4.14 instalado temporalmente (sin guardar), la suite e2e completa pasa
+    en Chromium (69/69); luego se restauró `npm ci` a las versiones del repositorio.
+  - **NO VERIFICADO:** WebKit 27.2 (Playwright 1.64) también fallaba en dos pruebas propias de
+    ese motor (animaciones al volver arriba y foco con Tab). Aquí solo hay Chromium y no se
+    descargan navegadores: se verá en CI cuando se publique.
+- **Revisión de seguridad del trabajo de Nequi sin publicar:**
+  - corregido: repetir «Ya transferí» reenviaba el correo al dueño y alargaba el plazo del pedido
+    cada vez (hasta 30 veces cada 10 minutos: inundación del correo y pedido abierto sin fin). Ahora
+    una corrección solo actualiza los datos; prueba de regresión que falla sin la corrección (4
+    correos en vez de 1);
+  - comprobado sin cambios: el acceso a la vista del pedido (dueño del pedido o enlace privado), la
+    restricción de la base que exige jugador confirmado para pagar, las rutas de prueba fuera del
+    servidor de producción y los textos mostrados sin interpretar HTML;
+  - migración 0021 aplicada en una base local desechable con datos ficticios como los de
+    producción (pedido vencido con intento de Mercado Pago y otro sin intento): el primero queda
+    `mercadopago`, el segundo sin método, y el disparador impide cambiarlo después. Base borrada.
+- **Capturas de referencia:** las tres de página completa se regeneraron por el cambio previsto
+  del selector de pago (commit `b8a2901`); las de entrada y acceso no cambiaron.
+- **Evidencia local:** tipos, lint, formato y `drizzle-kit check` OK; unitarias 304/304;
+  integración 281/281 (28 archivos); e2e 69/69; visuales 3/3; escáner de datos sensibles: 0
+  coincidencias.
+- **Sin publicar.** Pendiente de autorización del dueño: push (despliega en Render).

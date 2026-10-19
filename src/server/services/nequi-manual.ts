@@ -115,36 +115,43 @@ export async function reportNequiTransfer(
       .where(and(eq(nequiTransfers.orderId, order.id), eq(nequiTransfers.status, 'REPORTED')))
       .for('update');
     if (open) {
+      // Corrección del mismo aviso: solo cambian sus datos. Ni se vuelve a escribir al dueño ni se
+      // alarga el plazo, así repetir el aviso no inunda su correo ni deja el pedido abierto sin fin.
       await tx
         .update(nequiTransfers)
         .set({ ...values, updatedAt: sql`now()` })
         .where(eq(nequiTransfers.id, open.id));
     } else {
+      // Aviso nuevo (el primero o tras un rechazo del dueño): plazo para verificar y correo.
       await tx.insert(nequiTransfers).values({ ...values, orderId: order.id, status: 'REPORTED' });
-    }
-    const keepOpenUntil = new Date(now.getTime() + reviewHours * 3_600_000);
-    if (order.expiresAt < keepOpenUntil) {
-      await tx
-        .update(orders)
-        .set({ expiresAt: keepOpenUntil, updatedAt: sql`now()` })
-        .where(eq(orders.id, order.id));
-      order.expiresAt = keepOpenUntil;
+      const keepOpenUntil = new Date(now.getTime() + reviewHours * 3_600_000);
+      if (order.expiresAt < keepOpenUntil) {
+        await tx
+          .update(orders)
+          .set({ expiresAt: keepOpenUntil, updatedAt: sql`now()` })
+          .where(eq(orders.id, order.id));
+        order.expiresAt = keepOpenUntil;
+      }
+      await enqueueOwnerAlert(deps, tx, order.id);
     }
     // Sin los dígitos del cliente: el historial solo dice que hubo un aviso.
     await audit(tx, actor, {
       entityType: 'order',
       entityId: order.id,
       action: 'nequi_transfer.reported',
-      data: { orderId: order.id, withReference: Boolean(input.reference) },
+      data: {
+        orderId: order.id,
+        withReference: Boolean(input.reference),
+        corrected: Boolean(open),
+      },
     });
-    await enqueueOwnerAlert(deps, tx, order.id);
     return order;
   });
   await deliverNotifications(deps, { orderId: order.id });
   return order;
 }
 
-/** Aviso al dueño por correo (si hay correo configurado); se repite si el cliente corrige. */
+/** Aviso al dueño por correo (si hay correo configurado), uno por cada aviso nuevo del cliente. */
 async function enqueueOwnerAlert(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
   if (!deps.mailer || !deps.config.adminEmails.length) return;
   const now = deps.now();

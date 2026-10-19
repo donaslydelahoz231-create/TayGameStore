@@ -68,7 +68,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
     arranque; en producción basta un método activo (Mercado Pago o Nequi) para vender;
   - correo al dueño «Transferencia Nequi por verificar», filtro y alerta en el panel; textos de
     correos, comprobante, términos y privacidad según el proveedor;
-  - pruebas: 23 de aislamiento (los 8 puntos del requisito), 6 de configuración y una compra e2e.
+  - pruebas: 24 de aislamiento (los 8 puntos del requisito), 6 de configuración y una compra e2e;
+  - corregir el aviso «Ya transferí» solo actualiza sus datos: no reenvía el correo al dueño ni
+    alarga el plazo del pedido (antes, repetirlo podía inundar su correo y mantener abierto el
+    pedido sin fin).
+
+### Corregido (accesibilidad)
+
+- **Nombre accesible igual al texto visible** (WCAG 2.5.3, regla `label-content-name-mismatch` que
+  axe-core 4.14 marca como grave): los botones «Cuenta» y «Carrito» separan sus palabras en el
+  documento (sin cambio visual: son contenedores flex) y el logotipo deja su `aria-label` y lleva
+  «inicio» solo para lectores de pantalla. Era la causa de las e2e rojas del PR de dependencias
+  de desarrollo (Dependabot) en Chromium, Firefox y WebKit.
 
 ### Cambiado
 

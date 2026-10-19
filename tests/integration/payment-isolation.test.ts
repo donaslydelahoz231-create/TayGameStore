@@ -522,6 +522,50 @@ describe('8. la entrega sigue protegida contra pagos falsos, duplicados e incons
     expect(alert?.text).toContain('NO es un pago');
   });
 
+  it('corregir el aviso no reenvía el correo al dueño ni alarga el plazo del pedido', async () => {
+    const o = await order();
+    const subject = `Transferencia Nequi por verificar · ${o.ref}`;
+    const alerts = () => h.mailer.sent.filter((m) => m.subject === subject).length;
+    const expiresAt = async () =>
+      (
+        await h.database.db
+          .select({ expiresAt: orders.expiresAt })
+          .from(orders)
+          .where(eq(orders.id, o.id))
+      )[0]?.expiresAt.getTime();
+    const start = h.clock.now;
+    try {
+      expect((await customer(h, o, '/nequi')).statusCode).toBe(200);
+      expect((await customer(h, o, '/nequi/report', { senderLast4: '1111' })).statusCode).toBe(200);
+      await h.settle();
+      expect(alerts()).toBe(1);
+      const firstDeadline = await expiresAt();
+      // Una hora después el cliente corrige sus dígitos varias veces.
+      h.clock.now = new Date(start.getTime() + 3_600_000);
+      for (const senderLast4 of ['2222', '3333', '4444']) {
+        expect((await customer(h, o, '/nequi/report', { senderLast4 })).statusCode).toBe(200);
+      }
+      await h.settle();
+      expect(alerts()).toBe(1);
+      expect(await expiresAt()).toBe(firstDeadline);
+      const [row] = await h.database.db
+        .select({ senderLast4: nequiTransfers.senderLast4 })
+        .from(nequiTransfers)
+        .where(and(eq(nequiTransfers.orderId, o.id), eq(nequiTransfers.status, 'REPORTED')));
+      expect(row?.senderLast4).toBe('4444');
+      // Tras un rechazo del dueño, un aviso nuevo sí vuelve a avisarle y da plazo para verificar.
+      expect(
+        (await ownerAction(h, o, 'nequi/reject', { reason: 'No llegó a la cuenta' })).statusCode,
+      ).toBe(200);
+      expect((await customer(h, o, '/nequi/report', { senderLast4: '5555' })).statusCode).toBe(200);
+      await h.settle();
+      expect(alerts()).toBe(2);
+      expect(await expiresAt()).toBeGreaterThan(firstDeadline ?? 0);
+    } finally {
+      h.clock.now = start;
+    }
+  });
+
   it('solo el dueño confirma: un cliente no puede usar las rutas del panel', async () => {
     const o = await order();
     expect((await customer(h, o, '/nequi')).statusCode).toBe(200);
