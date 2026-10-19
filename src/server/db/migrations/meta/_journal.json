@@ -127,6 +127,13 @@
       "when": 1792342496349,
       "tag": "0017_pagos_medio_y_sheets",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792381185871,
+      "tag": "0018_sin_telegram",
+      "breakpoints": true
     }
   ]
 }

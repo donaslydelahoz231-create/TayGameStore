@@ -99,7 +99,7 @@ Garantías de la máquina de estados:
 
 ## 5. Avisos y registro auxiliar
 
-- **Correo** (SMTP) y **Telegram**: implementados, apagados sin credenciales. Avisan:
+- **Correo** (SMTP): implementado, apagado sin credenciales. Avisa (Telegram no se usa):
   - pago confirmado al dueño y al cliente;
   - entrega y reembolso al cliente.
 - **Google Sheets:** preparado y apagado (ver [google-sheets.md](google-sheets.md)). No escribe
@@ -149,7 +149,7 @@ Nequi Negocios está en [pagos-colombia.md](pagos-colombia.md). No se implement�
 
 ## 8. Pendiente antes de cobrar con confianza
 
-1. **Avisos al dueño:** Telegram o SMTP en Render. Lo hace el dueño (son secretos).
+1. **Avisos al dueño:** correo (SMTP) en Render. Lo hace el dueño (son secretos).
 2. **Prueba controlada de punta a punta** con dinero real mínimo y reembolso, con autorización
    del dueño: pago → webhook → «Confirmado» → aviso → entrega con evidencia → «Completado» →
    reembolso → «Reembolsado».

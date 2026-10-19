@@ -156,7 +156,7 @@ const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   retryEvents: retryFailedEvents,
   releaseClaims: releaseStaleClaims,
   cleanup,
-  // Reintenta avisos (correo/Telegram/n8n) que fallaron o que no se enviaron al momento.
+  // Reintenta avisos (correo, webhook de eventos, hoja) que fallaron o no se enviaron al momento.
   sendNotifications: (deps) => deliverNotifications(deps, { limit: 50 }),
   // Recarga directa: empieza entregas pendientes y consulta recargas dudosas a UniPin.
   topups: (deps) => processTopups(deps),

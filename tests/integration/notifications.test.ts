@@ -16,7 +16,7 @@ import {
 } from '../support/integration.js';
 
 /**
- * Avisos por correo (cliente y dueño) y Telegram (dueño), con cola en la base de datos:
+ * Avisos por correo (cliente y dueño), con cola en la base de datos:
  * se crean en la misma transacción que el cambio de estado, se envían enseguida, se reintentan
  * si el servidor de correo falla y nunca se duplican.
  */
@@ -36,7 +36,6 @@ afterAll(async () => {
 beforeEach(() => {
   h.clock.now = new Date();
   h.mailer.failNext = 0;
-  h.notifier.failNext = false;
 });
 
 const randomIp = () =>
@@ -138,10 +137,9 @@ describe('aviso de pago confirmado', () => {
     expect(await rowsOf(order.id)).toEqual([]);
   });
 
-  it('pago confirmado → correo al cliente, correo y Telegram al dueño, una sola vez', async () => {
+  it('pago confirmado → correo al cliente y al dueño, una sola vez', async () => {
     const order = await readyOrder();
     const ownerBefore = h.mailer.sent.filter((m) => m.to.includes(ADMIN_EMAIL)).length;
-    const telegramBefore = h.notifier.sent.length;
     const paymentId = await payOrder(order);
 
     const [customer] = mailsTo(order.email);
@@ -182,7 +180,6 @@ describe('aviso de pago confirmado', () => {
     expect(owner.at(-1)?.subject).toBe(`Pedido pagado por entregar · ${order.reference}`);
     // El correo del dueño va a todo ADMIN_EMAILS y nunca al cliente.
     expect(owner.at(-1)?.to).toEqual([ADMIN_EMAIL, 'admin2@example.com']);
-    expect(h.notifier.sent.length).toBe(telegramBefore + 1);
 
     // Reintentos de Mercado Pago y la tarea de reintento no duplican nada.
     await Promise.all([webhook(paymentId), webhook(paymentId)]);
@@ -192,7 +189,6 @@ describe('aviso de pago confirmado', () => {
     expect(rows.map((r) => `${r.kind}/${r.channel}/${r.status}`).sort()).toEqual([
       'order_paid_customer/email/SENT',
       'order_paid_owner/email/SENT',
-      'order_paid_owner/telegram/SENT',
     ]);
   });
 

@@ -12,7 +12,6 @@ import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
 import { RecordingEventSink } from './fake-event-sink.js';
 import { RecordingMailer } from './fake-mailer.js';
-import { RecordingOwnerNotifier } from './fake-notifier.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
 import { FakeTopupProvider } from './fake-topup.js';
@@ -103,7 +102,6 @@ export interface Harness {
   deps: ServiceDeps;
   database: Database;
   gateway: FakePaymentGateway;
-  notifier: RecordingOwnerNotifier;
   mailer: RecordingMailer;
   /** Webhook de eventos (n8n); solo conectado con `{ events: true }`. */
   events: RecordingEventSink;
@@ -129,7 +127,6 @@ export async function createHarness(
   const url = testAppDatabaseUrl() ?? testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
-  const notifier = new RecordingOwnerNotifier();
   const mailer = new RecordingMailer();
   const events = new RecordingEventSink();
   const google = new FakeGoogle();
@@ -164,7 +161,6 @@ export async function createHarness(
     googleClient: google,
     socialClients: { facebook },
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
-    ownerNotifier: notifier,
     mailer,
     eventSink: options.events ? events : undefined,
     orderSheet: options.sheets,
@@ -178,7 +174,6 @@ export async function createHarness(
     deps,
     database,
     gateway,
-    notifier,
     mailer,
     events,
     google,

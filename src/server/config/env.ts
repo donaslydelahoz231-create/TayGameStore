@@ -349,11 +349,6 @@ const envSchema = z
     LEGAL_TAX_NOTE: legalText(200),
     LEGAL_RETENTION: legalText(160),
 
-    /** Aviso al dueño por Telegram cuando un pedido queda pagado (opcional). */
-    TELEGRAM_BOT_TOKEN: z
-      .string()
-      .regex(/^\d{5,15}:[A-Za-z0-9_-]{30,64}$/, 'formato de token de @BotFather')
-      .optional(),
     /**
      * Correo por SMTP (opcional): avisos al cliente (pago confirmado, entrega, reembolso) y al
      * dueño. Gmail: smtp.gmail.com, puerto 465 y una contraseña de aplicación de la cuenta.
@@ -387,10 +382,6 @@ const envSchema = z
      * Por defecto encendido: con URL y llave configuradas, se envían.
      */
     EVENTS_WEBHOOK_ENABLED: z.stringbool().default(true),
-    TELEGRAM_CHAT_ID: z
-      .string()
-      .regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/, 'id numérico del chat o @canal')
-      .optional(),
     /**
      * Registro auxiliar de pedidos en Google Sheets (opcional; nunca es la fuente de verdad).
      * Cuenta de servicio de Google Cloud con la hoja compartida con su correo. Van juntas.
@@ -432,9 +423,6 @@ const envSchema = z
     }
     if (env.SMTP_HOST && !env.MAIL_FROM && !z.email().safeParse(env.SMTP_USER).success) {
       issue('MAIL_FROM', 'obligatoria si SMTP_USER no es una dirección de correo');
-    }
-    if (Boolean(env.TELEGRAM_BOT_TOKEN) !== Boolean(env.TELEGRAM_CHAT_ID)) {
-      issue('TELEGRAM_CHAT_ID', 'TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID van juntos');
     }
     const sheets = [
       env.GOOGLE_SHEETS_SPREADSHEET_ID,
@@ -612,8 +600,6 @@ export interface AppConfig {
     taxNote?: string;
     retention?: string;
   };
-  /** Avisos al dueño (pedido pagado). Sin canal configurado, solo el panel avisa. */
-  ownerNotify: { telegram: { botToken: string; chatId: string } | undefined };
   /** Eventos de pedidos hacia una automatización externa (n8n). */
   eventsWebhook: { url: string; secret: string } | undefined;
   /** Registro auxiliar en Google Sheets (cuenta de servicio). Sin él no se escribe nada. */
@@ -793,12 +779,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       responseTime: env.LEGAL_RESPONSE_TIME,
       taxNote: env.LEGAL_TAX_NOTE,
       retention: env.LEGAL_RETENTION,
-    },
-    ownerNotify: {
-      telegram:
-        env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID
-          ? { botToken: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
-          : undefined,
     },
     cronSecret: env.CRON_SECRET,
     sheets:

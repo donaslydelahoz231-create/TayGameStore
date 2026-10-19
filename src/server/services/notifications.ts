@@ -27,7 +27,7 @@ import { receiptVerificationCode } from './receipts.js';
 
 /**
  * Avisos de un pedido (cola `notifications`):
- * - pagado → al dueño (Telegram y/o correo) y al cliente (correo);
+ * - pagado → al dueño y al cliente (correo); Telegram no se usa (decisión del dueño);
  * - entregado → al cliente; reembolsado → al cliente;
  * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n), más
  *   "pedido por verificar" (nuevo pedido esperando que el operador verifique ID y nickname).
@@ -68,7 +68,6 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
   const planned: { kind: NotificationKind; channel: NotificationChannel }[] = [];
   const email = Boolean(deps.mailer);
   if (event === 'paid') {
-    if (deps.notifier) planned.push({ kind: 'order_paid_owner', channel: 'telegram' });
     if (email && deps.config.adminEmails.length) {
       planned.push({ kind: 'order_paid_owner', channel: 'email' });
     }
@@ -591,18 +590,13 @@ async function sendOne(
       .where(eq(fulfillments.orderId, row.orderId));
     order.topupProblem = fulfillment?.failureReason ?? null;
   }
-  if (row.kind === 'order_paid_owner' || row.channel === 'telegram') {
+  if (row.kind === 'order_paid_owner') {
     order.pinCount = (await deliveredPinCounts(deps.db, [row.orderId])).get(row.orderId) ?? 0;
     const [fulfillment] = await deps.db
       .select({ mode: fulfillments.mode })
       .from(fulfillments)
       .where(eq(fulfillments.orderId, row.orderId));
     order.topup = fulfillment?.mode === 'provider';
-  }
-  if (row.channel === 'telegram') {
-    if (!deps.notifier) throw new Error('Telegram no está configurado');
-    await deps.notifier.orderPaid(order);
-    return;
   }
   if (row.channel !== 'email') throw new Error('canal inválido para un correo');
   if (!deps.mailer) throw new Error('el correo no está configurado');

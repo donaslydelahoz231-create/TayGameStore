@@ -14,7 +14,7 @@ llega cada pedido pagado hasta el jugador.
 | Si el webhook no llega: al volver el cliente a la tienda se consulta su pago; además la conciliación revisa los pendientes (Render: cada 2 minutos dentro del servidor; Vercel: cada 10 minutos con el flujo `tareas.yml`, ver `deployment-vercel.md`) | Servidor | Sí |
 | El pedido pasa a **Pagado** y queda "listo para entregar" | Servidor | Sí, una sola vez por pedido |
 | **Correo al cliente** "Comprobante de pago" (código, operación de Mercado Pago, ID, paquetes y total) | Servidor | Sí, con correo configurado (sección 1) |
-| **Aviso al dueño**: notificación + sonido + contador en el panel; correo y Telegram si los configuras | Servidor / panel | Sí |
+| **Aviso al dueño**: notificación + sonido + contador en el panel; correo si lo configuras (Telegram no se usa) | Servidor / panel | Sí |
 | Recargar los diamantes al ID del jugador | **Tú**, con tu canal de recarga | **No**: entrega manual (ver abajo) |
 | Marcar el pedido como entregado con la evidencia | Tú, en el panel | — |
 | El cliente ve "Recarga completada" en su seguimiento y la recibe por correo | Tienda / servidor | Sí |
@@ -69,23 +69,15 @@ No está incluido: requiere contratar un proveedor de SMS (cobra por mensaje) y 
 celular al cliente en el pedido. Si lo quieres, se integra con la documentación oficial del
 proveedor que elijas, con la misma cola de avisos.
 
-## 2. Aviso a tu celular por Telegram (opcional)
+## 2. Aviso al dueño: correo y panel
 
-Telegram es **solo para ti** (el dueño): los clientes nunca lo ven ni lo necesitan.
+**Telegram no se usa** (decisión del dueño, 2026-10-18): se quitó del código y sus variables ya
+no existen. El aviso de cada pedido pagado llega por **correo** a `ADMIN_EMAILS` (sección 1) y
+por el **panel**. Sin correo configurado, solo avisa el panel abierto.
 
-1. En Telegram abre **@BotFather**, envía `/newbot` y sigue los pasos. Te da un *token*.
-2. Escríbele cualquier mensaje a tu bot nuevo.
-3. En tu navegador abre `https://api.telegram.org/bot<TOKEN>/getUpdates` (con tu token) y
-   copia el número de `"chat":{"id": …}`.
-4. En el hosting (Vercel → *Settings → Environment Variables*, o Render → *Environment*):
-   `TELEGRAM_BOT_TOKEN` = el token y `TELEGRAM_CHAT_ID` = ese número. Redespliega.
-
-El token es un secreto: no lo pegues en chats, issues ni en Git. Si se filtra, revócalo en
-@BotFather (`/revoke`) y cambia la variable.
-
-El mensaje incluye la referencia, el total, el ID del jugador y los paquetes; no incluye el
-correo ni el nombre del cliente. Si Telegram no responde, el pago queda guardado igual y el
-aviso se reintenta como los correos; el panel sigue avisando.
+El correo al dueño incluye la referencia, el total, el ID del jugador y los paquetes. Si el
+servidor de correo falla, el pago queda guardado igual y el aviso se reintenta; el panel sigue
+avisando.
 
 ### Aviso en el panel
 

@@ -38,6 +38,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Evaluación de Wompi y Nequi Negocios (`docs/pagos-colombia.md`), sin implementar otra
   pasarela.
 
+### Eliminado
+
+- **Telegram**, por decisión del dueño:
+  - se quitaron el aviso por Telegram, las variables `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`
+    (en `render.yaml` y `.env.example`) y el indicador `telegram` del registro de arranque;
+  - la migración 0018 quita el canal `telegram` de la cola de avisos (no había filas);
+  - el aviso al dueño de cada pedido pagado queda en el correo (`SMTP_*` + `ADMIN_EMAILS`) y el
+    panel; `golive:check` avisa si falta el correo al dueño.
+
 ### Corregido
 
 - **Cambio de medio de pago:** elegir otro medio (Tarjeta → Nequi) ya no reutiliza la preferencia

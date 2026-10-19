@@ -142,12 +142,8 @@ services:
         sync: false
       - key: GOOGLE_SHEETS_PRIVATE_KEY
         sync: false
-      # Aviso por Telegram de cada pago confirmado (opcional; ver docs/salir-a-produccion.md).
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
-      # Correo a clientes y al dueño (opcional; ver docs/salir-a-produccion.md).
+      # Correo a clientes y al dueño (opcional; ver docs/salir-a-produccion.md). Es el único aviso
+      # al dueño de cada pago confirmado: Telegram no se usa (decisión del dueño, 2026-10-18).
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER

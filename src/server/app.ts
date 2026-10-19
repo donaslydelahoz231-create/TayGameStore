@@ -18,7 +18,6 @@ import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
 import type { Mailer } from './integrations/notify/email.js';
 import type { OrderEventSink } from './integrations/notify/events.js';
-import type { OwnerNotifier } from './integrations/notify/owner.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
 import { adminRoutes } from './modules/admin/routes.js';
@@ -54,8 +53,6 @@ export interface AppDependencies {
   socialClients?: Partial<Record<SocialProvider, SocialClient>> | undefined;
   /** Verificación automática de jugadores. Sin ella, la verificación es manual (operador). */
   playerVerifier?: PlayerVerifier | undefined;
-  /** Aviso al dueño de pedidos pagados (Telegram si está configurado). */
-  ownerNotifier?: OwnerNotifier | undefined;
   /** Correo saliente para avisos a clientes y dueño (SMTP si está configurado). */
   mailer?: Mailer | undefined;
   /** Eventos de pedidos hacia una automatización externa (webhook de n8n si está configurado). */
@@ -146,7 +143,6 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         now: input.now ?? (() => new Date()),
         gateway: config.flags.paymentsEnabled ? input.paymentGateway : undefined,
         log: app.log,
-        notifier: input.ownerNotifier,
         mailer: input.mailer,
         events: input.eventSink,
         sheets: input.orderSheet,

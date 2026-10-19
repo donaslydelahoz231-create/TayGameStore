@@ -490,7 +490,7 @@ async function loadAlerts() {
     ['autoBlocks24h', 'Bloqueos automáticos (24 h)', 'warn'],
     ['activeIpBlocks', 'IPs bloqueadas ahora', 'warn'],
     ['mfaLocks24h', 'Cuentas admin con MFA bloqueado (24 h)', 'bad'],
-    ['notificationsFailed', 'Avisos sin enviar (correo/Telegram/n8n)', 'bad'],
+    ['notificationsFailed', 'Avisos sin enviar (correo, webhook u hoja)', 'bad'],
     ['reviewsPending', 'Reseñas por revisar', 'warn'],
   ];
   const lowStock = Array.isArray(a.lowStock) ? a.lowStock : [];

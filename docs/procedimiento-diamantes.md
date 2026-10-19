@@ -33,7 +33,7 @@ El precio lo fija el servidor al crear el pedido y queda en el comprobante. Cifr
 ### Lista del dueño por cada pedido pagado
 
 1. **Aviso:** con el panel abierto suena y sale «(N) Pagados por entregar» en la pestaña.
-   - Con correo (`SMTP_*`) o Telegram configurados, también te llega el aviso.
+   - Con correo (`SMTP_*`) configurado, también te llega el aviso (Telegram no se usa).
    - El registro de Render «avisos y automatización» dice cuáles están activos.
 2. **Panel → Pedidos → el pedido → Reclamar → Empezar.** Revisa:
    - el **ID**;
@@ -120,8 +120,8 @@ UniPin lo confirma. Si hay PIN en el inventario, se usan primero. Guía y pasos:
    que el dueño verifique nada (`PLAYER_VERIFICATION=customer`). La promo de fin de semana aplica
    sola.
 2. **Tienda:** Mercado Pago confirma el pago → el pedido queda «Pagado (entregar)», el cliente
-   recibe su **comprobante de pago** por correo y al dueño le llega el aviso (panel, Telegram,
-   correo o n8n, según lo configurado).
+   recibe su **comprobante de pago** por correo y al dueño le llega el aviso (panel y, si está
+   configurado, correo).
 3. **Dueño, en el panel:** abre el pedido → **Reclamar** → **Empezar**. La tienda reserva del
    inventario el PIN más antiguo del paquete. Si no hay suficientes, avisa y el resto se
    entrega de forma manual (forma 2).

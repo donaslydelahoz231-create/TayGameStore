@@ -51,8 +51,6 @@ const SECRET_PLACEHOLDERS: Record<string, string> = {
   MP_WEBHOOK_SECRET: 'secreto-webhook-relleno',
   SUPPORT_EMAIL: 'soporte@example.com',
   SUPPORT_WHATSAPP: '+573000000000',
-  TELEGRAM_BOT_TOKEN: `123456789:${'r'.repeat(35)}`,
-  TELEGRAM_CHAT_ID: '123456789',
   SMTP_HOST: 'smtp.example.com',
   SMTP_USER: 'tienda@example.com',
   SMTP_PASS: 'clave-de-aplicacion-relleno',

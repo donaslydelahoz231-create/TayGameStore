@@ -1069,3 +1069,25 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   cargar las variables `TELEGRAM_*` ni recomendarlas en informes o rutinas.
 - **Sin cambios de código** en este registro. El código del canal sigue en el repositorio, inactivo
   sin variables; quitarlo o actualizar las guías que lo mencionan necesita otro commit autorizado.
+
+### 2026-10-19 · Telegram eliminado del código
+
+- **Pidió y autorizó**: el dueño. Primero decidió no usar Telegram («no quiero uso de telegram»).
+  Cuando se le ofreció quitarlo del código con un commit que despliega, respondió «tienes la
+  mayor autorización y ejecución posible».
+- **Qué cambia:**
+  - se borró el aviso por Telegram (`TelegramOwnerNotifier`), las variables `TELEGRAM_BOT_TOKEN`
+    y `TELEGRAM_CHAT_ID`, su validación y el indicador `telegram` del registro de arranque;
+  - el texto del aviso de pedido pagado (`paidOrderText`) se conserva: es el del correo al dueño;
+  - migración 0018: el CHECK de la cola de avisos ya no admite `telegram`. Antes de publicar se
+    consultó producción (solo lectura): la tabla `notifications` estaba vacía;
+  - `golive:check` avisa «Sin correo al dueño» en lugar de pedir Telegram; el panel dice «Avisos
+    sin enviar (correo, webhook u hoja)»;
+  - `render.yaml`, `.env.example` y las guías ya no mencionan Telegram como opción.
+- **Pruebas:** las que usaban el doble de Telegram ahora comprueban el correo al dueño: aviso
+  único al pagar, ninguno sin pago confirmado, y el pago queda guardado aunque el correo falle.
+- **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`), secretos, variables de Render,
+  `LEGAL_*` ni datos del dueño. Si en Render quedara alguna variable `TELEGRAM_*`, el servidor la
+  ignora (el arranque mostraba `telegram:false`, así que no estaban cargadas).
+- **Evidencia local, despliegue y NO VERIFICADO:** se informan al dueño con cifras después del
+  push.

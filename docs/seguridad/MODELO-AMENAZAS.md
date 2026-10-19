@@ -16,7 +16,7 @@ Apagado o desconocido:
 
 - **UniPin:** `TOPUP_PROVIDER=none`.
 - **n8n:** reemplazado el 11-oct; el conector no conecta.
-- **Telegram:** opcional, sin verificar.
+- **Telegram:** eliminado del código el 2026-10-19 (decisión del dueño); no hay canal ni variables.
 
 | Activo | Amenaza | Control actual | Riesgo residual |
 |---|---|---|---|

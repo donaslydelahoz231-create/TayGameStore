@@ -5,7 +5,6 @@ import { createDatabase, type Database } from './db/client.js';
 import { HttpGoogleClient } from './integrations/google/oidc.js';
 import { SmtpMailer } from './integrations/notify/email.js';
 import { WebhookEventSink } from './integrations/notify/events.js';
-import { TelegramOwnerNotifier } from './integrations/notify/owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
 import { UniPinTopupProvider } from './integrations/topup/unipin.js';
 import { GoogleSheetsLog } from './integrations/sheets/google-sheets.js';
@@ -38,9 +37,6 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     paymentGateway: config.mercadoPago
       ? new MercadoPagoPaymentGateway(config.mercadoPago)
       : undefined,
-    ownerNotifier: config.ownerNotify.telegram
-      ? new TelegramOwnerNotifier(config.ownerNotify.telegram)
-      : undefined,
     mailer: config.smtp ? new SmtpMailer(config.smtp) : undefined,
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
     orderSheet: config.sheets ? new GoogleSheetsLog(config.sheets) : undefined,
@@ -66,11 +62,10 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     );
   }
   // Qué avisos y automatizaciones están activos (sí/no, nunca sus valores): con entrega manual,
-  // el dueño necesita al menos un canal que le avise de cada pedido pagado.
+  // el dueño necesita el correo (o el panel abierto) para enterarse de cada pedido pagado.
   built.app.log.info(
     {
       correo: Boolean(config.smtp),
-      telegram: Boolean(config.ownerNotify.telegram),
       eventosExternos: Boolean(config.eventsWebhook),
       hojaGoogle: Boolean(config.sheets),
       cronExterno: Boolean(config.cronSecret),

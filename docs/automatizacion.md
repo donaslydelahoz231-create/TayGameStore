@@ -12,10 +12,10 @@
 >   modera reseñas desde el panel;
 > - **la rutina diaria de Claude:** revisa, corrige y te deja el informe.
 >
-> El registro de Render **«avisos y automatización»** muestra al arrancar qué avisos al dueño
-> están activos (correo, Telegram), sin mostrar sus valores. Si los dos dicen `false`, solo te
-> avisa el panel abierto. Configura al menos uno (paso 1 o 2 de abajo) para no perder pedidos
-> pagados.
+> El registro de Render **«avisos y automatización»** muestra al arrancar si el correo al dueño
+> está activo, sin mostrar valores. Con `correo: false` solo te avisa el panel abierto: configura
+> el correo (paso 1 de abajo) para no perder pedidos pagados. Telegram no se usa (decisión del
+> dueño, 2026-10-18) y ya no aparece en ese registro.
 >
 > **Estado comprobado el 13-oct (19:22 UTC):**
 >
@@ -48,19 +48,17 @@ cuestan nada:
 | **Vigilancia** (cada 5 min) | Comprobación cada 30 min (la base de datos, una vez por hora); si cae, reinicia una vez y abre un issue «incidente» (GitHub te avisa por correo). | `.github/workflows/vigilancia.yml` |
 | **Tareas** (cada 10 min) | Las tareas internas del servidor: vencimiento de pedidos, conciliación de pagos con Mercado Pago, reintentos de correos y eventos, limpieza. En reposo corren en una sola tanda cada 30 min para que Neon duerma. | `src/server/services/jobs.ts` |
 | Mantener la tienda despierta | Visita a `/api/health` cada 10 min (no toca la base de datos). | `.github/workflows/mantener-activa.yml` |
-| **Pedidos** (registro + aviso por Gmail) | El registro es la base de datos de la tienda y el panel de administración (pedidos, pagos, entregas, auditoría). El aviso de «pagado: por entregar» lo envía el servidor por **Telegram** (gratis) y/o por **correo** (Gmail), y el panel lo muestra con sonido. | `src/server/services/notifications.ts`, panel |
+| **Pedidos** (registro + aviso por Gmail) | El registro es la base de datos de la tienda y el panel de administración (pedidos, pagos, entregas, auditoría). El aviso de «pagado: por entregar» lo envía el servidor por **correo** (Gmail) y el panel lo muestra con sonido. Telegram no se usa. | `src/server/services/notifications.ts`, panel |
 | **Errores** | Los flujos de GitHub en rojo te llegan por correo de GitHub; las caídas abren un issue «incidente». | GitHub |
 | **Diagnóstico** y **Cerebro** (agentes) | Diagnóstico diario: verificador de producción (`golive:check --url`) y navegador real (burbujas de soporte), con informe en el resumen del flujo. Análisis y arreglos: la rutina diaria de Claude. | `.github/workflows/diagnostico.yml` |
 | Prueba tras cada publicación | Web, `/api/health`, `/api/ready`, canales de soporte y navegador real. | `.github/workflows/production-smoke.yml` |
 
 ## Lo que tienes que hacer tú (una vez)
 
-1. **Avisos de pedidos pagados al celular (Telegram, gratis):** en Telegram abre **@BotFather** →
-   `/newbot` → copia el token. Escríbele un mensaje a tu bot y obtén tu *chat id*. Carga
-   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en **Render → Environment** (nunca en un chat). Ver
-   `docs/salir-a-produccion.md` («Aviso por Telegram»).
-2. **Correo** (opcional, gratis con Gmail): contraseña de aplicación de Google en `SMTP_*`.
-3. **n8n:** ya no hace falta. Puedes cancelar el plan de n8n Cloud. Los flujos siguen respaldados
+1. **Correo** (gratis con Gmail; es tu aviso de pedidos pagados fuera del panel): contraseña de
+   aplicación de Google en `SMTP_*`, en **Render → Environment** (nunca en un chat). Ver
+   `docs/salir-a-produccion.md`. Telegram no se usa.
+2. **n8n:** ya no hace falta. Puedes cancelar el plan de n8n Cloud. Los flujos siguen respaldados
    en `infra/n8n/` por si algún día quieres restaurarlos. Si en Render existen `EVENTS_WEBHOOK_URL`
    y `EVENTS_WEBHOOK_SECRET`, bórralas (eran solo para n8n).
 

@@ -50,7 +50,11 @@ beforeEach(() => {
   h.clock.now = new Date();
   h.gateway.failNextCreates = 0;
   h.gateway.failQueries = false;
+  h.mailer.failNext = 0;
 });
+
+/** Correos al dueño (ADMIN_EMAILS): su único aviso de pedidos pagados fuera del panel. */
+const ownerMails = () => h.mailer.sent.filter((m) => m.to.includes(ADMIN_EMAIL));
 
 /** Cada petición desde una IP distinta: el rate limiting por IP se prueba aparte. */
 const randomIp = () =>
@@ -556,16 +560,13 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
       externalReference: ready.order.reference,
       amount: ready.order.totalCop,
     });
-    const before = h.notifier.sent.length;
+    const before = ownerMails().length;
     expect((await webhook(paymentId)).statusCode).toBe(200);
-    const notices = h.notifier.sent.slice(before);
+    const notices = ownerMails().slice(before);
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toMatchObject({
-      reference: ready.order.reference,
-      totalCop: ready.order.totalCop,
-      nickname: 'JugadorPro',
-      items: [{ quantity: 2 }],
-    });
+    expect(notices[0]?.subject).toBe(`Pedido pagado por entregar · ${ready.order.reference}`);
+    expect(notices[0]?.text).toContain('JugadorPro');
+    expect(notices[0]?.text).toContain('2 × ');
     // Reintentos de Mercado Pago y la conciliación no repiten el aviso.
     await Promise.all([webhook(paymentId), webhook(paymentId)]);
     await inject({
@@ -574,11 +575,11 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
       headers: CSRF,
       cookies: admin,
     });
-    expect(h.notifier.sent.length).toBe(before + 1);
+    expect(ownerMails().length).toBe(before + 1);
   });
 
   it('sin pago confirmado no hay aviso: rechazado o con monto distinto', async () => {
-    const before = h.notifier.sent.length;
+    const before = ownerMails().length;
     for (const [paymentId, overrides] of [
       ['900000000102', { status: 'rejected' }],
       ['900000000103', { amount: 1 }],
@@ -594,7 +595,7 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
       expect((await webhook(paymentId)).statusCode).toBe(200);
       expect((await dbOrder(ready.id))?.status).not.toBe('PAID');
     }
-    expect(h.notifier.sent.length).toBe(before);
+    expect(ownerMails().length).toBe(before);
   });
 
   it('si el canal de aviso falla, el pago queda guardado igual y el webhook responde 200', async () => {
@@ -606,7 +607,8 @@ describe('pago con Mercado Pago (doble de pruebas)', () => {
       externalReference: ready.order.reference,
       amount: ready.order.totalCop,
     });
-    h.notifier.failNext = true;
+    // El servidor de correo rechaza todos los avisos de este pago (cliente y dueño).
+    h.mailer.failNext = 10;
     expect((await webhook(paymentId)).statusCode).toBe(200);
     expect((await dbOrder(ready.id))?.status).toBe('PAID');
   });

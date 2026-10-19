@@ -110,10 +110,10 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
         ),
   );
   checks.push(
-    config.ownerNotify.telegram
-      ? ok('Aviso al celular por Telegram cuando entra un pago')
+    config.smtp && config.adminEmails.length
+      ? ok('Aviso al dueño por correo cuando entra un pago')
       : warn(
-          'Sin TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID: solo el panel abierto avisa de pagos nuevos',
+          'Sin correo al dueño (SMTP y ADMIN_EMAILS): solo el panel abierto avisa de pagos nuevos',
         ),
   );
   checks.push(deliveryCheck(config));

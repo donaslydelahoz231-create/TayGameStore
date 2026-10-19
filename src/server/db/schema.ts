@@ -824,8 +824,11 @@ export const NOTIFICATION_KINDS = [
   'topup_problem_owner',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
-/** `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad). */
-export const NOTIFICATION_CHANNELS = ['email', 'telegram', 'webhook', 'sheets'] as const;
+/**
+ * `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad).
+ * `telegram` se quitó en la migración 0018: el dueño decidió no usarlo (sin filas guardadas).
+ */
+export const NOTIFICATION_CHANNELS = ['email', 'webhook', 'sheets'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
