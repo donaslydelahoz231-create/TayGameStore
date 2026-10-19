@@ -6,6 +6,7 @@ import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import {
   deliverNotifications,
   enqueueOrderNotifications,
+  enqueueSheetSync,
   enqueueTopupAlert,
 } from './notifications.js';
 import { transitionOrder } from './orders.js';
@@ -136,7 +137,7 @@ async function startDelivery(deps: ServiceDeps, orderId: string): Promise<boolea
   const config = deps.config.topup;
   if (!config) return false;
   const actor = SYSTEM_ACTOR;
-  return deps.db.transaction(async (tx) => {
+  const started = await deps.db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for('update');
     const [fulfillment] = await tx
       .select()
@@ -234,8 +235,12 @@ async function startDelivery(deps: ServiceDeps, orderId: string): Promise<boolea
       data: { orderId, units: fresh.length, provider: config.provider },
     });
     await transitionOrder(tx, actor, order, 'DELIVERING', {}, { method: 'topup' });
+    await enqueueSheetSync(deps, tx, orderId);
     return true;
   });
+  // La fila del pedido en «Entregas» pasa a «En proceso» sin esperar al scheduler.
+  if (started) await deliverNotifications(deps, { orderId });
+  return started;
 }
 
 /** Reserva una fila (CAS de estado y vencimiento); devuelve null si otro proceso la tomó. */

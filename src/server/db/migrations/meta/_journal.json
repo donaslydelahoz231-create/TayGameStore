@@ -141,6 +141,13 @@
       "when": 1792416036405,
       "tag": "0019_hoja_entregas",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792418520206,
+      "tag": "0020_hoja_entregas_estado",
+      "breakpoints": true
     }
   ]
 }

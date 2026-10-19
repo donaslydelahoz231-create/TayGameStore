@@ -19,7 +19,11 @@ import { isUniqueViolation, loadOrderRelations, toPublicOrder, transitionOrder }
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
 import { assignReceiptNumber } from './receipts.js';
 import { pendingReviewCount } from './reviews.js';
-import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
+import {
+  deliverNotifications,
+  enqueueOrderNotifications,
+  enqueueSheetSync,
+} from './notifications.js';
 import {
   assignInventory,
   inventoryForOrder,
@@ -480,6 +484,8 @@ export async function fulfillmentAction(
       .where(and(eq(fulfillments.id, fulfillment.id), eq(fulfillments.status, fulfillment.status)))
       .returning({ id: fulfillments.id });
     if (!updated) throw new AppError('CONFLICT', 409, 'Otro operador cambió la entrega; recarga.');
+    // La fila del pedido en «Entregas» (hoja de Google) muestra el estado nuevo enseguida.
+    await enqueueSheetSync(deps, tx, order.id);
     await audit(tx, actor, {
       entityType: 'fulfillment',
       entityId: fulfillment.id,
@@ -509,7 +515,7 @@ export async function fulfillmentAction(
     if (to === 'FAILED')
       await transitionOrder(tx, actor, order, 'NEEDS_REVIEW', {}, { reason: 'fulfillment_failed' });
   });
-  if (input.action === 'deliver') await deliverNotifications(deps, { orderId });
+  await deliverNotifications(deps, { orderId });
 }
 
 // ── Resolución de revisiones ─────────────────────────────────────────────────
@@ -534,6 +540,7 @@ export async function resolveReview(
     const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for('update');
     if (!order) throw notFound();
     if (order.status !== 'NEEDS_REVIEW') throw invalidState('La orden no está en revisión.');
+    await enqueueSheetSync(deps, tx, order.id);
     const rows = await tx.select().from(payments).where(eq(payments.orderId, orderId));
     if (input.resolution === 'resume_fulfillment') {
       const valid = rows.find(

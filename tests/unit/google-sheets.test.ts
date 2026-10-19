@@ -11,6 +11,7 @@ import {
 import {
   DELIVERY_COLUMNS,
   deliveryRow,
+  deliveryStatusLabel,
   playerConfirmationLabel,
   SHEET_COLUMNS,
   sheetRow,
@@ -161,6 +162,81 @@ describe('Google Sheets: pestaña «Entregas»', () => {
   });
 });
 
+describe('Google Sheets: fila única por pedido en «Entregas»', () => {
+  const sheetLog = (impl: typeof fetch, deliveries = 'Entregas') =>
+    new GoogleSheetsLog({
+      spreadsheetId: SPREADSHEET_ID,
+      clientEmail: CLIENT_EMAIL,
+      privateKey,
+      tabs: { orders: 'Pedidos', deliveries },
+      fetch: impl,
+    });
+  const values = (url: string) => decodeURIComponent(url.split('/values/')[1] ?? '');
+
+  it('si la referencia ya tiene fila, reescribe esa fila (RAW) y no agrega otra', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({ values: [['Referencia', 'TGS-AAAAAAAAAA', '', 'TGS-BBBBBBBBBB']] }),
+      json({}),
+    ]);
+    await sheetLog(fetcher.impl).upsertRow('deliveries', [
+      'TGS-BBBBBBBBBB',
+      '✅ Entregado con éxito',
+    ]);
+    const [, read, write] = fetcher.calls;
+    expect(values(read?.url ?? '')).toBe('Entregas!A:A?majorDimension=COLUMNS');
+    expect(read?.init.method).toBe('GET');
+    expect(values(write?.url ?? '')).toBe('Entregas!A4?valueInputOption=RAW');
+    expect(write?.init.method).toBe('PUT');
+    expect(JSON.parse(write?.init.body as string)).toEqual({
+      values: [['TGS-BBBBBBBBBB', '✅ Entregado con éxito']],
+    });
+  });
+
+  it('si no la encuentra, agrega la fila al final; nunca pisa los encabezados', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({ values: [['Referencia']] }),
+      json({}),
+    ]);
+    await sheetLog(fetcher.impl).upsertRow('deliveries', ['Referencia', 'x']);
+    const write = fetcher.calls[2];
+    expect(write?.url).toContain(`/values/${encodeURIComponent('Entregas!A1')}:append?`);
+    expect(write?.init.method).toBe('POST');
+  });
+
+  it('con la pestaña vacía (sin valores) agrega la fila', async () => {
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({}), json({})]);
+    await sheetLog(fetcher.impl).upsertRow('deliveries', ['TGS-AAAAAAAAAA']);
+    expect(fetcher.calls[2]?.url).toContain(':append?');
+  });
+
+  it('un nombre de pestaña con espacios va entre comillas en el rango', async () => {
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({}), json({})]);
+    await sheetLog(fetcher.impl, 'Mis entregas').upsertRow('deliveries', ['TGS-AAAAAAAAAA']);
+    expect(values(fetcher.calls[1]?.url ?? '')).toBe("'Mis entregas'!A:A?majorDimension=COLUMNS");
+    expect(values(fetcher.calls[2]?.url ?? '')).toBe(
+      "'Mis entregas'!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+    );
+  });
+
+  it('si Google no deja leer, falla sin escribir (se reintenta desde la cola)', async () => {
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({}, 403)]);
+    await expect(
+      sheetLog(fetcher.impl).upsertRow('deliveries', ['TGS-AAAAAAAAAA']),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(fetcher.calls).toHaveLength(2);
+  });
+
+  it('una fila sin clave no se escribe', async () => {
+    const fetcher = fakeFetch([]);
+    await expect(sheetLog(fetcher.impl).upsertRow('deliveries', [''])).rejects.toBeInstanceOf(
+      SheetsError,
+    );
+    expect(fetcher.calls).toHaveLength(0);
+  });
+});
+
 describe('Google Sheets: configuración', () => {
   const sheetsEnv = (overrides: Record<string, string> = {}) => ({
     GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID,
@@ -243,7 +319,8 @@ describe('Google Sheets: fila de «Entregas»', () => {
     reference: 'TGS-ABCDEFGHJK',
     totalCop: 3800,
     items: [{ name: '100 + 10 Diamantes', quantity: 2, unitPriceCop: 1900, lineTotalCop: 3800 }],
-    receipt: { number: 12 },
+    receipt: { number: 12, verificationCode: 'ABCD-EFGH-JKLM' },
+    payment: { providerPaymentId: '123456789012', approvedAt: new Date('2026-10-18T17:05:00Z') },
     playerUid: '0123456789',
     nickname: 'JugadorPro',
     region: 'CO',
@@ -252,18 +329,21 @@ describe('Google Sheets: fila de «Entregas»', () => {
     verificationNote: 'proveedor:prueba',
     verifiedByOwner: false,
   };
+  const updatedAt = new Date('2026-10-18T17:20:00Z');
 
-  it('lleva lo que hace falta para recargar y nunca correo, nombre ni PIN', () => {
+  it('pagado: lo que hace falta para recargar, sus referencias, y nunca correo, nombre ni PIN', () => {
     const row = deliveryRow(
-      { id: '0b5a3f5e-1111-4222-8333-944455556666', createdAt: new Date('2026-10-18T17:05:00Z') },
-      'order_paid_event',
       order,
       { payment: 'CONFIRMED', recharge: 'PENDING' },
+      { deliveredAt: null, evidence: null, failureReason: null },
+      updatedAt,
     );
     expect(row).toEqual([
-      '2026-10-18 12:05',
       'TGS-ABCDEFGHJK',
-      'Pago confirmado',
+      '⏳ Por entregar',
+      '2026-10-18 12:05',
+      '',
+      '',
       '0123456789',
       'JugadorPro',
       'Confirmado con la búsqueda de ID',
@@ -274,22 +354,92 @@ describe('Google Sheets: fila de «Entregas»', () => {
       'Confirmado',
       'Pendiente',
       '000012',
-      '0b5a3f5e-1111-4222-8333-944455556666',
+      'ABCD-EFGH-JKLM',
+      '123456789012',
+      '',
+      '2026-10-18 12:20',
     ]);
     expect(row).toHaveLength(DELIVERY_COLUMNS.length);
+    expect(DELIVERY_COLUMNS[0]).toBe('Referencia');
     // El ID va como texto: un número perdería los ceros a la izquierda.
-    expect(typeof row[3]).toBe('string');
+    expect(typeof row[5]).toBe('string');
   });
 
-  it('sin nickname, servidor ni región deja esas celdas vacías', () => {
+  it('entregado: hora de entrega, minutos desde el pago y la evidencia', () => {
     const row = deliveryRow(
-      { id: 'id', createdAt: new Date('2026-10-18T17:05:00Z') },
-      'order_delivered_event',
-      { ...order, nickname: null, region: null, server: null, receipt: null },
+      order,
       { payment: 'CONFIRMED', recharge: 'COMPLETED' },
+      {
+        deliveredAt: new Date('2026-10-18T17:17:40Z'),
+        evidence: 'Recarga hecha en el canal oficial',
+        failureReason: null,
+      },
+      updatedAt,
     );
-    expect([row[4], row[6], row[7], row[12]]).toEqual(['', '', '', '']);
-    expect(row[2]).toBe('Recarga entregada');
+    expect(row.slice(1, 5)).toEqual([
+      '✅ Entregado con éxito',
+      '2026-10-18 12:05',
+      '2026-10-18 12:17',
+      13,
+    ]);
+    expect(row[17]).toBe('Recarga hecha en el canal oficial');
+  });
+
+  it('fallido: el motivo, sin hora de entrega', () => {
+    const row = deliveryRow(
+      order,
+      { payment: 'CONFIRMED', recharge: 'NEEDS_REVIEW' },
+      { deliveredAt: null, evidence: null, failureReason: 'UniPin rechazó la recarga (E1)' },
+      updatedAt,
+    );
+    expect([row[1], row[3], row[4], row[17]]).toEqual([
+      '⚠️ Requiere revisión',
+      '',
+      '',
+      'UniPin rechazó la recarga (E1)',
+    ]);
+  });
+
+  it('sin nickname, servidor, región ni comprobante deja esas celdas vacías', () => {
+    const row = deliveryRow(
+      { ...order, nickname: null, region: null, server: null, receipt: null, payment: null },
+      { payment: 'CONFIRMED', recharge: 'PENDING' },
+      undefined,
+      updatedAt,
+    );
+    expect([row[2], row[6], row[8], row[9], row[14], row[15], row[16]]).toEqual([
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ]);
+  });
+
+  it('el estado de la fila resume pago y recarga en una sola palabra', () => {
+    expect(deliveryStatusLabel({ payment: 'CONFIRMED', recharge: 'PENDING' })).toBe(
+      '⏳ Por entregar',
+    );
+    expect(deliveryStatusLabel({ payment: 'CONFIRMED', recharge: 'IN_PROGRESS' })).toBe(
+      '🔄 En proceso',
+    );
+    expect(deliveryStatusLabel({ payment: 'CONFIRMED', recharge: 'COMPLETED' })).toBe(
+      '✅ Entregado con éxito',
+    );
+    expect(deliveryStatusLabel({ payment: 'CONFIRMED', recharge: 'NEEDS_REVIEW' })).toBe(
+      '⚠️ Requiere revisión',
+    );
+    // Entregado pero con disputa o devolución parcial: lo primero es revisar el dinero.
+    expect(deliveryStatusLabel({ payment: 'IN_REVIEW', recharge: 'COMPLETED' })).toBe(
+      '⚠️ Requiere revisión',
+    );
+    expect(deliveryStatusLabel({ payment: 'REFUNDED', recharge: 'CANCELLED' })).toBe(
+      '↩️ Reembolsado',
+    );
+    expect(deliveryStatusLabel({ payment: 'EXPIRED', recharge: 'CANCELLED' })).toBe('✖️ Cancelado');
+    expect(deliveryStatusLabel({ payment: 'PENDING', recharge: 'PENDING' })).toBe('Pago pendiente');
   });
 
   it('dice cómo se confirmó el jugador sin copiar la nota del operador', () => {

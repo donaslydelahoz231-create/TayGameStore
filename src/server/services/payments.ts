@@ -22,7 +22,11 @@ import { audit, invalidState, type Actor, type ServiceDeps } from './context.js'
 import { deliverFromInventory } from './inventory.js';
 import { kickTopups, routeToProvider } from './topups.js';
 import { assignReceiptNumber } from './receipts.js';
-import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
+import {
+  deliverNotifications,
+  enqueueOrderNotifications,
+  enqueueSheetSync,
+} from './notifications.js';
 import {
   closeOpenAttempts,
   loadOrderForAccess,
@@ -405,6 +409,8 @@ async function applyOrderEffects(
         {},
         { reason, paymentId: payment.id },
       );
+      // Si el pedido ya estaba pagado, su fila de «Entregas» pasa a «Requiere revisión».
+      await enqueueSheetSync(deps, tx, order.id);
     }
   };
 

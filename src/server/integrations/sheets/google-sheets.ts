@@ -4,24 +4,32 @@ import { createSign } from 'node:crypto';
  * Registro auxiliar de pedidos en una hoja de Google Sheets (opcional).
  *
  * - NO es la base de datos ni la autoridad de nada: el estado oficial vive en PostgreSQL y el
- *   pago lo confirma Mercado Pago. Editar una celda no cambia ningún pedido (no hay lectura).
- * - Solo agrega filas (`values:append`) con `valueInputOption=RAW`: nada se interpreta como
- *   fórmula.
- * - Dos pestañas: «Pedidos» (solo datos de la operación) y «Entregas» (además, los datos del
- *   jugador que hacen falta para recargar: ID, nickname confirmado, servidor y región).
+ *   pago lo confirma Mercado Pago. Editar una celda no cambia ningún pedido: la tienda solo lee
+ *   la columna A de «Entregas» para encontrar la fila de cada referencia.
+ * - Escribe con `valueInputOption=RAW`: nada se interpreta como fórmula.
+ * - Dos pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
+ *   operación) y «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
+ *   los datos del jugador que hacen falta para recargar: ID, nickname, servidor y región).
  * - Credenciales: una cuenta de servicio de Google Cloud con la hoja compartida con su correo.
  *   La llave privada (campo `private_key` del JSON de la cuenta) vive solo en el servidor.
  * - Se usa desde la cola de avisos: si Google falla, el pedido sigue igual y la fila se reintenta.
  *
  * APIs oficiales: OAuth 2.0 para cuentas de servicio (JWT con RS256 hacia
- * https://oauth2.googleapis.com/token) y Sheets API v4 `spreadsheets.values.append`.
+ * https://oauth2.googleapis.com/token) y Sheets API v4 `spreadsheets.values` (`get`, `update`
+ * y `append`).
  */
 
 /** `orders`: pestaña sin datos personales. `deliveries`: con los datos del jugador. */
 export type SheetTab = 'orders' | 'deliveries';
 
 export interface OrderSheetLog {
+  /** Agrega una fila al final de la pestaña. */
   appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void>;
+  /**
+   * Reescribe la fila cuya columna A es `values[0]` (la clave, p. ej. la referencia del pedido)
+   * o, si no existe, la agrega al final.
+   */
+  upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void>;
 }
 
 export interface GoogleSheetsOptions {
@@ -52,6 +60,10 @@ export class SheetsError extends Error {
 }
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
+
+/** Rango A1 de una pestaña; entre comillas si el nombre tiene espacios o guiones. */
+const a1 = (sheet: string, cells: string) =>
+  `${/^[\p{L}\p{N}_]+$/u.test(sheet) ? sheet : `'${sheet.replace(/'/g, "''")}'`}!${cells}`;
 
 /** Afirmación JWT firmada (RS256) para pedir un token de acceso de cuenta de servicio. */
 export function serviceAccountAssertion(
@@ -111,19 +123,50 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return body.access_token;
   }
 
-  async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+  private valuesUrl(tab: SheetTab, cells: string) {
+    const range = encodeURIComponent(a1(this.options.tabs[tab], cells));
+    return `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values/${range}`;
+  }
+
+  /** Llamada a la API con el token; un 401 lo descarta para pedir otro en el próximo intento. */
+  private async request(url: string, init: RequestInit, failure: string): Promise<Response> {
     const token = await this.accessToken();
-    const range = encodeURIComponent(`${this.options.tabs[tab]}!A1`);
-    const url =
-      `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values/${range}:append` +
-      '?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
     const response = await this.fetchImpl(url, {
-      method: 'POST',
+      ...init,
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ values: [values] }),
       signal: this.signal(),
     });
     if (response.status === 401) this.token = undefined;
-    if (!response.ok) throw new SheetsError('Google Sheets no aceptó la fila', response.status);
+    if (!response.ok) throw new SheetsError(failure, response.status);
+    return response;
+  }
+
+  async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+    await this.request(
+      `${this.valuesUrl(tab, 'A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      { method: 'POST', body: JSON.stringify({ values: [values] }) },
+      'Google Sheets no aceptó la fila',
+    );
+  }
+
+  async upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+    const key = values[0];
+    if (key === undefined || key === '') throw new SheetsError('La fila no tiene clave');
+    const read = await this.request(
+      `${this.valuesUrl(tab, 'A:A')}?majorDimension=COLUMNS`,
+      { method: 'GET' },
+      'Google Sheets no dejó leer la columna de referencias',
+    );
+    const body = (await read.json()) as { values?: unknown };
+    const column =
+      Array.isArray(body.values) && Array.isArray(body.values[0]) ? body.values[0] : [];
+    // La fila 1 son los encabezados: nunca se reescribe.
+    const index = column.findIndex((cell, i) => i > 0 && cell === String(key));
+    if (index < 0) return this.appendRow(tab, values);
+    await this.request(
+      `${this.valuesUrl(tab, `A${index + 1}`)}?valueInputOption=RAW`,
+      { method: 'PUT', body: JSON.stringify({ values: [values] }) },
+      'Google Sheets no aceptó la actualización de la fila',
+    );
   }
 }

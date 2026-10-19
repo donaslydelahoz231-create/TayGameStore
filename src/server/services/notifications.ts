@@ -33,8 +33,10 @@ import { receiptVerificationCode } from './receipts.js';
  * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n), más
  *   "pedido por verificar" (nuevo pedido esperando que el operador verifique ID y nickname).
  *   Ese evento solo va a la automatización del dueño, nunca al correo del cliente;
- * - y, si hay hoja de Google, pagado/entregado/reembolsado a sus dos pestañas: «Pedidos» (sin
- *   datos personales) y «Entregas» (con ID, nickname, servidor y región del jugador).
+ * - y, si hay hoja de Google: pagado/entregado/reembolsado como filas nuevas de «Pedidos» (historial
+ *   sin datos personales) y la fila única del pedido en «Entregas» (con ID, nickname, servidor y
+ *   región del jugador), que se reescribe con el estado actual en cada cambio: tomado, en curso,
+ *   entregado con éxito, fallido, en revisión o reembolsado.
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
@@ -45,7 +47,7 @@ import { receiptVerificationCode } from './receipts.js';
 export type OrderEvent = 'awaiting_verification' | 'paid' | 'delivered' | 'refunded';
 
 type EventKind = Extract<NotificationKind, `${string}_event`>;
-type EmailKind = Exclude<NotificationKind, EventKind>;
+type EmailKind = Exclude<NotificationKind, EventKind | 'order_sheet_sync'>;
 
 const EVENT_KINDS: Record<OrderEvent, EventKind> = {
   awaiting_verification: 'order_verification_event',
@@ -83,13 +85,39 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
     planned.push({ kind: 'order_refunded_customer', channel: 'email' });
   }
   if (deps.events) planned.push({ kind: EVENT_KINDS[event], channel: 'webhook' });
-  // Registro auxiliar en Google Sheets: solo pedidos pagados y sus cambios. «Pedidos» va sin datos
-  // personales; «Entregas» lleva además los del jugador que hacen falta para recargar.
+  // Historial en la pestaña «Pedidos» de Google Sheets: solo pedidos pagados y sus cambios, sin
+  // datos personales. La fila de «Entregas» va aparte (`enqueueSheetSync`).
   if (deps.sheets && event !== 'awaiting_verification') {
     planned.push({ kind: EVENT_KINDS[event], channel: 'sheets' });
-    planned.push({ kind: EVENT_KINDS[event], channel: 'sheets_delivery' });
   }
   return planned;
+}
+
+/**
+ * Pide reescribir la fila del pedido en «Entregas» con su estado actual. Llamar dentro de la
+ * transacción de cada cambio de estado de un pedido pagado (pago, entrega tomada, en curso,
+ * entregada, fallida, revisión, reembolso). Hay una sola fila de cola por pedido: se vuelve a
+ * poner pendiente y, si justo se está enviando, conserva la reserva para que nunca haya dos envíos
+ * a la vez (el que está en curso la reenvía al terminar, ver `deliverNotifications`).
+ */
+export async function enqueueSheetSync(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
+  if (!deps.sheets) return;
+  const now = deps.now();
+  await tx
+    .insert(notifications)
+    .values({ kind: 'order_sheet_sync', channel: 'sheets_delivery', orderId, nextAttemptAt: now })
+    .onConflictDoUpdate({
+      target: [notifications.orderId, notifications.kind, notifications.channel],
+      set: {
+        status: 'PENDING',
+        attempts: 0,
+        lastError: null,
+        sentAt: null,
+        // Las expresiones leen la fila anterior. Pendiente con fecha futura = reservada (se está
+        // enviando) o esperando un reintento: conserva esa fecha, aunque se reencole varias veces.
+        nextAttemptAt: sql`case when ${notifications.status} = 'PENDING' and ${notifications.nextAttemptAt} > ${now} then ${notifications.nextAttemptAt} else ${now} end`,
+      },
+    });
 }
 
 /**
@@ -98,6 +126,7 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
  */
 export async function enqueueTopupAlert(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
   deps.log.warn({ orderId, alert: 'topup_problem' }, 'recarga directa necesita revisión');
+  await enqueueSheetSync(deps, tx, orderId);
   if (!deps.mailer || !deps.config.adminEmails.length) return;
   const now = deps.now();
   await tx
@@ -116,6 +145,7 @@ export async function enqueueOrderNotifications(
   orderId: string,
   event: OrderEvent,
 ): Promise<void> {
+  if (event !== 'awaiting_verification') await enqueueSheetSync(deps, tx, orderId);
   const planned = plannedFor(deps, event);
   if (!planned.length) return;
   await tx
@@ -561,11 +591,16 @@ export function sheetRow(
   ];
 }
 
-/** Encabezados de la pestaña «Entregas» (misma hoja; ver docs/google-sheets.md). */
+/**
+ * Encabezados de la pestaña «Entregas» (misma hoja; ver docs/google-sheets.md): una fila por
+ * pedido. La columna A (referencia) es la clave con la que la tienda encuentra la fila.
+ */
 export const DELIVERY_COLUMNS = [
-  'Fecha (Colombia)',
   'Referencia',
-  'Evento',
+  'Estado',
+  'Pagado (Colombia)',
+  'Entregado (Colombia)',
+  'Minutos hasta la entrega',
   'ID del jugador',
   'Nickname confirmado',
   'Confirmación del jugador',
@@ -576,7 +611,10 @@ export const DELIVERY_COLUMNS = [
   'Estado del pago',
   'Estado de la recarga',
   'Comprobante',
-  'Id del registro',
+  'Código de verificación',
+  'Operación de Mercado Pago',
+  'Evidencia o motivo',
+  'Actualizado (Colombia)',
 ] as const;
 
 const VERIFICATION_LABELS: Record<VerificationStatus, string> = {
@@ -601,30 +639,74 @@ export function playerConfirmationLabel(
 }
 
 /**
- * Fila de «Entregas»: lo de «Pedidos» más los datos del jugador que hacen falta para recargar
- * (ID, nickname confirmado, cómo se confirmó, servidor y región). Nunca correo, nombre ni PIN.
- * Con `valueInputOption=RAW` el ID queda como texto y un nickname nunca se toma como fórmula.
+ * Estado de la fila de «Entregas» en una palabra (lo que el dueño mira primero). Sale de los
+ * estados derivados del pedido: nunca de lo que diga la hoja.
+ */
+export function deliveryStatusLabel(states: SheetStates): string {
+  if (states.payment === 'REFUNDED') return '↩️ Reembolsado';
+  if (states.payment === 'IN_REVIEW' || states.recharge === 'NEEDS_REVIEW')
+    return '⚠️ Requiere revisión';
+  if (states.recharge === 'COMPLETED') return '✅ Entregado con éxito';
+  if (states.recharge === 'CANCELLED') return '✖️ Cancelado';
+  if (states.recharge === 'IN_PROGRESS') return '🔄 En proceso';
+  if (states.payment === 'CONFIRMED') return '⏳ Por entregar';
+  return `Pago ${PAYMENT_STATE_LABELS[states.payment].toLowerCase()}`;
+}
+
+/** Datos de la entrega (tabla `fulfillments`) que van en la fila. */
+export interface DeliveryFacts {
+  deliveredAt: Date | null;
+  /** Evidencia que escribió quien entregó (o la de la entrega automática). */
+  evidence: string | null;
+  failureReason: string | null;
+}
+
+type DeliveryOrder = Pick<
+  OrderSnapshot,
+  | 'reference'
+  | 'totalCop'
+  | 'items'
+  | 'receipt'
+  | 'payment'
+  | 'playerUid'
+  | 'nickname'
+  | 'region'
+  | 'server'
+  | 'verificationStatus'
+  | 'verificationNote'
+  | 'verifiedByOwner'
+>;
+
+/**
+ * Fila de «Entregas»: el estado actual del pedido, con lo que hace falta para recargar (ID,
+ * nickname, cómo se confirmó, servidor y región) y sus referencias (comprobante, código de
+ * verificación, operación de Mercado Pago, evidencia). Nunca correo, nombre ni PIN. Con
+ * `valueInputOption=RAW` el ID queda como texto y nada se toma como fórmula.
  */
 export function deliveryRow(
-  row: { id: string; createdAt: Date },
-  kind: EventKind,
-  order: SheetOrder &
-    Pick<
-      OrderSnapshot,
-      | 'playerUid'
-      | 'nickname'
-      | 'region'
-      | 'server'
-      | 'verificationStatus'
-      | 'verificationNote'
-      | 'verifiedByOwner'
-    >,
+  order: DeliveryOrder,
   states: SheetStates,
+  delivery: DeliveryFacts | undefined,
+  updatedAt: Date,
 ): (string | number)[] {
+  const paidAt = order.payment?.approvedAt ?? null;
+  const done = states.recharge === 'COMPLETED';
+  const deliveredAt = done ? (delivery?.deliveredAt ?? null) : null;
+  const minutes =
+    paidAt && deliveredAt
+      ? Math.max(0, Math.round((deliveredAt.getTime() - paidAt.getTime()) / 60_000))
+      : '';
+  const note = done
+    ? (delivery?.evidence ?? '')
+    : states.recharge === 'NEEDS_REVIEW'
+      ? (delivery?.failureReason ?? '')
+      : '';
   return [
-    bogotaTime.format(row.createdAt),
     order.reference,
-    SHEET_EVENT_LABELS[kind],
+    deliveryStatusLabel(states),
+    paidAt ? bogotaTime.format(paidAt) : '',
+    deliveredAt ? bogotaTime.format(deliveredAt) : '',
+    minutes,
     order.playerUid,
     order.nickname ?? '',
     playerConfirmationLabel(order),
@@ -635,7 +717,10 @@ export function deliveryRow(
     PAYMENT_STATE_LABELS[states.payment],
     RECHARGE_STATE_LABELS[states.recharge],
     sheetReceipt(order),
-    row.id,
+    order.receipt?.verificationCode ?? '',
+    order.payment?.providerPaymentId ?? '',
+    note,
+    bogotaTime.format(updatedAt),
   ];
 }
 
@@ -670,16 +755,31 @@ async function sendOne(
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
-  if (isEventKind(row.kind) && (row.channel === 'sheets' || row.channel === 'sheets_delivery')) {
+  if (row.channel === 'sheets_delivery') {
     if (!deps.sheets) throw new Error('Google Sheets no está configurado');
-    const states = await currentStates(deps, row.orderId, order.status as OrderStatus);
-    if (row.channel === 'sheets') {
-      await deps.sheets.appendRow('orders', sheetRow(row, row.kind, order, states));
-    } else {
-      await deps.sheets.appendRow('deliveries', deliveryRow(row, row.kind, order, states));
-    }
+    // Solo pedidos que llegaron a pagados (tienen comprobante): los demás no van a «Entregas».
+    if (!order.receipt) return;
+    const [states, [delivery]] = await Promise.all([
+      currentStates(deps, row.orderId, order.status as OrderStatus),
+      deps.db
+        .select({
+          deliveredAt: fulfillments.deliveredAt,
+          evidence: fulfillments.evidence,
+          failureReason: fulfillments.failureReason,
+        })
+        .from(fulfillments)
+        .where(eq(fulfillments.orderId, row.orderId)),
+    ]);
+    await deps.sheets.upsertRow('deliveries', deliveryRow(order, states, delivery, deps.now()));
     return;
   }
+  if (isEventKind(row.kind) && row.channel === 'sheets') {
+    if (!deps.sheets) throw new Error('Google Sheets no está configurado');
+    const states = await currentStates(deps, row.orderId, order.status as OrderStatus);
+    await deps.sheets.appendRow('orders', sheetRow(row, row.kind, order, states));
+    return;
+  }
+  if (row.kind === 'order_sheet_sync') throw new Error('canal inválido para la fila de entregas');
   if (isEventKind(row.kind)) {
     if (row.channel !== 'webhook') throw new Error('canal inválido para un evento');
     if (!deps.events) throw new Error('el webhook de eventos no está configurado');
@@ -727,6 +827,16 @@ export async function deliverNotifications(
   deps: ServiceDeps,
   options: { orderId?: string; limit?: number } = {},
 ): Promise<number> {
+  const { sent, rearmed } = await deliverPass(deps, options);
+  // Una fila que se volvió a encolar mientras se enviaba (p. ej. la de «Entregas» tras otro cambio
+  // de estado) se reenvía enseguida con el estado nuevo. Una sola pasada extra: nunca un bucle.
+  return rearmed ? sent + (await deliverPass(deps, options)).sent : sent;
+}
+
+async function deliverPass(
+  deps: ServiceDeps,
+  options: { orderId?: string; limit?: number },
+): Promise<{ sent: number; rearmed: boolean }> {
   const now = deps.now();
   const lease = new Date(now.getTime() + LEASE_MINUTES * 60_000);
   const byOrder = options.orderId ? sql`and order_id = ${options.orderId}` : sql``;
@@ -745,7 +855,7 @@ export async function deliverNotifications(
     claimed = result.rows;
   } catch (error) {
     deps.log.error({ err: error }, 'notifications: no se pudo reservar la cola');
-    return 0;
+    return { sent: 0, rearmed: false };
   }
 
   const results = await Promise.allSettled(
@@ -760,30 +870,52 @@ export async function deliverNotifications(
     ),
   );
   let sent = 0;
+  let rearmed = false;
+  // Solo si nadie volvió a encolar la fila mientras se enviaba (eso reinicia `attempts`); si lo
+  // hicieron, queda pendiente y vencida para reenviarla con el estado nuevo.
+  const stillClaimed = (row: ClaimedRow) =>
+    and(
+      eq(notifications.id, row.id),
+      eq(notifications.status, 'PENDING'),
+      eq(notifications.attempts, row.attempts),
+    );
+  const releaseIfRearmed = async (row: ClaimedRow, saved: { id: string }[]) => {
+    if (saved.length) return;
+    const due = await deps.db
+      .update(notifications)
+      .set({ nextAttemptAt: deps.now() })
+      .where(and(eq(notifications.id, row.id), eq(notifications.status, 'PENDING')))
+      .returning({ id: notifications.id });
+    if (due.length) rearmed = true;
+  };
   for (const [index, result] of results.entries()) {
     const row = claimed[index];
     if (!row) continue;
     try {
       if (result.status === 'fulfilled') {
         sent += 1;
-        await deps.db
+        const saved = await deps.db
           .update(notifications)
           .set({ status: 'SENT', sentAt: deps.now(), lastError: null })
-          .where(and(eq(notifications.id, row.id), eq(notifications.status, 'PENDING')));
+          .where(stillClaimed(row))
+          .returning({ id: notifications.id });
+        await releaseIfRearmed(row, saved);
         continue;
       }
       // Solo el mensaje propio del adaptador: nunca credenciales ni URLs con tokens.
       const reason = result.reason instanceof Error ? result.reason.message.slice(0, 300) : 'error';
       const final = row.attempts >= MAX_ATTEMPTS;
       const waitMinutes = BACKOFF_MINUTES[row.attempts - 1] ?? 60;
-      await deps.db
+      const saved = await deps.db
         .update(notifications)
         .set({
           status: final ? 'FAILED' : 'PENDING',
           lastError: reason,
           nextAttemptAt: new Date(deps.now().getTime() + waitMinutes * 60_000),
         })
-        .where(and(eq(notifications.id, row.id), eq(notifications.status, 'PENDING')));
+        .where(stillClaimed(row))
+        .returning({ id: notifications.id });
+      await releaseIfRearmed(row, saved);
       deps.log.warn(
         {
           notificationId: row.id,
@@ -799,5 +931,5 @@ export async function deliverNotifications(
       deps.log.error({ err: error, notificationId: row.id }, 'notifications: estado no guardado');
     }
   }
-  return sent;
+  return { sent, rearmed };
 }

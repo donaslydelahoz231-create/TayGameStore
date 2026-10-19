@@ -822,12 +822,17 @@ export const NOTIFICATION_KINDS = [
   'order_verification_event',
   /** Al dueño: una recarga directa falló o quedó sin confirmar (revisar en el panel). */
   'topup_problem_owner',
+  /**
+   * Fila del pedido en la pestaña «Entregas» (canal `sheets_delivery`): una sola por pedido, se
+   * vuelve a encolar con cada cambio de estado y se reescribe con el estado actual (migración 0020).
+   */
+  'order_sheet_sync',
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 /**
  * `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad), pestaña
  * «Pedidos» sin datos personales. `sheets_delivery`: pestaña «Entregas» de la misma hoja, con los
- * datos del jugador para recargar (migración 0019).
+ * datos del jugador para recargar (migración 0019; una fila por pedido desde la 0020).
  * `telegram` se quitó en la migración 0018: el dueño decidió no usarlo (sin filas guardadas).
  */
 export const NOTIFICATION_CHANNELS = ['email', 'webhook', 'sheets', 'sheets_delivery'] as const;

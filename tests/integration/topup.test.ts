@@ -3,6 +3,10 @@ import { asc, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { auditEvents, fulfillments, orders, topups } from '../../src/server/db/schema.js';
+import type {
+  OrderSheetLog,
+  SheetTab,
+} from '../../src/server/integrations/sheets/google-sheets.js';
 import { runJob } from '../../src/server/services/jobs.js';
 import { MAX_CHECKS, processTopups } from '../../src/server/services/topups.js';
 import {
@@ -24,20 +28,35 @@ import {
 let h: Harness;
 let admin: Record<string, string>;
 
+/** Hoja de Google simulada: solo guarda el estado (columna B) de cada fila de «Entregas». */
+class StatusSheet implements OrderSheetLog {
+  statuses = new Map<string, string[]>();
+  async appendRow(): Promise<void> {}
+  async upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+    if (tab !== 'deliveries') return;
+    const key = String(values[0]);
+    this.statuses.set(key, [...(this.statuses.get(key) ?? []), String(values[1])]);
+  }
+}
+const sheet = new StatusSheet();
+
 const CATALOG = {
   latam: { game: 'FF_LATAM', skus: { 'ff-110': 'D110', 'ff-341': 'D341' } },
 };
 
 beforeAll(async () => {
   await resetDatabase(testDatabaseUrl());
-  h = await createHarness({
-    PLAYER_VERIFICATION: 'customer',
-    SELL_ONLY_WITH_STOCK: 'true',
-    TOPUP_PROVIDER: 'unipin',
-    UNIPIN_PARTNER_ID: 'socio-ficticio-0001',
-    UNIPIN_SECRET_KEY: 'llave-ficticia-de-prueba',
-    UNIPIN_CATALOG: JSON.stringify(CATALOG),
-  });
+  h = await createHarness(
+    {
+      PLAYER_VERIFICATION: 'customer',
+      SELL_ONLY_WITH_STOCK: 'true',
+      TOPUP_PROVIDER: 'unipin',
+      UNIPIN_PARTNER_ID: 'socio-ficticio-0001',
+      UNIPIN_SECRET_KEY: 'llave-ficticia-de-prueba',
+      UNIPIN_CATALOG: JSON.stringify(CATALOG),
+    },
+    { sheets: sheet },
+  );
   await seedProducts(h);
   admin = (await sessionFor(h, { email: ADMIN_EMAIL, admin: true, mfa: true, sub: 'adm-topup' }))
     .cookie;
@@ -165,6 +184,11 @@ describe('recarga directa con UniPin', () => {
     // Otra pasada del job no vuelve a recargar.
     await runJob(h.deps, 'topups');
     expect(h.topup.createCalls).toHaveLength(1);
+    // La fila del pedido en «Entregas» siguió la recarga hasta «entregado con éxito».
+    expect(sheet.statuses.get(ref)).toEqual(
+      expect.arrayContaining(['⏳ Por entregar', '🔄 En proceso']),
+    );
+    expect(sheet.statuses.get(ref)?.at(-1)).toBe('✅ Entregado con éxito');
   });
 
   it('varias unidades: una recarga por unidad, cada una con su referencia', async () => {
@@ -237,6 +261,7 @@ describe('recarga directa con UniPin', () => {
     expect(alert?.text).toContain('7xx');
     // Al cliente no se le dice que está entregado.
     expect(h.mailer.sent.some((m) => m.subject.startsWith('Recarga completada'))).toBe(false);
+    expect(sheet.statuses.get(ref)?.at(-1)).toBe('⚠️ Requiere revisión');
 
     // El dueño reanuda la entrega desde el panel: solo la unidad fallida, con un intento nuevo.
     const resume = await inject({
@@ -250,6 +275,7 @@ describe('recarga directa con UniPin', () => {
     await processTopups(h.deps);
     const after = await state(ref);
     expect(after.order.status).toBe('DELIVERED');
+    expect(sheet.statuses.get(ref)?.at(-1)).toBe('✅ Entregado con éxito');
     expect(after.units.map((u) => [u.referenceNo, u.status])).toEqual([
       [`${ref}-11-1`, 'SUCCESS'],
       [`${ref}-12-1`, 'FAILED'],
