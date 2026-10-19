@@ -54,23 +54,23 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.56.1",
-    "@types/node": "24.19.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "@types/smtp-server": "3.5.13",
     "drizzle-kit": "0.31.11",
     "eslint": "10.12.0",
     "globals": "17.13.0",
     "pino-pretty": "13.2.0",
-    "prettier": "3.9.9",
-    "smtp-server": "3.19.17",
+    "prettier": "3.9.10",
+    "smtp-server": "3.19.23",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.71.1",
-    "vite": "8.3.3",
-    "vitest": "5.0.3"
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
