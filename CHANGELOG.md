@@ -35,6 +35,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   - canal `sheets` en la cola de avisos, con reintentos y alerta en el panel;
   - cuenta de servicio con firma JWT RS256 propia, sin dependencias nuevas;
   - filas sin correo, nombre, UID ni PIN, escritas como texto literal.
+- **Pestaña «Entregas» en la misma hoja** (pedido del dueño, 2026-10-19):
+  - por cada pago, entrega o reembolso, una fila con el ID del jugador, el nickname confirmado,
+    cómo se confirmó la cuenta, el servidor elegido, la región detectada, el paquete y los
+    estados; nunca correo, nombre ni PIN;
+  - canal propio `sheets_delivery` (migración 0019): sus reintentos no repiten filas de
+    «Pedidos»;
+  - `GOOGLE_SHEETS_DELIVERY_TAB` (por defecto «Entregas»); el servidor no arranca si coincide
+    con la pestaña de pedidos;
+  - la política de privacidad lo informa (punto 4) en lugar de n8n, que ya no se usa.
 - Evaluación de Wompi y Nequi Negocios (`docs/pagos-colombia.md`), sin implementar otra
   pasarela.
 

@@ -3,7 +3,10 @@ import { and, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { notifications, orders } from '../../src/server/db/schema.js';
-import type { OrderSheetLog } from '../../src/server/integrations/sheets/google-sheets.js';
+import type {
+  OrderSheetLog,
+  SheetTab,
+} from '../../src/server/integrations/sheets/google-sheets.js';
 import { deliverNotifications } from '../../src/server/services/notifications.js';
 import {
   ADMIN_EMAIL,
@@ -16,13 +19,16 @@ import {
   type Harness,
 } from '../support/integration.js';
 
-/** Hoja de Google simulada: guarda las filas o falla a pedido (sin red ni credenciales). */
+/** Hoja de Google simulada: guarda las filas de cada pestaña o falla a pedido (sin red). */
 class RecordingSheet implements OrderSheetLog {
+  /** Pestaña «Pedidos» (sin datos personales). */
   rows: (string | number)[][] = [];
+  /** Pestaña «Entregas» (con los datos del jugador). */
+  deliveries: (string | number)[][] = [];
   failing = false;
-  async appendRow(values: readonly (string | number)[]): Promise<void> {
+  async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
-    this.rows.push([...values]);
+    (tab === 'orders' ? this.rows : this.deliveries).push([...values]);
   }
 }
 
@@ -46,6 +52,7 @@ beforeEach(() => {
   h.clock.now = new Date();
   sheet.failing = false;
   sheet.rows = [];
+  sheet.deliveries = [];
 });
 
 const randomIp = () =>
@@ -69,6 +76,7 @@ async function paidOrder() {
       checkoutKey: randomUUID(),
       game: 'freefire',
       playerUid: String(uid),
+      playerServer: 'latam',
       customerName: 'Nombre Privado',
       customerEmail: email,
       acceptTerms: true,
@@ -125,14 +133,18 @@ async function paidOrder() {
   return { id, reference: order.reference, email, uid: String(uid), cookies };
 }
 
-async function sheetNotification(orderId: string, kind = 'order_paid_event') {
+async function sheetNotification(
+  orderId: string,
+  kind = 'order_paid_event',
+  channel: 'sheets' | 'sheets_delivery' = 'sheets',
+) {
   const [row] = await h.database.db
     .select()
     .from(notifications)
     .where(
       and(
         eq(notifications.orderId, orderId),
-        eq(notifications.channel, 'sheets'),
+        eq(notifications.channel, channel),
         eq(notifications.kind, kind as 'order_paid_event'),
       ),
     );
@@ -167,15 +179,21 @@ describe('registro auxiliar en Google Sheets', () => {
     expect(pending).toMatchObject({ status: 'PENDING', attempts: 1 });
     expect(pending?.lastError).toBeTruthy();
     expect(sheet.rows).toHaveLength(0);
+    expect(sheet.deliveries).toHaveLength(0);
 
     sheet.failing = false;
     h.clock.now = new Date(Date.now() + 2 * 60_000);
     await deliverNotifications(h.deps, { orderId: paid.id });
     expect(sheet.rows).toHaveLength(1);
+    expect(sheet.deliveries).toHaveLength(1);
     expect((await sheetNotification(paid.id))?.status).toBe('SENT');
-    // Volver a pasar la cola no duplica la fila.
+    expect((await sheetNotification(paid.id, 'order_paid_event', 'sheets_delivery'))?.status).toBe(
+      'SENT',
+    );
+    // Volver a pasar la cola no duplica las filas.
     await deliverNotifications(h.deps, { orderId: paid.id });
     expect(sheet.rows).toHaveLength(1);
+    expect(sheet.deliveries).toHaveLength(1);
   });
 
   it('tras varios fallos queda como aviso fallido y el panel lo muestra', async () => {
@@ -208,5 +226,27 @@ describe('registro auxiliar en Google Sheets', () => {
     }
     expect(sheet.rows.map((row) => row[2])).toEqual(['Pago confirmado', 'Recarga entregada']);
     expect(sheet.rows[1]?.[7]).toBe('Completado');
+    expect(sheet.deliveries.map((row) => row[2])).toEqual(['Pago confirmado', 'Recarga entregada']);
+    expect(sheet.deliveries[1]?.[11]).toBe('Completado');
+  });
+
+  it('«Entregas» lleva ID, nickname, confirmación, servidor y región, nunca correo ni nombre', async () => {
+    const paid = await paidOrder();
+    expect(sheet.deliveries).toHaveLength(1);
+    const [row] = sheet.deliveries;
+    expect(row?.slice(1, 8)).toEqual([
+      paid.reference,
+      'Pago confirmado',
+      paid.uid,
+      'NickPrivado',
+      'Verificado por el dueño y aceptado por el cliente',
+      'Latinoamérica',
+      'Colombia',
+    ]);
+    const text = JSON.stringify(row);
+    for (const secret of [paid.email, 'Nombre Privado']) expect(text).not.toContain(secret);
+    expect((await sheetNotification(paid.id, 'order_paid_event', 'sheets_delivery'))?.status).toBe(
+      'SENT',
+    );
   });
 });

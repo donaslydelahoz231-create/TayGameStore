@@ -1089,5 +1089,66 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Sin cambios** en pagos (`PAYMENTS_ENABLED`/`CHECKOUT_ENABLED`), secretos, variables de Render,
   `LEGAL_*` ni datos del dueño. Si en Render quedara alguna variable `TELEGRAM_*`, el servidor la
   ignora (el arranque mostraba `telegram:false`, así que no estaban cargadas).
-- **Evidencia local, despliegue y NO VERIFICADO:** se informan al dueño con cifras después del
-  push.
+- **Evidencia del despliegue (2026-10-19):**
+  - push `7971b5c`; Render `dep-dbap6gtg1s2s73biukng` en `live` a las 03:50 UTC; la migración
+    0018 se aplicó en el build;
+  - CI (lint, unitarias, integración, e2e en Chromium, Firefox y WebKit), CodeQL y la prueba de
+    humo de producción: en verde;
+  - arranques posteriores sin errores; el registro «avisos y automatización» ya no tiene el
+    indicador `telegram`.
+- **NO VERIFICADO:** el correo al dueño en vivo (SMTP sigue sin configurar: `correo:false`).
+
+### 2026-10-19 · Hoja de Google del dueño y pestaña «Entregas» con los datos del jugador
+
+- **Pidió y autorizó**: el dueño.
+  - Primero: «Sí, crea la hoja Pedidos en mi Drive, y ejecutalo altamente profesional».
+  - Después: «Quiero que los conectes y lo gestiones e ejecute en modo de producción».
+  - Y luego: «quiero una hoja apartado del mismo archivo excel de ID del jugador, la
+    confirmación del jugador, la región, y el pedido y etc información y además que tenga
+    conectado y se actualize conectado a mi tienda».
+  - Varias veces dio autorización general («tienes permiso y autorización»).
+- **Hoja creada en el Drive del dueño** («TayGameStore · Registro de pedidos», privada). El id no
+  se escribe en el repositorio.
+  - Pestañas:
+    - «Resumen»: indicadores con fórmulas, sin repetir pedidos reintentados;
+    - «Pedidos»: los 10 encabezados exactos de `SHEET_COLUMNS`;
+    - «Léeme».
+  - Las fórmulas se probaron con 6 filas ficticias («PRUEBA-…»), que se borraron después.
+  - Permisos (Drive, 2026-10-19): solo el dueño y la cuenta de servicio `tienda-hoja` como
+    editora. No hay enlace público.
+- **Cuenta de servicio:** el dueño la creó en un proyecto propio de Google Cloud (sin
+  organización y sin roles).
+  - El dueño subió **dos llaves JSON a la conversación**.
+  - Se borraron las copias que quedaron en el entorno de trabajo, no se usaron y no se copiaron
+    a ningún archivo ni variable.
+  - Se le pidió borrarlas en Google Cloud y crear una nueva sin enviarla.
+- **Redespliegue manual** (Render `dep-dbb1edvf3r2c73ftvah0`, `live` a las 13:13 UTC) para leer
+  las variables. El arranque dijo `hojaGoogle: false`: en Render no estaban las tres variables.
+  - La tienda siguió funcionando y no hubo errores.
+- **Código (pestaña «Entregas»):**
+  - canal nuevo `sheets_delivery` en la cola de avisos (migración 0019: solo amplía el CHECK);
+  - por cada pago confirmado, recarga entregada o reembolso escribe una fila con los datos para
+    recargar:
+    - ID del jugador (texto);
+    - nickname confirmado;
+    - cómo se confirmó la cuenta (sin copiar la nota del operador);
+    - servidor elegido;
+    - región detectada;
+    - paquete, total, estados, comprobante e id del registro.
+  - «Pedidos» sigue sin datos personales. Correo, nombre y PIN no van a ninguna pestaña.
+  - `GOOGLE_SHEETS_DELIVERY_TAB` (por defecto «Entregas»). Si coincide con la pestaña de pedidos,
+    el servidor no arranca.
+  - La política de privacidad (punto 4) informa del registro en Google Sheets. Antes nombraba a
+    n8n, que el dueño dejó de usar el 2026-10-11.
+- **Evidencia local:**
+  - lint, formato y tipos: OK;
+  - unitarias: 289/289;
+  - integración: 253/253, con PostgreSQL y rol mínimo;
+  - e2e: 68/68;
+  - esquema y migraciones sincronizados;
+  - escáner de datos sensibles: 0 coincidencias.
+- **NO VERIFICADO:**
+  - que las dos llaves que pasaron por la conversación estén borradas en Google Cloud;
+  - las tres variables en Render;
+  - la primera fila real en las pestañas: hace falta un pago confirmado, y los pagos siguen
+    apagados.

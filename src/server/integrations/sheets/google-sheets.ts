@@ -7,6 +7,8 @@ import { createSign } from 'node:crypto';
  *   pago lo confirma Mercado Pago. Editar una celda no cambia ningún pedido (no hay lectura).
  * - Solo agrega filas (`values:append`) con `valueInputOption=RAW`: nada se interpreta como
  *   fórmula.
+ * - Dos pestañas: «Pedidos» (solo datos de la operación) y «Entregas» (además, los datos del
+ *   jugador que hacen falta para recargar: ID, nickname confirmado, servidor y región).
  * - Credenciales: una cuenta de servicio de Google Cloud con la hoja compartida con su correo.
  *   La llave privada (campo `private_key` del JSON de la cuenta) vive solo en el servidor.
  * - Se usa desde la cola de avisos: si Google falla, el pedido sigue igual y la fila se reintenta.
@@ -15,8 +17,11 @@ import { createSign } from 'node:crypto';
  * https://oauth2.googleapis.com/token) y Sheets API v4 `spreadsheets.values.append`.
  */
 
+/** `orders`: pestaña sin datos personales. `deliveries`: con los datos del jugador. */
+export type SheetTab = 'orders' | 'deliveries';
+
 export interface OrderSheetLog {
-  appendRow(values: readonly (string | number)[]): Promise<void>;
+  appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void>;
 }
 
 export interface GoogleSheetsOptions {
@@ -24,8 +29,8 @@ export interface GoogleSheetsOptions {
   clientEmail: string;
   /** Llave privada PEM de la cuenta de servicio. */
   privateKey: string;
-  /** Pestaña de la hoja donde se agregan las filas. */
-  tab: string;
+  /** Nombre de cada pestaña donde se agregan las filas. */
+  tabs: Record<SheetTab, string>;
   timeoutMs?: number;
   /** Para pruebas: sustituye a `fetch`. */
   fetch?: typeof fetch;
@@ -106,9 +111,9 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return body.access_token;
   }
 
-  async appendRow(values: readonly (string | number)[]): Promise<void> {
+  async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     const token = await this.accessToken();
-    const range = encodeURIComponent(`${this.options.tab}!A1`);
+    const range = encodeURIComponent(`${this.options.tabs[tab]}!A1`);
     const url =
       `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values/${range}:append` +
       '?valueInputOption=RAW&insertDataOption=INSERT_ROWS';

@@ -409,6 +409,11 @@ const envSchema = z
       .string()
       .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
       .default('Pedidos'),
+    /** Pestaña con los datos del jugador para entregar (ID, nickname, servidor y región). */
+    GOOGLE_SHEETS_DELIVERY_TAB: z
+      .string()
+      .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
+      .default('Entregas'),
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
@@ -434,6 +439,10 @@ const envSchema = z
         'GOOGLE_SHEETS_SPREADSHEET_ID',
         'GOOGLE_SHEETS_SPREADSHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL y GOOGLE_SHEETS_PRIVATE_KEY van juntas',
       );
+    }
+    // Los datos del jugador nunca deben caer en la pestaña «Pedidos», que no lleva datos personales.
+    if (env.GOOGLE_SHEETS_TAB.toLowerCase() === env.GOOGLE_SHEETS_DELIVERY_TAB.toLowerCase()) {
+      issue('GOOGLE_SHEETS_DELIVERY_TAB', 'debe ser una pestaña distinta de GOOGLE_SHEETS_TAB');
     }
     if (Boolean(env.EVENTS_WEBHOOK_URL) !== Boolean(env.EVENTS_WEBHOOK_SECRET)) {
       issue('EVENTS_WEBHOOK_SECRET', 'EVENTS_WEBHOOK_URL y EVENTS_WEBHOOK_SECRET van juntas');
@@ -604,7 +613,13 @@ export interface AppConfig {
   eventsWebhook: { url: string; secret: string } | undefined;
   /** Registro auxiliar en Google Sheets (cuenta de servicio). Sin él no se escribe nada. */
   sheets:
-    { spreadsheetId: string; clientEmail: string; privateKey: string; tab: string } | undefined;
+    | {
+        spreadsheetId: string;
+        clientEmail: string;
+        privateKey: string;
+        tabs: { orders: string; deliveries: string };
+      }
+    | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
@@ -789,7 +804,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
             spreadsheetId: env.GOOGLE_SHEETS_SPREADSHEET_ID,
             clientEmail: env.GOOGLE_SHEETS_CLIENT_EMAIL,
             privateKey: env.GOOGLE_SHEETS_PRIVATE_KEY,
-            tab: env.GOOGLE_SHEETS_TAB,
+            tabs: { orders: env.GOOGLE_SHEETS_TAB, deliveries: env.GOOGLE_SHEETS_DELIVERY_TAB },
           }
         : undefined,
     eventsWebhook:

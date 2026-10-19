@@ -825,10 +825,12 @@ export const NOTIFICATION_KINDS = [
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 /**
- * `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad).
+ * `sheets`: registro auxiliar en Google Sheets (opcional; nunca es la fuente de verdad), pestaña
+ * «Pedidos» sin datos personales. `sheets_delivery`: pestaña «Entregas» de la misma hoja, con los
+ * datos del jugador para recargar (migración 0019).
  * `telegram` se quitó en la migración 0018: el dueño decidió no usarlo (sin filas guardadas).
  */
-export const NOTIFICATION_CHANNELS = ['email', 'webhook', 'sheets'] as const;
+export const NOTIFICATION_CHANNELS = ['email', 'webhook', 'sheets', 'sheets_delivery'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];

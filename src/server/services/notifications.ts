@@ -10,6 +10,7 @@ import {
   type NotificationChannel,
   type NotificationKind,
   type OrderStatus,
+  type VerificationStatus,
 } from '../db/schema.js';
 import { paidOrderText } from '../integrations/notify/owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
@@ -31,7 +32,9 @@ import { receiptVerificationCode } from './receipts.js';
  * - entregado → al cliente; reembolsado → al cliente;
  * - y, si está configurado, cada uno de esos eventos a la automatización del dueño (n8n), más
  *   "pedido por verificar" (nuevo pedido esperando que el operador verifique ID y nickname).
- *   Ese evento solo va a la automatización del dueño, nunca al correo del cliente.
+ *   Ese evento solo va a la automatización del dueño, nunca al correo del cliente;
+ * - y, si hay hoja de Google, pagado/entregado/reembolsado a sus dos pestañas: «Pedidos» (sin
+ *   datos personales) y «Entregas» (con ID, nickname, servidor y región del jugador).
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
@@ -80,9 +83,11 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
     planned.push({ kind: 'order_refunded_customer', channel: 'email' });
   }
   if (deps.events) planned.push({ kind: EVENT_KINDS[event], channel: 'webhook' });
-  // Registro auxiliar en Google Sheets: solo pedidos pagados y sus cambios (sin datos personales).
+  // Registro auxiliar en Google Sheets: solo pedidos pagados y sus cambios. «Pedidos» va sin datos
+  // personales; «Entregas» lleva además los del jugador que hacen falta para recargar.
   if (deps.sheets && event !== 'awaiting_verification') {
     planned.push({ kind: EVENT_KINDS[event], channel: 'sheets' });
+    planned.push({ kind: EVENT_KINDS[event], channel: 'sheets_delivery' });
   }
   return planned;
 }
@@ -133,6 +138,11 @@ interface OrderSnapshot {
   region: string | null;
   /** Servidor de Free Fire declarado por el cliente (nombre legible). */
   server: string | null;
+  verificationStatus: VerificationStatus;
+  /** Origen de la confirmación (`proveedor:…`, `cliente` o nota del operador): nunca se copia. */
+  verificationNote: string | null;
+  /** El dueño verificó el jugador desde el panel. */
+  verifiedByOwner: boolean;
   customerEmail: string;
   receiptCode: string;
   items: { name: string; quantity: number; unitPriceCop: number; lineTotalCop: number }[];
@@ -421,6 +431,9 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
       nickname: orders.verifiedNickname,
       region: orders.verifiedRegion,
       playerServer: orders.playerServer,
+      verificationStatus: orders.verificationStatus,
+      verificationNote: orders.verificationNote,
+      verifiedBy: orders.verifiedBy,
       customerEmail: orders.customerEmail,
       receiptCode: orders.receiptCode,
       receiptNumber: orders.receiptNumber,
@@ -441,9 +454,10 @@ async function loadSnapshot(deps: ServiceDeps, orderId: string): Promise<OrderSn
     .select({ providerPaymentId: payments.providerPaymentId, approvedAt: payments.approvedAt })
     .from(payments)
     .where(and(eq(payments.orderId, orderId), eq(payments.isOrderPayment, true)));
-  const { playerServer, receiptNumber, ...rest } = order;
+  const { playerServer, receiptNumber, verifiedBy, ...rest } = order;
   return {
     ...rest,
+    verifiedByOwner: verifiedBy !== null,
     server: playerServer ? FREE_FIRE_SERVER_LABELS[playerServer] : null,
     items,
     payment: payment ?? null,
@@ -512,6 +526,16 @@ export const SHEET_COLUMNS = [
   'Id del registro',
 ] as const;
 
+type SheetOrder = Pick<OrderSnapshot, 'reference' | 'totalCop' | 'items'> & {
+  receipt: { number: number } | null;
+};
+type SheetStates = { payment: PaymentState; recharge: RechargeState };
+
+const sheetItems = (order: SheetOrder) =>
+  order.items.map((item) => `${item.quantity}× ${item.name}`).join('; ');
+const sheetReceipt = (order: SheetOrder) =>
+  order.receipt ? String(order.receipt.number).padStart(6, '0') : '';
+
 /**
  * Fila del registro auxiliar. Solo datos de la operación: nunca correo, nombre, UID, nickname
  * ni PIN (la hoja sale de la base y puede compartirse por error). El «Id del registro» permite
@@ -520,21 +544,97 @@ export const SHEET_COLUMNS = [
 export function sheetRow(
   row: { id: string; createdAt: Date },
   kind: EventKind,
-  order: Pick<OrderSnapshot, 'reference' | 'totalCop' | 'items'> & {
-    receipt: { number: number } | null;
-  },
-  states: { payment: PaymentState; recharge: RechargeState },
+  order: SheetOrder,
+  states: SheetStates,
 ): (string | number)[] {
   return [
     bogotaTime.format(row.createdAt),
     order.reference,
     SHEET_EVENT_LABELS[kind],
-    order.items.map((item) => `${item.quantity}× ${item.name}`).join('; '),
+    sheetItems(order),
     order.totalCop,
     'COP',
     PAYMENT_STATE_LABELS[states.payment],
     RECHARGE_STATE_LABELS[states.recharge],
-    order.receipt ? String(order.receipt.number).padStart(6, '0') : '',
+    sheetReceipt(order),
+    row.id,
+  ];
+}
+
+/** Encabezados de la pestaña «Entregas» (misma hoja; ver docs/google-sheets.md). */
+export const DELIVERY_COLUMNS = [
+  'Fecha (Colombia)',
+  'Referencia',
+  'Evento',
+  'ID del jugador',
+  'Nickname confirmado',
+  'Confirmación del jugador',
+  'Servidor elegido',
+  'Región detectada',
+  'Paquete',
+  'Total',
+  'Estado del pago',
+  'Estado de la recarga',
+  'Comprobante',
+  'Id del registro',
+] as const;
+
+const VERIFICATION_LABELS: Record<VerificationStatus, string> = {
+  PENDING: 'Pendiente de verificar',
+  VERIFIED: 'Verificado por el dueño (falta que el cliente acepte)',
+  NOT_FOUND: 'ID no encontrado',
+  AMBIGUOUS: 'Verificación dudosa',
+  BLOCKED_ACCOUNT: 'Cuenta bloqueada',
+  CONFIRMED: 'Confirmado',
+  DECLINED_BY_CUSTOMER: 'Rechazado por el cliente',
+};
+
+/** Cómo se confirmó que el ID es del cliente. La nota libre del operador nunca se copia. */
+export function playerConfirmationLabel(
+  order: Pick<OrderSnapshot, 'verificationStatus' | 'verificationNote' | 'verifiedByOwner'>,
+): string {
+  if (order.verificationStatus !== 'CONFIRMED')
+    return VERIFICATION_LABELS[order.verificationStatus];
+  if (order.verifiedByOwner) return 'Verificado por el dueño y aceptado por el cliente';
+  if (order.verificationNote?.startsWith('proveedor:')) return 'Confirmado con la búsqueda de ID';
+  return 'Confirmado por el cliente (escribió su ID dos veces)';
+}
+
+/**
+ * Fila de «Entregas»: lo de «Pedidos» más los datos del jugador que hacen falta para recargar
+ * (ID, nickname confirmado, cómo se confirmó, servidor y región). Nunca correo, nombre ni PIN.
+ * Con `valueInputOption=RAW` el ID queda como texto y un nickname nunca se toma como fórmula.
+ */
+export function deliveryRow(
+  row: { id: string; createdAt: Date },
+  kind: EventKind,
+  order: SheetOrder &
+    Pick<
+      OrderSnapshot,
+      | 'playerUid'
+      | 'nickname'
+      | 'region'
+      | 'server'
+      | 'verificationStatus'
+      | 'verificationNote'
+      | 'verifiedByOwner'
+    >,
+  states: SheetStates,
+): (string | number)[] {
+  return [
+    bogotaTime.format(row.createdAt),
+    order.reference,
+    SHEET_EVENT_LABELS[kind],
+    order.playerUid,
+    order.nickname ?? '',
+    playerConfirmationLabel(order),
+    order.server ?? '',
+    order.region ?? '',
+    sheetItems(order),
+    order.totalCop,
+    PAYMENT_STATE_LABELS[states.payment],
+    RECHARGE_STATE_LABELS[states.recharge],
+    sheetReceipt(order),
     row.id,
   ];
 }
@@ -570,10 +670,14 @@ async function sendOne(
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
-  if (isEventKind(row.kind) && row.channel === 'sheets') {
+  if (isEventKind(row.kind) && (row.channel === 'sheets' || row.channel === 'sheets_delivery')) {
     if (!deps.sheets) throw new Error('Google Sheets no está configurado');
     const states = await currentStates(deps, row.orderId, order.status as OrderStatus);
-    await deps.sheets.appendRow(sheetRow(row, row.kind, order, states));
+    if (row.channel === 'sheets') {
+      await deps.sheets.appendRow('orders', sheetRow(row, row.kind, order, states));
+    } else {
+      await deps.sheets.appendRow('deliveries', deliveryRow(row, row.kind, order, states));
+    }
     return;
   }
   if (isEventKind(row.kind)) {

@@ -134,6 +134,13 @@
       "when": 1792381185871,
       "tag": "0018_sin_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792416036405,
+      "tag": "0019_hoja_entregas",
+      "breakpoints": true
     }
   ]
 }
