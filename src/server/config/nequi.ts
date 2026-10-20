@@ -44,9 +44,11 @@ const DEFAULT_REVIEW_HOURS = 24;
 /**
  * Solo llaves alfanuméricas de Bre-B (@ + letras, números, punto, guion o guion bajo). Una llave
  * hecha solo de números se rechaza: podría ser un número de documento, que nunca se publica
- * (docs/datos-del-propietario.md). Para el celular está NEQUI_MANUAL_PHONE.
+ * (docs/datos-del-propietario.md). La única excepción es @ + un celular (10 dígitos que empiezan
+ * por 3): ninguna cédula colombiana tiene esa forma (las de 10 dígitos empiezan por 1).
  */
 const BREB_KEY = /^@[A-Za-z0-9._-]{2,40}$/;
+const BREB_PHONE_KEY = /^@3\d{9}$/;
 
 const off = (problem: string): NequiSettings => ({ manual: undefined, problem });
 
@@ -60,9 +62,12 @@ export function nequiSettings(env: NequiEnv): NequiSettings {
     return off('NEQUI_MANUAL_PHONE debe ser un celular colombiano de 10 dígitos que empiece por 3');
   }
   const brebKey = env.NEQUI_MANUAL_BREB_KEY?.trim() || undefined;
-  if (brebKey && (!BREB_KEY.test(brebKey) || /^@\d+$/.test(brebKey))) {
+  if (
+    brebKey &&
+    (!BREB_KEY.test(brebKey) || (/^@\d+$/.test(brebKey) && !BREB_PHONE_KEY.test(brebKey)))
+  ) {
     return off(
-      'NEQUI_MANUAL_BREB_KEY debe ser una llave alfanumérica que empiece por @ (no solo números)',
+      'NEQUI_MANUAL_BREB_KEY debe empezar por @ y tener letras, o ser @ más un celular de 10 dígitos que empiece por 3',
     );
   }
   if (!phone && !brebKey) {

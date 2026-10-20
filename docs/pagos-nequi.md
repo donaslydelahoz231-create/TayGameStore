@@ -93,8 +93,9 @@ Tres capas; cada una basta por sí sola para impedir una confirmación cruzada.
 
 La llave y el celular del dueño solo los ve el comprador de **su propio** pedido Nequi y solo
 mientras espera pago. No aparecen en `/api/config`, en el código, en los correos ni en la hoja de
-Google. La llave se valida al arrancar: solo alfanumérica con `@`; una llave hecha solo de números
-se rechaza porque podría ser un número de documento (`docs/datos-del-propietario.md`).
+Google. La llave se valida al arrancar: alfanumérica con `@`. Una llave hecha solo de números se
+rechaza porque podría ser un número de documento (`docs/datos-del-propietario.md`), salvo `@` más
+un celular (10 dígitos que empiezan por 3): ninguna cédula colombiana tiene esa forma.
 
 ## Verificación del dueño (cada aviso)
 
@@ -206,8 +207,9 @@ aplicarlo, idempotencia y pruebas de aislamiento iguales a las de `nequi_manual`
   al revés (Mercado Pago caído o apagado); cada proveedor confirma solo lo suyo; aviso, duplicados,
   cambio de método, transferencias tardías, devoluciones y exposición del celular.
   También: la llave y el celular solo aparecen en el propio pedido Nequi mientras espera pago.
-- `tests/unit/nequi-config.test.ts` (7 casos): variables propias, solo llave o solo celular, llaves
-  inválidas (sin `@`, solo números, con espacios o marcado) y arranque.
+- `tests/unit/nequi-config.test.ts` (8 casos): variables propias, solo llave o solo celular, llave
+  `@` + celular, llaves inválidas (sin `@`, solo números con forma de documento, con espacios o
+  marcado) y arranque.
 - `e2e/behavior.spec.ts`, con datos ficticios:
   - compra Nequi en el navegador sin pasar por Mercado Pago: llave, titular, total, ID, aviso
     pendiente, «Seguimiento» sin Mercado Pago, confirmación y «¡Envío exitoso!»;

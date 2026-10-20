@@ -1518,3 +1518,23 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - Nequi en producción: sigue apagado (faltan `NEQUI_MANUAL_BREB_KEY`, `NEQUI_MANUAL_HOLDER` y
     `NEQUI_MANUAL_ENABLED=true`, que carga el dueño);
   - la hoja de Google en producción (sin las variables `GOOGLE_SHEETS_*`).
+
+### 2026-10-20 · Nequi encendido en producción (llave @ + celular aceptada)
+
+- **Autorización del dueño (2026-10-20):** «hazlo todo por tu cuenta … y además este en producción
+  y en función y este encendida y solucioname a render». Cubre este commit, su push y las
+  variables de Nequi en Render.
+- **Causa de que Nequi no se pudiera encender:** la llave Bre-B del dueño es `@` + celular (10
+  dígitos que empiezan por 3) y la validación rechazaba toda llave hecha solo de números. Con esa
+  llave Nequi habría quedado apagado aunque se cargaran las variables. Ahora se acepta esa forma
+  (ninguna cédula colombiana la tiene: las de 10 dígitos empiezan por 1); las demás llaves solo
+  de números siguen rechazadas. Prueba nueva en `tests/unit/nequi-config.test.ts` (falla sin la
+  corrección).
+- **Render (variables, modo «merge»: no se tocó ninguna otra):** `NEQUI_MANUAL_ENABLED`,
+  `NEQUI_MANUAL_BREB_KEY` y `NEQUI_MANUAL_HOLDER`, con los datos comerciales que el dueño dio para
+  esto. Los valores no se escriben en este registro, en commits, en archivos ni en informes.
+- **Exposición:** `/api/config` solo dice si Nequi está activo. La llave y el titular solo los ve
+  el comprador de su propio pedido Nequi mientras espera pago; no van a correos, hoja ni registros.
+  El dueño confirma cada pago en su app; nada se marca pagado solo.
+- **Pruebas:** lint, formato y tipos OK; unitarias 308/308, integración 284/284; escáner de datos
+  sensibles 0 coincidencias.

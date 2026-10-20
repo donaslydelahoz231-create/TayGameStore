@@ -5,6 +5,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Corregido (Nequi no se podía encender con una llave @ + celular)
+
+- La validación rechazaba toda llave Bre-B hecha solo de números, también `@` + celular (10
+  dígitos que empiezan por 3), que es un formato válido y no puede ser una cédula colombiana (las
+  de 10 dígitos empiezan por 1). Ahora se acepta; las demás llaves solo de números se siguen
+  rechazando.
+
 ### Corregido (hoja de Google: fórmulas que perdían los pedidos)
 
 - La tienda agregaba filas con `insertDataOption=INSERT_ROWS` y Google desplazaba los rangos de
