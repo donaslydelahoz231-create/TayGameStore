@@ -21,11 +21,7 @@ import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
 import { kickTopups } from './topups.js';
 import { belongsToOrder, lockPaymentMethod, markOrderPaid } from './order-payment.js';
-import {
-  deliverNotifications,
-  enqueueOrderNotifications,
-  enqueueSheetSync,
-} from './notifications.js';
+import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
 import { loadOrderForAccess, transitionOrder, type OrderAccess } from './orders.js';
 
 const unavailable = () =>
@@ -353,7 +349,7 @@ export async function applyProviderPayment(
   // Solo tras confirmar la transacción: el aviso nunca anuncia un pago que no quedó guardado.
   const { notifyOrderId, ...result } = applied;
   if (notifyOrderId) {
-    await deliverNotifications(deps, { orderId: notifyOrderId });
+    await deliverSoon(deps, notifyOrderId);
     kickTopups(deps, notifyOrderId);
   }
   return result;

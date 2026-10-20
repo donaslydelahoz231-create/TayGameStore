@@ -7,15 +7,22 @@
  * - rutas /__e2e__/ para hacer de operador (verificar jugador, entregar).
  * Nunca se usa en producción ni se importa desde src/.
  */
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { buildAppWithDeps } from '../../src/server/app.js';
 import { loadConfig } from '../../src/server/config/env.js';
 import { createDatabase } from '../../src/server/db/client.js';
-import { orders, products, sessions, users } from '../../src/server/db/schema.js';
+import { notifications, orders, products, sessions, users } from '../../src/server/db/schema.js';
+import type { MailMessage, Mailer } from '../../src/server/integrations/notify/email.js';
+import {
+  SheetsError,
+  type OrderSheetLog,
+  type SheetTab,
+} from '../../src/server/integrations/sheets/google-sheets.js';
 import { randomToken, sha256 } from '../../src/server/lib/crypto.js';
 import { EXAMPLE_FREEFIRE_PRODUCTS } from '../../src/server/db/seeds/catalog-example.js';
 import { fulfillmentAction, verifyPlayer } from '../../src/server/services/admin.js';
 import { confirmNequiTransfer } from '../../src/server/services/nequi-manual.js';
+import { deliverNotifications } from '../../src/server/services/notifications.js';
 import { addInventory, addInventorySchema } from '../../src/server/services/inventory.js';
 import { listReviewsForAdmin, moderateReview } from '../../src/server/services/reviews.js';
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
@@ -35,7 +42,55 @@ if (!url || !new URL(url).pathname.endsWith('_test')) {
 }
 
 await resetDatabase(url);
-const database = createDatabase({ url, poolMax: 5 });
+const database = createDatabase({ url, poolMax: Number(process.env.E2E_DB_POOL_MAX ?? 5) });
+
+/**
+ * Solo carga (`npm run load:server`): hoja de Google y correo simulados LENTOS, y la hoja con el
+ * límite de escrituras por minuto de Google (responde 429 al pasarlo). Sirve para medir que una
+ * integración lenta no frena la tienda y que la cola no pierde ni duplica filas. Apagado por
+ * defecto: sin estas variables no hay hoja ni correo, como siempre.
+ */
+const slowMs = Number(process.env.E2E_SLOW_INTEGRATIONS_MS ?? 0);
+const sheetWritesPerMinute = Number(process.env.E2E_SHEETS_WRITES_PER_MINUTE ?? 0);
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+class LoadSheet implements OrderSheetLog {
+  readonly tabs: Record<SheetTab, (string | number)[][]> = { orders: [], deliveries: [] };
+  writes = 0;
+  rateLimited = 0;
+  private window = { start: Date.now(), count: 0 };
+  private async write() {
+    await wait(slowMs);
+    if (!sheetWritesPerMinute) return;
+    if (Date.now() - this.window.start >= 60_000) this.window = { start: Date.now(), count: 0 };
+    if (++this.window.count > sheetWritesPerMinute) {
+      this.rateLimited += 1;
+      throw new SheetsError('Google Sheets no aceptó la fila', 429);
+    }
+  }
+  async appendRow(tab: SheetTab, values: readonly (string | number)[]) {
+    await this.write();
+    this.writes += 1;
+    this.tabs[tab].push([...values]);
+  }
+  async upsertRow(tab: SheetTab, values: readonly (string | number)[]) {
+    await this.write();
+    this.writes += 1;
+    const rows = this.tabs[tab];
+    const index = rows.findIndex((row) => row[0] === values[0]);
+    if (index < 0) rows.push([...values]);
+    else rows[index] = [...values];
+  }
+}
+class SlowMailer implements Mailer {
+  readonly channel = 'email' as const;
+  sent = 0;
+  async send(message: MailMessage) {
+    await wait(slowMs);
+    this.sent += message.to.length;
+  }
+}
+const loadSheet = slowMs || sheetWritesPerMinute ? new LoadSheet() : undefined;
+const slowMailer = slowMs ? new SlowMailer() : undefined;
 await database.db.insert(products).values(EXAMPLE_FREEFIRE_PRODUCTS);
 const [operator] = await database.db
   .insert(users)
@@ -61,6 +116,8 @@ const config = loadConfig({
   SERVE_WEB: 'true',
   WEB_DIST_DIR: 'dist/web',
   CHECKOUT_ENABLED: 'true',
+  // Carga: la espera de producción (300 ms) en vez de la de pruebas (30 s).
+  NOTIFY_INLINE_WAIT_MS: process.env.E2E_NOTIFY_INLINE_WAIT_MS,
   // Por defecto, la configuración de las suites. `npm run compra:cliente` las cambia por las de
   // producción (E2E_*) para recorrer la compra como un cliente.
   PROMO_SCHEDULE: process.env.E2E_PROMO_SCHEDULE ?? 'always',
@@ -99,8 +156,43 @@ const { app, deps } = await buildAppWithDeps({
   // Doble del proveedor: UID 9… encontrado, 8… inexistente, otro → caído (flujo manual).
   playerVerifier: new FakePlayerVerifier(),
   socialClients: social,
+  orderSheet: loadSheet,
+  mailer: slowMailer,
 });
 if (!deps) throw new Error('sin dependencias');
+
+/** Una pasada de la tarea programada que reenvía la cola de avisos (solo carga). */
+app.post('/__e2e__/run-notifications', async () => {
+  void deliverNotifications(deps, { limit: 50 });
+  return { started: true };
+});
+
+/** Estado de la hoja simulada y de la cola de avisos (solo carga). */
+app.get('/__e2e__/sheet-stats', async () => {
+  const queue = await database.db
+    .select({
+      channel: notifications.channel,
+      status: notifications.status,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(notifications)
+    .groupBy(notifications.channel, notifications.status);
+  const [paid] = await database.db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(sql`${orders.receiptNumber} is not null`);
+  const ids = (loadSheet?.tabs.orders ?? []).map((row) => row[9]);
+  return {
+    writes: loadSheet?.writes ?? 0,
+    rateLimited: loadSheet?.rateLimited ?? 0,
+    pedidosRows: ids.length,
+    pedidosDuplicated: ids.length - new Set(ids).size,
+    entregasRows: loadSheet?.tabs.deliveries.length ?? 0,
+    paidOrders: paid?.n ?? 0,
+    mails: slowMailer?.sent ?? 0,
+    queue,
+  };
+});
 
 async function orderIdByRef(ref: string): Promise<string> {
   const [row] = await database.db

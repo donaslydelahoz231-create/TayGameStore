@@ -27,7 +27,7 @@ import {
 } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
-import { deliverNotifications, enqueueOrderNotifications } from './notifications.js';
+import { deliverSoon, enqueueOrderNotifications } from './notifications.js';
 import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 import { providerCovers, providerSkus, withPromoFloor } from './topup-coverage.js';
@@ -719,7 +719,7 @@ export async function createOrder(
       return created;
     });
     if (order.status === 'AWAITING_VERIFICATION') {
-      await deliverNotifications(deps, { orderId: order.id });
+      await deliverSoon(deps, order.id);
     }
     return { order: await toPublicOrder(deps, deps.db, order), accessToken, created: true };
   } catch (error) {

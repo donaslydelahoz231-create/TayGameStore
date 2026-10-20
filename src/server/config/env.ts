@@ -203,6 +203,13 @@ const envSchema = z
      * suspenderse. 0 lo desactiva (tareas siempre cada 1-2 min).
      */
     JOBS_IDLE_MINUTES: z.coerce.number().int().min(0).max(240).default(30),
+    /**
+     * Cuánto espera una petición (pago, «Ya transferí», acciones del panel) a que salgan sus
+     * avisos (correo, hoja, webhook) antes de responder. Lo que falte sigue en segundo plano y, si
+     * el proceso se reinicia, la tarea programada lo reenvía (la cola está en la base). Por
+     * defecto 300 ms; en pruebas 30 s, para comprobar los envíos al terminar cada petición.
+     */
+    NOTIFY_INLINE_WAIT_MS: z.coerce.number().int().min(0).max(30_000).optional(),
 
     ORDER_TOKEN_KEYS: keyringSchema(32),
     MFA_ENCRYPTION_KEYS: keyringSchema(32),
@@ -555,6 +562,8 @@ export interface AppConfig {
   webDistDir: string;
   jobsEnabled: boolean;
   jobsIdleMinutes: number;
+  /** Espera máxima de una petición a sus avisos (ver NOTIFY_INLINE_WAIT_MS). */
+  notifyInlineWaitMs: number;
   flags: FeatureFlags;
   fulfillmentMode: 'manual';
   /** Catálogo bloqueado: el panel no puede crear ni cambiar paquetes ni precios. */
@@ -715,6 +724,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     webDistDir: env.WEB_DIST_DIR,
     jobsEnabled: env.JOBS_ENABLED ?? env.NODE_ENV !== 'test',
     jobsIdleMinutes: env.JOBS_IDLE_MINUTES,
+    notifyInlineWaitMs: env.NOTIFY_INLINE_WAIT_MS ?? (env.NODE_ENV === 'test' ? 30_000 : 300),
     flags: {
       maintenanceMode: env.MAINTENANCE_MODE,
       checkoutEnabled: env.CHECKOUT_ENABLED,

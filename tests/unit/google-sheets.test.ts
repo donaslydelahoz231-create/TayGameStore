@@ -15,6 +15,7 @@ import {
   playerConfirmationLabel,
   SHEET_COLUMNS,
   sheetRow,
+  sheetText,
 } from '../../src/server/services/notifications.js';
 
 // Llave RSA sintética, generada en memoria solo para esta prueba (nunca se escribe en disco).
@@ -91,7 +92,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer',
     );
     expect(append?.url).toBe(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Pedidos!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`.replace(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Pedidos!A1:append?valueInputOption=RAW&insertDataOption=OVERWRITE`.replace(
         'Pedidos!A1',
         encodeURIComponent('Pedidos!A1'),
       ),
@@ -216,8 +217,23 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
     await sheetLog(fetcher.impl, 'Mis entregas').upsertRow('deliveries', ['TGS-AAAAAAAAAA']);
     expect(values(fetcher.calls[1]?.url ?? '')).toBe("'Mis entregas'!A:A?majorDimension=COLUMNS");
     expect(values(fetcher.calls[2]?.url ?? '')).toBe(
-      "'Mis entregas'!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+      "'Mis entregas'!A1:append?valueInputOption=RAW&insertDataOption=OVERWRITE",
     );
+  });
+
+  it('nunca inserta filas: agregar no desplaza los rangos de las fórmulas del dueño', async () => {
+    // Con INSERT_ROWS, Google insertaba la fila delante de las vacías y «Pedidos!B2:B» de
+    // «Resumen» pasaba a «B3:B», dejando fuera los pedidos (visto en una copia de la hoja real).
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({}), json({}), json({})]);
+    const log = sheetLog(fetcher.impl);
+    await log.appendRow('orders', ['TGS-AAAAAAAAAA', 'Pago confirmado']);
+    await log.upsertRow('deliveries', ['TGS-AAAAAAAAAA']);
+    const appends = fetcher.calls.filter((call) => call.url.includes(':append?'));
+    expect(appends).toHaveLength(2);
+    for (const call of appends) {
+      expect(call.url).toContain('insertDataOption=OVERWRITE');
+      expect(call.url).not.toContain('INSERT_ROWS');
+    }
   });
 
   it('si Google no deja leer, falla sin escribir (se reintenta desde la cola)', async () => {
@@ -334,6 +350,21 @@ describe('Google Sheets: fila de «Entregas»', () => {
     verifiedByOwner: false,
   };
   const updatedAt = new Date('2026-10-18T17:20:00Z');
+
+  it('un nickname, región o evidencia que empieza como fórmula no se ejecuta al exportar a CSV', () => {
+    const row = deliveryRow(
+      { ...order, nickname: '=HYPERLINK("https://evil.example","x")', region: '+CO' },
+      { payment: 'CONFIRMED', recharge: 'COMPLETED' },
+      { deliveredAt: updatedAt, evidence: '@SUM(A1)', failureReason: null },
+      updatedAt,
+    );
+    expect(row[6]).toBe('\'=HYPERLINK("https://evil.example","x")');
+    expect(row[9]).toBe("'+CO");
+    expect(row[17]).toBe("'@SUM(A1)");
+    // El texto normal no cambia.
+    expect(sheetText('JugadorPro')).toBe('JugadorPro');
+    expect(sheetText('-5 diamantes')).toBe("'-5 diamantes");
+  });
 
   it('pagado: lo que hace falta para recargar, sus referencias, y nunca correo, nombre ni PIN', () => {
     const row = deliveryRow(

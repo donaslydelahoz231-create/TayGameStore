@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifications, orders } from '../../src/server/db/schema.js';
-import type {
-  OrderSheetLog,
-  SheetTab,
+import {
+  SheetsError,
+  type OrderSheetLog,
+  type SheetTab,
 } from '../../src/server/integrations/sheets/google-sheets.js';
 import { deliverNotifications, enqueueSheetSync } from '../../src/server/services/notifications.js';
 import {
@@ -28,15 +29,23 @@ class RecordingSheet implements OrderSheetLog {
   /** Estado (columna B) de cada escritura en «Entregas», en orden. */
   statuses: string[] = [];
   failing = false;
+  /** Google responde 429: se pasó la cuota de escrituras por minuto. */
+  rateLimited = false;
+  /** Llamadas que llegaron a «Google» (escrituras y reescrituras). */
+  calls = 0;
   /** Si existe, cada escritura en «Entregas» espera a que se abra (simula a Google lento). */
   gate: Promise<void> | undefined;
   /** Se llama cuando una escritura en «Entregas» llegó a la hoja (antes de esperar `gate`). */
   onUpsert: (() => void) | undefined;
   async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+    this.calls += 1;
+    if (this.rateLimited) throw new SheetsError('Google Sheets no aceptó la fila', 429);
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
     (tab === 'orders' ? this.rows : this.deliveries).push([...values]);
   }
   async upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
+    this.calls += 1;
+    if (this.rateLimited) throw new SheetsError('Google Sheets no aceptó la fila', 429);
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
     this.onUpsert?.();
     await this.gate;
@@ -67,6 +76,8 @@ afterAll(async () => {
 beforeEach(() => {
   h.clock.now = new Date();
   sheet.failing = false;
+  sheet.rateLimited = false;
+  sheet.calls = 0;
   sheet.rows = [];
   sheet.deliveries = [];
   sheet.statuses = [];
@@ -226,6 +237,97 @@ describe('registro auxiliar en Google Sheets', () => {
     expect(sheet.deliveries).toHaveLength(1);
   });
 
+  it('con la cuota de Google agotada (429) la fila espera sin gastar intentos y nunca se pierde', async () => {
+    sheet.rateLimited = true;
+    const paid = await paidOrder();
+    // La primera fila de la hoja recibió el 429; la otra de la misma pasada ni siquiera llamó.
+    expect(sheet.calls).toBe(1);
+    const waiting = await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery');
+    const event = await sheetNotification(paid.id);
+    for (const row of [waiting, event]) {
+      expect(row).toMatchObject({ status: 'PENDING', attempts: 0 });
+      const wait = (row?.nextAttemptAt.getTime() ?? 0) - h.clock.now.getTime();
+      expect(wait).toBeGreaterThanOrEqual(60_000);
+      expect(wait).toBeLessThanOrEqual(180_000);
+    }
+    // Horas de cuota agotada: nunca llega a «aviso fallido».
+    for (let i = 0; i < 10; i += 1) {
+      h.clock.now = new Date(h.clock.now.getTime() + 4 * 60_000);
+      await deliverNotifications(h.deps, { orderId: paid.id });
+    }
+    expect(await sheetNotification(paid.id)).toMatchObject({ status: 'PENDING', attempts: 0 });
+    // Se renueva la cuota: las filas salen una vez y en orden.
+    sheet.rateLimited = false;
+    h.clock.now = new Date(h.clock.now.getTime() + 4 * 60_000);
+    await deliverNotifications(h.deps, { orderId: paid.id });
+    expect(sheet.rows.map((row) => row[2])).toEqual(['Pago confirmado']);
+    expect(sheet.deliveries).toHaveLength(1);
+    expect((await sheetNotification(paid.id))?.status).toBe('SENT');
+  });
+
+  it('una pasada larga de la hoja se corta a tiempo: lo que falta sale después, sin gastar intentos', async () => {
+    sheet.failing = true;
+    const paid = await paidOrder();
+    sheet.failing = false;
+    sheet.calls = 0;
+    h.clock.now = new Date(Date.now() + 2 * 60_000);
+    // Tras la primera escritura, «pasan» 41 s: la segunda fila de la hoja ya no cabe en la pasada.
+    const realNow = Date.now.bind(Date);
+    const clock = vi
+      .spyOn(Date, 'now')
+      .mockImplementation(() => realNow() + (sheet.calls > 0 ? 41_000 : 0));
+    try {
+      await deliverNotifications(h.deps, { orderId: paid.id });
+    } finally {
+      clock.mockRestore();
+    }
+    expect(sheet.calls).toBe(1);
+    const rows = [
+      await sheetNotification(paid.id),
+      await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery'),
+    ];
+    const waiting = rows.filter((row) => row?.status === 'PENDING');
+    expect(waiting).toHaveLength(1);
+    // Conserva el intento fallido anterior (1) y queda lista para la pasada siguiente.
+    expect(waiting[0]).toMatchObject({ attempts: 1 });
+    expect(waiting[0]?.nextAttemptAt.getTime()).toBeLessThanOrEqual(h.clock.now.getTime());
+    await deliverNotifications(h.deps, { orderId: paid.id });
+    expect(sheet.rows).toHaveLength(1);
+    expect(sheet.deliveries).toHaveLength(1);
+  });
+
+  it('una hoja lenta no frena la petición: responde y la fila llega después', async () => {
+    const config = h.deps.config as { notifyInlineWaitMs: number };
+    const previous = config.notifyInlineWaitMs;
+    config.notifyInlineWaitMs = 50;
+    let open: () => void = () => undefined;
+    sheet.gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    try {
+      const started = Date.now();
+      const paid = await paidOrder();
+      // El pago quedó confirmado sin esperar a Google (que sigue «colgado»).
+      expect(Date.now() - started).toBeLessThan(5_000);
+      expect(sheet.deliveries).toHaveLength(0);
+      const view = await inject({
+        method: 'GET',
+        url: `/api/orders/${paid.reference}`,
+        cookies: paid.cookies,
+      });
+      expect(view.json<{ order: { status: string } }>().order.status).toBe('PAID');
+      open();
+      await h.settle();
+      expect(sheet.deliveries).toHaveLength(1);
+      expect(
+        (await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery'))?.status,
+      ).toBe('SENT');
+    } finally {
+      open();
+      config.notifyInlineWaitMs = previous;
+    }
+  });
+
   it('tras varios fallos queda como aviso fallido y el panel lo muestra', async () => {
     sheet.failing = true;
     const paid = await paidOrder();
@@ -242,6 +344,8 @@ describe('registro auxiliar en Google Sheets', () => {
     const paid = await paidOrder();
     expect(sheet.statuses).toEqual(['⏳ Por entregar']);
     await fulfillment(paid.id, { action: 'claim' });
+    // Reclamar no cambia nada visible en la fila: no se escribe (ahorra cuota de Google).
+    expect(sheet.statuses).toEqual(['⏳ Por entregar']);
     await fulfillment(paid.id, { action: 'start' });
     expect(sheet.deliveries[0]?.[1]).toBe('🔄 En proceso');
     await fulfillment(paid.id, {
@@ -252,12 +356,7 @@ describe('registro auxiliar en Google Sheets', () => {
     expect(sheet.rows[1]?.[7]).toBe('Completado');
     // Una sola fila por pedido, con el estado al día en cada paso.
     expect(sheet.deliveries).toHaveLength(1);
-    expect(sheet.statuses).toEqual([
-      '⏳ Por entregar',
-      '⏳ Por entregar',
-      '🔄 En proceso',
-      '✅ Entregado con éxito',
-    ]);
+    expect(sheet.statuses).toEqual(['⏳ Por entregar', '🔄 En proceso', '✅ Entregado con éxito']);
     const [row] = sheet.deliveries;
     expect(row?.[0]).toBe(paid.reference);
     expect(row?.[2]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/); // pagado

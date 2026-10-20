@@ -5,6 +5,33 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Corregido (hoja de Google: fórmulas que perdían los pedidos)
+
+- La tienda agregaba filas con `insertDataOption=INSERT_ROWS` y Google desplazaba los rangos de
+  las fórmulas del dueño («Pedidos!B2:B» → «B7:B»): «Resumen», «Por entregar» y «Reporte diario»
+  habrían mostrado 0 con la primera venta. Ahora `OVERWRITE` (escribe en la primera fila vacía,
+  sin insertar). Encontrado con una prueba en tiempo real sobre una **copia** de la hoja real con
+  datos ficticios; la hoja original no se tocó (aún no está conectada en producción).
+
+### Cambiado (la tienda no se frena con integraciones lentas)
+
+- Pago, webhook, «Ya transferí» y acciones del panel esperan como mucho `NOTIFY_INLINE_WAIT_MS`
+  (300 ms) al correo, la hoja y el webhook; lo demás sigue en segundo plano y la cola lo
+  reintenta. Medido con hoja y correo de 1,5 s: «Ya transferí» p95 3,7 s → 1,2 s, webhook de pago
+  p95 5,0 s → 1,9 s, «Marcar ENVIADO» p95 5,2 s → 1,3 s.
+- Cuota de Google (429): la fila vuelve a la cola en 1 a 3 min sin gastar un intento (antes un
+  pico de ventas agotaba los 5 intentos y la fila quedaba fallida). Las filas de la hoja salen de
+  a una y en orden; una pasada se corta a los 40 s para no superar la reserva de la fila.
+- Reclamar o liberar una entrega ya no reescribe la fila de «Entregas» (no cambia nada visible).
+- Simulador de carga: clientes que pagan por Nequi (`--nequi`), dueño virtual en el panel
+  (`--owner`) y servidor de pruebas con hoja/correo lentos y cuota de Google.
+
+### Seguridad
+
+- Hoja de Google: el texto libre (nickname, región, evidencia, paquete) que empieza por `=`, `+`,
+  `-` o `@` lleva un apóstrofo delante, para que no se ejecute como fórmula si la hoja se exporta
+  a CSV y se abre en Excel (OWASP: inyección CSV).
+
 ### Añadido
 
 - **Nequi con llave Bre-B** (pedido del dueño, 2026-10-20; ver `docs/pagos-nequi.md`):

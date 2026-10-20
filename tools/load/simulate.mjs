@@ -11,7 +11,12 @@
  *   3. Comprobaciones: ningún 5xx, clientes legítimos atendidos, defensas activas, memoria.
  *
  * Uso: arrancar el servidor de pruebas (npm run load:server) y luego `npm run load:sim`.
- * Opciones: --base URL, --pid PID (memoria del servidor), --peak N (clientes simultáneos).
+ * Opciones: --base URL, --pid PID (memoria del servidor), --peak N (clientes simultáneos),
+ * --nequi P (fracción de clientes que paga por Nequi, p. ej. 0.4), --owner (un dueño virtual
+ * confirma transferencias Nequi y marca pedidos ENVIADO desde el panel mientras otros compran).
+ * Con el servidor arrancado con E2E_SLOW_INTEGRATIONS_MS / E2E_SHEETS_WRITES_PER_MINUTE, el
+ * informe incluye la hoja simulada: filas, límites de Google (429) y la cola de avisos, que la
+ * «tarea programada» vacía después durante --drain segundos (60 por defecto).
  * Por seguridad solo acepta localhost; otro destino exige --i-own-this-target (y nunca se debe
  * usar contra sistemas ajenos ni contra producción sin aviso: los límites bloquearán la IP).
  */
@@ -29,6 +34,8 @@ const args = new Map(
 );
 const BASE = (args.get('base') ?? 'http://127.0.0.1:4173').replace(/\/$/, '');
 const PEAK = Number(args.get('peak') ?? 300);
+const NEQUI_SHARE = Number(args.get('nequi') ?? 0);
+const OWNER = args.has('owner');
 const SERVER_PID = args.get('pid');
 const host = new URL(BASE).hostname;
 if (!['127.0.0.1', 'localhost', '::1'].includes(host) && !args.has('i-own-this-target')) {
@@ -160,6 +167,24 @@ async function customerJourney() {
   )
     return;
 
+  if (NEQUI_SHARE && Math.random() < NEQUI_SHARE) {
+    // Nequi: elegir, transferir (fuera de la tienda) y avisar «Ya transferí». Nunca paga solo.
+    const chosen = await c.req('POST', `/api/orders/${ref}/nequi`, {
+      headers: token,
+      label: 'POST /nequi',
+    });
+    if (!expect(chosen.status === 200, `nequi ${chosen.status}`)) return;
+    const report = await c.req('POST', `/api/orders/${ref}/nequi/report`, {
+      headers: token,
+      body: { senderLast4: '1234' },
+      label: 'POST /nequi/report',
+    });
+    expect(
+      report.status === 200 && report.json?.order?.status === 'AWAITING_PAYMENT',
+      `aviso nequi ${report.status} ${report.json?.order?.status}`,
+    );
+    return;
+  }
   const pay = await c.req('POST', `/api/orders/${ref}/pay`, { headers: token, label: 'POST /pay' });
   if (!expect(pay.status === 200 && pay.json?.checkoutUrl, `pago ${pay.status}`)) return;
   // Mitad de los clientes paga (el doble de Mercado Pago envía el webhook firmado).
@@ -170,7 +195,11 @@ async function customerJourney() {
       headers: token,
       label: 'POST /sync',
     });
-    expect(synced.json?.order?.status === 'PAID', `tras pagar: ${synced.json?.order?.status}`);
+    // El dueño virtual puede haberlo entregado ya: pagado, en curso o ENVIADO están bien.
+    expect(
+      ['PAID', 'DELIVERING', 'DELIVERED'].includes(synced.json?.order?.status),
+      `tras pagar: ${synced.json?.order?.status}`,
+    );
   } else {
     const read = await c.req('GET', `/api/orders/${ref}`, {
       headers: token,
@@ -331,10 +360,66 @@ async function doubleSubmit() {
   );
 }
 
+// ---------- dueño virtual (panel) ----------
+const ownerStats = { nequiConfirmed: 0, delivered: 0, conflicts: 0 };
+async function ownerLoop(until) {
+  const owner = new Client('dueño');
+  const session = await owner.req('POST', '/__e2e__/admin-session', { label: 'sesión dueño' });
+  owner.cookies.set('tgs_session', session.json.token);
+  const act = async (id, path, body, label) => {
+    const r = await owner.req('POST', `/api/admin/orders/${id}/${path}`, { body, label });
+    if (r.status === 409) ownerStats.conflicts += 1;
+    else if (r.status !== 200) failures.push(`dueño ${label} ${r.status}`);
+    return r.status === 200;
+  };
+  while (Date.now() < until) {
+    const pending = await owner.req('GET', '/api/admin/orders?payment=nequi_pending', {
+      label: 'GET panel Nequi por verificar',
+    });
+    for (const o of pending.json?.orders ?? []) {
+      const nequiReference = `M${randomUUID().replaceAll('-', '').slice(0, 10)}`;
+      if (
+        await act(
+          o.id,
+          'nequi/confirm',
+          { nequiReference, amountCop: o.totalCop },
+          'POST confirmar Nequi',
+        )
+      )
+        ownerStats.nequiConfirmed += 1;
+    }
+    const paid = await owner.req('GET', '/api/admin/orders?status=PAID', {
+      label: 'GET panel pagados',
+    });
+    for (const o of (paid.json?.orders ?? []).slice(0, 10)) {
+      if (!(await act(o.id, 'fulfillment', { action: 'claim' }, 'POST reclamar'))) continue;
+      if (!(await act(o.id, 'fulfillment', { action: 'start' }, 'POST iniciar'))) continue;
+      if (
+        await act(
+          o.id,
+          'fulfillment',
+          { action: 'deliver', evidence: 'Carga simulada' },
+          'POST marcar ENVIADO',
+        )
+      )
+        ownerStats.delivered += 1;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+}
+
 // ---------- ejecución ----------
 const t0 = Date.now();
 const mem = { inicio: rss() };
 console.log(`Simulación contra ${BASE} · pico ${PEAK} clientes simultáneos\n`);
+if (NEQUI_SHARE) {
+  const on = await new Client('dueño').req('POST', '/__e2e__/nequi', {
+    body: { enabled: true },
+    label: 'activar Nequi (pruebas)',
+  });
+  if (on.status !== 200) throw new Error('el servidor de pruebas no activó Nequi');
+}
+const ownerDone = OWNER ? ownerLoop(Date.now() + 5_000 + 15_000 + 20_000 + 12_000) : undefined;
 const phases = [];
 for (const [label, conc, ms] of [
   ['calentamiento', 10, 5_000],
@@ -365,6 +450,25 @@ phases.push({
   rssMB: rss(),
 });
 mem.final = rss();
+await ownerDone;
+// La hoja simulada: la «tarea programada» vacía la cola (una pasada cada 15 s, máximo --drain s).
+const DRAIN_S = Number(args.get('drain') ?? 60);
+const drainStarted = Date.now();
+let sheet;
+for (let i = 0; i < DRAIN_S / 15; i++) {
+  if (i)
+    await new Client('dueño').req('POST', '/__e2e__/run-notifications', {
+      label: 'tarea: cola de avisos',
+    });
+  sheet = (await new Client('dueño').req('GET', '/__e2e__/sheet-stats', { label: 'estado hoja' }))
+    .json;
+  const busy = (sheet?.queue ?? []).some(
+    (q) => q.status === 'PENDING' && q.channel.startsWith('sheets'),
+  );
+  if (!sheet?.writes || !busy) break;
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+}
+if (sheet) sheet.drainSeconds = Math.round((Date.now() - drainStarted) / 1000);
 
 // ---------- informe ----------
 let server5xx = 0;
@@ -401,6 +505,11 @@ if (mem.inicio)
   console.log(
     `Memoria del servidor (MB): inicio ${mem.inicio} · tras carga ${mem.trasCarga} · final ${mem.final}`,
   );
+if (OWNER) console.log('Dueño virtual:', ownerStats);
+if (sheet?.writes) {
+  console.log('Hoja simulada y cola de avisos:');
+  console.log(JSON.stringify(sheet, null, 1));
+}
 if (failures.length) console.log('Primeros fallos:', [...new Set(failures)].slice(0, 10));
 const ok = server5xx === 0 && failures.length === 0 && defenses.every((d) => d.ok);
 console.log(ok ? '\nRESULTADO: OK' : '\nRESULTADO: HAY PROBLEMAS');

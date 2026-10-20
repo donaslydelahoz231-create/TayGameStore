@@ -20,6 +20,30 @@ npm run load:sim -- --peak 300 --pid <pid del servidor>
 Termina con `RESULTADO: OK` (código 0) o `HAY PROBLEMAS` (código 1) y una tabla por ruta con
 estados y latencias p50/p95/p99.
 
+Opciones nuevas (2026-10-20):
+
+- `--nequi 0.4`: el 40 % de los clientes paga por Nequi (elige Nequi y avisa «Ya transferí»).
+- `--owner`: un dueño virtual, desde el panel, confirma transferencias Nequi y marca pedidos
+  ENVIADO mientras otros compran.
+- Con el servidor arrancado con `E2E_SLOW_INTEGRATIONS_MS=1500` (hoja y correo simulados lentos),
+  `E2E_SHEETS_WRITES_PER_MINUTE=60` (cuota de Google: responde 429 al pasarla),
+  `E2E_NOTIFY_INLINE_WAIT_MS=300` (la espera de producción) y `E2E_DB_POOL_MAX=10`, el informe
+  incluye la hoja simulada y la cola; `--drain 180` deja vaciar la cola 3 minutos.
+
+### Resultados 2026-10-20 (300 simultáneos, 40 % Nequi, dueño virtual)
+
+| Escenario | Resultado |
+|---|---|
+| Sin hoja ni correo | 27.783 peticiones en 56 s, ≈ 72 compras/s, 0 errores 5xx, 0 fallos, 9/9 defensas |
+| Hoja y correo de 1,5 s, cuota 60/min, **antes** de corregir | «Ya transferí» p50 2,0 s / p95 3,7 s; webhook de pago p95 5,0 s; «Marcar ENVIADO» p95 5,2 s; cada 429 gastaba un intento (filas que terminarían fallidas) |
+| Igual, **después** de corregir | «Ya transferí» p50 0,63 s / p95 1,2 s; webhook p95 1,9 s; «Marcar ENVIADO» p95 1,3 s; 0 errores 5xx, 0 fallos; cola: 0 fallidas, 0 filas repetidas; la hoja avanza al ritmo de la cuota (≈ 60/min) |
+
+**NO VERIFICADO en producción:** el servicio de Render está en el plan gratuito (512 MB, CPU
+reducida y se duerme sin visitas). Estas cifras son de una máquina local con más CPU; la
+capacidad real en el plan gratuito es bastante menor. No se hizo carga contra producción (exige
+autorización y podría tumbarla).
+
+## Qué hace
 ## Qué hace
 
 | Fase | Detalle |

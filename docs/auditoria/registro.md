@@ -1453,3 +1453,48 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     lo avisa sin mostrar el valor);
   - qué datos del remitente muestra la app Nequi en un pago recibido por Bre-B desde otro banco;
   - la hoja de Google en producción (sin las variables `GOOGLE_SHEETS_*`).
+
+### 2026-10-20 · Prueba en tiempo real con una copia de la hoja, carga y seguridad (local, sin publicar)
+
+- **Pedido del dueño:** probar la tienda con la hoja «en tiempo real» en una copia (no en la
+  original), corregir inconsistencias, soportar muchos usuarios sin lentitud ni pedidos perdidos,
+  sin filtrar datos personales ni de pago, que nadie pueda hacerse pasar por el dueño ni cambiar
+  la tienda desde el inspector, conectores seguros; y por qué Nequi no aparece en la tienda.
+- **Nequi no aparece en producción:** los 3 arranques de hoy en Render dicen
+  `nequiTransferencia: false` (Nequi apagado: el grupo solo se muestra si está activo). Falta
+  publicar `86fec75` y que el dueño cargue `NEQUI_MANUAL_BREB_KEY`, `NEQUI_MANUAL_HOLDER` y
+  `NEQUI_MANUAL_ENABLED=true` en Render (no lo hace un asistente: son sus datos).
+- **Copia de la hoja:** copia privada en el Drive del dueño (solo su cuenta; sin la cuenta de
+  servicio), con datos ficticios. La hoja original quedó intacta (última modificación 14:01 UTC,
+  antes de la prueba). Una primera copia quedó con las fórmulas desplazadas por el fallo de abajo
+  y se envió a la papelera (recuperable); la prueba se repitió en una copia nueva.
+  - Escenario de 6 pedidos ficticios (Mercado Pago con webhook repetido, Nequi, entrega fallida
+    y reanudada, aviso rechazado, devolución y caída de Google): «Resumen», «Por entregar»,
+    «Reporte diario» y «Compras_LootBar» cuadran con la base en cada fase; 0 filas repetidas.
+  - **Fallo grave corregido:** `INSERT_ROWS` desplazaba los rangos de las fórmulas
+    («Pedidos!B2:B» → «B7:B») y todas las pestañas automáticas mostraban 0. Ahora `OVERWRITE`;
+    prueba unitaria que falla con el modo anterior.
+  - En la copia (no en el original): recálculo cada minuto y textos de «Por entregar»/«Léeme»
+    con Nequi y ENVIADO. Pasarlos al original requiere autorización del dueño.
+- **Carga (local, 300 simultáneos, 40 % Nequi, dueño virtual, ataques a la vez):**
+  - sin integraciones: 27.783 peticiones en 56 s, 0 errores 5xx, 0 fallos, 9/9 defensas;
+  - con hoja y correo de 1,5 s y cuota de Google 60/min, antes: las peticiones esperaban a la hoja
+    y al correo (p95 hasta 5,2 s) y cada 429 gastaba un intento (filas que terminarían fallidas);
+  - corregido: espera máxima `NOTIFY_INLINE_WAIT_MS` (300 ms), 429 sin gastar intentos, filas de
+    la hoja de a una con tope de 40 s por pasada, y sin escritura al reclamar/liberar. Después:
+    p95 1,2–1,9 s, 0 errores 5xx, 0 fallos, cola sin fallidas ni repetidas.
+- **Seguridad:** las pruebas existentes cubren suplantación del dueño (contraseña + TOTP, huella,
+  bloqueo tras 5 fallos, cookie inventada, cliente con sesión → 404), manipulación desde el
+  inspector (precio en el HTML, campos inventados, panel oculto), webhooks falsos (firma
+  `x-signature` y consulta del pago a Mercado Pago), CSRF, enumeración y XSS en el panel; todas
+  en verde. Nuevo: neutralizar fórmulas en el texto libre de la hoja (inyección CSV). `npm audit`:
+  0 vulnerabilidades.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API, integración, e2e y visuales (cifras en
+  el commit). Pruebas nuevas: modo OVERWRITE, 429 sin gastar intentos, hoja lenta que no frena la
+  petición, tope de la pasada e inyección CSV (cada una falla sin su corrección).
+- **NO VERIFICADO:**
+  - capacidad en producción: Render está en el plan **gratuito** (512 MB, CPU reducida, se duerme
+    sin visitas); las cifras son locales. No se hizo carga contra producción;
+  - si Google sube la cuota de 60 escrituras/min de la cuenta de servicio;
+  - la hoja en producción (faltan las variables `GOOGLE_SHEETS_*` y rotar la llave expuesta);
+  - la seguridad de los conectores de Claude (Gmail, Drive, etc.): se autorizan en claude.ai.

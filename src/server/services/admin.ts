@@ -22,11 +22,7 @@ import { assignReceiptNumber } from './receipts.js';
 import { pendingReviewCount } from './reviews.js';
 import { nequiTransfersFor } from './nequi-view.js';
 import { pendingNequiCount } from './nequi-manual.js';
-import {
-  deliverNotifications,
-  enqueueOrderNotifications,
-  enqueueSheetSync,
-} from './notifications.js';
+import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
 import {
   assignInventory,
   inventoryForOrder,
@@ -503,7 +499,11 @@ export async function fulfillmentAction(
       .returning({ id: fulfillments.id });
     if (!updated) throw new AppError('CONFLICT', 409, 'Otro operador cambió la entrega; recarga.');
     // La fila del pedido en «Entregas» (hoja de Google) muestra el estado nuevo enseguida.
-    await enqueueSheetSync(deps, tx, order.id);
+    // Reclamar o liberar no cambia nada visible en la fila (sigue «Por entregar»): no gasta
+    // cuota de Google.
+    if (input.action !== 'claim' && input.action !== 'release') {
+      await enqueueSheetSync(deps, tx, order.id);
+    }
     await audit(tx, actor, {
       entityType: 'fulfillment',
       entityId: fulfillment.id,
@@ -533,7 +533,7 @@ export async function fulfillmentAction(
     if (to === 'FAILED')
       await transitionOrder(tx, actor, order, 'NEEDS_REVIEW', {}, { reason: 'fulfillment_failed' });
   });
-  await deliverNotifications(deps, { orderId });
+  await deliverSoon(deps, orderId);
 }
 
 // ── Resolución de revisiones ─────────────────────────────────────────────────
@@ -622,7 +622,7 @@ export async function resolveReview(
         ),
       );
   });
-  await deliverNotifications(deps, { orderId });
+  await deliverSoon(deps, orderId);
 }
 
 // ── Lista de bloqueo ─────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ import {
 import { paidOrderText } from '../integrations/notify/owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
 import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
+import { SheetsError } from '../integrations/sheets/google-sheets.js';
 import {
   orderStates,
   PAYMENT_STATE_LABELS,
@@ -71,6 +72,22 @@ const MAX_ATTEMPTS = 5;
 const BACKOFF_MINUTES = [1, 5, 15, 60];
 /** Mientras se envía, la fila queda reservada: otro proceso no la toma. */
 const LEASE_MINUTES = 5;
+/**
+ * Google respondió 429 (cuota de escrituras por minuto): la fila vuelve a la cola en 1 a 3 min,
+ * repartidas para no chocar otra vez con la cuota, y sin gastar un intento.
+ */
+const RATE_LIMIT_WAIT_MS = 60_000;
+const RATE_LIMIT_JITTER_MS = 120_000;
+/**
+ * Tope de una pasada para las filas de la hoja (van de a una): muy por debajo de la reserva de
+ * LEASE_MINUTES, así otra pasada nunca toma una fila que todavía se está enviando. Lo que no
+ * alcanza queda para la pasada siguiente, sin gastar un intento.
+ */
+const SHEET_PASS_BUDGET_MS = 40_000;
+
+const isSheetChannel = (channel: NotificationChannel) =>
+  channel === 'sheets' || channel === 'sheets_delivery';
+const isRateLimited = (reason: unknown) => reason instanceof SheetsError && reason.status === 429;
 
 function plannedFor(deps: ServiceDeps, event: OrderEvent) {
   const planned: { kind: NotificationKind; channel: NotificationChannel }[] = [];
@@ -600,8 +617,15 @@ type SheetOrder = Pick<OrderSnapshot, 'reference' | 'totalCop' | 'items'> & {
 };
 type SheetStates = { payment: PaymentState; recharge: RechargeState };
 
+/**
+ * Texto libre en la hoja (nickname, región, evidencia, paquete): si empieza por = + - @ o un
+ * salto, lleva un apóstrofo delante. En Google Sheets (RAW) ya es texto, pero si la hoja se
+ * exporta a CSV y se abre en Excel se ejecutaría como fórmula (OWASP: inyección CSV).
+ */
+export const sheetText = (value: string) => (/^[=+\-@\t\r\n]/.test(value) ? `'${value}` : value);
+
 const sheetItems = (order: SheetOrder) =>
-  order.items.map((item) => `${item.quantity}× ${item.name}`).join('; ');
+  sheetText(order.items.map((item) => `${item.quantity}× ${item.name}`).join('; '));
 const sheetReceipt = (order: SheetOrder) =>
   order.receipt ? String(order.receipt.number).padStart(6, '0') : '';
 
@@ -747,10 +771,10 @@ export function deliveryRow(
     deliveredAt ? bogotaTime.format(deliveredAt) : '',
     minutes,
     order.playerUid,
-    order.nickname ?? '',
+    sheetText(order.nickname ?? ''),
     playerConfirmationLabel(order),
     order.server ?? '',
-    order.region ?? '',
+    sheetText(order.region ?? ''),
     sheetItems(order),
     order.totalCop,
     PAYMENT_STATE_LABELS[states.payment],
@@ -758,7 +782,7 @@ export function deliveryRow(
     sheetReceipt(order),
     order.receipt?.verificationCode ?? '',
     order.payment ? `${paymentLabel(order)} · ${order.payment.providerPaymentId}` : '',
-    note,
+    sheetText(note),
     bogotaTime.format(updatedAt),
   ];
 }
@@ -870,6 +894,28 @@ type ClaimedRow = {
 };
 
 /**
+ * Envía los avisos de un pedido justo después de confirmar su transacción, sin que la petición
+ * espere de más a un correo o a Google lentos: espera como mucho `notifyInlineWaitMs` y el resto
+ * sigue en segundo plano. Nunca lanza; lo que no salga lo reenvía la tarea programada.
+ */
+export async function deliverSoon(deps: ServiceDeps, orderId: string): Promise<void> {
+  const task = deliverNotifications(deps, { orderId }).catch((error: unknown) => {
+    deps.log.error({ err: error, orderId }, 'notifications: envío inmediato falló');
+  });
+  deps.background?.(task);
+  const budget = deps.config.notifyInlineWaitMs;
+  if (budget <= 0) return;
+  let timer: NodeJS.Timeout | undefined;
+  await Promise.race([
+    task,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, budget);
+    }),
+  ]);
+  clearTimeout(timer);
+}
+
+/**
  * Envía los avisos pendientes y vencidos (de un pedido o de todos). Nunca lanza: un aviso que
  * falla queda para reintento y, tras el último intento, como FAILED con alerta en el panel.
  * Devuelve cuántos se enviaron.
@@ -909,17 +955,45 @@ async function deliverPass(
     return { sent: 0, rearmed: false };
   }
 
-  const results = await Promise.allSettled(
-    claimed.map((row) =>
-      sendOne(deps, {
-        id: row.id,
-        orderId: row.order_id,
-        kind: row.kind,
-        channel: row.channel,
-        createdAt: new Date(row.created_at),
-      }),
-    ),
-  );
+  const send = (row: ClaimedRow) =>
+    sendOne(deps, {
+      id: row.id,
+      orderId: row.order_id,
+      kind: row.kind,
+      channel: row.channel,
+      createdAt: new Date(row.created_at),
+    });
+  // Correo y webhook, en paralelo. La hoja, de a una fila y en orden (cuota de Google por minuto
+  // y orden de los eventos en «Pedidos»); si Google pide esperar, el resto de filas de la hoja de
+  // esta pasada se aplaza sin llamarlo.
+  const others = Promise.allSettled(claimed.filter((r) => !isSheetChannel(r.channel)).map(send));
+  const outcome = new Map<string, PromiseSettledResult<void> | 'rate_limited' | 'later'>();
+  let throttled = false;
+  const sheetsStarted = Date.now();
+  for (const row of claimed.filter((r) => isSheetChannel(r.channel))) {
+    if (throttled) {
+      outcome.set(row.id, 'rate_limited');
+      continue;
+    }
+    if (Date.now() - sheetsStarted > SHEET_PASS_BUDGET_MS) {
+      outcome.set(row.id, 'later');
+      continue;
+    }
+    const [result] = await Promise.allSettled([send(row)]);
+    throttled = result?.status === 'rejected' && isRateLimited(result.reason);
+    outcome.set(row.id, throttled || !result ? 'rate_limited' : result);
+  }
+  const parallel = claimed.filter((r) => !isSheetChannel(r.channel));
+  for (const [index, result] of (await others).entries()) {
+    const row = parallel[index];
+    if (row) outcome.set(row.id, result);
+  }
+  if (throttled) {
+    deps.log.warn(
+      { alert: 'sheets_rate_limited' },
+      'Google Sheets pidió esperar (cuota por minuto): filas aplazadas',
+    );
+  }
   let sent = 0;
   let rearmed = false;
   // Solo si nadie volvió a encolar la fila mientras se enviaba (eso reinicia `attempts`); si lo
@@ -939,10 +1013,31 @@ async function deliverPass(
       .returning({ id: notifications.id });
     if (due.length) rearmed = true;
   };
-  for (const [index, result] of results.entries()) {
-    const row = claimed[index];
-    if (!row) continue;
+  for (const row of claimed) {
+    const result = outcome.get(row.id);
+    if (!result) continue;
     try {
+      if (result === 'rate_limited' || result === 'later') {
+        // No cuenta como intento: la cuota de Google se renueva cada minuto, y una fila que no
+        // alcanzó a salir en esta pasada sale en la siguiente.
+        const wait =
+          result === 'later'
+            ? 0
+            : RATE_LIMIT_WAIT_MS + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+        const saved = await deps.db
+          .update(notifications)
+          .set({
+            attempts: row.attempts - 1,
+            ...(result === 'rate_limited'
+              ? { lastError: 'Google Sheets pidió esperar (cuota por minuto)' }
+              : {}),
+            nextAttemptAt: new Date(deps.now().getTime() + wait),
+          })
+          .where(stillClaimed(row))
+          .returning({ id: notifications.id });
+        await releaseIfRearmed(row, saved);
+        continue;
+      }
       if (result.status === 'fulfilled') {
         sent += 1;
         const saved = await deps.db

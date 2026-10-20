@@ -141,9 +141,16 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return response;
   }
 
+  /**
+   * `insertDataOption=OVERWRITE`: la fila se escribe en la primera fila vacía tras los datos (y
+   * Google agrega filas al final solo si la hoja se llena). Con INSERT_ROWS, Google insertaba la
+   * fila delante de las vacías y desplazaba los rangos de las fórmulas del dueño («Pedidos!B2:B»
+   * pasaba a «B3:B»…): «Resumen», «Por entregar» y «Reporte diario» dejaban fuera todos los
+   * pedidos (encontrado con una copia de la hoja real, 2026-10-20).
+   */
   async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     await this.request(
-      `${this.valuesUrl(tab, 'A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      `${this.valuesUrl(tab, 'A1')}:append?valueInputOption=RAW&insertDataOption=OVERWRITE`,
       { method: 'POST', body: JSON.stringify({ values: [values] }) },
       'Google Sheets no aceptó la fila',
     );

@@ -60,17 +60,58 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
 - **No es la base de datos ni la autoridad de nada.** Editar o borrar una celda no cambia ningún
   pedido. De la hoja la tienda solo lee la columna A de «Entregas», para encontrar la fila del
   pedido que reescribe; si la borras, la siguiente actualización la vuelve a crear al final.
-- Escribe con `valueInputOption=RAW`: ningún texto se interpreta como fórmula.
+- Escribe con `valueInputOption=RAW`: ningún texto se interpreta como fórmula. El texto libre
+  (nickname, región, evidencia, paquete) que empiece por `=`, `+`, `-` o `@` lleva un apóstrofo
+  delante: así tampoco se ejecuta si exportas la hoja a CSV y la abres en Excel (inyección CSV).
+- Agrega filas con `insertDataOption=OVERWRITE`: escribe en la primera fila vacía y **no inserta
+  filas**. Con `INSERT_ROWS` (lo que hacía antes del 2026-10-20) Google desplazaba los rangos de
+  las fórmulas («Pedidos!B2:B» pasaba a «B7:B») y «Resumen», «Por entregar» y «Reporte diario»
+  dejaban fuera todos los pedidos. Se encontró probando con una copia de la hoja real.
 - Va por la cola de avisos:
   - si Google falla, el pedido y el pago siguen igual;
   - la fila se reintenta (1, 5, 15 y 60 min);
-  - tras 5 intentos queda como «Aviso sin enviar» en el panel.
+  - tras 5 intentos queda como «Aviso sin enviar» en el panel;
+  - si Google responde **429** (cuota de escrituras por minuto agotada), la fila vuelve a la
+    cola en 1 a 3 min **sin gastar un intento**: un pico de ventas nunca la deja fallida;
+  - las filas de la hoja salen de a una y en orden; una pasada se corta a los 40 s y lo que
+    falta sale en la siguiente (nunca se envía dos veces la misma fila).
+- Las peticiones (pago, «Ya transferí», acciones del panel) esperan como mucho
+  `NOTIFY_INLINE_WAIT_MS` (300 ms) a la hoja y al correo; lo demás sigue en segundo plano.
+- Reclamar o liberar una entrega no reescribe la fila (no cambia nada visible): ahorra cuota.
+- **Capacidad:** Google permite unas 60 escrituras por minuto por cuenta de servicio. Un pedido
+  pagado y marcado ENVIADO usa unas 5 (pago: 2; iniciar: 1; ENVIADO: 2). La hoja va al día hasta
+  unos 12 pedidos por minuto; por encima, se atrasa y se pone al día sola, sin perder filas. La
+  tienda y el panel no se frenan por eso. **NO VERIFICADO:** si Google sube esa cuota a pedido.
 - La compra **no depende** de Google: la fila se escribe después de confirmar el pago.
 - **Duplicados:** en «Pedidos», cada evento se escribe una vez por pedido; si Google tardara en
   responder y se reintentara, la columna «Id del registro» permite detectar la fila repetida. En
   «Entregas» hay una sola fila por pedido: la cola nunca envía dos actualizaciones del mismo
   pedido a la vez y la última siempre lleva el estado más reciente (`order_sheet_sync`,
   migración 0020).
+
+## Prueba con una copia de la hoja (2026-10-20)
+
+Pedido del dueño: probar la sincronización en tiempo real **en una copia**, nunca en la hoja
+original. Se hizo así:
+
+1. Copia privada de la hoja en el Drive del dueño (sin la cuenta de servicio: producción no
+   puede escribir en ella), con solo datos ficticios.
+2. La tienda local recorrió 6 pedidos ficticios: 3 por Mercado Pago (uno con webhook repetido) y
+   3 por Nequi; entregas, una fallida y reanudada, un aviso rechazado, una devolución y una caída
+   simulada de Google. Cada escritura que la tienda le hace a Google se reprodujo en la copia, en
+   orden y por fases.
+3. Resultado: «Resumen», «Por entregar», «Reporte diario» y «Compras_LootBar» cuadran con la base
+   en cada fase (5 pagados, 3 ENVIADO, 1 reembolsado, 1 por entregar; neto $15.200; 0 filas
+   repetidas). Mientras Google estuvo «caído», «Pedidos» mostró una entrega de menos hasta el
+   reintento: es el comportamiento esperado.
+4. Fallo encontrado y corregido: `INSERT_ROWS` desplazaba las fórmulas (ver arriba).
+
+Mejoras probadas en la copia que conviene pasar a la hoja original (**requieren tu
+autorización**; no se tocó el original):
+
+- Archivo → Configuración → Cálculo → «Al cambiar y cada minuto»: «Esperando (min)» de «Por
+  entregar» avanza aunque nadie edite (ahora solo se recalcula con cada cambio).
+- Textos de «Por entregar» (A2) y «Léeme» (A6 y A14) con Nequi y «ENVIADO».
 
 ## Pestaña «Compras_LootBar» (la llena el dueño)
 

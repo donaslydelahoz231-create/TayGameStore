@@ -4,11 +4,7 @@ import type { Tx } from '../db/client.js';
 import { fulfillments, nequiTransfers, notifications, orders, payments } from '../db/schema.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
-import {
-  deliverNotifications,
-  enqueueOrderNotifications,
-  enqueueSheetSync,
-} from './notifications.js';
+import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
 import { lockPaymentMethod, markOrderPaid } from './order-payment.js';
 import {
   isUniqueViolation,
@@ -147,7 +143,7 @@ export async function reportNequiTransfer(
     });
     return order;
   });
-  await deliverNotifications(deps, { orderId: order.id });
+  await deliverSoon(deps, order.id);
   return order;
 }
 
@@ -273,7 +269,7 @@ export async function confirmNequiTransfer(
     }
     throw error;
   }
-  await deliverNotifications(deps, { orderId });
+  await deliverSoon(deps, orderId);
   if (paid) kickTopups(deps, orderId);
 }
 
@@ -379,7 +375,7 @@ export async function recordNequiRefund(
       );
     await enqueueOrderNotifications(deps, tx, order.id, 'refunded');
   });
-  await deliverNotifications(deps, { orderId });
+  await deliverSoon(deps, orderId);
 }
 
 /** Pedidos con una transferencia Nequi avisada y sin revisar (alerta del panel). */
