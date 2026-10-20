@@ -95,9 +95,17 @@ async function refreshOrder() {
 function bindEntryAndAccount() {
   $('enterStoreBtn').onclick = () => {
     closeMenus();
+    modal('loginModal', true);
+    // Si el acceso no llega a verse (un bloqueador de contenido lo oculta, falla su hoja de
+    // estilos…), no se esconde la entrada dejando la pantalla vacía y sin salida: se abre la
+    // tienda como invitado. El acceso con cuenta sigue en el botón «Cuenta».
+    if (!$('guestBtn')?.getClientRects().length) {
+      modal('loginModal', false);
+      revealStore();
+      return;
+    }
     $('entryExperience').classList.add('out');
     $('bootScreen')?.classList.add('out');
-    modal('loginModal', true);
   };
   $('menuInvoice').onclick = () => {
     closeMenus();

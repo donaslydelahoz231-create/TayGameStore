@@ -99,6 +99,46 @@ test.describe('entrada y acceso', () => {
     expect(intentos).toEqual([]);
   });
 
+  test('pantalla baja (teléfono en horizontal): «Entrar» se ve, se pulsa y la tienda abre', async ({
+    page,
+  }) => {
+    // Antes la entrada tenía overflow: hidden y el botón quedaba debajo del borde, sin forma de
+    // desplazarse: la tienda se veía bloqueada con <body class="entry-locked lock">.
+    await page.setViewportSize({ width: 740, height: 360 });
+    await page.goto('/');
+    await expect(page.locator('body')).toHaveClass(/entry-locked/);
+    await expect(page.locator('#enterStoreBtn')).toBeInViewport({ ratio: 1 });
+    await enterAsGuest(page);
+    await expect(page.locator('body')).not.toHaveClass(/entry-locked/);
+    await expect(page.locator('#products .product')).toHaveCount(6);
+  });
+
+  test('si un bloqueador de contenido oculta el acceso, «Entrar» abre la tienda como invitado', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    // Simula un filtro cosmético (bloqueador de anuncios) que oculta el diálogo de acceso: antes
+    // la entrada desaparecía y quedaba una pantalla vacía sin salida.
+    await page.addStyleTag({ content: '#loginModal { display: none !important; }' });
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('body')).not.toHaveClass(/entry-locked/);
+    await expect(page.locator('#entryExperience')).toBeHidden();
+    await expect(page.locator('#products .product')).toHaveCount(6);
+  });
+
+  test.describe('sin JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+
+    test('scripts bloqueados (p. ej. Brave Shields): un aviso explica qué hacer y no queda un botón inerte', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      await expect(page.locator('.entry-noscript')).toBeVisible();
+      await expect(page.locator('.entry-noscript')).toContainText('Shields');
+      await expect(page.locator('#enterStoreBtn')).toBeHidden();
+    });
+  });
+
   test('mientras se comprueba el acceso, un clic en Google o Facebook no navega', async ({
     page,
   }) => {

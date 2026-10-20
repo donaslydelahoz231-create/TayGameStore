@@ -77,6 +77,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
     alarga el plazo del pedido (antes, repetirlo podía inundar su correo y mantener abierto el
     pedido sin fin).
 
+### Corregido (pantalla de entrada bloqueada)
+
+- **«Entrar a TayGameStore» siempre se puede pulsar:** la pantalla de entrada tenía
+  `overflow: hidden` y su contenido no se podía desplazar. En un teléfono en horizontal (o con
+  zoom, letra grande o una ventana baja) el botón quedaba fuera de la pantalla y la tienda se veía
+  bloqueada con `<body class="entry-locked lock">`. Ahora la entrada se desplaza si no cabe, se
+  centra solo cuando hay espacio y en pantallas bajas se compacta (Tay más pequeño, pie en el
+  flujo).
+- **Sin salida si el acceso no se ve:** si un bloqueador de contenido (o un fallo de estilos)
+  oculta el diálogo de acceso, «Entrar» abre la tienda como invitado en vez de dejar una pantalla
+  vacía. El acceso con cuenta sigue en «Cuenta».
+- **JavaScript bloqueado (p. ej. Brave Shields con «Bloquear scripts»):** un aviso explica cómo
+  permitir los scripts en lugar de un botón que no responde.
+- Seguridad: `X-Frame-Options: DENY`, coherente con `frame-ancestors 'none'` de la CSP.
+
 ### Corregido (accesibilidad)
 
 - **Nombre accesible igual al texto visible** (WCAG 2.5.3, regla `label-content-name-mismatch` que

@@ -1,11 +1,18 @@
 /* ===== TAYGAMESTORE ENTRY EXPERIENCE ===== */
+/*
+ * Si el contenido no cabe (teléfono en horizontal, letra grande, zoom, ventana baja), la entrada
+ * se desplaza: antes `overflow: hidden` dejaba «Entrar» fuera de la pantalla sin forma de llegar a
+ * él y la tienda quedaba bloqueada. El centrado lo dan los márgenes automáticos de .entry-shell,
+ * que se anulan cuando no hay espacio (el contenido empieza arriba en vez de cortarse).
+ */
 .entry-experience {
   position: fixed;
   inset: 0;
   z-index: 1200;
   display: grid;
-  place-items: center;
-  overflow: hidden;
+  justify-items: center;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   background:
     radial-gradient(circle at 50% 34%, rgba(139, 61, 255, 0.16), transparent 27%),
     radial-gradient(circle at 76% 68%, rgba(47, 139, 255, 0.09), transparent 22%), #040712;
@@ -52,6 +59,7 @@
   position: relative;
   z-index: 2;
   width: min(900px, calc(100vw - 34px));
+  margin-block: auto;
   padding: 30px 24px 24px;
   text-align: center;
 }
@@ -204,6 +212,18 @@
 .entry-cta svg {
   width: 16px;
 }
+/* Sin JavaScript (p. ej. Brave Shields bloqueando scripts): aviso en lugar de un botón inerte. */
+.entry-noscript {
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 200, 87, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 200, 87, 0.08);
+  color: #ffe2a3;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
 .entry-legal {
   display: flex;
   justify-content: center;
@@ -227,6 +247,7 @@
   left: 0;
   right: 0;
   bottom: 18px;
+  pointer-events: none;
   text-align: center;
   color: var(--muted2);
   font: 700 0.6875rem var(--display);

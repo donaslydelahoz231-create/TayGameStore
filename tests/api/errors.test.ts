@@ -144,6 +144,8 @@ describe('cabeceras de seguridad', () => {
     expect(csp).toContain("script-src 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain('unsafe-eval');
+    // Coherente con frame-ancestors 'none' para navegadores que solo leen X-Frame-Options.
+    expect(res.headers['x-frame-options']).toBe('DENY');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
     expect(res.headers['permissions-policy']).toContain('camera=()');

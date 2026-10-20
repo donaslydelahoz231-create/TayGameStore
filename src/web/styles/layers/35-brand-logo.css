@@ -286,3 +286,52 @@
     display: none;
   }
 }
+
+/*
+ * Pantallas bajas (teléfono en horizontal, ventana pequeña o con zoom): Tay más pequeño y el pie
+ * dentro del flujo, para que «Entrar» quede a la vista y el pie no se monte sobre el texto.
+ */
+@media (max-height: 600px) {
+  .entry-experience {
+    grid-template-rows: 1fr auto;
+  }
+  .entry-experience .entry-shell {
+    padding-block: 14px 8px;
+  }
+  .entry-experience .entry-logo-wrap {
+    width: 92px;
+    height: 92px;
+    margin: 8px auto 2px;
+  }
+  .entry-experience .entry-orbits i {
+    inset: 6px;
+  }
+  .entry-experience .entry-orbits i:nth-child(2) {
+    inset: 12px;
+  }
+  .entry-experience .entry-orbits i:nth-child(3) {
+    inset: 18px;
+  }
+  .entry-mascot {
+    width: 80px;
+    height: 80px;
+  }
+  .entry-experience .entry-shell h1.entry-seo {
+    margin: 8px 0 4px;
+  }
+  .entry-status {
+    margin: 10px auto 12px;
+  }
+  .entry-legal {
+    margin-top: 10px;
+  }
+  .entry-footer {
+    position: static;
+    padding: 4px 16px 14px;
+  }
+}
+@media (max-height: 420px) {
+  .entry-copy {
+    display: none;
+  }
+}

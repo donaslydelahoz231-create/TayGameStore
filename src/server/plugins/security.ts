@@ -121,6 +121,9 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
       },
     },
     crossOriginEmbedderPolicy: false,
+    // Igual que frame-ancestors 'none': la tienda no se incrusta ni en sí misma (anti-clickjacking
+    // también en navegadores que solo leen X-Frame-Options).
+    xFrameOptions: { action: 'deny' },
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     strictTransportSecurity: config.secureCookies
       ? { maxAge: 31_536_000, includeSubDomains: true }

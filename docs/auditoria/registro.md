@@ -1322,3 +1322,62 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Permisos de la hoja:** sin cambios (el dueño y la cuenta de servicio).
 - **NO VERIFICADO:** el cruce con ventas reales: «Entregas» está vacía hasta que el dueño conecte
   la hoja (`hojaGoogle: false`).
+
+### 2026-10-20 · Misión integral: pantalla de entrada «bloqueada» (Brave) y auditoría (local, sin publicar)
+
+- **Pedido del dueño:** auditoría, reparación y hardening; en Brave la página puede quedar en una
+  pantalla azul o gris «bloqueada» con `<body class="entry-locked lock">`.
+- **Qué pone esas clases:** `entry-locked` viene en el HTML; `showEntryLanding()` añade `lock` al
+  arrancar. Es el estado normal de la pantalla de entrada: la tienda (`#app.store-locked`) sigue
+  oculta hasta pulsar «Entrar» y elegir invitado o cuenta.
+- **Brave Shields (simulado, NO es un Brave real):** motor `@ghostery/adblocker` 2.20.1 en
+  Chromium con las 19 listas por defecto del catálogo oficial de Brave (`list_catalog.json`:
+  uBlock Origin, Brave, cookies, primera parte, Android e iOS) más EasyList, EasyPrivacy y
+  EasyList Spanish (`@eyeo/filterlists` 1.0.103). Resultado: 0 elementos ocultos, 0 peticiones
+  bloqueadas, flujo entrada → acceso → invitado completo. Con las listas de Fanboy (no vienen
+  activadas en Brave) solo se oculta el botón «Compartir» del comprobante.
+- **Escenarios de fallo:** sin almacenamiento, API caída, sin Google Fonts y movimiento reducido:
+  la tienda abre. Sin la hoja de estilos: aviso de respaldo con «Recargar» (diseñado). Sin
+  JavaScript: botón «Entrar» inerte sin explicación (**corregido**).
+- **Causa raíz confirmada (reproducible):** la entrada era una capa fija con `overflow: hidden` y
+  contenido centrado. En pantallas bajas el botón quedaba fuera de la pantalla sin forma de
+  desplazarse: 740×360 (botón en y = 380–422) y 844×390 (y = 384–426). El estado resultante es
+  exactamente `entry-locked lock` con la tienda inaccesible. Pasa en un teléfono en horizontal, con
+  zoom o letra grande, o en una ventana baja, en cualquier navegador, Brave incluido.
+- **Corregido:**
+  - `25-entry-experience.css`: la entrada se desplaza (`overflow: hidden auto`) y se centra con
+    márgenes automáticos (centrada si cabe; si no, empieza arriba);
+  - `35-brand-logo.css`: con `max-height: 600px`, Tay más pequeño y el pie en el flujo; con
+    `max-height: 420px` se oculta la descripción. En pantallas altas no cambia nada (capturas
+    visuales idénticas);
+  - `bindings.js`: si el diálogo de acceso no llega a verse (un bloqueador lo oculta), «Entrar»
+    abre la tienda como invitado en vez de dejar una pantalla vacía;
+  - `index.html`: `<noscript>` con instrucciones para Brave Shields cuando los scripts están
+    bloqueados, y se oculta el botón inerte;
+  - `security.ts`: `X-Frame-Options: DENY` (coherente con `frame-ancestors 'none'`).
+- **Medición después:** en 8 tamaños (de 360×640 a 1440×900, letra al 130 % y 160 %, horizontal y
+  portátil bajo) «Entrar» queda dentro de la pantalla y se puede pulsar.
+- **Pruebas:**
+  - e2e nuevas: pantalla baja, bloqueador que oculta el acceso y sin JavaScript; las tres fallan
+    sin la corrección y pasan con ella;
+  - prueba de cabeceras: `X-Frame-Options` es `DENY` (falla sin el cambio);
+  - lint, formato y tipos OK; unitarias y API 304/304; integración 281/281; e2e 72/72; visuales
+    3/3.
+- **Auditoría de seguridad (local):**
+  - `npm audit`: 0 vulnerabilidades (todas y solo producción);
+  - escáner de datos sensibles: 0;
+  - el paquete público `dist/web` no contiene secretos, cadenas de conexión ni mapas de código;
+  - el único `.env*` versionado es `.env.example`;
+  - las 28 rutas de `/api/admin` pasan por `requireAdmin`;
+  - cabeceras: CSP sin `unsafe-eval`, HSTS de 1 año solo con https, `nosniff`,
+    `Referrer-Policy`, `Permissions-Policy`, COOP y CORP;
+  - cookies `HttpOnly`, `Secure` (https) y `SameSite=Lax`; sin CORS abierto; errores 500 sin
+    detalle al cliente.
+- **NO VERIFICADO:**
+  - Brave real: no está disponible en este entorno y la descarga desde GitHub fue rechazada
+    (403);
+  - producción: `onrender.com` está bloqueado por el proxy de esta sesión;
+  - si el caso del dueño era exactamente este (horizontal, zoom o ventana baja) u otro: si vuelve
+    a pasar tras publicar, hace falta la consola de Brave (F12 → Consola) y el tamaño de la
+    ventana;
+  - gitleaks no está instalado aquí (sí corre en la CI).
