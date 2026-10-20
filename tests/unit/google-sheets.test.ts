@@ -12,6 +12,9 @@ import {
   DELIVERY_COLUMNS,
   deliveryRow,
   deliveryStatusLabel,
+  PENDING_PAYMENT_COLUMNS,
+  pendingPaymentRow,
+  pendingPaymentStatus,
   playerConfirmationLabel,
   SHEET_COLUMNS,
   sheetRow,
@@ -80,7 +83,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
       fetch: fetcher.impl,
     });
     await log.appendRow('orders', ['TGS-AAAAAAAAAA', '=IMPORTXML("https://evil.example")', 3800]);
@@ -111,7 +114,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
       fetch: fetcher.impl,
     });
     const error = await log.appendRow('orders', ['x']).catch((caught: unknown) => caught);
@@ -132,7 +135,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
       fetch: fetcher.impl,
     });
     await expect(log.appendRow('orders', ['x'])).rejects.toBeInstanceOf(SheetsError);
@@ -150,7 +153,7 @@ describe('Google Sheets: pestaña «Entregas»', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
       fetch: fetcher.impl,
     });
     await log.appendRow('deliveries', ['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']);
@@ -169,7 +172,7 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries },
+      tabs: { orders: 'Pedidos', deliveries, pending: 'Pagos pendientes' },
       fetch: impl,
     });
   const values = (url: string) => decodeURIComponent(url.split('/values/')[1] ?? '');
@@ -282,7 +285,7 @@ describe('Google Sheets: configuración', () => {
     expect(config.sheets).toMatchObject({
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas' },
+      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
     });
     expect(config.sheets?.privateKey).toBe(privateKey);
   });
@@ -296,6 +299,74 @@ describe('Google Sheets: configuración', () => {
     expect(
       loadConfig(sheetsEnv({ GOOGLE_SHEETS_DELIVERY_TAB: 'Recargas' })).sheets?.tabs.deliveries,
     ).toBe('Recargas');
+  });
+
+  it('«Pagos pendientes» es una pestaña propia, distinta de las otras dos', () => {
+    expect(loadConfig(sheetsEnv({})).sheets?.tabs.pending).toBe('Pagos pendientes');
+    for (const name of ['pedidos', 'ENTREGAS']) {
+      expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_PENDING_TAB: name }))).toThrow(ConfigError);
+    }
+    expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_PENDING_TAB: "='x'!A1" }))).toThrow(
+      ConfigError,
+    );
+  });
+});
+
+describe('Google Sheets: fila de «Pagos pendientes» (Nequi)', () => {
+  const order = {
+    reference: 'TGS-PENDIENTE1',
+    status: 'AWAITING_PAYMENT',
+    totalCop: 18000,
+    items: [{ name: '310 diamantes', quantity: 1, unitPriceCop: 18000, lineTotalCop: 18000 }],
+    expiresAt: new Date('2026-10-20T20:00:00Z'),
+    createdAt: new Date('2026-10-20T19:00:00Z'),
+  };
+  const reported = {
+    status: 'REPORTED' as const,
+    senderLast4: '0421',
+    customerReference: '=HYPERLINK("https://evil.example")',
+    reportedAt: new Date('2026-10-20T19:10:00Z'),
+    nequiReference: null,
+    reviewedAt: null,
+    rejectionReason: null,
+  };
+
+  it('el aviso del cliente nunca cuenta como pago: solo la confirmación del dueño', () => {
+    expect(pendingPaymentStatus(order, undefined)).toBe('⏳ Esperando la transferencia');
+    expect(pendingPaymentStatus(order, reported)).toMatch(/^💰 El cliente avisó/);
+    expect(pendingPaymentStatus(order, { status: 'REJECTED' })).toMatch(/^✖️ Aviso rechazado/);
+    expect(pendingPaymentStatus({ status: 'PAID' }, { status: 'CONFIRMED' })).toBe(
+      '✅ Pago confirmado',
+    );
+    expect(pendingPaymentStatus({ status: 'REFUNDED' }, { status: 'CONFIRMED' })).toBe(
+      '↩️ Devuelto al cliente',
+    );
+    expect(pendingPaymentStatus({ status: 'EXPIRED' }, undefined)).toBe('⌛ Venció sin pago');
+    expect(pendingPaymentStatus({ status: 'EXPIRED' }, reported)).toMatch(
+      /^⚠️ Venció con un aviso/,
+    );
+    // Un aviso sin confirmar en un pedido pagado por otra vía nunca se muestra como confirmado.
+    expect(pendingPaymentStatus({ status: 'PAID' }, reported)).not.toMatch(/✅/);
+  });
+
+  it('lleva lo que el cliente avisó y lo protege de fórmulas al exportar', () => {
+    const row = pendingPaymentRow(order, reported, new Date('2026-10-20T19:11:00Z'));
+    expect(row).toHaveLength(PENDING_PAYMENT_COLUMNS.length);
+    expect(row).toEqual([
+      'TGS-PENDIENTE1',
+      '💰 El cliente avisó que pagó: verifícalo en tu Nequi',
+      18000,
+      '1× 310 diamantes',
+      '2026-10-20 14:00',
+      '2026-10-20 15:00',
+      '2026-10-20 14:10',
+      '0421',
+      `'=HYPERLINK("https://evil.example")`,
+      '',
+      '',
+      '',
+      '2026-10-20 14:11',
+    ]);
   });
 });
 

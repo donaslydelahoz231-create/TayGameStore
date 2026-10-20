@@ -8,6 +8,7 @@ import {
   orderItems,
   orders,
   payments,
+  type NequiTransferStatus,
   type NotificationChannel,
   type NotificationKind,
   type OrderStatus,
@@ -26,6 +27,7 @@ import {
 } from '../domain/order-states.js';
 import type { ServiceDeps } from './context.js';
 import { deliveredPinCounts, deliveredPins } from './inventory.js';
+import { nequiTransfersFor, type NequiTransferView } from './nequi-view.js';
 import { receiptVerificationCode } from './receipts.js';
 
 /**
@@ -86,7 +88,7 @@ const RATE_LIMIT_JITTER_MS = 120_000;
 const SHEET_PASS_BUDGET_MS = 40_000;
 
 const isSheetChannel = (channel: NotificationChannel) =>
-  channel === 'sheets' || channel === 'sheets_delivery';
+  channel === 'sheets' || channel === 'sheets_delivery' || channel === 'sheets_pending';
 const isRateLimited = (reason: unknown) => reason instanceof SheetsError && reason.status === 429;
 
 function plannedFor(deps: ServiceDeps, event: OrderEvent) {
@@ -116,16 +118,41 @@ function plannedFor(deps: ServiceDeps, event: OrderEvent) {
 /**
  * Pide reescribir la fila del pedido en «Entregas» con su estado actual. Llamar dentro de la
  * transacción de cada cambio de estado de un pedido pagado (pago, entrega tomada, en curso,
- * entregada, fallida, revisión, reembolso). Hay una sola fila de cola por pedido: se vuelve a
- * poner pendiente y, si justo se está enviando, conserva la reserva para que nunca haya dos envíos
- * a la vez (el que está en curso la reenvía al terminar, ver `deliverNotifications`).
+ * entregada, fallida, revisión, reembolso).
  */
 export async function enqueueSheetSync(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
+  await enqueueSheetRow(deps, tx, orderId, 'sheets_delivery');
+}
+
+/**
+ * Pide reescribir la fila del pedido Nequi en «Pagos pendientes» (lo que el cliente debe al dueño
+ * y lo que avisó al transferir). Llamar dentro de la transacción de cada paso del pago Nequi:
+ * elegir Nequi, «Ya transferí», confirmar, rechazar, devolver y vencer.
+ */
+export async function enqueuePendingPaymentSync(
+  deps: ServiceDeps,
+  tx: Tx,
+  orderId: string,
+): Promise<void> {
+  await enqueueSheetRow(deps, tx, orderId, 'sheets_pending');
+}
+
+/**
+ * Hay una sola fila de cola por pedido y pestaña: se vuelve a poner pendiente y, si justo se está
+ * enviando, conserva la reserva para que nunca haya dos envíos a la vez (el que está en curso la
+ * reenvía al terminar, ver `deliverNotifications`).
+ */
+async function enqueueSheetRow(
+  deps: ServiceDeps,
+  tx: Tx,
+  orderId: string,
+  channel: 'sheets_delivery' | 'sheets_pending',
+): Promise<void> {
   if (!deps.sheets) return;
   const now = deps.now();
   await tx
     .insert(notifications)
-    .values({ kind: 'order_sheet_sync', channel: 'sheets_delivery', orderId, nextAttemptAt: now })
+    .values({ kind: 'order_sheet_sync', channel, orderId, nextAttemptAt: now })
     .onConflictDoUpdate({
       target: [notifications.orderId, notifications.kind, notifications.channel],
       set: {
@@ -624,7 +651,7 @@ type SheetStates = { payment: PaymentState; recharge: RechargeState };
  */
 export const sheetText = (value: string) => (/^[=+\-@\t\r\n]/.test(value) ? `'${value}` : value);
 
-const sheetItems = (order: SheetOrder) =>
+const sheetItems = (order: Pick<OrderSnapshot, 'items'>) =>
   sheetText(order.items.map((item) => `${item.quantity}× ${item.name}`).join('; '));
 const sheetReceipt = (order: SheetOrder) =>
   order.receipt ? String(order.receipt.number).padStart(6, '0') : '';
@@ -651,6 +678,96 @@ export function sheetRow(
     RECHARGE_STATE_LABELS[states.recharge],
     sheetReceipt(order),
     row.id,
+  ];
+}
+
+/**
+ * Encabezados de la pestaña «Pagos pendientes» (misma hoja; ver docs/google-sheets.md): una fila
+ * por pedido Nequi, desde que el cliente elige Nequi hasta que el dueño confirma o rechaza el pago
+ * o el pedido vence. La columna A (referencia) es la clave de la fila.
+ */
+export const PENDING_PAYMENT_COLUMNS = [
+  'Referencia',
+  'Estado del pago',
+  'Total a recibir',
+  'Paquete',
+  'Pedido creado (Colombia)',
+  'Vence (Colombia)',
+  'Cliente avisó el pago (Colombia)',
+  '4 últimos dígitos de la cuenta que pagó',
+  'Referencia del comprobante (cliente)',
+  'Confirmado (Colombia)',
+  'Referencia Nequi confirmada',
+  'Motivo del rechazo',
+  'Actualizado (Colombia)',
+] as const;
+
+type PendingOrder = Pick<OrderSnapshot, 'reference' | 'status' | 'totalCop' | 'items'> & {
+  expiresAt: Date | null;
+  createdAt: Date;
+};
+type PendingTransfer = Pick<
+  NequiTransferView,
+  | 'status'
+  | 'senderLast4'
+  | 'customerReference'
+  | 'reportedAt'
+  | 'nequiReference'
+  | 'reviewedAt'
+  | 'rejectionReason'
+>;
+
+/**
+ * Estado del pago Nequi en una frase (lo primero que mira el dueño). Sale del pedido y de la última
+ * transferencia: el aviso del cliente nunca cuenta como pago; solo la confirmación del dueño.
+ */
+export function pendingPaymentStatus(
+  order: Pick<PendingOrder, 'status'>,
+  latest: { status: NequiTransferStatus } | undefined,
+): string {
+  if (order.status === 'REFUNDED') return '↩️ Devuelto al cliente';
+  if (latest?.status === 'CONFIRMED') return '✅ Pago confirmado';
+  if (order.status === 'AWAITING_PAYMENT') {
+    if (latest?.status === 'REPORTED')
+      return '💰 El cliente avisó que pagó: verifícalo en tu Nequi';
+    if (latest?.status === 'REJECTED') return '✖️ Aviso rechazado: esperando otra transferencia';
+    return '⏳ Esperando la transferencia';
+  }
+  if (order.status === 'EXPIRED') {
+    return latest?.status === 'REPORTED'
+      ? '⚠️ Venció con un aviso sin verificar: revisa tu Nequi'
+      : '⌛ Venció sin pago';
+  }
+  return '✖️ Cerrado sin pago';
+}
+
+/**
+ * Fila de «Pagos pendientes»: lo que el cliente debe (total y paquete), hasta cuándo, y lo que
+ * avisó al transferir (4 últimos dígitos de su cuenta y referencia de su comprobante), para
+ * buscarlo en la app Nequi. Nunca correo, nombre, celular completo ni datos del jugador.
+ */
+export function pendingPaymentRow(
+  order: PendingOrder,
+  latest: PendingTransfer | undefined,
+  updatedAt: Date,
+): (string | number)[] {
+  const confirmed = latest?.status === 'CONFIRMED';
+  return [
+    order.reference,
+    pendingPaymentStatus(order, latest),
+    order.totalCop,
+    sheetItems(order),
+    bogotaTime.format(order.createdAt),
+    order.status === 'AWAITING_PAYMENT' && order.expiresAt
+      ? bogotaTime.format(order.expiresAt)
+      : '',
+    latest?.reportedAt ? bogotaTime.format(latest.reportedAt) : '',
+    latest?.senderLast4 ?? '',
+    sheetText(latest?.customerReference ?? ''),
+    confirmed && latest.reviewedAt ? bogotaTime.format(latest.reviewedAt) : '',
+    confirmed ? sheetText(latest.nequiReference ?? '') : '',
+    latest?.status === 'REJECTED' ? sheetText(latest.rejectionReason ?? '') : '',
+    bogotaTime.format(updatedAt),
   ];
 }
 
@@ -818,6 +935,21 @@ async function sendOne(
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
+  if (row.channel === 'sheets_pending') {
+    if (!deps.sheets) throw new Error('Google Sheets no está configurado');
+    const [meta] = await deps.db
+      .select({ paymentMethod: orders.paymentMethod, createdAt: orders.createdAt })
+      .from(orders)
+      .where(eq(orders.id, row.orderId));
+    // Solo pedidos Nequi: a los de Mercado Pago los confirma Mercado Pago, no el dueño.
+    if (meta?.paymentMethod !== 'nequi_manual') return;
+    const latest = (await nequiTransfersFor(deps.db, [row.orderId])).get(row.orderId)?.[0];
+    await deps.sheets.upsertRow(
+      'pending',
+      pendingPaymentRow({ ...order, createdAt: meta.createdAt }, latest, deps.now()),
+    );
+    return;
+  }
   if (row.channel === 'sheets_delivery') {
     if (!deps.sheets) throw new Error('Google Sheets no está configurado');
     // Solo pedidos que llegaron a pagados (tienen comprobante): los demás no van a «Entregas».

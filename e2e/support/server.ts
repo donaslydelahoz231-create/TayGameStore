@@ -54,7 +54,11 @@ const slowMs = Number(process.env.E2E_SLOW_INTEGRATIONS_MS ?? 0);
 const sheetWritesPerMinute = Number(process.env.E2E_SHEETS_WRITES_PER_MINUTE ?? 0);
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 class LoadSheet implements OrderSheetLog {
-  readonly tabs: Record<SheetTab, (string | number)[][]> = { orders: [], deliveries: [] };
+  readonly tabs: Record<SheetTab, (string | number)[][]> = {
+    orders: [],
+    deliveries: [],
+    pending: [],
+  };
   writes = 0;
   rateLimited = 0;
   private window = { start: Date.now(), count: 0 };

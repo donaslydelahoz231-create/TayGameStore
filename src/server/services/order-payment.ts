@@ -13,7 +13,11 @@ import {
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
 import { deliverFromInventory } from './inventory.js';
-import { enqueueOrderNotifications } from './notifications.js';
+import {
+  deliverSoon,
+  enqueueOrderNotifications,
+  enqueuePendingPaymentSync,
+} from './notifications.js';
 import {
   closeOpenAttempts,
   loadOrderForAccess,
@@ -98,7 +102,7 @@ export async function changePaymentMethod(
   to: PaymentMethod,
 ): Promise<OrderRow> {
   requirePaymentMethod(deps, to);
-  return deps.db.transaction(async (tx) => {
+  const order = await deps.db.transaction(async (tx) => {
     const order = await loadOrderForAccess(deps, tx, publicRef, access, true);
     if (order.status !== 'AWAITING_PAYMENT' || order.expiresAt.getTime() <= deps.now().getTime()) {
       throw invalidState('Este pedido ya no espera pago: el método no se puede cambiar.');
@@ -107,6 +111,8 @@ export async function changePaymentMethod(
     if (from === to) return order;
     if (!from) {
       await lockPaymentMethod(tx, actor, order, to);
+      // Pasar a Nequi: el cliente le debe el total al dueño (fila en «Pagos pendientes»).
+      if (to === 'nequi_manual') await enqueuePendingPaymentSync(deps, tx, order.id);
       return order;
     }
     if (from === 'nequi_manual') {
@@ -162,9 +168,12 @@ export async function changePaymentMethod(
       action: 'order.payment_method_changed',
       data: { from, to, attemptsClosed: closed.length },
     });
+    if (to === 'nequi_manual') await enqueuePendingPaymentSync(deps, tx, order.id);
     order.paymentMethod = to;
     return order;
   });
+  if (to === 'nequi_manual') await deliverSoon(deps, order.id);
+  return order;
 }
 
 const PIN_EVIDENCE =

@@ -7,10 +7,12 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
 
 ## Qué hace y qué no
 
-- Escribe en **dos pestañas** de la misma hoja:
+- Escribe en **tres pestañas** de la misma hoja:
   - «Pedidos»: **una fila por evento** (pago confirmado, recarga entregada y reembolso), como
     historial;
-  - «Entregas»: **una fila por pedido** que se reescribe con cada cambio de estado.
+  - «Entregas»: **una fila por pedido** que se reescribe con cada cambio de estado;
+  - «Pagos pendientes»: **una fila por pedido Nequi** con lo que el cliente te debe y lo que
+    avisó al transferir (ver más abajo).
 - **«Pedidos»** (`GOOGLE_SHEETS_TAB`), sin datos personales:
   - Fecha (Colombia)
   - Referencia
@@ -52,11 +54,38 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
         (transferencia) · referencia del movimiento»
     18. Evidencia o motivo (de la entrega, el fallo o la revisión)
     19. Actualizado (Colombia)
+- **«Pagos pendientes»** (`GOOGLE_SHEETS_PENDING_TAB`). Pedido del dueño (2026-10-20): ver en la
+  hoja el pago pendiente del cliente hacia el dueño. Solo pedidos **Nequi**: a los de Mercado
+  Pago los confirma Mercado Pago, no el dueño.
+  - la fila aparece cuando el cliente elige Nequi y se **actualiza** (misma fila, buscada por la
+    referencia de la columna A) cuando avisa «Ya transferí», cuando el dueño confirma o rechaza
+    el aviso, cuando devuelve el dinero y cuando el pedido vence;
+  - columna «Estado del pago»: «⏳ Esperando la transferencia», «💰 El cliente avisó que pagó:
+    verifícalo en tu Nequi», «✖️ Aviso rechazado: esperando otra transferencia», «✅ Pago
+    confirmado», «↩️ Devuelto al cliente», «⌛ Venció sin pago» o «⚠️ Venció con un aviso sin
+    verificar: revisa tu Nequi». **El aviso del cliente nunca es un pago**: solo la confirmación
+    del dueño en el panel, después de ver el dinero en su app Nequi;
+  - 13 columnas, en este orden:
+    1. Referencia
+    2. Estado del pago
+    3. Total a recibir
+    4. Paquete
+    5. Pedido creado (Colombia)
+    6. Vence (Colombia) (vacía cuando ya no espera pago)
+    7. Cliente avisó el pago (Colombia)
+    8. 4 últimos dígitos de la cuenta que pagó (lo que escribió el cliente; como texto)
+    9. Referencia del comprobante (cliente) (la que escribió el cliente, si la dio)
+    10. Confirmado (Colombia)
+    11. Referencia Nequi confirmada (la que escribió el dueño al confirmar)
+    12. Motivo del rechazo (el que escribió el dueño)
+    13. Actualizado (Colombia)
+  - lleva los 4 últimos dígitos y la referencia que dio el cliente (datos de pago de tus
+    clientes): nunca su correo, nombre, celular completo ni el ID del jugador.
 - **Nunca** escribe correo, nombre del cliente ni PIN. «Pedidos» tampoco lleva UID ni nickname.
-- Las dos pestañas deben llamarse distinto: si coinciden, el servidor no arranca (así los datos
-  del jugador nunca caen en «Pedidos»).
-- Cada pestaña va por su propio aviso de la cola (`sheets` y `sheets_delivery`): si una falla, la
-  otra no se repite.
+- Las tres pestañas deben llamarse distinto: si coinciden, el servidor no arranca (así los datos
+  del jugador nunca caen en «Pedidos» y ninguna fila rompe las columnas de otra pestaña).
+- Cada pestaña va por su propio aviso de la cola (`sheets`, `sheets_delivery` y
+  `sheets_pending`, migración 0022): si una falla, las otras no se repiten.
 - **No es la base de datos ni la autoridad de nada.** Editar o borrar una celda no cambia ningún
   pedido. De la hoja la tienda solo lee la columna A de «Entregas», para encontrar la fila del
   pedido que reescribe; si la borras, la siguiente actualización la vuelve a crear al final.
@@ -145,9 +174,10 @@ automatiza LootBar (está descartado en `proveedor-recargas/PROVEEDORES.md`).
 2. En «IAM y administración → Cuentas de servicio», crea una cuenta de servicio sin roles.
 3. Crea una **llave JSON**. El archivo descargado contiene `client_email` y `private_key`.
    **Guárdalo fuera del repositorio** y bórralo cuando termines.
-4. Crea una hoja de cálculo privada con las pestañas **Pedidos** y **Entregas**. En la fila 1 de
-   cada una escribe los encabezados de su lista de columnas de arriba (la fila 1 nunca se
-   reescribe).
+4. Crea una hoja de cálculo privada con las pestañas **Pedidos**, **Entregas** y **Pagos
+   pendientes**. En la fila 1 de cada una escribe los encabezados de su lista de columnas de
+   arriba (la fila 1 nunca se reescribe). Si falta una pestaña, sus filas quedan como «Aviso sin
+   enviar» en el panel y las otras siguen.
 5. Comparte la hoja **solo** con el `client_email` de la cuenta de servicio, como **Editor**.
    No la publiques ni la compartas con enlace.
 6. En Render → Environment (variables protegidas), carga:
@@ -155,8 +185,8 @@ automatiza LootBar (está descartado en `proveedor-recargas/PROVEEDORES.md`).
    - `GOOGLE_SHEETS_CLIENT_EMAIL`: el `client_email`;
    - `GOOGLE_SHEETS_PRIVATE_KEY`: el `private_key` completo. Los saltos de línea pueden ir escritos
      como `\n`;
-   - opcional: `GOOGLE_SHEETS_TAB` y `GOOGLE_SHEETS_DELIVERY_TAB` si las pestañas no se llaman
-     «Pedidos» y «Entregas».
+   - opcional: `GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB` y `GOOGLE_SHEETS_PENDING_TAB` si
+     las pestañas no se llaman «Pedidos», «Entregas» y «Pagos pendientes».
 
    Las tres primeras van juntas. Si falta una o la llave no se puede leer, el servidor no arranca y
    dice cuál es.
@@ -166,8 +196,9 @@ Cambiar variables de Render es un cambio en producción: requiere la autorizaci�
 
 ## Riesgos
 
-- Quien tenga acceso a la hoja ve referencias, paquetes y totales y, en «Entregas», el ID,
-  nickname, servidor y región de cada jugador (datos personales de tus clientes). Compártela
+- Quien tenga acceso a la hoja ve referencias, paquetes y totales; en «Entregas», el ID,
+  nickname, servidor y región de cada jugador, y en «Pagos pendientes», los 4 últimos dígitos y
+  la referencia de pago que avisó cada cliente Nequi (datos personales de tus clientes). Compártela
   solo con la cuenta de servicio y contigo; nunca con enlace. La política de privacidad
   (`privacidad.html`, punto 4) lo informa.
 - La llave de la cuenta de servicio solo puede editar las hojas compartidas con su correo.

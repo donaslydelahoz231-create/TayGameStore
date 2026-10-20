@@ -5,6 +5,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Agregado (hoja de Google: pestaña «Pagos pendientes»)
+
+- Pedido del dueño (2026-10-20): ver en la hoja el pago pendiente del cliente hacia el dueño.
+  Una fila por pedido **Nequi**, que se actualiza sola al elegir Nequi, al avisar «Ya
+  transferí» (con los 4 últimos dígitos de la cuenta y la referencia del comprobante que dio el
+  cliente), al confirmar o rechazar el dueño, al devolver y al vencer. El aviso del cliente nunca
+  cuenta como pago. Sin correo, nombre ni ID del jugador. Canal propio en la cola
+  (`sheets_pending`, migración 0022) y pestaña configurable (`GOOGLE_SHEETS_PENDING_TAB`).
+
 ### Corregido (Nequi no se podía encender con una llave @ + celular)
 
 - La validación rechazaba toda llave Bre-B hecha solo de números, también `@` + celular (10

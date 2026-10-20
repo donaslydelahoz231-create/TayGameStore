@@ -3,7 +3,7 @@ import { fulfillments, oauthStates, orders, payments, sessions } from '../db/sch
 import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
-import { deliverNotifications } from './notifications.js';
+import { deliverNotifications, enqueuePendingPaymentSync } from './notifications.js';
 import { purgeExpiredLookups } from './player.js';
 import { purgeExpiredBlocks } from './shield.js';
 import { processTopups } from './topups.js';
@@ -91,6 +91,10 @@ export async function expireOrders(deps: ServiceDeps): Promise<number> {
       if (inFlight) return; // Pago en curso (p. ej. efectivo pendiente): no se expira.
       await transitionOrder(tx, SYSTEM_ACTOR, order, 'EXPIRED', {}, { reason: 'ttl' });
       await closeOpenAttempts(tx, order.id, 'EXPIRED');
+      // El pago Nequi que se esperaba ya no llega a tiempo: la fila lo dice.
+      if (order.paymentMethod === 'nequi_manual') {
+        await enqueuePendingPaymentSync(deps, tx, order.id);
+      }
       expired += 1;
     });
   }

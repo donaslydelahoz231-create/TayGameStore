@@ -118,6 +118,13 @@ un celular (10 dígitos que empiezan por 3): ninguna cédula colombiana tiene es
 5. Si no llegó nada: «No llegó: rechazar aviso» con el motivo. El cliente lo ve y puede corregir
    su aviso.
 
+**En la hoja (pestaña «Pagos pendientes»):** si la hoja de Google está conectada, cada pedido
+Nequi tiene su fila desde que el cliente elige Nequi: total a recibir, hasta cuándo, y lo que
+avisó al transferir (4 últimos dígitos de su cuenta y referencia de su comprobante). La fila se
+actualiza sola al avisar, confirmar, rechazar, devolver o vencer. Sirve para buscar el movimiento
+en tu app Nequi; **confirmar sigue siendo en el panel** (la hoja no cambia ningún pedido). Columnas
+y estados: `docs/google-sheets.md`.
+
 ## Recarga manual y estado ENVIADO
 
 1. Con el pago confirmado, el pedido aparece en el panel (alerta «Pagados por entregar») y, si la

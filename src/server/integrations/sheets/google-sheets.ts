@@ -7,9 +7,10 @@ import { createSign } from 'node:crypto';
  *   pago lo confirma Mercado Pago. Editar una celda no cambia ningún pedido: la tienda solo lee
  *   la columna A de «Entregas» para encontrar la fila de cada referencia.
  * - Escribe con `valueInputOption=RAW`: nada se interpreta como fórmula.
- * - Dos pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
- *   operación) y «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
- *   los datos del jugador que hacen falta para recargar: ID, nickname, servidor y región).
+ * - Tres pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
+ *   operación), «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
+ *   los datos del jugador que hacen falta para recargar: ID, nickname, servidor y región) y
+ *   «Pagos pendientes» (una fila por pedido Nequi: lo que el cliente debe y lo que avisó).
  * - Credenciales: una cuenta de servicio de Google Cloud con la hoja compartida con su correo.
  *   La llave privada (campo `private_key` del JSON de la cuenta) vive solo en el servidor.
  * - Se usa desde la cola de avisos: si Google falla, el pedido sigue igual y la fila se reintenta.
@@ -19,8 +20,11 @@ import { createSign } from 'node:crypto';
  * y `append`).
  */
 
-/** `orders`: pestaña sin datos personales. `deliveries`: con los datos del jugador. */
-export type SheetTab = 'orders' | 'deliveries';
+/**
+ * `orders`: pestaña sin datos personales. `deliveries`: con los datos del jugador. `pending`:
+ * pagos Nequi por verificar (con los 4 últimos dígitos y la referencia que avisó el cliente).
+ */
+export type SheetTab = 'orders' | 'deliveries' | 'pending';
 
 export interface OrderSheetLog {
   /** Agrega una fila al final de la pestaña. */

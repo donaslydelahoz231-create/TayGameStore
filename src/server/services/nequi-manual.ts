@@ -4,7 +4,12 @@ import type { Tx } from '../db/client.js';
 import { fulfillments, nequiTransfers, notifications, orders, payments } from '../db/schema.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
-import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
+import {
+  deliverSoon,
+  enqueueOrderNotifications,
+  enqueuePendingPaymentSync,
+  enqueueSheetSync,
+} from './notifications.js';
 import { lockPaymentMethod, markOrderPaid } from './order-payment.js';
 import {
   isUniqueViolation,
@@ -65,7 +70,8 @@ export async function chooseNequiManual(
   actor: Actor,
 ): Promise<OrderRow> {
   requirePaymentMethod(deps, 'nequi_manual');
-  return deps.db.transaction(async (tx) => {
+  let chosen = false;
+  const order = await deps.db.transaction(async (tx) => {
     const order = await loadOrderForAccess(deps, tx, publicRef, access, true);
     if (order.status !== 'AWAITING_PAYMENT' || order.verificationStatus !== 'CONFIRMED') {
       throw invalidState('Esta orden no está lista para pagar.');
@@ -73,9 +79,16 @@ export async function chooseNequiManual(
     if (order.expiresAt.getTime() <= deps.now().getTime()) {
       throw new AppError('ORDER_EXPIRED', 409, 'El tiempo para pagar este pedido terminó.');
     }
-    await lockPaymentMethod(tx, actor, order, 'nequi_manual');
+    if (order.paymentMethod !== 'nequi_manual') {
+      await lockPaymentMethod(tx, actor, order, 'nequi_manual');
+      // Desde ahora el cliente le debe el total al dueño: fila en «Pagos pendientes».
+      await enqueuePendingPaymentSync(deps, tx, order.id);
+      chosen = true;
+    }
     return order;
   });
+  if (chosen) await deliverSoon(deps, order.id);
+  return order;
 }
 
 /**
@@ -130,6 +143,7 @@ export async function reportNequiTransfer(
       }
       await enqueueOwnerAlert(deps, tx, order.id);
     }
+    await enqueuePendingPaymentSync(deps, tx, order.id);
     // Sin los dígitos del cliente: el historial solo dice que hubo un aviso.
     await audit(tx, actor, {
       entityType: 'order',
@@ -255,6 +269,7 @@ export async function confirmNequiTransfer(
         );
         await enqueueSheetSync(deps, tx, order.id);
       }
+      await enqueuePendingPaymentSync(deps, tx, order.id);
     });
   } catch (error) {
     if (
@@ -306,7 +321,9 @@ export async function rejectNequiTransfer(
       action: 'nequi_transfer.rejected',
       data: { orderId: order.id, reason: input.reason },
     });
+    await enqueuePendingPaymentSync(deps, tx, order.id);
   });
+  await deliverSoon(deps, orderId);
 }
 
 export const nequiRefundSchema = z.strictObject({
@@ -374,6 +391,7 @@ export async function recordNequiRefund(
         ),
       );
     await enqueueOrderNotifications(deps, tx, order.id, 'refunded');
+    await enqueuePendingPaymentSync(deps, tx, order.id);
   });
   await deliverSoon(deps, orderId);
 }

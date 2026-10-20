@@ -8,7 +8,12 @@ import {
   type OrderSheetLog,
   type SheetTab,
 } from '../../src/server/integrations/sheets/google-sheets.js';
-import { deliverNotifications, enqueueSheetSync } from '../../src/server/services/notifications.js';
+import { expireOrders } from '../../src/server/services/jobs.js';
+import {
+  deliverNotifications,
+  enqueueSheetSync,
+  PENDING_PAYMENT_COLUMNS,
+} from '../../src/server/services/notifications.js';
 import {
   ADMIN_EMAIL,
   createHarness,
@@ -28,6 +33,10 @@ class RecordingSheet implements OrderSheetLog {
   deliveries: (string | number)[][] = [];
   /** Estado (columna B) de cada escritura en «Entregas», en orden. */
   statuses: string[] = [];
+  /** Pestaña «Pagos pendientes» (pedidos Nequi): una fila por referencia (columna A). */
+  pending: (string | number)[][] = [];
+  /** Estado (columna B) de cada escritura en «Pagos pendientes», en orden. */
+  pendingStatuses: string[] = [];
   failing = false;
   /** Google responde 429: se pasó la cuota de escrituras por minuto. */
   rateLimited = false;
@@ -41,7 +50,7 @@ class RecordingSheet implements OrderSheetLog {
     this.calls += 1;
     if (this.rateLimited) throw new SheetsError('Google Sheets no aceptó la fila', 429);
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
-    (tab === 'orders' ? this.rows : this.deliveries).push([...values]);
+    this.tab(tab).push([...values]);
   }
   async upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     this.calls += 1;
@@ -49,11 +58,15 @@ class RecordingSheet implements OrderSheetLog {
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
     this.onUpsert?.();
     await this.gate;
-    const target = tab === 'orders' ? this.rows : this.deliveries;
+    const target = this.tab(tab);
     const index = target.findIndex((row) => row[0] === values[0]);
     if (index < 0) target.push([...values]);
     else target[index] = [...values];
     if (tab === 'deliveries') this.statuses.push(String(values[1]));
+    if (tab === 'pending') this.pendingStatuses.push(String(values[1]));
+  }
+  private tab(tab: SheetTab) {
+    return { orders: this.rows, deliveries: this.deliveries, pending: this.pending }[tab];
   }
 }
 
@@ -462,5 +475,197 @@ describe('registro auxiliar en Google Sheets', () => {
     await h.database.db.transaction((tx) => enqueueSheetSync(h.deps, tx, row?.id ?? ''));
     await deliverNotifications(h.deps, { orderId: row?.id ?? '' });
     expect(sheet.deliveries).toHaveLength(0);
+  });
+});
+
+/**
+ * «Pagos pendientes» (pedido del dueño, 2026-10-20): una fila por pedido Nequi con lo que el
+ * cliente le debe y lo que avisó al transferir, para buscarlo en su app Nequi. Datos ficticios.
+ */
+describe('pestaña «Pagos pendientes» (Nequi)', () => {
+  const NEQUI_ENV = {
+    PLAYER_VERIFICATION: 'customer',
+    NEQUI_MANUAL_ENABLED: 'true',
+    NEQUI_MANUAL_BREB_KEY: '@tiendaprueba',
+    NEQUI_MANUAL_HOLDER: 'Tienda de Prueba',
+  };
+  let hn: Harness;
+  const call = (options: InjectOptions) => hn.app.inject({ remoteAddress: randomIp(), ...options });
+
+  beforeAll(async () => {
+    hn = await createHarness(NEQUI_ENV, { sheets: sheet });
+  });
+  afterAll(async () => {
+    await hn?.close();
+  });
+  beforeEach(() => {
+    sheet.failing = false;
+    sheet.rateLimited = false;
+  });
+
+  /** Pedido listo para pagar (el cliente confirmó su ID escribiéndolo dos veces). */
+  async function readyOrder() {
+    uid += 1;
+    const created = await call({
+      method: 'POST',
+      url: '/api/checkout',
+      headers: CSRF,
+      payload: {
+        checkoutKey: randomUUID(),
+        game: 'freefire',
+        playerUid: String(uid),
+        confirmedPlayerUid: String(uid),
+        playerServer: 'latam',
+        customerName: 'Nombre Privado',
+        customerEmail: `pendiente-${uid}@example.com`,
+        acceptTerms: true,
+        termsVersion: '2026-10-05',
+        items: [{ sku: 'ff-110', quantity: 1 }],
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const { order } = created.json<{ order: { reference: string; totalCop: number } }>();
+    const [row] = await hn.database.db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.publicRef, order.reference));
+    return {
+      id: row?.id ?? '',
+      ref: order.reference,
+      total: order.totalCop,
+      uid: String(uid),
+      email: `pendiente-${uid}@example.com`,
+      cookies: guestCookie(created),
+    };
+  }
+  type Ready = Awaited<ReturnType<typeof readyOrder>>;
+  const customer = (o: Ready, path: string, payload: object = {}) =>
+    call({
+      method: 'POST',
+      url: `/api/orders/${o.ref}${path}`,
+      headers: CSRF,
+      cookies: o.cookies,
+      payload,
+    });
+  const owner = (o: Ready, path: string, payload: object) =>
+    call({
+      method: 'POST',
+      url: `/api/admin/orders/${o.id}/${path}`,
+      headers: CSRF,
+      cookies: admin,
+      payload,
+    });
+  const pendingRow = (ref: string) => {
+    const rows = sheet.pending.filter((row) => row[0] === ref);
+    expect(rows.length, 'una sola fila por pedido').toBeLessThanOrEqual(1);
+    return rows[0];
+  };
+  const column = (name: (typeof PENDING_PAYMENT_COLUMNS)[number]) =>
+    PENDING_PAYMENT_COLUMNS.indexOf(name);
+
+  it('cada paso del pago Nequi actualiza la misma fila: elegir, avisar, rechazar y confirmar', async () => {
+    const o = await readyOrder();
+    // Antes de elegir cómo pagar, el cliente no le debe nada al dueño por Nequi.
+    expect(pendingRow(o.ref)).toBeUndefined();
+
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    let row = pendingRow(o.ref);
+    expect(row).toHaveLength(PENDING_PAYMENT_COLUMNS.length);
+    expect(row?.[column('Estado del pago')]).toBe('⏳ Esperando la transferencia');
+    expect(row?.[column('Total a recibir')]).toBe(o.total);
+    expect(row?.[column('Paquete')]).toMatch(/^1× /);
+    expect(row?.[column('Vence (Colombia)')]).not.toBe('');
+    expect(row?.[column('4 últimos dígitos de la cuenta que pagó')]).toBe('');
+
+    const report = await customer(o, '/nequi/report', {
+      senderLast4: '0421',
+      reference: 'M00012345',
+    });
+    expect(report.statusCode, report.body).toBe(200);
+    row = pendingRow(o.ref);
+    expect(row?.[column('Estado del pago')]).toBe(
+      '💰 El cliente avisó que pagó: verifícalo en tu Nequi',
+    );
+    expect(row?.[column('Cliente avisó el pago (Colombia)')]).not.toBe('');
+    // Como texto: conserva el cero de la izquierda.
+    expect(row?.[column('4 últimos dígitos de la cuenta que pagó')]).toBe('0421');
+    expect(row?.[column('Referencia del comprobante (cliente)')]).toBe('M00012345');
+
+    expect((await owner(o, 'nequi/reject', { reason: 'No llegó (prueba)' })).statusCode).toBe(200);
+    row = pendingRow(o.ref);
+    expect(row?.[column('Estado del pago')]).toBe(
+      '✖️ Aviso rechazado: esperando otra transferencia',
+    );
+    expect(row?.[column('Motivo del rechazo')]).toBe('No llegó (prueba)');
+
+    // El cliente vuelve a avisar (referencia que empieza por «-»: nunca se toma como fórmula).
+    expect(
+      (await customer(o, '/nequi/report', { senderLast4: '0421', reference: '-M0009999' }))
+        .statusCode,
+    ).toBe(200);
+    row = pendingRow(o.ref);
+    expect(row?.[column('Estado del pago')]).toMatch(/^💰/);
+    expect(row?.[column('Referencia del comprobante (cliente)')]).toBe("'-M0009999");
+    expect(row?.[column('Motivo del rechazo')]).toBe('');
+
+    const confirmed = await owner(o, 'nequi/confirm', {
+      nequiReference: 'NQ-PRUEBA-0001',
+      amountCop: o.total,
+    });
+    expect(confirmed.statusCode, confirmed.body).toBe(200);
+    row = pendingRow(o.ref);
+    expect(row?.[column('Estado del pago')]).toBe('✅ Pago confirmado');
+    expect(row?.[column('Confirmado (Colombia)')]).not.toBe('');
+    expect(row?.[column('Referencia Nequi confirmada')]).toBe('NQ-PRUEBA-0001');
+    expect(row?.[column('Vence (Colombia)')]).toBe('');
+    // Ya pagado: el pedido pasa a «Entregas» como cualquier otro.
+    expect(sheet.deliveries.some((r) => r[0] === o.ref)).toBe(true);
+
+    // Nada que identifique al cliente: ni correo, ni nombre, ni ID del jugador.
+    const text = JSON.stringify(row);
+    expect(text).not.toContain(o.email);
+    expect(text).not.toContain('Nombre Privado');
+    expect(text).not.toContain(o.uid);
+  });
+
+  it('un pedido Nequi que vence sin pago queda «Venció sin pago»', async () => {
+    const o = await readyOrder();
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    const before = hn.clock.now;
+    hn.clock.now = new Date(before.getTime() + 3 * 3_600_000);
+    try {
+      expect(await expireOrders(hn.deps)).toBeGreaterThanOrEqual(1);
+      await deliverNotifications(hn.deps, { orderId: o.id });
+    } finally {
+      hn.clock.now = before;
+    }
+    expect(pendingRow(o.ref)?.[column('Estado del pago')]).toBe('⌛ Venció sin pago');
+    expect(pendingRow(o.ref)?.[column('Vence (Colombia)')]).toBe('');
+  });
+
+  it('los pedidos de Mercado Pago nunca aparecen en «Pagos pendientes»', async () => {
+    const paid = await paidOrder();
+    expect(sheet.deliveries.some((r) => r[0] === paid.reference)).toBe(true);
+    expect(sheet.pending.some((r) => r[0] === paid.reference)).toBe(false);
+  });
+
+  it('si Google falla, el pago Nequi sigue y la fila se reintenta después', async () => {
+    const o = await readyOrder();
+    sheet.failing = true;
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    expect(pendingRow(o.ref)).toBeUndefined();
+    const [queued] = await hn.database.db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.orderId, o.id), eq(notifications.channel, 'sheets_pending')));
+    expect(queued?.status).toBe('PENDING');
+    expect(queued?.attempts).toBe(1);
+    sheet.failing = false;
+    await hn.database.db
+      .update(notifications)
+      .set({ nextAttemptAt: new Date(0) })
+      .where(eq(notifications.id, queued?.id ?? ''));
+    await deliverNotifications(hn.deps, { orderId: o.id });
+    expect(pendingRow(o.ref)?.[column('Estado del pago')]).toBe('⏳ Esperando la transferencia');
   });
 });

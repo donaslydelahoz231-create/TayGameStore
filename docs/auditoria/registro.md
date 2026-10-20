@@ -1551,3 +1551,26 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:** la respuesta de `/api/config` y la tienda vistas desde fuera: este entorno no
   puede abrir el dominio de producción (el proxy lo bloquea). Lo cubren el código, el arranque y el
   pedido real de las 18:14.
+
+### 2026-10-20 · Hoja de Google: pestaña «Pagos pendientes» (Nequi)
+
+- **Pedido del dueño (2026-10-20):** «quiero que en el excel en google sheet aplica osea Pago
+  pendiente del usuario a mi en el excel», con los dos datos que avisa el cliente (4 últimos
+  dígitos de su cuenta y referencia de su comprobante).
+- **Código (sin publicar):** canal `sheets_pending` en la cola (migración 0022, solo amplía la
+  lista permitida), una fila por pedido Nequi en «Pagos pendientes» que se reescribe al elegir
+  Nequi, avisar, confirmar, rechazar, devolver y vencer. Solo pedidos Nequi. El aviso del cliente
+  nunca cuenta como pago. Sin correo, nombre ni ID del jugador; texto libre protegido contra
+  inyección CSV. Pestaña configurable con `GOOGLE_SHEETS_PENDING_TAB` (distinta de las otras).
+- **Hojas de Google (por el conector de Claude, con la cuenta del dueño):**
+  - copia de prueba: pestaña nueva con encabezados, formato y 5 filas ficticias generadas con
+    `pendingPaymentRow` (una por estado). Leídas de vuelta: «0421» conserva el cero, el total
+    se ve como `$18.000` y una referencia que empieza por «-» queda como texto;
+  - hoja original: solo la pestaña nueva con encabezados, formato y colores por estado, **sin
+    datos**. Las demás pestañas no se tocaron («Resumen» leído después: igual).
+- **Pruebas:** unitarias 311/311, integración 288/288 (4 nuevas: flujo completo elegir →
+  avisar → rechazar → avisar → confirmar, vencimiento, Mercado Pago nunca aparece, Google caído
+  y reintento; cada disparador probado por mutación), e2e 73/73; lint, formato y tipos OK.
+- **NO VERIFICADO:** escrituras reales de la tienda en la hoja: en producción la hoja sigue sin
+  conectar (faltan las variables `GOOGLE_SHEETS_*` y rotar la llave expuesta). El conector de
+  Claude escribe como USER_ENTERED; el modo RAW de la tienda se emuló con apóstrofos.
