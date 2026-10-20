@@ -5,8 +5,9 @@ Mercado Pago. Los dos solo comparten la pantalla de pago (el selector) y los dat
 pedido (referencia, total, jugador). Ninguna API, credencial, webhook, configuración ni estado de un
 proveedor sirve para el otro.
 
-Estado: **implementado y probado en local, apagado por defecto y sin publicar.** Activarlo en
-producción necesita la autorización explícita del dueño (ver «Activación»).
+Estado: **publicado y apagado por defecto.** El código está en producción desde `445ba93`; «Al
+elegir Nequi nunca se abre Mercado Pago» desde `40602a5` (2026-10-20). La casilla de Nequi aparece
+cuando el dueño carga `NEQUI_MANUAL_*` en Render (ver «Activación»).
 
 ## Qué hay y qué no hay
 
@@ -109,8 +110,8 @@ Los reembolsos de Mercado Pago no cambian: se hacen en el panel de Mercado Pago 
 Nada de esto lo hace un asistente sin tu autorización (CLAUDE.md, requisitos 13, 15 y 19 de
 `docs/datos-del-propietario.md`):
 
-1. **Publicar el código** (push a la rama desplegada = despliegue en Render). La migración 0021 es
-   aditiva y marca como `mercadopago` los pedidos que ya tenían intentos o pagos.
+1. ~~Publicar el código~~ **hecho** (`445ba93` y `40602a5`). La migración 0021 es aditiva y
+   marcó como `mercadopago` los pedidos que ya tenían intentos o pagos.
 2. **Decidir publicar tu celular Nequi.** Con Nequi activo, cada comprador que lo elige ve ese
    número. Si prefieres no exponer tu número personal, usa una cuenta Nequi dedicada a la tienda.
 3. En Render → Environment, escribe tú (nunca en un chat ni en Git):

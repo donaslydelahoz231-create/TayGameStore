@@ -1284,3 +1284,41 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   visuales 3/3.
 - **NO VERIFICADO en producción:** Nequi sigue apagado allí (`NEQUI_MANUAL_ENABLED`), así que la
   opción no se ve hasta que el dueño lo active.
+
+### 2026-10-20 · Publicación de 40602a5 (Nequi nunca abre Mercado Pago)
+
+- **Autorización del dueño:** «Autorizo el push» (2026-10-20). Antes del push: árbol limpio y
+  escáner de datos sensibles con 0 coincidencias.
+- **Publicado:** `40602a5` en `claude/taygamestore-production-pfctbn` (avance rápido desde
+  `2567a5d`; `git ls-remote` = `40602a5`).
+- **Render:** despliegue `dep-dbbn5q59fdbs73ecvmt0` en `live` a las 13:57 UTC. Arranque:
+  `métodos de pago` con `mercadoPago: true`, `nequiTransferencia: false`, `nequiPush: false`;
+  `correo: false` y `hojaGoogle: false`. Sin registros error/warn/fatal desde el despliegue.
+- **GitHub Actions de `40602a5`:** CI (3 navegadores incluidos), CodeQL y «Production smoke check»
+  en verde.
+- **NO VERIFICADO:** la casilla de Nequi en producción: sigue oculta hasta que el dueño cargue
+  `NEQUI_MANUAL_PHONE` y `NEQUI_MANUAL_ENABLED=true` en Render.
+
+### 2026-10-20 · Hoja de Google: pestaña «Compras_LootBar»
+
+- **Pedido del dueño:** reutilizar su hoja de ventas y añadir una pestaña `Compras_LootBar`
+  separada de las ventas, sin perder datos, con copia de seguridad previa.
+- **Archivo:** el único de hojas de cálculo en su Drive, «TayGameStore · Registro de pedidos»
+  (el id no se escribe en el repositorio). Pestañas existentes sin cambios: Resumen, Por
+  entregar, Entregas, Reporte diario, Pedidos y Léeme (mismo orden e ids; «Resumen» leído antes y
+  después, idéntico).
+- **Copia de seguridad:** copia completa en el mismo Drive, titulada «Copia de seguridad
+  2026-10-20 · TayGameStore · Registro de pedidos (antes de Compras_LootBar)», con las 6
+  pestañas y acceso solo del dueño (sin la cuenta de servicio).
+- **Creado:** pestaña `Compras_LootBar` al final (detalle en `docs/google-sheets.md`): validación
+  de fecha, ID de LootBar único, referencia `TGS-` y listas; columnas automáticas con aviso de
+  protección; resumen de compras dentro de la pestaña (no se creó otra «Resumen»).
+- **Prueba con datos ficticios** en una copia temporal (luego enviada a la papelera): 5 compras
+  de prueba y 1 fila ficticia en «Entregas». Resultados esperados y obtenidos: costo USD→COP
+  0,79 × 4.000 = 3.160; venta 3.800 traída de «Entregas»; ganancia 3.800 − 3.160 − 500 = 140
+  contada una sola vez para el pedido con dos compras; margen 3,7 %; avisos «ID de LootBar
+  repetido», «Falta la tasa USD→COP» y «Referencia no está en «Entregas»»; resumen 5 / 5.660 /
+  4 / 1 / 140 / 270 / 4. En la hoja real la pestaña quedó vacía (resumen en 0).
+- **Permisos de la hoja:** sin cambios (el dueño y la cuenta de servicio).
+- **NO VERIFICADO:** el cruce con ventas reales: «Entregas» está vacía hasta que el dueño conecte
+  la hoja (`hojaGoogle: false`).

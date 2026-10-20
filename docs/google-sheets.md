@@ -72,6 +72,32 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
   pedido a la vez y la última siempre lleva el estado más reciente (`order_sheet_sync`,
   migración 0020).
 
+## Pestaña «Compras_LootBar» (la llena el dueño)
+
+Pedido del dueño (2026-10-20): registrar en la misma hoja lo que compra en LootBar para cumplir
+los pedidos, separado de las ventas. La tienda **no** escribe ni lee esta pestaña, y tampoco
+automatiza LootBar (está descartado en `proveedor-recargas/PROVEEDORES.md`).
+
+- Una fila por compra en LootBar. Columnas que escribe el dueño: fecha, ID de la orden en
+  LootBar, referencia del pedido `TGS-…` (vacía si la compra fue para tener saldo), paquete,
+  diamantes, costo, moneda (COP o USD), tasa USD→COP, medio de pago, estado de la compra
+  («Completada», «Pendiente», «Fallida» o «Reembolsada») y notas.
+- Columnas automáticas (grises, con aviso al editarlas): costo en COP; paquete vendido, venta y
+  estado de la recarga, que se traen de «Entregas» por la referencia; ganancia del pedido (venta
+  menos las compras completadas de ese pedido, contada una sola vez aunque haya varias compras),
+  margen y «Control».
+- De «Entregas» solo se traen paquete, total y estado de la recarga: **nunca** el ID ni el
+  nickname del jugador.
+- Sin duplicados: el ID de LootBar no se puede repetir (validación estricta) y «Control» marca
+  «⚠️ ID de LootBar repetido». También marca falta de costo o de tasa, una referencia que no está
+  en «Entregas» y los pedidos con pérdida.
+- El resumen de compras va arriba en la misma pestaña (filas 2–3): «Resumen» sigue siendo solo de
+  ventas y no se tocó.
+- Historial: no se borran filas; una compra caída cambia de estado.
+- Copias: antes de crear la pestaña se hizo una copia completa del archivo en el mismo Drive
+  (solo con acceso del dueño). Además, Google guarda el historial de versiones del archivo
+  (Archivo → Historial de versiones).
+
 ## Cómo activarlo (dueño)
 
 1. En Google Cloud Console, crea un proyecto (o usa uno existente) y activa **Google Sheets API**.
