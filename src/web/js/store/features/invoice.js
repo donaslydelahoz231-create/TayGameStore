@@ -79,7 +79,7 @@ const BUTTON_TEXT = {
   AWAITING_PAYMENT: 'Pagar con Mercado Pago',
   PAID: 'Pago confirmado',
   DELIVERING: 'Recarga en proceso',
-  DELIVERED: 'Recarga entregada',
+  DELIVERED: '¡Envío exitoso!',
   NEEDS_REVIEW: 'Pedido en revisión',
 };
 
@@ -116,7 +116,7 @@ function payButtonState() {
         (!ready
           ? 'Completa jugador, datos y método de pago'
           : nequi
-            ? 'Te mostramos el celular Nequi y el total; no pasa por Mercado Pago'
+            ? 'Te mostramos a dónde transferir, el total y tu ID; no pasa por Mercado Pago'
             : 'Requisitos completos'),
       ok: ready && !blocked,
     };
@@ -137,7 +137,7 @@ function payButtonState() {
       enabled: !runtime.paymentBusy,
       note: reported
         ? 'Verificamos tu transferencia en nuestra cuenta Nequi. No transfieras de nuevo.'
-        : 'Transfiere desde tu app Nequi y pulsa «Ya transferí»',
+        : 'Transfiere el total exacto y pulsa «Ya transferí»',
       ok: false,
     };
   }

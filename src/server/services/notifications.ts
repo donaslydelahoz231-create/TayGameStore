@@ -422,8 +422,8 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
       return compose(
         deps,
         [order.customerEmail],
-        `Recarga completada · Pedido ${order.reference}`,
-        'Tu recarga está hecha',
+        `¡Envío exitoso! · Pedido ${order.reference}`,
+        '¡Envío exitoso!',
         [
           hello,
           `Entregamos tu pedido ${order.reference} en el ID de jugador ${playerText(order)}:\n${itemsText(order)}`,
@@ -453,7 +453,7 @@ export function renderEmail(deps: ServiceDeps, kind: EmailKind, order: OrderSnap
         `Transferencia Nequi por verificar · ${order.reference}`,
         `Verifica la transferencia Nequi del pedido ${order.reference}`,
         [
-          `El cliente avisa que transfirió ${cop.format(order.totalCop)} a tu Nequi${order.nequiReport?.senderLast4 ? ` desde un Nequi terminado en ${order.nequiReport.senderLast4}` : ''}${order.nequiReport?.customerReference ? ` (referencia que vio: ${order.nequiReport.customerReference})` : ''}.`,
+          `El cliente avisa que transfirió ${cop.format(order.totalCop)} a tu Nequi${order.nequiReport?.senderLast4 ? ` desde una cuenta terminada en ${order.nequiReport.senderLast4}` : ''}${order.nequiReport?.customerReference ? ` (referencia que vio: ${order.nequiReport.customerReference})` : ''}.`,
           `Pedido:\n${itemsText(order)}`,
           'Abre tu app Nequi y busca ese movimiento. El aviso del cliente NO es un pago: solo cuenta lo que veas en tu app.',
           'Si llegó el total exacto, confírmalo en el panel con la referencia del movimiento. Si no llegó, recházalo con el motivo; el pedido sigue esperando pago.',

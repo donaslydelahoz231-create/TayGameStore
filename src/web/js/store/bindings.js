@@ -21,7 +21,7 @@ import { exportInvoice } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { showPins } from './features/pins.js';
 import { submitReview } from './features/reviews.js';
-import { reportNequi } from './features/nequi.js';
+import { copyNequiKey, reportNequi } from './features/nequi.js';
 import { verifyReceipt } from './features/receipt-verify.js';
 import { copyTrackLink, lookupOrder } from './features/order-access.js';
 import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
@@ -240,6 +240,7 @@ function bindInvoiceAndCheckout() {
   $('payMeans').onchange = () => renderAll();
   $('payBtn').onclick = preparePayment;
   $('nequiReportForm').onsubmit = reportNequi;
+  $('nequiCopyKey').onclick = copyNequiKey;
   $('nequiLast4').oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4));
   $('refreshOrderBtn').onclick = refreshOrder;
   $('copyTrackLink').onclick = copyTrackLink;

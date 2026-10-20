@@ -27,13 +27,14 @@ import {
  * Aislamiento de proveedores (requisito del dueño, 2026-10-19): Mercado Pago y Nequi son métodos
  * de pago independientes. Solo comparten el pedido; ninguno usa la configuración, el estado ni
  * las confirmaciones del otro, y si uno falta o falla, el otro sigue funcionando.
- * Todos los datos son ficticios (celular 3001234567, referencias inventadas).
+ * Todos los datos son ficticios (celular 3001234567, llave @tiendaprueba, referencias inventadas).
  */
 
 const NEQUI_ENV = {
   PLAYER_VERIFICATION: 'customer',
   NEQUI_MANUAL_ENABLED: 'true',
   NEQUI_MANUAL_PHONE: '300 123 4567',
+  NEQUI_MANUAL_BREB_KEY: '@tiendaprueba',
   NEQUI_MANUAL_HOLDER: 'Tienda de Prueba',
 };
 
@@ -131,7 +132,11 @@ const view = async (harness: Harness, o: Order) =>
         canChangeMethod: boolean;
         methods: Record<string, boolean>;
         nequi: {
-          account: { phone: string; holder: string | null } | null;
+          account: {
+            brebKey: string | null;
+            phone: string | null;
+            holder: string | null;
+          } | null;
           amountCop: number;
           reference: string;
           transfer: { status: string; rejectionReason: string | null } | null;
@@ -518,7 +523,7 @@ describe('8. la entrega sigue protegida contra pagos falsos, duplicados e incons
     const alert = h.mailer.sent.find(
       (m) => m.subject === `Transferencia Nequi por verificar · ${o.ref}`,
     );
-    expect(alert?.text).toContain('terminado en 4321');
+    expect(alert?.text).toContain('cuenta terminada en 4321');
     expect(alert?.text).toContain('NO es un pago');
   });
 
@@ -684,22 +689,24 @@ describe('8. la entrega sigue protegida contra pagos falsos, duplicados e incons
     });
   });
 
-  it('el celular del dueño solo lo ve quien eligió Nequi en su propio pedido, y mientras espera pago', async () => {
+  it('la llave y el celular del dueño solo los ve quien eligió Nequi en su propio pedido, y mientras espera pago', async () => {
     const config = await inject(h, { method: 'GET', url: '/api/config' });
     expect(config.body).not.toContain('3001234567');
+    expect(config.body).not.toContain('@tiendaprueba');
     const mp = await order();
     expect(JSON.stringify(await view(h, mp))).not.toContain('3001234567');
+    expect(JSON.stringify(await view(h, mp))).not.toContain('@tiendaprueba');
     const o = await order();
     expect((await customer(h, o, '/nequi')).statusCode).toBe(200);
     expect((await view(h, o)).payment.nequi).toMatchObject({
-      account: { phone: '3001234567', holder: 'Tienda de Prueba' },
+      account: { brebKey: '@tiendaprueba', phone: '3001234567', holder: 'Tienda de Prueba' },
       amountCop: o.total,
       reference: o.ref,
     });
     // Otra persona (sin acceso a ese pedido) no ve nada.
     const stranger = await inject(h, { method: 'GET', url: `/api/orders/${o.ref}` });
     expect(stranger.statusCode).toBe(404);
-    // Ya pagado, el número deja de mostrarse.
+    // Ya pagado, la llave y el número dejan de mostrarse.
     await ownerAction(h, o, 'nequi/confirm', {
       nequiReference: `MVISTA${randomUUID().slice(0, 6)}`,
       amountCop: o.total,

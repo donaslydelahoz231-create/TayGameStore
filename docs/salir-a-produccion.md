@@ -17,7 +17,7 @@ llega cada pedido pagado hasta el jugador.
 | **Aviso al dueño**: notificación + sonido + contador en el panel; correo si lo configuras (Telegram no se usa) | Servidor / panel | Sí |
 | Recargar los diamantes al ID del jugador | **Tú**, con tu canal de recarga | **No**: entrega manual (ver abajo) |
 | Marcar el pedido como entregado con la evidencia | Tú, en el panel | — |
-| El cliente ve "Recarga completada" en su seguimiento y la recibe por correo | Tienda / servidor | Sí |
+| El cliente ve "¡Envío exitoso!" en su seguimiento y lo recibe por correo | Tienda / servidor | Sí |
 
 ### Por qué la entrega es manual
 
@@ -33,7 +33,7 @@ puerto de verificación de jugador); se integra con su documentación oficial, n
 ## 1. Correos al cliente y a ti (recomendado)
 
 Con correo configurado, el cliente recibe su **"Comprobante de pago"** cuando Mercado Pago confirma el
-pago, **"Recarga completada"** cuando marcas la entrega y **"Reembolso registrado"** si hay un
+pago, **"¡Envío exitoso!"** cuando marcas la entrega y **"Reembolso registrado"** si hay un
 reembolso; tú recibes **"Pedido pagado por entregar"** en los correos de `ADMIN_EMAILS`. La
 tienda le dice al cliente, junto al campo de correo, que le escribiremos allí (solo si el correo
 está configurado: nunca promete lo que no hace).
@@ -136,7 +136,7 @@ pedidos, no paga y nunca imprime valores de variables.
 2. Comprueba: llega el aviso, el pedido está **Pagado** en el panel, el pago aparece en tu
    cuenta de Mercado Pago con la misma referencia y te llega el correo **"Comprobante de pago"**
    (revisa también la carpeta de spam la primera vez).
-3. Entrega la recarga y márcala como entregada; el seguimiento debe decir "Recarga completada"
+3. Entrega la recarga y márcala como entregada; el seguimiento debe decir "¡Envío exitoso!"
    y te llega ese correo.
 4. Prueba un reembolso desde Mercado Pago y comprueba que el pedido pasa a **Reembolsado**.
 

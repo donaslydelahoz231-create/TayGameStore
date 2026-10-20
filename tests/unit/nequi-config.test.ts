@@ -28,7 +28,30 @@ describe('Nequi por transferencia: configuración propia', () => {
         NEQUI_MANUAL_HOLDER: '  Tienda   de Prueba ',
       }),
     ).toEqual({
-      manual: { phone: '3001234567', holder: 'Tienda de Prueba', reviewHours: 24 },
+      manual: {
+        phone: '3001234567',
+        brebKey: undefined,
+        holder: 'Tienda de Prueba',
+        reviewHours: 24,
+      },
+      problem: undefined,
+    });
+  });
+
+  it('activo solo con la llave Bre-B (sin celular): el celular es opcional', () => {
+    expect(
+      nequiSettings({
+        NEQUI_MANUAL_ENABLED: 'true',
+        NEQUI_MANUAL_BREB_KEY: ' @tienda.prueba_1 ',
+        NEQUI_MANUAL_HOLDER: 'Tienda de Prueba',
+      }),
+    ).toEqual({
+      manual: {
+        phone: undefined,
+        brebKey: '@tienda.prueba_1',
+        holder: 'Tienda de Prueba',
+        reviewHours: 24,
+      },
       problem: undefined,
     });
   });
@@ -39,6 +62,16 @@ describe('Nequi por transferencia: configuración propia', () => {
       { NEQUI_MANUAL_ENABLED: 'true' },
       { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_PHONE: '6011234567' },
       { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_PHONE: '30012345678' },
+      // Llaves Bre-B: solo alfanuméricas con @. Una llave solo de números podría ser un documento.
+      { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_BREB_KEY: 'tiendaprueba' },
+      { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_BREB_KEY: '@1234567890' },
+      { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_BREB_KEY: '@tienda prueba' },
+      { NEQUI_MANUAL_ENABLED: 'true', NEQUI_MANUAL_BREB_KEY: '@<script>' },
+      {
+        NEQUI_MANUAL_ENABLED: 'true',
+        NEQUI_MANUAL_BREB_KEY: '@tiendaprueba',
+        NEQUI_MANUAL_PHONE: '6011234567',
+      },
       {
         NEQUI_MANUAL_ENABLED: 'true',
         NEQUI_MANUAL_PHONE: '3001234567',

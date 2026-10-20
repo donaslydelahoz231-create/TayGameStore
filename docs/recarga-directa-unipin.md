@@ -10,7 +10,7 @@ con Mercado Pago y los diamantes llegan a su cuenta **sin PIN y sin que tú haga
 
 ```
 Cliente paga ─► Mercado Pago aprueba ─► la tienda valida el ID en UniPin ─► pide la recarga
-            ─► UniPin confirma (transaction_number) ─► pedido «Entregado» + correo al cliente
+            ─► UniPin confirma (transaction_number) ─► pedido «ENVIADO» + correo al cliente
 ```
 
 Está **apagada** (`TOPUP_PROVIDER=none`) hasta que UniPin te acepte como socio y la comprobación
@@ -20,7 +20,7 @@ Está **apagada** (`TOPUP_PROVIDER=none`) hasta que UniPin te acepte como socio 
 
 | Situación | Qué hace la tienda |
 |---|---|
-| Pago aprobado y UniPin confirma | Pedido **Entregado**; el cliente recibe «Recarga completada». |
+| Pago aprobado y UniPin confirma | Pedido **ENVIADO**; el cliente recibe «¡Envío exitoso!». |
 | UniPin no responde a tiempo | **No** lo da por entregado. Consulta a UniPin con la misma referencia (1, 2, 5, 10, 15, 30… min). |
 | La referencia ya existe en UniPin (708) | Consulta su estado; **nunca** crea otra recarga. |
 | El token de validación caducó (726) | Valida otra vez y repite **la misma** referencia. |

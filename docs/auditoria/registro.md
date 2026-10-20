@@ -1399,3 +1399,57 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - «Production smoke check» salió en verde, pero terminó a las 14:44:53, antes de que el
     despliegue nuevo quedara activo (14:45:08): probó la versión anterior;
   - la entrada en un Brave real (pendiente de la prueba del dueño en su teléfono, en horizontal).
+
+### 2026-10-20 · Evidencia de la publicación de 8f24730 (y prueba de producción de fce377b)
+
+- **Render:** despliegue `dep-dbbo8gss728c73bncbpg` de `8f24730` en `live` (terminó 15:10:55 UTC).
+- **GitHub Actions de `8f24730`:** CI y CodeQL en verde.
+- **Prueba de producción de `fce377b`:** el «Production smoke check» de `8f24730` corrió de
+  15:09:56 a 15:10:32 UTC, cuando el despliegue activo todavía era el de `fce377b` (activo desde
+  14:45:08 hasta 15:10:55): salió en verde, así que cubre el punto que quedó NO VERIFICADO en la
+  entrada anterior. `8f24730` solo cambió el registro: el código en producción es el mismo.
+  Después, «Mantener la tienda activa» (15:33) y «Vigilancia y autorreparación» (16:02) también en
+  verde sobre `8f24730`.
+
+### 2026-10-20 · Nequi con llave Bre-B, ENVIADO y «¡Envío exitoso!» (local, sin publicar)
+
+- **Pedido del dueño:** «Configuración real de Nequi para TayGameStore» (titular, llave Bre-B,
+  total exacto e ID del pedido; pedido pendiente hasta verificar; el dueño confirma, hace la
+  recarga manual de Free Fire y marca ENVIADO; el cliente ve «¡Envío exitoso!»). Respuestas del
+  dueño: dejar los 5 métodos como están (4 de Mercado Pago + Nequi aparte) y sin QR por ahora.
+- **Datos del dueño:** su llave, su celular y su nombre no se escribieron en el código, las
+  pruebas, los commits ni este registro. Las pruebas usan valores ficticios (`@tiendaprueba`,
+  `@tiendapruebas`, `3001234567`, «Tienda de Prueba(s)»). Publicar la llave es decisión del dueño
+  (requisito 19): la carga él mismo en Render.
+- **Cambios:**
+  - `config/nequi.ts` y `env.ts`: `NEQUI_MANUAL_BREB_KEY` (solo `@` + alfanumérico; se rechaza
+    una llave solo de números para no publicar un documento por error); el celular es opcional
+    si hay llave. Un valor inválido apaga Nequi sin impedir el arranque ni repetir el valor;
+  - `nequi-view.ts`: la cuenta que ve el comprador lleva `brebKey`, `phone` y `holder`, solo en
+    su propio pedido Nequi y solo mientras espera pago;
+  - tienda: caja de Nequi con total, llave y «Copiar», celular, titular, ID del pedido y aviso de
+    pendiente; mensajes de «Seguimiento» según el método (un pedido Nequi nunca menciona Mercado
+    Pago); «¡Envío exitoso!» en estado, ruta, historial, comprobante y correo;
+  - panel: estado **ENVIADO**, botón «Marcar como ENVIADO» y la referencia del cliente marcada
+    «sin verificar».
+- **Hoja de Google:** sin cambios de código; la entrega ya agrega «Recarga entregada» en
+  «Pedidos» y actualiza la fila del pedido en «Entregas» de forma idempotente. Las etiquetas no
+  se cambiaron porque las fórmulas de la hoja las usan.
+- **Integración oficial de Nequi para comercios:** la prensa describe «Nequi Conecta» (cobros
+  push y QR) y pasarelas integradas (Wompi, Ebanx). El portal oficial no resolvió desde este
+  entorno (`ENOTFOUND`): **NO VERIFICADO**. Se mantiene el flujo manual; no se inventó ninguna
+  integración y nada marca un pedido como pagado sin la confirmación del dueño.
+- **Pruebas (locales, datos ficticios, sin transferencias ni recargas reales):**
+  - lint, formato y tipos OK; unitarias y API 305/305; integración 281/281; e2e 73/73
+    (`desktop-1280`); visuales 3/3;
+  - nuevas: configuración solo con llave y llaves inválidas; vista con llave, celular y titular
+    (y que no aparecen en `/api/config` ni en pedidos de Mercado Pago); e2e de la tienda (llave,
+    titular, total, ID, pendiente, seguimiento sin Mercado Pago, «¡Envío exitoso!») y e2e del
+    panel (aviso sin verificar, monto distinto rechazado, confirmación, «Marcar como ENVIADO»);
+  - captura de la caja de Nequi en 360 px y 1280 px revisada a ojo.
+- **NO VERIFICADO:**
+  - producción: no se publicó (falta la autorización del dueño) y Nequi sigue apagado allí;
+  - que la llave real del dueño cumpla el formato `@…` (si no, Nequi queda apagado y el arranque
+    lo avisa sin mostrar el valor);
+  - qué datos del remitente muestra la app Nequi en un pago recibido por Bre-B desde otro banco;
+  - la hoja de Google en producción (sin las variables `GOOGLE_SHEETS_*`).

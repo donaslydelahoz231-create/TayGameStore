@@ -11,7 +11,7 @@ Auditoría.
 2. **Verificar jugador** (estado *Verificar jugador*): consultar el UID en una fuente legítima;
    registrar nickname y región, o el resultado negativo. Nunca inventar un nickname.
 3. **Entregar** (estado *Pagado*): *Reclamar* → *Iniciar entrega* → recargar al UID de la orden
-   → escribir la evidencia (id de transacción del proveedor) → *Marcar entregado*.
+   → escribir la evidencia (id de transacción del proveedor) → *Marcar como ENVIADO*.
    Un reclamo sin iniciar se libera solo a los `CLAIM_TIMEOUT_MINUTES`. Si la recarga falla:
    *Marcar fallida* (la orden pasa a revisión).
 

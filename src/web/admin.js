@@ -16,7 +16,8 @@ const STATUS_LABEL = {
   AWAITING_PAYMENT: 'Esperando pago',
   PAID: 'Pagado',
   DELIVERING: 'Entregando',
-  DELIVERED: 'Entregado',
+  // Recarga hecha y registrada por el dueño; el cliente ve «¡Envío exitoso!».
+  DELIVERED: 'ENVIADO',
   NEEDS_REVIEW: 'En revisión',
   EXPIRED: 'Vencido',
   REJECTED: 'Rechazado',
@@ -684,7 +685,7 @@ function nequiBlock(d) {
   const rows = d.nequiTransfers || [];
   return `<h3>Transferencia Nequi</h3>
     <p class="adm-note">El aviso del cliente NO es un pago. Confirma solo lo que veas en tu app Nequi: el total exacto (${money(d.order.totalCop)}) con la referencia ${esc(d.order.reference)}.</p>
-    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: transferencias Nequi"><table class="adm-table"><thead><tr><th>Estado</th><th>Nequi del cliente</th><th>Referencia del cliente</th><th>Avisada</th><th>Referencia Nequi</th><th>Monto</th><th>Motivo</th></tr></thead><tbody>${
+    <div class="adm-table-wrap" tabindex="0" role="region" aria-label="Tabla: transferencias Nequi"><table class="adm-table"><thead><tr><th>Estado</th><th>Cuenta del cliente</th><th>Referencia del cliente (sin verificar)</th><th>Avisada</th><th>Referencia Nequi</th><th>Monto</th><th>Motivo</th></tr></thead><tbody>${
       rows
         .map(
           (t) =>
@@ -770,7 +771,7 @@ function renderActions(d) {
     );
   if (f && f.status === 'DELIVERING') {
     parts.push(`${input('fEvidence', 'Evidencia de entrega (ID de transacción del proveedor, captura…)', 'maxlength="500"')}
-      <div class="adm-actions"><button class="adm-btn" data-f="deliver" type="button">Marcar entregado</button></div>
+      <div class="adm-actions"><button class="adm-btn" data-f="deliver" type="button">Marcar como ENVIADO</button></div>
       ${input('fReason', 'Motivo del fallo', 'maxlength="300"')}<div class="adm-actions"><button class="adm-btn danger" data-f="fail" type="button">Marcar fallida</button></div>`);
   }
   const nequi = d.paymentMethod === 'nequi_manual';

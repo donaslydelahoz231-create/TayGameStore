@@ -262,6 +262,7 @@ const envSchema = z
      */
     NEQUI_MANUAL_ENABLED: z.string().max(10).optional(),
     NEQUI_MANUAL_PHONE: z.string().max(20).optional(),
+    NEQUI_MANUAL_BREB_KEY: z.string().max(60).optional(),
     NEQUI_MANUAL_HOLDER: z.string().max(80).optional(),
     NEQUI_MANUAL_REVIEW_HOURS: z.string().max(5).optional(),
     /**

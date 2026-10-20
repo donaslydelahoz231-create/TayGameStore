@@ -50,8 +50,9 @@ export async function nequiTransfersFor(
 }
 
 /**
- * Lo que ve el comprador de un pedido Nequi. El celular del dueño solo aparece mientras el pedido
- * espera pago y Nequi está activo: después ya no hace falta mostrarlo (minimización).
+ * Lo que ve el comprador de un pedido Nequi. La llave y el celular del dueño solo aparecen
+ * mientras el pedido espera pago y Nequi está activo: después ya no hace falta mostrarlos
+ * (minimización).
  */
 export function nequiCustomerView(
   deps: ServiceDeps,
@@ -63,7 +64,10 @@ export function nequiCustomerView(
   const awaiting =
     order.status === 'AWAITING_PAYMENT' && order.expiresAt.getTime() > deps.now().getTime();
   return {
-    account: awaiting && cfg ? { phone: cfg.phone, holder: cfg.holder ?? null } : null,
+    account:
+      awaiting && cfg
+        ? { brebKey: cfg.brebKey ?? null, phone: cfg.phone ?? null, holder: cfg.holder ?? null }
+        : null,
     amountCop: order.totalCop,
     /** Lo que el cliente escribe en el mensaje de la transferencia. */
     reference: order.publicRef,

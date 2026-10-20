@@ -536,19 +536,19 @@ test.describe('compra completa (invitado)', () => {
 
     expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
     await page.locator('#refreshOrderBtn').click();
-    await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
+    await expect(page.locator('#invoiceState')).toHaveText('¡Envío exitoso!');
     await expect(page.locator('#trackingMessage')).toHaveText(
-      'Operación completada. Recarga entregada.',
+      '¡Envío exitoso! La recarga ya está en tu cuenta del juego.',
     );
 
     await page.locator('#accountBtn').click();
     await page.keyboard.press('Escape');
     await page.evaluate(() => document.getElementById('menuHistory')?.click());
     await expect(page.locator('#historyList')).toContainText(ref);
-    await expect(page.locator('#historyList')).toContainText('Recarga completada');
+    await expect(page.locator('#historyList')).toContainText('¡Envío exitoso!');
   });
 
-  test('Nequi: transferencia directa sin pasar por Mercado Pago; el dueño la confirma', async ({
+  test('Nequi: llave Bre-B → aviso pendiente → el dueño confirma → ENVIADO → «¡Envío exitoso!»', async ({
     page,
   }) => {
     expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
@@ -598,19 +598,43 @@ test.describe('compra completa (invitado)', () => {
       await expect(page.locator('#nequiBox')).not.toContainText('Mercado Pago');
       const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
       expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
-      await expect(page.locator('#nequiPhone')).toHaveText('3001234567');
+      // Datos ficticios del servidor: total exacto, llave Bre-B (con «Copiar»), celular,
+      // titular e ID del pedido; y el aviso de que el pedido queda pendiente.
       await expect(page.locator('#nequiAmount')).toHaveText('$ 3.800 COP');
+      await expect(page.locator('#nequiKey')).toHaveText('@tiendapruebas');
+      await expect(page.locator('#nequiCopyKey')).toBeVisible();
+      await expect(page.locator('#nequiPhone')).toHaveText('3001234567');
+      await expect(page.locator('#nequiHolder')).toHaveText('Tienda de Pruebas');
+      await expect(page.locator('#nequiHolderCheck')).toBeVisible();
       await expect(page.locator('#nequiRef')).toHaveText(ref);
+      await expect(page.locator('#nequiBox')).toContainText('pendiente');
+      await expect(page.locator('#trackingMessage')).toContainText(
+        'Falta tu transferencia por Nequi',
+      );
       // El aviso del cliente no es un pago: el pedido sigue esperando la verificación.
       await page.locator('#nequiLast4').fill('4321');
+      await page.locator('#nequiCustomerRef').fill('M0000PRUEBA');
       await page.locator('#nequiReportBtn').click();
       await expect(page.locator('#nequiStatus')).toContainText('Recibimos tu aviso');
       await expect(page.locator('#invoiceState')).toHaveText('Transferencia Nequi por verificar');
+      await expect(page.locator('#trackingMessage')).toContainText('Sigue pendiente');
+      await expect(page.locator('#trackingMessage')).not.toContainText('Mercado Pago');
+
+      // El dueño confirma solo al ver el dinero en su app y, hecha la recarga a mano, marca
+      // ENVIADO (los botones del panel se prueban en «panel de administración»).
       expect((await operator(page, 'confirm-nequi', { ref })).ok()).toBe(true);
       await page.locator('#refreshOrderBtn').click();
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
       await expect(page.locator('#nequiBox')).toBeHidden();
       await expect(page.locator('#invoiceMethod')).toHaveText('Nequi · Pago confirmado');
+      await expect(page.locator('#trackingMessage')).toHaveText(
+        'Pago verificado en nuestra cuenta Nequi. Preparando tu recarga.',
+      );
+      expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
+      await page.locator('#refreshOrderBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('¡Envío exitoso!');
+      await expect(page.locator('#trackDelivery small')).toHaveText('¡Envío exitoso!');
+      await expect(page.locator('#trackingMessage')).toContainText('¡Envío exitoso!');
     } finally {
       await operator(page, 'nequi', { enabled: false });
       await operator(page, 'player-verification', { mode: 'operator' });
@@ -688,7 +712,7 @@ test.describe('compra completa (invitado)', () => {
 
       expect((await operator(page, 'deliver', { ref })).ok()).toBe(true);
       await page.locator('#refreshOrderBtn').click();
-      await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
+      await expect(page.locator('#invoiceState')).toHaveText('¡Envío exitoso!');
 
       // Entregado: el comprador califica su compra (estrellas + comentario opcional).
       await expect(page.locator('#reviewForm')).toBeVisible();
@@ -1215,9 +1239,79 @@ test.describe('panel de administración', () => {
     await expect(admin.locator('#admDetail code')).toHaveText(pin);
     await admin.locator('#fEvidence').fill('PIN canjeado al UID del pedido');
     await admin.locator('[data-f="deliver"]').click();
-    await expect(admin.locator('#admDetail h2')).toContainText('Entregado');
+    await expect(admin.locator('#admDetail h2')).toContainText('ENVIADO');
     await expect(admin.locator('#admDetail')).toContainText('USED');
     await page.locator('#refreshOrderBtn').click();
-    await expect(page.locator('#invoiceState')).toHaveText('Recarga completada');
+    await expect(page.locator('#invoiceState')).toHaveText('¡Envío exitoso!');
+  });
+
+  test('Nequi desde el panel: el aviso no es prueba; el dueño confirma con su app y marca ENVIADO', async ({
+    page,
+    context,
+  }) => {
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    expect((await operator(page, 'nequi', { enabled: true })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567866');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567866');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567866 confirmado ✓');
+      await page.locator('#customerName').fill('Cliente Nequi Panel');
+      await page.locator('#customerEmail').fill('nequi-panel-e2e@example.com');
+      await page.locator('#payMeansNequi').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await expect(page.locator('#nequiBox')).toBeVisible();
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      await page.locator('#nequiLast4').fill('8765');
+      await page.locator('#nequiCustomerRef').fill('M0000PANEL');
+      await page.locator('#nequiReportBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('Transferencia Nequi por verificar');
+
+      const { token } = (await (await operator(page, 'admin-session', {})).json()) as {
+        token: string;
+      };
+      await context.addCookies([
+        { name: 'tgs_session', value: token, url: 'http://127.0.0.1:4173' },
+      ]);
+      const admin = await context.newPage();
+      await admin.goto(ADMIN_PATH);
+      await admin.locator('#admSearch').fill(ref);
+      await admin.locator('#admReload').click();
+      await admin.locator('#admOrders tr', { hasText: ref }).click();
+      // Lo que avisó el cliente se ve como dato sin verificar, nunca como pago.
+      await expect(admin.locator('#admDetail')).toContainText('••••8765');
+      await expect(admin.locator('#admDetail')).toContainText('M0000PANEL');
+      await expect(admin.locator('#admDetail')).toContainText('El aviso del cliente NO es un pago');
+      // Un monto distinto del total no se confirma.
+      await admin.locator('#qRef').fill(`MNEQ${Date.now()}`);
+      await admin.locator('#qAmount').fill('3000');
+      admin.once('dialog', (dialog) => void dialog.accept());
+      await admin.locator('#qConfirm').click();
+      await expect(admin.locator('#admMessage')).toContainText('no es el total del pedido');
+      await expect(admin.locator('#admDetail h2')).not.toContainText('Pagado');
+      await admin.locator('#qAmount').fill('3800');
+      admin.once('dialog', (dialog) => void dialog.accept());
+      await admin.locator('#qConfirm').click();
+      await expect(admin.locator('#admMessage')).toHaveText('Pago Nequi confirmado.');
+      // Hecha la recarga manual en Free Fire, el dueño la marca ENVIADO.
+      await admin.locator('[data-f="claim"]').click();
+      await admin.locator('[data-f="start"]').click();
+      await admin.locator('#fEvidence').fill('Recarga manual de prueba');
+      await expect(admin.locator('[data-f="deliver"]')).toHaveText('Marcar como ENVIADO');
+      await admin.locator('[data-f="deliver"]').click();
+      await expect(admin.locator('#admDetail h2')).toContainText('ENVIADO');
+      await admin.close();
+      await page.locator('#refreshOrderBtn').click();
+      await expect(page.locator('#invoiceState')).toHaveText('¡Envío exitoso!');
+      await expect(page.locator('#trackingMessage')).toContainText('¡Envío exitoso!');
+    } finally {
+      await operator(page, 'nequi', { enabled: false });
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
   });
 });

@@ -7,6 +7,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Añadido
 
+- **Nequi con llave Bre-B** (pedido del dueño, 2026-10-20; ver `docs/pagos-nequi.md`):
+  - variable nueva `NEQUI_MANUAL_BREB_KEY` (solo llaves alfanuméricas con `@`; una llave solo de
+    números se rechaza porque podría ser un documento). Con llave, el celular pasa a ser opcional;
+    hace falta al menos uno de los dos;
+  - la caja de Nequi muestra el total exacto, la llave (con «Copiar»), el celular si existe, el
+    titular y el ID del pedido, y avisa que el pedido queda **pendiente** hasta que el dueño vea el
+    dinero; el cliente indica los 4 últimos dígitos de la cuenta desde la que pagó (Nequi u otro
+    banco) y su referencia queda como dato sin verificar;
+  - sin QR por ahora (decisión del dueño). Los valores reales los escribe el dueño en Render.
+- **«Seguimiento» según el método:** los pedidos Nequi ya no dicen «Falta el pago con Mercado
+  Pago» ni «Pago confirmado por Mercado Pago»; muestran «Falta tu transferencia por Nequi…»,
+  «Recibimos tu aviso de pago. Sigue pendiente…» y «Pago verificado en nuestra cuenta Nequi».
 - **Pedidos con recarga manual: estado del pago y estado de la recarga, separados**
   (`src/server/domain/order-states.ts`):
   - el servidor los calcula del estado guardado; no son columnas nuevas ni los puede fijar el
@@ -102,6 +114,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ### Cambiado
 
+- **ENVIADO y «¡Envío exitoso!»:** en el panel el pedido entregado se llama **ENVIADO** (filtro,
+  título y botón «Marcar como ENVIADO»). El cliente ve «¡Envío exitoso!» en el estado del pedido,
+  la ruta de seguimiento, el historial, el botón del comprobante y el asunto del correo
+  («¡Envío exitoso! · Pedido TGS-…»). Las etiquetas de la hoja de Google («Recarga entregada» y
+  «✅ Entregado con éxito») no cambian: sus fórmulas dependen de ellas.
+- Correo al dueño por un aviso Nequi: «desde una cuenta terminada en …» (antes «desde un Nequi»),
+  porque por Bre-B se puede pagar desde otro banco.
 - Nequi ya no se ofrece como medio dentro de Mercado Pago (vía PSE): `/api/orders/:ref/pay`
   rechaza `payMeans: "nequi"` y lo indica. Los pedidos antiguos con ese medio no cambian.
 - `/api/config` informa `paymentMethods` (`mercadopago`, `nequiManual`, `nequiPush`) en lugar de

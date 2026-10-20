@@ -6,15 +6,41 @@ import { state } from '../state.js';
 
 const MESSAGES = {
   AWAITING_VERIFICATION: 'Pedido creado. Nuestro equipo está verificando el jugador.',
-  AWAITING_PAYMENT: 'Jugador confirmado. Falta el pago con Mercado Pago.',
-  PAID: 'Pago confirmado por Mercado Pago. Preparando tu recarga.',
+  AWAITING_PAYMENT: 'Jugador confirmado. Falta el pago.',
+  PAID: 'Pago confirmado. Preparando tu recarga.',
   DELIVERING: 'Tu recarga se está entregando.',
-  DELIVERED: 'Operación completada. Recarga entregada.',
+  DELIVERED: '¡Envío exitoso! La recarga ya está en tu cuenta del juego.',
   NEEDS_REVIEW: 'Tu pedido está en revisión. Te contactaremos si hace falta.',
   EXPIRED: 'El pedido venció sin pago. Puedes crear uno nuevo.',
   REJECTED: 'El pedido no continuó (jugador no confirmado).',
   REFUNDED: 'El pago fue reembolsado.',
 };
+
+// Cada método habla de quien confirma el pago: Mercado Pago, o TayGameStore al ver el dinero en
+// su cuenta Nequi. Un pedido de Nequi nunca menciona Mercado Pago.
+const METHOD_MESSAGES = {
+  mercadopago: {
+    AWAITING_PAYMENT: 'Jugador confirmado. Falta el pago con Mercado Pago.',
+    PAID: 'Pago confirmado por Mercado Pago. Preparando tu recarga.',
+  },
+  nequi_manual: {
+    AWAITING_PAYMENT:
+      'Jugador confirmado. Falta tu transferencia por Nequi: el pedido sigue pendiente hasta que veamos el dinero en nuestra cuenta.',
+    PAID: 'Pago verificado en nuestra cuenta Nequi. Preparando tu recarga.',
+  },
+};
+
+function trackingMessage(order) {
+  if (order.status === 'DELIVERED' && order.fulfillment?.pins)
+    return 'Pago confirmado y PIN entregado: ábrelo abajo y canjéalo en pagostore.com.';
+  if (order.status === 'AWAITING_PAYMENT' && order.payment?.nequi?.transfer?.status === 'REPORTED')
+    return 'Recibimos tu aviso de pago. Sigue pendiente: lo confirmamos solo cuando veamos el dinero en nuestra cuenta Nequi.';
+  return (
+    METHOD_MESSAGES[order.payment?.method]?.[order.status] ||
+    MESSAGES[order.status] ||
+    'Consultando el estado del pedido…'
+  );
+}
 
 // Estado del pago y estado de la recarga: los calcula el servidor (`order.states`) a partir de lo
 // que confirmó Mercado Pago y de la entrega registrada. El navegador solo los muestra.
@@ -29,7 +55,7 @@ const PAYMENT_TEXT = {
 const RECHARGE_TEXT = {
   PENDING: 'Pendiente',
   IN_PROGRESS: 'En proceso',
-  COMPLETED: 'Recarga entregada',
+  COMPLETED: '¡Envío exitoso!',
   NEEDS_REVIEW: 'En revisión',
   CANCELLED: 'Cancelada',
 };
@@ -98,9 +124,7 @@ export function renderChecks() {
   setText(
     'trackingMessage',
     order
-      ? status === 'DELIVERED' && order.fulfillment?.pins
-        ? 'Pago confirmado y PIN entregado: ábrelo abajo y canjéalo en pagostore.com.'
-        : MESSAGES[status] || 'Consultando el estado del pedido…'
+      ? trackingMessage(order)
       : !cartOk
         ? 'Selecciona una recarga para comenzar.'
         : !uidOk

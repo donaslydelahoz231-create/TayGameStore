@@ -4,7 +4,7 @@ const STATUS_TEXT = {
   AWAITING_PAYMENT: 'Pago pendiente',
   PAID: 'Pago confirmado',
   DELIVERING: 'Recarga en proceso',
-  DELIVERED: 'Recarga completada',
+  DELIVERED: '¡Envío exitoso!',
   NEEDS_REVIEW: 'En revisión',
   EXPIRED: 'Pedido vencido',
   REJECTED: 'Pedido rechazado',

@@ -9,8 +9,9 @@ import { setCurrentOrder } from './orders.js';
 
 /**
  * Pago por transferencia Nequi, independiente de Mercado Pago. El navegador solo muestra lo que
- * dice el servidor (celular, total y referencia del pedido) y manda el aviso «Ya transferí»;
- * nunca decide que algo está pagado: lo confirma el dueño al ver la transferencia en su Nequi.
+ * dice el servidor (llave Bre-B o celular, titular, total y referencia del pedido) y manda el aviso
+ * «Ya transferí»; nunca decide que algo está pagado: lo confirma el dueño al ver el dinero en su
+ * cuenta Nequi.
  */
 
 const orderPath = (order, suffix) => '/api/orders/' + encodeURIComponent(order.reference) + suffix;
@@ -66,6 +67,18 @@ export async function changePaymentMethod(order) {
   }
 }
 
+/** Copia la llave Bre-B que muestra el servidor (sin escribirla a mano no hay errores de tipeo). */
+export async function copyNequiKey() {
+  const key = state.currentOrder?.payment?.nequi?.account?.brebKey;
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    toast('Llave copiada.', 'good');
+  } catch {
+    toast('No se pudo copiar: selecciónala y cópiala a mano.', 'bad');
+  }
+}
+
 /** «Ya transferí»: avisa al dueño para que verifique (no confirma ningún pago). */
 export async function reportNequi(event) {
   event.preventDefault();
@@ -74,7 +87,7 @@ export async function reportNequi(event) {
   const last4 = ($('nequiLast4')?.value ?? '').trim();
   const reference = ($('nequiCustomerRef')?.value ?? '').trim();
   if (!/^\d{4}$/.test(last4)) {
-    toast('Escribe los 4 últimos dígitos de tu Nequi.', 'bad');
+    toast('Escribe los 4 últimos dígitos de la cuenta desde la que pagaste.', 'bad');
     $('nequiLast4')?.focus();
     return;
   }
@@ -102,15 +115,15 @@ export async function reportNequi(event) {
 function statusText(nequi) {
   const transfer = nequi.transfer;
   if (!nequi.account && (!transfer || transfer.status !== 'REPORTED')) {
-    return 'Nequi no está disponible ahora. Si ya transferiste, avísanos con los 4 dígitos o escríbenos con la referencia del pedido.';
+    return 'Nequi no está disponible ahora. Si ya transferiste, avísanos con los 4 dígitos o escríbenos con el ID del pedido.';
   }
   if (transfer?.status === 'REPORTED') {
     return `Recibimos tu aviso: estamos verificando la transferencia en nuestra cuenta Nequi (hasta ${nequi.reviewHours} h). No transfieras de nuevo.`;
   }
   if (transfer?.status === 'REJECTED') {
-    return `No encontramos tu transferencia${transfer.rejectionReason ? `: ${transfer.rejectionReason}` : ''}. Revisa el número, el monto y la referencia, o escríbenos.`;
+    return `No encontramos tu transferencia${transfer.rejectionReason ? `: ${transfer.rejectionReason}` : ''}. Revisa la llave o el número, el monto y el ID del pedido, o escríbenos.`;
   }
-  return 'Solo confirmamos el pago cuando vemos la transferencia en nuestra cuenta Nequi. Nunca te pediremos claves ni códigos.';
+  return 'Solo confirmamos el pago cuando vemos el dinero en nuestra cuenta Nequi. Nunca te pediremos claves ni códigos.';
 }
 
 /** Caja de Nequi del pedido actual (oculta en pedidos de Mercado Pago o ya pagados). */
@@ -125,9 +138,21 @@ export function renderNequi() {
   const account = nequi.account;
   $('nequiSteps').hidden = !account;
   setText('nequiAmount', money(nequi.amountCop));
+  $('nequiKeyRow').hidden = !account?.brebKey;
+  setText('nequiKey', account?.brebKey ?? '—');
+  $('nequiPhoneRow').hidden = !account?.phone;
   setText('nequiPhone', account?.phone ?? '—');
+  setText(
+    'nequiTarget',
+    account?.brebKey && account?.phone
+      ? 'la llave Bre-B o al celular Nequi'
+      : account?.brebKey
+        ? 'la llave Bre-B'
+        : 'el celular Nequi',
+  );
   setText('nequiRef', nequi.reference);
   $('nequiHolderWrap').hidden = !account?.holder;
+  $('nequiHolderCheck').hidden = !account?.holder;
   setText('nequiHolder', account?.holder ?? '');
   setText('nequiStatus', statusText(nequi));
   const reported = nequi.transfer?.status === 'REPORTED';

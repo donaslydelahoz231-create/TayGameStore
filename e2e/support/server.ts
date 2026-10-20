@@ -199,7 +199,12 @@ app.post('/__e2e__/moderate-reviews', async (request) => {
 app.post('/__e2e__/nequi', async (request) => {
   const { enabled } = request.body as { enabled: boolean };
   config.nequi.manual = enabled
-    ? { phone: '3001234567', holder: 'Tienda de Pruebas', reviewHours: 24 }
+    ? {
+        phone: '3001234567',
+        brebKey: '@tiendapruebas',
+        holder: 'Tienda de Pruebas',
+        reviewHours: 24,
+      }
     : undefined;
   return { ok: true };
 });

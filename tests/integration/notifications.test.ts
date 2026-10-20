@@ -306,7 +306,7 @@ describe('fallos del servidor de correo', () => {
 });
 
 describe('entrega y reembolso', () => {
-  it('al marcar el pedido como entregado, el cliente recibe "Recarga completada"', async () => {
+  it('al marcar el pedido como ENVIADO, el cliente recibe "¡Envío exitoso!"', async () => {
     const order = await readyOrder();
     await payOrder(order);
     for (const body of [
@@ -326,7 +326,7 @@ describe('entrega y reembolso', () => {
     const mails = mailsTo(order.email);
     expect(mails.map((m) => m.subject)).toEqual([
       `Comprobante de pago · Pedido ${order.reference}`,
-      `Recarga completada · Pedido ${order.reference}`,
+      `¡Envío exitoso! · Pedido ${order.reference}`,
     ]);
     expect(mails[1]?.text).toContain('NickAvisos');
   });

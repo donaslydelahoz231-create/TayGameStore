@@ -42,7 +42,7 @@ El precio lo fija el servidor al crear el pedido y queda en el comprobante. Cifr
 3. **Recarga** los diamantes al ID del cliente en un canal oficial (por ejemplo, Recargas Free
    Fire por ID en pagostore.com), con tu medio de pago.
 4. **Entregar**, con la evidencia: canal, hora y número de la transacción. El cliente recibe
-   «Recarga completada» y en «Seguimiento» le aparece el formulario de reseña.
+   «¡Envío exitoso!» y en «Seguimiento» le aparece el formulario de reseña.
 5. **Si no puedes entregar** (ID de otro servidor, canal caído):
    - pasa el pedido a revisión y escríbele al cliente por el correo del pedido;
    - si no se puede, reembolsa por Mercado Pago (términos, sección 7).
@@ -109,7 +109,7 @@ pedidos y el inventario muestra cuántos quedan de cada paquete.
 > si la ofrece: [`specs/contacto-proveedores.md`](specs/contacto-proveedores.md).
 
 **Sin PIN, directo al ID:** con un contrato de socio con UniPin (distribuidor oficial) y
-`TOPUP_PROVIDER=unipin`, la tienda recarga sola al ID del jugador y solo marca «Entregado» cuando
+`TOPUP_PROVIDER=unipin`, la tienda recarga sola al ID del jugador y solo marca «ENVIADO» cuando
 UniPin lo confirma. Si hay PIN en el inventario, se usan primero. Guía y pasos:
 [`recarga-directa-unipin.md`](recarga-directa-unipin.md).
 
@@ -128,7 +128,7 @@ UniPin lo confirma. Si hay PIN en el inventario, se usan primero. Guía y pasos:
 4. **Dueño, en el canal oficial de canje:** escribe el **ID del cliente** que aparece en el
    pedido y el PIN reservado (botón «Copiar»).
 5. **Dueño, en el panel:** **Entregar** con la evidencia (p. ej. «PIN canjeado al ID 123…»).
-   El PIN queda «usado», el cliente recibe «Recarga completada» y el pedido se cierra.
+   El PIN queda «usado», el cliente recibe «¡Envío exitoso!» y el pedido se cierra.
 6. Si un PIN no sirve (ya canjeado, ilegible): **Anular** y repetir el paso 3 con otro. Si se
    reservó pero no se usó (p. ej. el pedido pasó a revisión): **Liberar** y vuelve al stock.
 

@@ -23,7 +23,7 @@ distingue lo **implementado y probado**, lo **preparado (sin credenciales)** y l
    - Deben coincidir importe, moneda (COP) y modo (real o de prueba).
    - Un mismo pago de Mercado Pago no puede aprobar dos pedidos (índice único en la base).
 4. **Recarga manual** desde el panel: Reclamar → Iniciar → el dueño recarga en el canal permitido
-   → Marcar entregado **con evidencia** (obligatoria por una restricción CHECK de la base).
+   → Marcar como ENVIADO **con evidencia** (obligatoria por una restricción CHECK de la base).
    - Si falla: «Marcar fallida» con motivo, y el pedido pasa a revisión.
 5. **Seguimiento.** El cliente ve el estado guardado en el servidor; la página se actualiza sola
    cada 5 s, luego cada 15 s y luego cada 60 s.

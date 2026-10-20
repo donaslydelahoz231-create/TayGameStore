@@ -176,7 +176,7 @@ describe('recarga directa con UniPin', () => {
     // El cliente recibe «recarga completada»; el dueño sabe que no tiene que hacer nada.
     expect(h.mailer.sent.map((m) => m.subject)).toEqual(
       expect.arrayContaining([
-        `Recarga completada · Pedido ${ref}`,
+        `¡Envío exitoso! · Pedido ${ref}`,
         `Pedido pagado, recarga automática en curso · ${ref}`,
       ]),
     );
@@ -260,7 +260,7 @@ describe('recarga directa con UniPin', () => {
     expect(alert?.to).toEqual([ADMIN_EMAIL, 'admin2@example.com']);
     expect(alert?.text).toContain('7xx');
     // Al cliente no se le dice que está entregado.
-    expect(h.mailer.sent.some((m) => m.subject.startsWith('Recarga completada'))).toBe(false);
+    expect(h.mailer.sent.some((m) => m.subject.startsWith('¡Envío exitoso!'))).toBe(false);
     expect(sheet.statuses.get(ref)?.at(-1)).toBe('⚠️ Requiere revisión');
 
     // El dueño reanuda la entrega desde el panel: solo la unidad fallida, con un intento nuevo.

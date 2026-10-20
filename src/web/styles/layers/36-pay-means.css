@@ -297,3 +297,58 @@ body.entry-locked .support-float {
   color: var(--cyan);
   word-break: break-all;
 }
+/* Datos para transferir: total, llave/celular, titular e ID del pedido (los da el servidor). */
+.nequi-pay {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+}
+.nequi-pay > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.nequi-pay > div[hidden] {
+  display: none;
+}
+.nequi-pay dt {
+  color: var(--muted);
+}
+.nequi-pay dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+.nequi-pay strong {
+  color: var(--cyan);
+  overflow-wrap: anywhere;
+}
+.nequi-copy {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nequi-copy:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.nequi-pending {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
