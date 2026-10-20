@@ -1381,3 +1381,21 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     a pasar tras publicar, hace falta la consola de Brave (F12 → Consola) y el tamaño de la
     ventana;
   - gitleaks no está instalado aquí (sí corre en la CI).
+
+### 2026-10-20 · Publicación de 126191d y fce377b (entrada siempre accesible)
+
+- **Autorización del dueño:** «Autorizo el push» (2026-10-20). Antes del push: árbol limpio,
+  blobs iguales a los informados y escáner de datos sensibles con 0 coincidencias.
+- **Publicado:** `126191d` (registro de Nequi y de la pestaña `Compras_LootBar`) y `fce377b`
+  (entrada accesible en pantallas bajas, aviso sin JavaScript, salida si el acceso no se ve y
+  `X-Frame-Options: DENY`). Avance rápido desde `40602a5`; `git ls-remote` = `fce377b`.
+- **Render:** despliegue `dep-dbbnsd67bikc73auvpa0` en `live` a las 14:45 UTC. Arranque:
+  «Migraciones aplicadas.», `mercadoPago: true`, `nequiTransferencia: false`, `correo: false`,
+  `hojaGoogle: false`. Sin registros error/warn/fatal desde el despliegue.
+- **GitHub Actions de `fce377b`:** CI con sus 6 trabajos en verde (lint, formato, tipos, esquema,
+  unitarias, build, auditoría de dependencias, gitleaks del historial, integración y e2e en
+  Chromium, Firefox y WebKit, con las 3 pruebas nuevas de la entrada) y CodeQL en verde.
+- **NO VERIFICADO:**
+  - «Production smoke check» salió en verde, pero terminó a las 14:44:53, antes de que el
+    despliegue nuevo quedara activo (14:45:08): probó la versión anterior;
+  - la entrada en un Brave real (pendiente de la prueba del dueño en su teléfono, en horizontal).
