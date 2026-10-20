@@ -1498,3 +1498,23 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - si Google sube la cuota de 60 escrituras/min de la cuenta de servicio;
   - la hoja en producción (faltan las variables `GOOGLE_SHEETS_*` y rotar la llave expuesta);
   - la seguridad de los conectores de Claude (Gmail, Drive, etc.): se autorizan en claude.ai.
+
+### 2026-10-20 · Publicación de 86fec75 y 5fe6df6 (Nequi con llave Bre-B, ENVIADO, hoja y cola de avisos)
+
+- **Autorización del dueño:** «Autorizo el push» (2026-10-20). Antes del push: árbol limpio, sin
+  cambios nuevos en el remoto, exactamente `86fec75` y `5fe6df6` por publicar y escáner de datos
+  sensibles con 0 coincidencias. Avance rápido `8f24730..5fe6df6`; `git ls-remote` = `5fe6df6`.
+- **Render:** despliegue `dep-dbbq5v3m8hqs7386g540` en `live` a las 17:22:10 UTC. Arranque de la
+  instancia nueva (17:22:02): `mercadoPago: true`, `nequiTransferencia: false` (Nequi sigue
+  apagado hasta que el dueño cargue sus variables), `correo: false`, `hojaGoogle: false`. Sin
+  registros error/warn/fatal desde las 17:20. Sin migraciones nuevas en estos commits.
+- **GitHub Actions de `5fe6df6`:** CI con sus 6 trabajos en verde (lint, formato, tipos, esquema,
+  unitarias, build, auditoría de dependencias, gitleaks del historial, integración y e2e en
+  Chromium, Firefox y WebKit) y CodeQL en verde.
+- **NO VERIFICADO:**
+  - «Production smoke check» salió en verde (17:21:00–17:22:27), pero parte de sus sondeos llegaron
+    a la instancia anterior; la nueva respondió 200 a `GET /` a las 17:22:11. La próxima ronda
+    programada lo confirmará sobre la versión nueva;
+  - Nequi en producción: sigue apagado (faltan `NEQUI_MANUAL_BREB_KEY`, `NEQUI_MANUAL_HOLDER` y
+    `NEQUI_MANUAL_ENABLED=true`, que carga el dueño);
+  - la hoja de Google en producción (sin las variables `GOOGLE_SHEETS_*`).
