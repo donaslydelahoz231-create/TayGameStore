@@ -1538,3 +1538,16 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   El dueño confirma cada pago en su app; nada se marca pagado solo.
 - **Pruebas:** lint, formato y tipos OK; unitarias 308/308, integración 284/284; escáner de datos
   sensibles 0 coincidencias.
+- **Verificación en producción:**
+  - push `dcd273e..271ba43`; `git ls-remote` = `271ba43`;
+  - el cambio de variables lanzó un despliegue con el código anterior (`dep-dbbqsgbl9sls73f4q9u0`):
+    arrancó con Nequi apagado y el aviso no repitió el valor (la protección funcionó);
+  - `dep-dbbqth4s728c73co5e1g` (`271ba43`) en `live` a las 18:12:14 UTC; arranque:
+    `mercadoPago: true`, `nequiTransferencia: true`;
+  - 18:14:45: un pedido real se creó (201) y se pasó a Nequi (200); en la base quedó
+    `nequi_manual` y `AWAITING_PAYMENT`. No se tocó;
+  - sin registros error/warn/fatal desde las 18:11 y ningún registro con los campos de la cuenta;
+  - CI 6/6 en verde (también e2e en Chromium, Firefox y WebKit), CodeQL en verde.
+- **NO VERIFICADO:** la respuesta de `/api/config` y la tienda vistas desde fuera: este entorno no
+  puede abrir el dominio de producción (el proxy lo bloquea). Lo cubren el código, el arranque y el
+  pedido real de las 18:14.
