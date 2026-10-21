@@ -138,6 +138,8 @@ services:
       # Las tres van juntas; la llave privada es un secreto: solo en el panel de Render.
       - key: GOOGLE_SHEETS_SPREADSHEET_ID
         sync: false
+      - key: GOOGLE_SHEETS_CREDENTIALS_JSON
+        sync: false
       - key: GOOGLE_SHEETS_CLIENT_EMAIL
         sync: false
       - key: GOOGLE_SHEETS_PRIVATE_KEY

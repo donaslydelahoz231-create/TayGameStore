@@ -82,6 +82,15 @@ export async function buildServer(config: AppConfig): Promise<Server> {
     },
     'métodos de pago',
   );
+  if (config.sheets) {
+    // La cuenta de servicio no es un secreto: es la que debe tener la hoja compartida como Editor.
+    built.app.log.info({ cuentaDeServicio: config.sheets.clientEmail }, 'hoja de Google conectada');
+  } else if (config.sheetsProblem) {
+    built.app.log.warn(
+      { problema: config.sheetsProblem },
+      'Hoja de Google apagada (la tienda y los pagos no se ven afectados)',
+    );
+  }
   if (config.nequi.problem) {
     built.app.log.warn(
       { problema: config.nequi.problem },

@@ -1574,3 +1574,28 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:** escrituras reales de la tienda en la hoja: en producción la hoja sigue sin
   conectar (faltan las variables `GOOGLE_SHEETS_*` y rotar la llave expuesta). El conector de
   Claude escribe como USER_ENTERED; el modo RAW de la tienda se emuló con apóstrofos.
+
+### 2026-10-21 · Hoja de Google: llave en una sola variable y configuración que no tumba la tienda
+
+- **Pedido del dueño (2026-10-20):** «gestiónamelo y encárgate de la hoja de Google sin
+  conectar… hazlo por tu cuenta para que funcione». Cubre este commit, su push y cargar en
+  Render el id de la hoja (no es un secreto).
+- **Lo que no se puede hacer desde aquí:** crear o borrar llaves de la cuenta de servicio
+  (este entorno no tiene acceso a Google Cloud: `gcloud` sin cuentas) y, por las reglas del
+  proyecto, ninguna llave pasa por el chat ni por un comando. El dueño crea la llave y la pega
+  en Render.
+- **Cambio:** `src/server/config/sheets.ts`. La llave se acepta como el archivo JSON completo
+  (`GOOGLE_SHEETS_CREDENTIALS_JSON`) además de correo + llave por separado. Una variable de la
+  hoja incompleta o mal escrita ya no impide arrancar: la hoja se apaga y el arranque dice el
+  motivo sin valores («Hoja de Google apagada…»); conectada, dice la cuenta de servicio.
+- **Estado de la hoja original (solo lectura):** compartida solo con el dueño y con
+  `tienda-hoja@taygamestores.iam.gserviceaccount.com` (Editor); sin filas de pedidos todavía.
+- **Pruebas:** unitarias 312/312 (nuevas: variables incompletas o mal escritas sin caída y sin
+  valores en el motivo; llave JSON pegada con espacios y saltos; correo que no coincide; la de
+  JSON falla sin su código), integración 288/288, e2e 73/73; lint, formato y tipos OK.
+- **Ronda diaria 2026-10-21 00:52 UTC (solo lectura):** Render `a0348fd` en vivo sin
+  error/warn/fatal desde 2026-10-20 18:56; «Vigilancia y autorreparación» y «Mantener la tienda
+  activa» en verde; sin issues de incidente; Neon 40,5 CU-h usadas (proyección ≈ 71 de 100);
+  0 pagados por entregar, 0 en revisión, 0 por reembolsar, 0 reseñas pendientes, 0 avisos
+  fallidos. Un aviso Nequi «Ya transferí» sin verificar desde hace ≈ 16 h (TGS-TKRX3MBM03,
+  11.000 COP): lo verifica el dueño en su app Nequi y lo confirma o rechaza en el panel.

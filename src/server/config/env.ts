@@ -1,17 +1,9 @@
 import type { PromoSchedule } from '../domain/pricing.js';
-import { createPrivateKey, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { FREE_FIRE_SERVERS, type FreeFireServer } from '../db/schema.js';
 import { nequiSettings, type NequiSettings } from './nequi.js';
-
-/** La llave de la cuenta de servicio se puede leer como llave privada (sin mostrarla nunca). */
-function isReadablePrivateKey(value: string): boolean {
-  try {
-    return createPrivateKey(value).type === 'private';
-  } catch {
-    return false;
-  }
-}
+import { sheetsSettings } from './sheets.js';
 
 /**
  * Configuración del servidor, validada al arrancar.
@@ -402,27 +394,14 @@ const envSchema = z
     EVENTS_WEBHOOK_ENABLED: z.stringbool().default(true),
     /**
      * Registro auxiliar de pedidos en Google Sheets (opcional; nunca es la fuente de verdad).
-     * Cuenta de servicio de Google Cloud con la hoja compartida con su correo. Van juntas.
-     * La llave es el campo `private_key` del JSON de la cuenta; admite saltos de línea escritos
-     * como \n (así queda al pegarla en una sola línea). Se comprueba que sea una llave legible.
+     * Cuenta de servicio de Google Cloud con la hoja compartida con su correo. La llave va como el
+     * archivo JSON completo (GOOGLE_SHEETS_CREDENTIALS_JSON) o como correo + llave por separado.
+     * Se validan en `sheetsSettings`: si algo falta o está mal, la hoja se apaga y la tienda sigue.
      */
-    GOOGLE_SHEETS_SPREADSHEET_ID: z
-      .string()
-      .regex(/^[A-Za-z0-9_-]{20,100}$/, 'el id que aparece en la URL de la hoja')
-      .optional(),
-    GOOGLE_SHEETS_CLIENT_EMAIL: z
-      .email()
-      .refine((value) => value.endsWith('.iam.gserviceaccount.com'), {
-        message: 'correo de una cuenta de servicio (…@….iam.gserviceaccount.com)',
-      })
-      .optional(),
-    GOOGLE_SHEETS_PRIVATE_KEY: z
-      .string()
-      .min(100)
-      .max(5000)
-      .transform((value) => value.replace(/\\n/g, '\n'))
-      .refine(isReadablePrivateKey, { message: 'no es una llave privada legible' })
-      .optional(),
+    GOOGLE_SHEETS_SPREADSHEET_ID: z.string().optional(),
+    GOOGLE_SHEETS_CREDENTIALS_JSON: z.string().optional(),
+    GOOGLE_SHEETS_CLIENT_EMAIL: z.string().optional(),
+    GOOGLE_SHEETS_PRIVATE_KEY: z.string().optional(),
     GOOGLE_SHEETS_TAB: z
       .string()
       .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
@@ -451,17 +430,6 @@ const envSchema = z
     }
     if (env.SMTP_HOST && !env.MAIL_FROM && !z.email().safeParse(env.SMTP_USER).success) {
       issue('MAIL_FROM', 'obligatoria si SMTP_USER no es una dirección de correo');
-    }
-    const sheets = [
-      env.GOOGLE_SHEETS_SPREADSHEET_ID,
-      env.GOOGLE_SHEETS_CLIENT_EMAIL,
-      env.GOOGLE_SHEETS_PRIVATE_KEY,
-    ];
-    if (sheets.some(Boolean) && !sheets.every(Boolean)) {
-      issue(
-        'GOOGLE_SHEETS_SPREADSHEET_ID',
-        'GOOGLE_SHEETS_SPREADSHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL y GOOGLE_SHEETS_PRIVATE_KEY van juntas',
-      );
     }
     // Los datos del jugador nunca deben caer en la pestaña «Pedidos», que no lleva datos personales.
     if (env.GOOGLE_SHEETS_TAB.toLowerCase() === env.GOOGLE_SHEETS_DELIVERY_TAB.toLowerCase()) {
@@ -662,6 +630,8 @@ export interface AppConfig {
         tabs: { orders: string; deliveries: string; pending: string };
       }
     | undefined;
+  /** Por qué la hoja quedó apagada pese a tener alguna variable (sin valores; ver sheets.ts). */
+  sheetsProblem: string | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
@@ -723,6 +693,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const env = parsed.data;
   const isProduction = env.NODE_ENV === 'production';
   const ephemeral = !env.ORDER_TOKEN_KEYS || !env.MFA_ENCRYPTION_KEYS || !env.IP_HASH_PEPPER;
+  const sheets = sheetsSettings(env);
   return {
     env: env.NODE_ENV,
     host: env.HOST ?? (isProduction ? '0.0.0.0' : '127.0.0.1'),
@@ -840,21 +811,17 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       retention: env.LEGAL_RETENTION,
     },
     cronSecret: env.CRON_SECRET,
-    sheets:
-      env.GOOGLE_SHEETS_SPREADSHEET_ID &&
-      env.GOOGLE_SHEETS_CLIENT_EMAIL &&
-      env.GOOGLE_SHEETS_PRIVATE_KEY
-        ? {
-            spreadsheetId: env.GOOGLE_SHEETS_SPREADSHEET_ID,
-            clientEmail: env.GOOGLE_SHEETS_CLIENT_EMAIL,
-            privateKey: env.GOOGLE_SHEETS_PRIVATE_KEY,
-            tabs: {
-              orders: env.GOOGLE_SHEETS_TAB,
-              deliveries: env.GOOGLE_SHEETS_DELIVERY_TAB,
-              pending: env.GOOGLE_SHEETS_PENDING_TAB,
-            },
-          }
-        : undefined,
+    sheets: sheets.credentials
+      ? {
+          ...sheets.credentials,
+          tabs: {
+            orders: env.GOOGLE_SHEETS_TAB,
+            deliveries: env.GOOGLE_SHEETS_DELIVERY_TAB,
+            pending: env.GOOGLE_SHEETS_PENDING_TAB,
+          },
+        }
+      : undefined,
+    sheetsProblem: sheets.problem,
     eventsWebhook:
       env.EVENTS_WEBHOOK_ENABLED && env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
         ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }

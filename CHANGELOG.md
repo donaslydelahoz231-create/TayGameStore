@@ -5,6 +5,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Cambiado (hoja de Google más fácil de conectar y sin riesgo para la tienda)
+
+- La llave de la cuenta de servicio se puede cargar como el archivo JSON completo en una sola
+  variable (`GOOGLE_SHEETS_CREDENTIALS_JSON`): el dueño ya no copia campos sueltos.
+- Una variable de la hoja incompleta o mal escrita ya no impide arrancar la tienda: la hoja queda
+  apagada y el arranque dice qué falta, sin mostrar valores (como Nequi). Si la hoja está
+  conectada, el arranque dice con qué cuenta de servicio.
+
 ### Agregado (hoja de Google: pestaña «Pagos pendientes»)
 
 - Pedido del dueño (2026-10-20): ver en la hoja el pago pendiente del cliente hacia el dueño.

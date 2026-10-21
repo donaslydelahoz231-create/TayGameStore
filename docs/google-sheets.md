@@ -170,27 +170,31 @@ automatiza LootBar (está descartado en `proveedor-recargas/PROVEEDORES.md`).
 
 ## Cómo activarlo (dueño)
 
-1. En Google Cloud Console, crea un proyecto (o usa uno existente) y activa **Google Sheets API**.
-2. En «IAM y administración → Cuentas de servicio», crea una cuenta de servicio sin roles.
-3. Crea una **llave JSON**. El archivo descargado contiene `client_email` y `private_key`.
-   **Guárdalo fuera del repositorio** y bórralo cuando termines.
-4. Crea una hoja de cálculo privada con las pestañas **Pedidos**, **Entregas** y **Pagos
-   pendientes**. En la fila 1 de cada una escribe los encabezados de su lista de columnas de
-   arriba (la fila 1 nunca se reescribe). Si falta una pestaña, sus filas quedan como «Aviso sin
-   enviar» en el panel y las otras siguen.
-5. Comparte la hoja **solo** con el `client_email` de la cuenta de servicio, como **Editor**.
-   No la publiques ni la compartas con enlace.
-6. En Render → Environment (variables protegidas), carga:
-   - `GOOGLE_SHEETS_SPREADSHEET_ID`: el id de la URL de la hoja (`/d/<id>/edit`);
-   - `GOOGLE_SHEETS_CLIENT_EMAIL`: el `client_email`;
-   - `GOOGLE_SHEETS_PRIVATE_KEY`: el `private_key` completo. Los saltos de línea pueden ir escritos
-     como `\n`;
-   - opcional: `GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB` y `GOOGLE_SHEETS_PENDING_TAB` si
-     las pestañas no se llaman «Pedidos», «Entregas» y «Pagos pendientes».
+Lo único que solo puede hacer el dueño es crear la llave (nunca pasa por el chat ni por el
+repositorio). El id de la hoja ya está cargado en Render (`GOOGLE_SHEETS_SPREADSHEET_ID`) y la hoja
+ya está compartida con la cuenta de servicio `tienda-hoja` como Editor.
 
-   Las tres primeras van juntas. Si falta una o la llave no se puede leer, el servidor no arranca y
-   dice cuál es.
-7. Al reiniciar, el registro de arranque «avisos y automatización» debe decir `hojaGoogle: true`.
+1. En [Google Cloud → IAM y administración → Cuentas de servicio](https://console.cloud.google.com/iam-admin/serviceaccounts)
+   (proyecto **taygamestores**), abre **tienda-hoja** → pestaña **Claves**:
+   - **borra todas las claves** que haya (las que pasaron por el chat ya no son seguras);
+   - **Agregar clave → Crear clave nueva → JSON → Crear**: se descarga un archivo `.json`.
+2. Abre ese archivo con el Bloc de notas (o cualquier editor), selecciona **todo** y cópialo.
+3. En Render → servicio de la tienda → **Environment** → **Add Environment Variable**:
+   - clave: `GOOGLE_SHEETS_CREDENTIALS_JSON`;
+   - valor: pega el contenido completo del archivo;
+   - **Save, rebuild and deploy**.
+4. Borra el archivo `.json` de tu computador (y de la papelera).
+5. Al reiniciar, el registro de arranque dice `hojaGoogle: true` y «hoja de Google conectada» con la
+   cuenta `tienda-hoja@…`. Si algo falta o está mal, dice «Hoja de Google apagada» y el motivo
+   (sin mostrar valores); la tienda y los pagos siguen funcionando igual.
+
+Otras formas que también valen: `GOOGLE_SHEETS_CLIENT_EMAIL` + `GOOGLE_SHEETS_PRIVATE_KEY` (el
+campo `private_key` del JSON, con los saltos de línea escritos como `\n`), y opcionalmente
+`GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB` y `GOOGLE_SHEETS_PENDING_TAB` si las pestañas no
+se llaman «Pedidos», «Entregas» y «Pagos pendientes».
+
+Una variable de la hoja incompleta o mal escrita **nunca impide arrancar la tienda** (desde el
+2026-10-21; antes el servidor no arrancaba): la hoja queda apagada y el arranque explica qué falta.
 
 Cambiar variables de Render es un cambio en producción: requiere la autorización del dueño.
 

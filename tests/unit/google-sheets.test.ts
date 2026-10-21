@@ -269,15 +269,64 @@ describe('Google Sheets: configuración', () => {
     expect(loadConfig({}).sheets).toBeUndefined();
   });
 
-  it('las tres variables van juntas y la llave debe poder leerse', () => {
-    const partial = () => loadConfig({ GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID });
-    expect(partial).toThrow(ConfigError);
-    expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_PRIVATE_KEY: 'x'.repeat(200) }))).toThrow(
-      ConfigError,
-    );
-    expect(() =>
-      loadConfig(sheetsEnv({ GOOGLE_SHEETS_CLIENT_EMAIL: 'dueno@example.com' })),
-    ).toThrow(ConfigError);
+  it('una variable incompleta o mal escrita apaga la hoja y lo explica, pero la tienda arranca', () => {
+    const cases: Record<string, string>[] = [
+      { GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID },
+      { GOOGLE_SHEETS_CLIENT_EMAIL: CLIENT_EMAIL },
+      sheetsEnv({ GOOGLE_SHEETS_SPREADSHEET_ID: 'no es un id' }),
+      sheetsEnv({ GOOGLE_SHEETS_PRIVATE_KEY: 'x'.repeat(200) }),
+      sheetsEnv({ GOOGLE_SHEETS_CLIENT_EMAIL: 'dueno@example.com' }),
+      { GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID, GOOGLE_SHEETS_CREDENTIALS_JSON: '{roto' },
+      {
+        GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID,
+        GOOGLE_SHEETS_CREDENTIALS_JSON: JSON.stringify({ type: 'authorized_user' }),
+      },
+      {
+        GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID,
+        GOOGLE_SHEETS_CREDENTIALS_JSON: 'x'.repeat(30_000),
+      },
+      sheetsEnv({ GOOGLE_SHEETS_PRIVATE_KEY: 'y'.repeat(30_000) }),
+    ];
+    for (const env of cases) {
+      const config = loadConfig(env);
+      expect(config.sheets, JSON.stringify(Object.keys(env))).toBeUndefined();
+      expect(config.sheetsProblem).toBeTruthy();
+      // El motivo nunca repite un valor (podría ser parte de la llave).
+      for (const value of Object.values(env)) {
+        expect(config.sheetsProblem).not.toContain(value.slice(0, 30));
+      }
+    }
+    expect(loadConfig({}).sheetsProblem).toBeUndefined();
+  });
+
+  it('acepta el archivo JSON de la llave completo en una sola variable', () => {
+    const keyFile = JSON.stringify({
+      type: 'service_account',
+      project_id: 'proyecto-de-prueba',
+      private_key_id: 'id-ficticio',
+      private_key: privateKey,
+      client_email: CLIENT_EMAIL,
+      token_uri: 'https://oauth2.googleapis.com/token',
+    });
+    const config = loadConfig({
+      GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID,
+      // Como queda al pegarlo en Render: con saltos de línea y espacios alrededor.
+      GOOGLE_SHEETS_CREDENTIALS_JSON: `\n  ${JSON.stringify(JSON.parse(keyFile), null, 2)}\n`,
+    });
+    expect(config.sheetsProblem).toBeUndefined();
+    expect(config.sheets).toMatchObject({
+      spreadsheetId: SPREADSHEET_ID,
+      clientEmail: CLIENT_EMAIL,
+    });
+    expect(config.sheets?.privateKey).toBe(privateKey);
+    // Si además se escribió el correo, debe ser el de la llave.
+    const mismatch = loadConfig({
+      GOOGLE_SHEETS_SPREADSHEET_ID: SPREADSHEET_ID,
+      GOOGLE_SHEETS_CREDENTIALS_JSON: keyFile,
+      GOOGLE_SHEETS_CLIENT_EMAIL: 'otra-cuenta@proyecto-de-prueba.iam.gserviceaccount.com',
+    });
+    expect(mismatch.sheets).toBeUndefined();
+    expect(mismatch.sheetsProblem).toMatch(/no es la cuenta de la llave/);
   });
 
   it('con las tres variables queda configurado (pestañas «Pedidos» y «Entregas» por defecto)', () => {
