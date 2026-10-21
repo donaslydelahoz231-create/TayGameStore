@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Seguridad (dependencias al día)
+
+- `fastify` 5.12.5 → 5.12.7: incluye la versión de seguridad 5.12.6 (aviso GHSA-389g-gv7q-r4x8).
+- `nodemailer` 10.1.0 → 10.1.7: quita credenciales en redirecciones a otro origen y limita el
+  trabajo que un mensaje puede provocar.
+- `zod` 4.6.5 → 4.6.7: comprueba el tamaño de listas y conjuntos antes de leer sus elementos.
+- `@fastify/helmet` 13.2.0 (la tienda no usa opciones de helmet por ruta: sin cambio de
+  comportamiento) y parches de desarrollo (`vite`, `vitest`, `prettier`, `typescript-eslint`,
+  `@types/node`, `smtp-server`, `@axe-core/playwright`). `@playwright/test` sigue en 1.56.1.
+
 ### Agregado (nombre de usuario para cada cliente y pestaña «Usuarios» en la hoja)
 
 - Pedido del dueño (2026-10-21): cada cliente, invitado o con cuenta de Google o Facebook,

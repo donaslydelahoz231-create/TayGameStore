@@ -1644,3 +1644,31 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:** un visitante real creando o cambiando su nombre en producción (todavía 0
   perfiles; el flujo está cubierto por las pruebas e2e de CI) y la escritura en la pestaña
   «Usuarios» (falta la llave de la hoja).
+
+### 2026-10-21 · Revisión profunda pedida por el dueño (producción, GitHub, Render, Neon y código)
+
+- **Pedido:** «revisa en github si presenta fallos o errores … no me borres todo … si presenta
+  lo que está mal corrígelo no lo borres». No se borró nada (ramas, PR, datos ni archivos).
+- **Producción:** Render `taygamestore` (plan gratuito, Virginia) en vivo con `db556df`, despliegue
+  automático desde `claude/taygamestore-production-pfctbn`. Últimas 24 h: 0 respuestas 5xx y 0
+  registros de error o fatal. Arranque: Mercado Pago y Nequi por transferencia encendidos; correo,
+  eventos externos y hoja de Google apagados (faltan credenciales del dueño).
+- **GitHub:** las 60 ejecuciones de las últimas 11 h en verde (CI, CodeQL, prueba de producción,
+  vigilancia, mantener activa, diagnóstico diario). «Tareas programadas» se omite a propósito
+  (respaldo opcional desactivado). Issues abiertos: solo las 8 listas de pasos del dueño. Sin
+  incidentes.
+- **Neon:** 0 avisos pendientes o fallidos, 0 pedidos vencidos sin cerrar, 0 reembolsos
+  pendientes, historial sellado al día, 10 MB. 9 sesiones vencidas hace menos de 7 días: la
+  limpieza las conserva 7 días a propósito.
+- **Problema corregido:** dependencias de producción con correcciones de seguridad sin aplicar
+  (PR de Dependabot abierto desde el 2026-10-19): `fastify` 5.12.7 (versión de seguridad
+  GHSA-389g-gv7q-r4x8), `nodemailer` 10.1.7, `zod` 4.6.7, `@fastify/helmet` 13.2.0, más parches de
+  desarrollo. Pruebas: lint, formato, tipos, unitarias 325/325, integración 303/303, e2e 74/74,
+  visuales 3/3, `drizzle-kit check` y escáner 0; `npm audit` 0 vulnerabilidades.
+- **Para el dueño (no se puede desde aquí):** el servicio de Render no tiene ruta de salud
+  (`render.yaml` dice `/api/ready`); recomendación: poner `/api/health` en Render → Settings →
+  Health Check Path (no consulta la base, así no impide que Neon se suspenda).
+- **Sin tocar, a propósito:** 13 ramas viejas de arreglos ya integrados (`fix/*`, `ops/*`,
+  `security/*`) y el PR de Dependabot de herramientas de desarrollo, por subir Playwright a 1.64
+  (cambia los navegadores de prueba: se hará aparte).
+
