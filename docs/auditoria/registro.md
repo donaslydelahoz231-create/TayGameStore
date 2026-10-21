@@ -1630,5 +1630,17 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   reintentos; mutaciones de la reserva, la pasada extra, los nombres reservados y el tope por IP
   detectadas), e2e 74/74, visuales 3/3 (capturas 03 de escritorio y tableta regeneradas: solo
   cambia el nombre en la cabecera); lint, formato, tipos y `drizzle-kit check` OK; escáner 0.
-- **Sin publicar:** commit local; el push (que despliega y aplica la migración en Render) espera
-  la autorización del dueño.
+- **Publicación (2026-10-21):** el dueño autorizó el push («Autorizo el push»). `927b846` en
+  GitHub; Render `dep-dbcbm7uq1p3s73broktg` en vivo (13:17 UTC); migración 0023 aplicada (24
+  migraciones; tabla `customer_profiles` creada; el rol de la aplicación puede insertar y no
+  puede borrar). Arranque: Mercado Pago y Nequi por transferencia encendidos; «Hoja de Google
+  apagada» por falta de la llave (esperado); sin error ni fatal desde el despliegue. CI 6/6 en
+  verde (lint, tipos, unitarias, integración, e2e en Chromium, Firefox y WebKit, gitleaks),
+  CodeQL y prueba de producción en verde.
+- **Hoja conectada a la tienda:** las dos cargas de `GOOGLE_SHEETS_SPREADSHEET_ID` en Render
+  (2026-10-19 y 2026-10-21) usaron la hoja de producción del dueño; la copia de prueba nunca se
+  conectó y no se conectará (pedido del dueño: «No quiero que la conectes el excel de copia de
+  pruebas»).
+- **NO VERIFICADO:** un visitante real creando o cambiando su nombre en producción (todavía 0
+  perfiles; el flujo está cubierto por las pruebas e2e de CI) y la escritura en la pestaña
+  «Usuarios» (falta la llave de la hoja).
