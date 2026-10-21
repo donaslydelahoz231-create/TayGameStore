@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import { totp } from '../src/server/lib/totp.js';
-import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
+import { enterAsGuest, HANDLE, preparePage, unexpectedErrors } from './support/page.js';
 import { ADMIN_PATH } from './support/admin-path.js';
 
 /**
@@ -179,7 +179,8 @@ test.describe('entrada y acceso', () => {
     await page.locator('#enterStoreBtn').click();
     await page.locator('[data-provider="facebook"]').click();
     await page.waitForURL(/\/$/);
-    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
+    // La cabecera muestra el nombre de usuario de la tienda, no el nombre real de la cuenta.
+    await expect(page.locator('#accountName')).toHaveText(HANDLE);
     await page.locator('#accountBtn').click();
     await expect(page.locator('#menuLinksList')).toContainText('Facebook ✓');
     await expect(page.locator('#menuLinksList')).not.toContainText('Discord');
@@ -409,10 +410,9 @@ test.describe('estado de la tienda y soporte', () => {
 
   test('"Mis favoritos" en el menú de cuenta abre los favoritos guardados', async ({ page }) => {
     await page.goto('/');
-    // El menú de cuenta es para clientes con sesión (al invitado el botón le abre el acceso).
     await page.locator('#enterStoreBtn').click();
     await page.locator('[data-provider="facebook"]').click();
-    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
+    await expect(page.locator('#accountName')).toHaveText(HANDLE);
     await product(page, '520 + 52 Diamantes').locator('.fav-btn').click();
     await page.locator('#accountBtn').click();
     await page.locator('#menuFavorites').click();
@@ -445,11 +445,52 @@ test.describe('búsqueda y navegación', () => {
     await expect(page.locator('#searchPanel')).toBeVisible();
   });
 
-  test('el botón de cuenta de un invitado abre el acceso', async ({ page }) => {
+  test('el botón de cuenta de un invitado abre su menú, con «Iniciar sesión» a un clic', async ({
+    page,
+  }) => {
     await page.goto('/');
     await enterAsGuest(page);
+    await expect(page.locator('#accountName')).toHaveText(HANDLE);
     await page.locator('#accountBtn').click();
+    await expect(page.locator('#accountMenu')).toBeVisible();
+    await expect(page.locator('#menuProfile')).toBeVisible();
+    await page.locator('#menuLogin').click();
     await expect(page.locator('#loginModal')).toBeVisible();
+  });
+
+  test('el invitado recibe un nombre de usuario al azar y lo puede cambiar', async ({ page }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    const name = page.locator('#accountName');
+    await expect(name).toHaveText(HANDLE);
+    const assigned = (await name.textContent()) ?? '';
+
+    await page.locator('#accountBtn').click();
+    await expect(page.locator('#menuName')).toHaveText(assigned);
+    await page.locator('#menuProfile').click();
+    await expect(page.locator('#profileModal')).toBeVisible();
+    await expect(page.locator('#profileHandle')).toHaveValue(assigned);
+
+    // Nombres de la tienda: los rechaza el servidor, con el motivo.
+    await page.locator('#profileHandle').fill('TayGameStore');
+    await page.locator('#profileSaveBtn').click();
+    await expect(page.locator('#profileStatus')).toContainText('reservado');
+    // Formato inválido: lo avisa el navegador sin llamar al servidor.
+    await page.locator('#profileHandle').fill('Lobo Feroz');
+    await page.locator('#profileSaveBtn').click();
+    await expect(page.locator('#profileStatus')).toContainText('3 a 20 caracteres');
+    await expect(name).toHaveText(assigned);
+
+    const chosen = `Jugador_${Date.now() % 100_000}`;
+    await page.locator('#profileHandle').fill(chosen);
+    await page.locator('#profileSaveBtn').click();
+    await expect(page.locator('#profileModal')).toBeHidden();
+    await expect(name).toHaveText(chosen);
+
+    // El mismo navegador conserva su nombre al volver.
+    await page.reload();
+    await enterAsGuest(page);
+    await expect(name).toHaveText(chosen);
   });
 });
 

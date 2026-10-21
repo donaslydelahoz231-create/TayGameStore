@@ -178,4 +178,8 @@ export const RATE_LIMITS = {
   playerLookup: { max: 20, timeWindow: '10 minutes' },
   /** Verificación pública de comprobantes: bajo para que nadie pruebe códigos a ciegas. */
   receiptVerify: { max: 10, timeWindow: '10 minutes' },
+  /** Nombre de usuario: se pide al abrir la tienda (y lo crea al azar la primera vez). */
+  profile: { max: 30, timeWindow: '10 minutes' },
+  /** Cambiar el nombre de usuario. */
+  profileWrite: { max: 10, timeWindow: '10 minutes' },
 } as const;

@@ -1599,3 +1599,36 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   0 pagados por entregar, 0 en revisión, 0 por reembolsar, 0 reseñas pendientes, 0 avisos
   fallidos. Un aviso Nequi «Ya transferí» sin verificar desde hace ≈ 16 h (TGS-TKRX3MBM03,
   11.000 COP): lo verifica el dueño en su app Nequi y lo confirma o rechaza en el panel.
+- **Publicación de `474a343` (2026-10-21):** Render `dep-dbcal0on74is73ftv3tg` en vivo
+  (12:06 UTC) tras cargar `GOOGLE_SHEETS_SPREADSHEET_ID`; arranque con «métodos de pago»
+  (Mercado Pago y Nequi por transferencia encendidos) y «Hoja de Google apagada» con el motivo
+  «falta la llave de la cuenta de servicio» (sin valores); sin error ni fatal. CI, CodeQL y prueba
+  de producción en verde. NO VERIFICADO: escritura real en la hoja original (falta la llave, que
+  crea el dueño).
+
+### 2026-10-21 · Nombre de usuario para cada cliente y pestaña «Usuarios» en la hoja
+
+- **Pedido del dueño:** «que haya un apartado … si hay usuarios que ingresan modo invitado les
+  otorgarán un usuario al azar … o también que estén vinculado con Google sea igual y se pueda
+  modificar el nombre del usuario de la cuenta en mi tienda y se registren en el excel».
+- **Cambio:** tabla `customer_profiles` (migración 0023, solo agrega), servicio
+  `src/server/services/profiles.ts`, rutas `POST /api/profile` (lo crea al azar) y
+  `PATCH /api/profile` (cambiarlo), menú «Cambiar nombre de usuario» y su ventana, y pestaña
+  «Usuarios» (`GOOGLE_SHEETS_USERS_TAB`) escrita por una cola propia con reintentos y reserva.
+  La cabecera muestra el nombre de usuario (ya no el nombre real de la cuenta); el invitado abre
+  el menú de cuenta.
+- **Datos y exposición:** a la hoja solo va el alias, el tipo de cliente y fechas; nunca correo,
+  nombre real, IP ni cookie. El alias no se publica en la tienda. Política de privacidad
+  actualizada. Reglas anti-suplantación (admin, TayGameStore, Tay, TGS, soporte, Nequi…, también
+  con números) y sin números de 7+ cifras (celular o documento).
+- **Anti-abuso:** CSRF global, límites por IP (30 y 10 peticiones / 10 min), tope de 20
+  perfiles de invitado nuevos por conexión al día, validación en servidor y en la base (CHECK).
+- **Hoja original:** se creó la pestaña «Usuarios» con encabezados y formato (sin filas), con
+  protección de aviso; también se protegió «Pagos pendientes» (no tenía) y se describieron las
+  dos en «Léeme». En la copia de prueba: la pestaña con 3 filas ficticias generadas con el código.
+- **Pruebas:** unitarias 325/325, integración 303/303 (15 nuevas, entre ellas concurrencia y
+  reintentos; mutaciones de la reserva, la pasada extra, los nombres reservados y el tope por IP
+  detectadas), e2e 74/74, visuales 3/3 (capturas 03 de escritorio y tableta regeneradas: solo
+  cambia el nombre en la cabecera); lint, formato, tipos y `drizzle-kit check` OK; escáner 0.
+- **Sin publicar:** commit local; el push (que despliega y aplica la migración en Render) espera
+  la autorización del dueño.

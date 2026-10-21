@@ -1,9 +1,9 @@
-import { api } from '../api.js';
+import { api, errorMessage } from '../api.js';
 import { countItems } from '../cart-model.js';
 import { $, setText } from '../dom.js';
 import { renderAll } from '../render.js';
 import { state } from '../state.js';
-import { closeMenus, toast } from '../ui.js';
+import { closeMenus, modal, toast } from '../ui.js';
 import { revealStore } from './entry.js';
 
 // Cuenta del cliente: Google (OIDC) o invitado. El acceso con correo y contraseña no está
@@ -25,8 +25,14 @@ const LOGIN_ERRORS = {
   sesion: 'Inicia sesión para vincular otra cuenta.',
 };
 
+/** Mismo formato que valida el servidor (3 a 20: letras sin tildes, números o _). */
+const HANDLE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{2,19}$/;
+
+/** Nombre visible: el nombre de usuario de la tienda; sin él, el de la cuenta o «Invitado». */
+const displayName = () => state.profile?.handle || state.session?.name || 'Invitado';
+
 export function renderHeader() {
-  const name = state.session?.name || 'Invitado';
+  const name = displayName();
   setText('accountName', name);
   setText('menuName', name);
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
@@ -66,10 +72,12 @@ function renderLinkedAccounts() {
 export function renderAccount() {
   renderLinkedAccounts();
   const guest = !state.session;
-  setText('accountName', state.session?.name || 'Invitado');
-  setText('menuName', state.session?.name || 'Invitado');
+  setText('accountName', displayName());
+  setText('menuName', displayName());
   setText('menuMode', state.session ? 'Cuenta TayGameStore' : 'Compra como invitado');
   $('menuLogin').hidden = !guest;
+  const rename = $('menuProfile');
+  if (rename) rename.hidden = !state.profile;
   const admin = $('menuAdmin');
   if (admin) admin.hidden = !state.session?.adminEntry;
   $('menuLogout').hidden = false;
@@ -127,9 +135,68 @@ export async function bootstrapSession() {
         }
       : null;
     renderAccount();
-    if (state.session) revealStore();
+    if (state.session) {
+      revealStore();
+      await loadProfile();
+    }
   } catch {
     // Sin servidor: se continúa como invitado y la interfaz muestra el estado del servicio.
+  }
+}
+
+/**
+ * Nombre de usuario de la tienda (cuenta o invitado). La primera vez el servidor lo crea al azar.
+ * Si falla, la tienda sigue igual con el nombre de la cuenta o «Invitado».
+ */
+export async function loadProfile() {
+  if (state.previewOnly) return;
+  try {
+    const j = await api('/api/profile', { method: 'POST' });
+    state.profile = j.profile && typeof j.profile.handle === 'string' ? j.profile : null;
+  } catch {
+    return;
+  }
+  renderHeader();
+  renderAccount();
+}
+
+/** Abre el editor del nombre de usuario con el nombre actual. */
+export function openProfileEditor() {
+  closeMenus();
+  const input = $('profileHandle');
+  if (input) input.value = state.profile?.handle || '';
+  setText('profileStatus', '');
+  modal('profileModal', true);
+}
+
+export async function saveProfile(e) {
+  e?.preventDefault();
+  const input = $('profileHandle');
+  const handle = (input?.value || '').trim();
+  if (!HANDLE_PATTERN.test(handle)) {
+    setText(
+      'profileStatus',
+      'Usa de 3 a 20 caracteres: letras sin tildes, números o _, y que empiece por una letra.',
+    );
+    input?.focus();
+    return;
+  }
+  const button = $('profileSaveBtn');
+  if (button) button.disabled = true;
+  try {
+    const j = await api('/api/profile', { method: 'PATCH', body: { handle } });
+    state.profile = j.profile;
+    modal('profileModal', false);
+    renderHeader();
+    renderAccount();
+    toast('Nombre de usuario actualizado.', 'good');
+  } catch (err) {
+    setText(
+      'profileStatus',
+      errorMessage(err, 'No se pudo cambiar el nombre. Inténtalo de nuevo.'),
+    );
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -143,6 +210,7 @@ export async function logout() {
     }
   }
   state.session = null;
+  state.profile = null;
   closeMenus();
   renderAll();
   toast('Sesión cerrada.', 'good');

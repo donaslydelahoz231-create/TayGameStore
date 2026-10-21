@@ -5,6 +5,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Agregado (nombre de usuario para cada cliente y pestaña «Usuarios» en la hoja)
+
+- Pedido del dueño (2026-10-21): cada cliente, invitado o con cuenta de Google o Facebook,
+  recibe un nombre de usuario al azar (p. ej. «HalconFugaz482») que ve en la cabecera y puede
+  cambiar en «Cuenta → Cambiar nombre de usuario». El invitado lo conserva en su navegador. La
+  cabecera ya no muestra el nombre real de la cuenta.
+- Reglas: 3 a 20 caracteres (letras sin tildes, números o `_`), único sin distinguir mayúsculas,
+  sin números largos (celular o documento) y sin nombres que suplanten a la tienda (admin,
+  TayGameStore, soporte, Nequi…, también con números); solo el dueño puede usarlos. Tope de 20
+  perfiles de invitado nuevos por conexión al día y límites por IP.
+- Pestaña «Usuarios» de la hoja de Google (`GOOGLE_SHEETS_USERS_TAB`): una fila por cliente con
+  código fijo, nombre de usuario, tipo (invitado o cuenta y su proveedor) y fechas. Nunca correo,
+  nombre real, IP ni cookie. Tabla `customer_profiles` (migración 0023) con su propia cola de
+  escritura, reintentos y una reserva para que un cambio de nombre a mitad de escritura no deje
+  la hoja con el nombre viejo.
+- El invitado ahora abre el menú de cuenta (con «Iniciar sesión» a un clic) en lugar del acceso.
+- Política de privacidad: explica el nombre de usuario y la pestaña «Usuarios».
+
 ### Cambiado (hoja de Google más fácil de conectar y sin riesgo para la tienda)
 
 - La llave de la cuenta de servicio se puede cargar como el archivo JSON completo en una sola

@@ -81,11 +81,39 @@ cuenta de servicio. Se activa cuando las tres variables están en Render (el arr
     13. Actualizado (Colombia)
   - lleva los 4 últimos dígitos y la referencia que dio el cliente (datos de pago de tus
     clientes): nunca su correo, nombre, celular completo ni el ID del jugador.
+- **«Usuarios»** (`GOOGLE_SHEETS_USERS_TAB`). Pedido del dueño (2026-10-21): cada cliente de la
+  tienda, invitado o con cuenta (Google o Facebook), recibe un **nombre de usuario al azar**
+  (p. ej. «HalconFugaz482») que puede cambiar en «Cuenta → Cambiar nombre de usuario».
+  - una fila por cliente, que aparece cuando entra por primera vez (al pulsar «Continuar como
+    invitado» o al iniciar sesión) y se **reescribe** (misma fila, buscada por el código de la
+    columna A) cada vez que cambia el nombre. El código no cambia nunca; el nombre sí;
+  - 7 columnas, en este orden:
+    1. Código (`U-` + 8 letras/números)
+    2. Usuario (el nombre de usuario actual)
+    3. Tipo: «Invitado», «Cuenta (Google)», «Cuenta (Facebook)» o «Cuenta (Google + Facebook)»
+    4. Creado (Colombia)
+    5. Último cambio de nombre (Colombia) (vacía si nunca lo cambió)
+    6. Cambios de nombre
+    7. Actualizado (Colombia)
+  - solo el alias: **nunca** el correo, el nombre real de la cuenta de Google o Facebook, la IP ni
+    la cookie del navegador;
+  - reglas del nombre (las aplica el servidor): de 3 a 20 caracteres, letras sin tildes, números o
+    `_`, empezando por una letra; único sin distinguir mayúsculas; sin números de 7 o más cifras
+    seguidas (podrían ser un celular o un documento); y sin palabras de la tienda o que suplanten a
+    alguien (admin, TayGameStore, Tay, TGS, soporte, oficial, dueño, Garena, Free Fire, Nequi,
+    Mercado Pago…, también escritas con números como «4dm1n»). Solo la cuenta del dueño (rol
+    administrador en `ADMIN_EMAILS`) puede usar esas palabras;
+  - contra abuso: como mucho 20 perfiles de invitado nuevos por conexión cada 24 h, y límites de
+    peticiones por IP para pedir y cambiar el nombre;
+  - si la hoja estaba desconectada, al conectarla se escriben también los clientes que ya
+    existían (la tienda guarda qué fila falta por escribir: `customer_profiles.sheet_version`).
 - **Nunca** escribe correo, nombre del cliente ni PIN. «Pedidos» tampoco lleva UID ni nickname.
-- Las tres pestañas deben llamarse distinto: si coinciden, el servidor no arranca (así los datos
+- Las cuatro pestañas deben llamarse distinto: si coinciden, el servidor no arranca (así los datos
   del jugador nunca caen en «Pedidos» y ninguna fila rompe las columnas de otra pestaña).
-- Cada pestaña va por su propio aviso de la cola (`sheets`, `sheets_delivery` y
-  `sheets_pending`, migración 0022): si una falla, las otras no se repiten.
+- Cada pestaña de pedidos va por su propio aviso de la cola (`sheets`, `sheets_delivery` y
+  `sheets_pending`, migración 0022): si una falla, las otras no se repiten. «Usuarios» va por su
+  propia cola en la tabla `customer_profiles` (migración 0023), con reintentos y una reserva que
+  impide que dos escrituras de la misma fila compitan.
 - **No es la base de datos ni la autoridad de nada.** Editar o borrar una celda no cambia ningún
   pedido. De la hoja la tienda solo lee la columna A de «Entregas», para encontrar la fila del
   pedido que reescribe; si la borras, la siguiente actualización la vuelve a crear al final.
@@ -190,8 +218,9 @@ ya está compartida con la cuenta de servicio `tienda-hoja` como Editor.
 
 Otras formas que también valen: `GOOGLE_SHEETS_CLIENT_EMAIL` + `GOOGLE_SHEETS_PRIVATE_KEY` (el
 campo `private_key` del JSON, con los saltos de línea escritos como `\n`), y opcionalmente
-`GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB` y `GOOGLE_SHEETS_PENDING_TAB` si las pestañas no
-se llaman «Pedidos», «Entregas» y «Pagos pendientes».
+`GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB`, `GOOGLE_SHEETS_PENDING_TAB` y
+`GOOGLE_SHEETS_USERS_TAB` si las pestañas no se llaman «Pedidos», «Entregas», «Pagos pendientes» y
+«Usuarios».
 
 Una variable de la hoja incompleta o mal escrita **nunca impide arrancar la tienda** (desde el
 2026-10-21; antes el servidor no arrancaba): la hoja queda apagada y el arranque explica qué falta.

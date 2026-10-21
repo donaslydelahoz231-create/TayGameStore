@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { enterAsGuest, preparePage, unexpectedErrors } from './support/page.js';
+import { enterAsGuest, HANDLE, preparePage, unexpectedErrors } from './support/page.js';
 import { ADMIN_PATH } from './support/admin-path.js';
 
 /**
@@ -240,7 +240,7 @@ test.describe('panel de administración', () => {
     await page.locator('#enterStoreBtn').click();
     await page.locator('[data-provider="facebook"]').click();
     await page.waitForURL(/\/$/);
-    await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
+    await expect(page.locator('#accountName')).toHaveText(HANDLE);
 
     // La cookie de sesión es HttpOnly: ni la consola ni un script inyectado pueden leerla.
     expect(await page.evaluate(() => document.cookie)).not.toContain('tgs_session');

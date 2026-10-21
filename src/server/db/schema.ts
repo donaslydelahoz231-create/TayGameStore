@@ -241,6 +241,76 @@ export const userIdentities = pgTable(
   ],
 );
 
+export const CUSTOMER_PROFILE_KINDS = ['guest', 'account'] as const;
+export type CustomerProfileKind = (typeof CUSTOMER_PROFILE_KINDS)[number];
+
+/**
+ * Nombre de usuario (alias) de cada cliente en la tienda, invitado o con cuenta. Nace al azar y
+ * el cliente lo puede cambiar. Es un alias público: nunca el nombre real ni el correo. Se registra
+ * en la pestaña «Usuarios» de la hoja de Google (`sheet_version` > `sheet_synced_version` = la
+ * fila de la hoja está por escribir o reescribir).
+ */
+export const customerProfiles = pgTable(
+  'customer_profiles',
+  {
+    id: id(),
+    /** Código estable de la fila en la hoja (el nombre cambia; el código no). */
+    code: text('code').notNull(),
+    kind: text('kind').$type<CustomerProfileKind>().notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    /** Hash de la cookie del navegador invitado (nunca la cookie). */
+    guestHash: text('guest_hash'),
+    handle: text('handle').notNull(),
+    /** `handle` en minúsculas: dos clientes no pueden tener el mismo nombre. */
+    handleKey: text('handle_key').notNull(),
+    renames: integer('renames').notNull().default(0),
+    renamedAt: timestamp('renamed_at', { withTimezone: true }),
+    /** Hash de la IP que creó el perfil invitado (tope de perfiles por IP; nunca la IP). */
+    createdIpHash: text('created_ip_hash'),
+    sheetVersion: integer('sheet_version').notNull().default(1),
+    sheetSyncedVersion: integer('sheet_synced_version').notNull().default(0),
+    sheetAttempts: integer('sheet_attempts').notNull().default(0),
+    sheetNextAttemptAt: timestamp('sheet_next_attempt_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Mientras una pasada escribe la fila, nadie más la toma (aunque el cliente la cambie). */
+    sheetLeaseUntil: timestamp('sheet_lease_until', { withTimezone: true }),
+    sheetLastError: text('sheet_last_error'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('customer_profiles_code_key').on(t.code),
+    uniqueIndex('customer_profiles_handle_key').on(t.handleKey),
+    uniqueIndex('customer_profiles_user_key')
+      .on(t.userId)
+      .where(sql`${t.userId} is not null`),
+    uniqueIndex('customer_profiles_guest_key')
+      .on(t.guestHash)
+      .where(sql`${t.guestHash} is not null`),
+    index('customer_profiles_guest_ip_idx')
+      .on(t.createdIpHash, t.createdAt)
+      .where(sql`${t.createdIpHash} is not null`),
+    index('customer_profiles_sheet_due_idx')
+      .on(t.sheetNextAttemptAt)
+      .where(sql`${t.sheetSyncedVersion} < ${t.sheetVersion}`),
+    check('customer_profiles_kind_check', inList('kind', CUSTOMER_PROFILE_KINDS)),
+    check(
+      'customer_profiles_owner_check',
+      sql`(${t.kind} = 'account' and ${t.userId} is not null and ${t.guestHash} is null) or (${t.kind} = 'guest' and ${t.guestHash} is not null and ${t.userId} is null)`,
+    ),
+    check(
+      'customer_profiles_handle_check',
+      sql`${t.handle} ~ '^[A-Za-z][A-Za-z0-9_]{2,19}$' and ${t.handleKey} = lower(${t.handle})`,
+    ),
+    check('customer_profiles_code_check', sql`${t.code} ~ '^U-[0-9A-Z]{8}$'`),
+    check(
+      'customer_profiles_counters_check',
+      sql`${t.renames} >= 0 and ${t.sheetAttempts} >= 0 and ${t.sheetSyncedVersion} >= 0 and ${t.sheetSyncedVersion} <= ${t.sheetVersion}`,
+    ),
+  ],
+);
+
 /**
  * Llaves de acceso (passkeys, WebAuthn) del ADMINISTRADOR: huella, rostro o PIN del dispositivo,
  * sin contraseña ni proveedor externo. Solo se guarda la clave PÚBLICA de cada credencial.

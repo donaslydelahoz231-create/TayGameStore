@@ -7,7 +7,14 @@ import { DEFAULT_SERVER, isServer } from './servers.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
 import { closeAllModals, closeMenus, modal, toast } from './ui.js';
-import { logout, openAccountMenu, openAdminPanel } from './features/account.js';
+import {
+  loadProfile,
+  logout,
+  openAccountMenu,
+  openAdminPanel,
+  openProfileEditor,
+  saveProfile,
+} from './features/account.js';
 import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
 import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
@@ -132,9 +139,12 @@ function bindEntryAndAccount() {
     modal('loginModal', true);
   };
   $('menuLogout').onclick = logout;
+  $('menuProfile').onclick = openProfileEditor;
+  $('profileForm').onsubmit = saveProfile;
   $('accountBtn').onclick = (e) => {
     e.stopPropagation();
-    if (state.session) openAccountMenu();
+    // El invitado con nombre de usuario también tiene menú (para cambiarlo o iniciar sesión).
+    if (state.session || state.profile) openAccountMenu();
     else modal('loginModal', true);
   };
   $('guestBtn').onclick = () => {
@@ -142,6 +152,7 @@ function bindEntryAndAccount() {
     modal('loginModal', false);
     revealStore();
     toast('Compra como invitado habilitada.');
+    loadProfile();
   };
   document.querySelectorAll('.oauth-btn').forEach((a) =>
     a.addEventListener('click', (e) => {

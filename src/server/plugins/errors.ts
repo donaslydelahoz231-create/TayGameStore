@@ -53,6 +53,8 @@ const GENERIC_MESSAGES: Record<ErrorCode, string> = {
   PLAYER_NOT_FOUND: 'No encontramos ese ID de jugador.',
   PLAYER_LOOKUP_EXPIRED: 'La verificación del jugador caducó. Vuelve a consultar el ID.',
   PLAYER_CONFIRMATION_REQUIRED: 'Confirma tu ID de jugador.',
+  HANDLE_TAKEN: 'Ese nombre de usuario ya está en uso.',
+  HANDLE_NOT_ALLOWED: 'Ese nombre de usuario no está permitido.',
   MFA_REQUIRED: 'Se requiere verificación en dos pasos.',
   MFA_INVALID: 'Código de verificación inválido.',
   INVALID_SIGNATURE: 'Firma inválida.',

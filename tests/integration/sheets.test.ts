@@ -37,6 +37,8 @@ class RecordingSheet implements OrderSheetLog {
   pending: (string | number)[][] = [];
   /** Estado (columna B) de cada escritura en «Pagos pendientes», en orden. */
   pendingStatuses: string[] = [];
+  /** Pestaña «Usuarios»: una fila por cliente (código en la columna A). */
+  users: (string | number)[][] = [];
   failing = false;
   /** Google responde 429: se pasó la cuota de escrituras por minuto. */
   rateLimited = false;
@@ -66,7 +68,12 @@ class RecordingSheet implements OrderSheetLog {
     if (tab === 'pending') this.pendingStatuses.push(String(values[1]));
   }
   private tab(tab: SheetTab) {
-    return { orders: this.rows, deliveries: this.deliveries, pending: this.pending }[tab];
+    return {
+      orders: this.rows,
+      deliveries: this.deliveries,
+      pending: this.pending,
+      users: this.users,
+    }[tab];
   }
 }
 

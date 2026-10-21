@@ -58,6 +58,7 @@ class LoadSheet implements OrderSheetLog {
     orders: [],
     deliveries: [],
     pending: [],
+    users: [],
   };
   writes = 0;
   rateLimited = 0;

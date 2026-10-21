@@ -181,10 +181,14 @@ test('los modales son diálogos accesibles y devuelven el foco al cerrar', async
 });
 
 test('el menú de escritorio se ve completo con una sesión iniciada', async ({ page }) => {
+  // El nombre de usuario más largo posible (20 caracteres) ocupa el máximo en la cabecera.
+  await page.route('**/api/profile', (route) =>
+    route.fulfill({ json: { profile: { handle: 'TiburonInvencible999', kind: 'account' } } }),
+  );
   await page.goto('/');
   await page.locator('#enterStoreBtn').click();
   await page.locator('[data-provider="facebook"]').click();
-  await expect(page.locator('#accountName')).toHaveText('Gamer Facebook');
+  await expect(page.locator('#accountName')).toHaveText('TiburonInvencible999');
   const clipped: string[] = [];
   // Por encima de 1100 px conviven píldora de estado, menú y nombre de la cuenta.
   for (const width of [1101, 1280, 1440, 1920]) {

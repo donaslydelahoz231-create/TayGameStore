@@ -116,6 +116,9 @@ export async function expectReducedMotion(page: Page): Promise<void> {
   expect(reduced, 'la emulación de movimiento reducido debe estar activa').toBe(true);
 }
 
+/** Nombre de usuario de la tienda (al azar o elegido por el cliente); nunca «Invitado». */
+export const HANDLE = /^(?!Invitado$)[A-Za-z][A-Za-z0-9_]{2,19}$/;
+
 /** Pasa de la pantalla de entrada a la tienda como invitado. */
 export async function enterAsGuest(page: Page): Promise<void> {
   await page.locator('#enterStoreBtn').click();

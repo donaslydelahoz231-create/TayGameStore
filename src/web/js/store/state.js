@@ -26,6 +26,8 @@ export const state = {
   customerName: '',
   customerEmail: '',
   session: null,
+  /** Nombre de usuario en la tienda (invitado o cuenta): { handle, kind }. Lo da el servidor. */
+  profile: null,
   /** Orden actual tal como la devuelve el servidor (PublicOrder). */
   currentOrder: null,
   purchaseHistory: [],

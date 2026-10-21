@@ -416,6 +416,11 @@ const envSchema = z
       .string()
       .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
       .default('Pagos pendientes'),
+    /** Pestaña de clientes: un nombre de usuario (alias) por fila. */
+    GOOGLE_SHEETS_USERS_TAB: z
+      .string()
+      .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
+      .default('Usuarios'),
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
@@ -445,6 +450,14 @@ const envSchema = z
         'GOOGLE_SHEETS_PENDING_TAB',
         'debe ser una pestaña distinta de GOOGLE_SHEETS_TAB y GOOGLE_SHEETS_DELIVERY_TAB',
       );
+    }
+    const usersTab = env.GOOGLE_SHEETS_USERS_TAB.toLowerCase();
+    if (
+      [env.GOOGLE_SHEETS_TAB, env.GOOGLE_SHEETS_DELIVERY_TAB, env.GOOGLE_SHEETS_PENDING_TAB].some(
+        (tab) => tab.toLowerCase() === usersTab,
+      )
+    ) {
+      issue('GOOGLE_SHEETS_USERS_TAB', 'debe ser una pestaña distinta de las otras de la hoja');
     }
     if (Boolean(env.EVENTS_WEBHOOK_URL) !== Boolean(env.EVENTS_WEBHOOK_SECRET)) {
       issue('EVENTS_WEBHOOK_SECRET', 'EVENTS_WEBHOOK_URL y EVENTS_WEBHOOK_SECRET van juntas');
@@ -627,7 +640,7 @@ export interface AppConfig {
         spreadsheetId: string;
         clientEmail: string;
         privateKey: string;
-        tabs: { orders: string; deliveries: string; pending: string };
+        tabs: { orders: string; deliveries: string; pending: string; users: string };
       }
     | undefined;
   /** Por qué la hoja quedó apagada pese a tener alguna variable (sin valores; ver sheets.ts). */
@@ -818,6 +831,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
             orders: env.GOOGLE_SHEETS_TAB,
             deliveries: env.GOOGLE_SHEETS_DELIVERY_TAB,
             pending: env.GOOGLE_SHEETS_PENDING_TAB,
+            users: env.GOOGLE_SHEETS_USERS_TAB,
           },
         }
       : undefined,

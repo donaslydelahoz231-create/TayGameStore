@@ -28,6 +28,10 @@ async function settle(page: Page): Promise<void> {
 
 test('captura las vistas principales del frontend original', async ({ page }) => {
   const consoleErrors = await preparePage(page, { deterministic: true });
+  // El servidor da el nombre de usuario al azar: se fija para que la captura sea estable.
+  await page.route('**/api/profile', (route) =>
+    route.fulfill({ json: { profile: { handle: 'HalconFugaz482', kind: 'guest' } } }),
+  );
 
   await page.goto('/');
   // Sin movimiento reducido las partículas y los reveals cinematográficos hacen las

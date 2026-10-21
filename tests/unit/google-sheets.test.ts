@@ -83,7 +83,12 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
       fetch: fetcher.impl,
     });
     await log.appendRow('orders', ['TGS-AAAAAAAAAA', '=IMPORTXML("https://evil.example")', 3800]);
@@ -114,7 +119,12 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
       fetch: fetcher.impl,
     });
     const error = await log.appendRow('orders', ['x']).catch((caught: unknown) => caught);
@@ -135,7 +145,12 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
       fetch: fetcher.impl,
     });
     await expect(log.appendRow('orders', ['x'])).rejects.toBeInstanceOf(SheetsError);
@@ -153,7 +168,12 @@ describe('Google Sheets: pestaña «Entregas»', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
       fetch: fetcher.impl,
     });
     await log.appendRow('deliveries', ['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']);
@@ -172,7 +192,7 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries, pending: 'Pagos pendientes' },
+      tabs: { orders: 'Pedidos', deliveries, pending: 'Pagos pendientes', users: 'Usuarios' },
       fetch: impl,
     });
   const values = (url: string) => decodeURIComponent(url.split('/values/')[1] ?? '');
@@ -334,7 +354,12 @@ describe('Google Sheets: configuración', () => {
     expect(config.sheets).toMatchObject({
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
-      tabs: { orders: 'Pedidos', deliveries: 'Entregas', pending: 'Pagos pendientes' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
     });
     expect(config.sheets?.privateKey).toBe(privateKey);
   });

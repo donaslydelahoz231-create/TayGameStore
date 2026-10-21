@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { actorOf, ensureGuest, requireDeps } from '../../http/context.js';
 import { assertCheckoutEnabled } from '../../plugins/maintenance.js';
@@ -32,6 +32,13 @@ import {
   reviewForOrder,
   reviewSchema,
 } from '../../services/reviews.js';
+import {
+  ensureProfile,
+  renameProfile,
+  renameProfileSchema,
+  type ProfileOwner,
+} from '../../services/profiles.js';
+import { isAllowlistedAdmin } from '../../services/auth.js';
 import type { PlayerVerifier } from '../../integrations/player/verifier.js';
 import { MP_PAY_MEANS } from '../../integrations/payments/gateway.js';
 
@@ -50,6 +57,21 @@ function accessOf(request: FastifyRequest): OrderAccess {
     userId: request.auth.user?.id,
     guestHash: request.auth.guestHash,
     token: typeof token === 'string' && token.length <= 100 ? token : undefined,
+  };
+}
+
+/** Dueño del nombre de usuario: la cuenta con sesión o, sin sesión, el navegador invitado. */
+function profileOwner(
+  deps: ServiceDeps,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): ProfileOwner {
+  const user = request.auth.user;
+  return {
+    userId: user?.id,
+    guestHash: user ? undefined : ensureGuest(deps.config, request, reply),
+    ipHash: request.auth.ipHash,
+    isStoreOwner: user?.role === 'admin' && isAllowlistedAdmin(deps, user.email),
   };
 }
 
@@ -94,6 +116,30 @@ export const shopRoutes: FastifyPluginAsync<ShopRoutesOptions> = async (app, opt
       const input = publicVerifySchema.parse(request.body);
       reply.header('cache-control', 'no-store');
       return verifyReceiptPublic(deps, input);
+    },
+  );
+
+  // Nombre de usuario del cliente (invitado o con cuenta): si no tiene, se crea uno al azar.
+  app.post(
+    '/api/profile',
+    { config: { rateLimit: RATE_LIMITS.profile } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const { profile } = await ensureProfile(deps, profileOwner(deps, request, reply));
+      reply.header('cache-control', 'no-store');
+      return { profile };
+    },
+  );
+
+  app.patch(
+    '/api/profile',
+    { config: { rateLimit: RATE_LIMITS.profileWrite } },
+    async (request, reply) => {
+      const deps = requireDeps(options.deps);
+      const input = renameProfileSchema.parse(request.body);
+      const profile = await renameProfile(deps, profileOwner(deps, request, reply), input);
+      reply.header('cache-control', 'no-store');
+      return { profile };
     },
   );
 
