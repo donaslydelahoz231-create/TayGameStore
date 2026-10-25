@@ -18,6 +18,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Dependencias: `fast-uri` 3.1.9 / 4.2.3 e `ip-address` 10.7.4 (avisos moderados en
   dependencias de `fastify` y `@fastify/rate-limit`); `smtp-server` 3.21.1 (solo pruebas).
 
+### Cambiado (identidad visual «Facetas»: menos genérica, sin tocar el acceso)
+
+- Las tarjetas de paquete, el botón principal, las etiquetas doradas y el panel «LIVE STORE»
+  llevan dos esquinas talladas, como el diamante de Tay o un panel de Free Fire, en vez de
+  tarjetas redondeadas iguales. En navegadores sin `corner-shape` (Safari y Firefox por ahora)
+  se mantienen las esquinas redondeadas.
+- Cada paquete muestra su «rareza» por tamaño, como en los juegos (cian, azul, violeta,
+  dorado), en el filo de la tarjeta y el brillo bajo los diamantes. Es solo decoración: la
+  cantidad sigue escrita.
+- El precio se lee primero: más grande y con la tipografía de la marca. Los rótulos de sección
+  llevan un diamante.
+- Con «reducir movimiento», la cabecera es opaca: sin desenfoque, antes dejaba leer el texto que
+  pasaba por debajo.
+
 ### Corregido (UI/UX en celular, medido a 360 px)
 
 - En las tarjetas de producto el «+» de la cantidad ya no queda cortado (7 px a 360 px y

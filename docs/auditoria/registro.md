@@ -1792,3 +1792,33 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   (03 de celular y tableta regeneradas tras revisarlas); escáner 0. Integración no se volvió a
   correr: este cambio no toca el servidor.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-25 · Identidad visual «Facetas» (pedido del dueño)
+
+- **Pedido:** «Puedes mejorar visualmente con css para que no se visualice tan genérico».
+- **Diagnóstico (capturas de escritorio 1280 px y celular táctil 360 px):** lo genérico era la
+  forma, no el color: casi todo era la misma tarjeta azul redondeada con borde de 1 px, los
+  paquetes solo se distinguían por cuántos diamantes dibujaban y el precio (lo que se compara)
+  tenía el mismo tamaño que el resto. Lo propio de la tienda ya existía: la mascota Tay es un
+  diamante.
+- **Cambios (`styles/layers/41-identidad-facetas.css`; en `catalog.js`, `data-tier` por
+  paquete):** dos esquinas talladas (arriba a la izquierda y abajo a la derecha) en las tarjetas
+  de paquete, el botón principal, las etiquetas doradas y el panel «LIVE STORE»; «rareza» por
+  tamaño del paquete en el filo y el piso de la tarjeta (cian, azul, violeta, dorado; solo
+  decoración); precio en Oxanium a 0,95 rem; un diamante en los rótulos de sección; la etiqueta
+  dorada como placa (en celular, con la estrella de 44 px al lado, ocupa a veces dos líneas y
+  la píldora se deformaba).
+- **Fallo corregido:** con «reducir movimiento», `26-hardening.css` quita el desenfoque de la
+  cabecera, pero su fondo al 87 % dejaba leer el texto que pasa por debajo (visible en las
+  capturas). Ahora es opaca en ese caso.
+- **Compatibilidad:** las esquinas talladas usan `corner-shape` dentro de `@supports`
+  (Chromium 141 de las pruebas lo soporta). Safari y Firefox conservan las esquinas
+  redondeadas; NO VERIFICADO en esos navegadores aquí (no están instalados en este entorno; la
+  CI los corre).
+- **Acceso intacto:** todo vive dentro de `#app`; las capturas 01 «entrada» y 02 «acceso»
+  pasan sin regenerarse en los 3 tamaños; `features/account.js`, `15-modals.css` y
+  `21-auth.css` sin cambios.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 75/75 (incluye axe sin
+  violaciones graves, sin desbordes de 360 a 1920 px y botones de cantidad completos); visuales
+  3/3 (03 regenerada en los 3 tamaños tras revisarla); escáner 0.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

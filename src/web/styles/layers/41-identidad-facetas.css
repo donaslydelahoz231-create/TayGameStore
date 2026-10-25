@@ -1,0 +1,112 @@
+/*
+ * Identidad «Facetas» (2026-10-25): la tienda deja de ser tarjetas azules redondeadas iguales.
+ * La mascota Tay es un diamante; de ahí salen dos ideas propias de esta tienda:
+ *  - Facetas: las tarjetas de paquete y los botones principales llevan dos esquinas talladas
+ *    (arriba a la izquierda y abajo a la derecha), como un diamante o un panel de Free Fire.
+ *  - Rareza: cada paquete toma el color de rareza de los juegos según su tamaño (cian, azul,
+ *    violeta, dorado). Es solo decoración: la cantidad de diamantes sigue escrita.
+ * Todo vive dentro de #app: la entrada y la ventana de acceso no cambian.
+ * Las facetas usan `corner-shape` (Chrome y Edge, la mayoría de celulares Android); los
+ * navegadores sin soporte conservan las esquinas redondeadas de siempre.
+ */
+#app {
+  --rarity-1: #37d6ff;
+  --rarity-2: #2f8bff;
+  --rarity-3: #b18cff;
+  --rarity-4: #ffb52e;
+}
+
+/* ── Facetas ─────────────────────────────────────────────────────────────── */
+@supports (corner-shape: bevel) {
+  #app .product {
+    border-radius: 16px 6px 16px 6px;
+    corner-shape: bevel round bevel round;
+  }
+  #app .product-visual {
+    border-radius: 10px 4px 10px 4px;
+    corner-shape: bevel round bevel round;
+  }
+  #app .btn.primary,
+  #app .add-btn {
+    border-radius: 12px 6px 12px 6px;
+    corner-shape: bevel round bevel round;
+  }
+  #app .product-tag {
+    border-radius: 7px 2px 7px 2px;
+    corner-shape: bevel round bevel round;
+  }
+  /* El panel «LIVE STORE» del inicio acompaña al botón principal (antes 22 px redondo). */
+  #app .hero-panel {
+    border-radius: 26px 10px 26px 10px;
+    corner-shape: bevel round bevel round;
+  }
+}
+/* La etiqueta dorada («+10% Extra», «Popular»…) es una placa, no una píldora: en celular, con
+   la estrella de 44 px al lado, a veces ocupa dos líneas y la píldora se deformaba. */
+#app .product-tag {
+  border-radius: 6px;
+  padding: 3px 7px;
+  line-height: 1.2;
+}
+
+/* ── Rareza por tamaño del paquete ───────────────────────────────────────── */
+#app .product[data-tier] {
+  --rarity: var(--rarity-1);
+}
+#app .product[data-tier='2'] {
+  --rarity: var(--rarity-2);
+}
+#app .product[data-tier='3'] {
+  --rarity: var(--rarity-3);
+}
+#app .product[data-tier='4'] {
+  --rarity: var(--rarity-4);
+}
+/* El piso del paquete brilla con su rareza; los diamantes siguen siendo cian. */
+#app .product[data-tier] .product-visual {
+  background:
+    radial-gradient(
+      ellipse 70% 60% at 50% 100%,
+      color-mix(in srgb, var(--rarity) 26%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(circle, rgba(55, 214, 255, 0.1), transparent 68%), #080e29;
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--rarity) 75%, transparent);
+}
+#app .product[data-tier] .visual-ring {
+  border-color: color-mix(in srgb, var(--rarity) 30%, transparent);
+}
+/* Filo superior de la tarjeta en el color de su rareza. */
+#app .product[data-tier] {
+  border-top-color: color-mix(in srgb, var(--rarity) 55%, var(--line));
+}
+
+/* ── Jerarquía: el precio es lo que se compara ───────────────────────────── */
+#app .product-price strong {
+  font-family: var(--display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+/* ── Rótulos de sección con un diamante en vez de texto suelto ───────────── */
+#app .section .eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  background: currentColor;
+  transform: rotate(45deg);
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ── Cabecera legible con «reducir movimiento» ───────────────────────────── */
+/* Sin desenfoque (26-hardening.css lo quita para ahorrar trabajo), el fondo al 87 % dejaba
+   leer el texto que pasa por debajo. Opaca, la cabecera queda limpia. */
+@media (prefers-reduced-motion: reduce) {
+  .header {
+    background: var(--bg);
+  }
+}
