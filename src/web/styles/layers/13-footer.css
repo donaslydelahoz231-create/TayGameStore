@@ -23,7 +23,7 @@
 .footer-brand small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .footer-links {
   display: flex;
@@ -34,12 +34,12 @@
 .footer-links a {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
 }
 .footer-copy {
   color: var(--muted2);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   text-align: right;
 }
 
@@ -48,7 +48,7 @@
   margin: 0 auto;
   padding-bottom: 18px;
   color: var(--muted2);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   line-height: 1.5;
   text-align: center;
 }

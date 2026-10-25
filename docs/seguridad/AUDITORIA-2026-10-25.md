@@ -17,8 +17,8 @@ de este informe (sin publicar al escribirlo).
   referencia de Nequi confirma un solo pedido.
 - **Corregido (local, con pruebas):** A-01 código de la app autenticadora reutilizable dentro de
   su ventana; A-02 IP de los clientes en claro en los registros de Render, contra lo que promete
-  la política de privacidad; A-03 textos técnicos y accesos apagados visibles para el cliente;
-  A-10 dos avisos moderados en dependencias de producción y uno en desarrollo.
+  la política de privacidad; A-10 dos avisos moderados en dependencias de producción y uno en
+  desarrollo. A-03 (textos del acceso) se deshizo a pedido del dueño: el acceso queda como estaba.
 - **Abierto y en manos del dueño:** A-04 respaldos de Neon sin programación (último manual del
   2026-10-13); A-05 ruta de salud vacía en Render; hoja de Google y correo sin credenciales.
 - **URGENTE para el dueño:** el pedido `TGS-TKRX3MBM03` (11.000 COP) tiene un aviso de
@@ -59,7 +59,7 @@ Se comprobó con un script que todas las rutas del panel pasan por `requireAdmin
 | --- | --- | --- | --- | --- | --- | --- |
 | A-01 | Media | Prueba de integración: el código usado para activar la app volvía a abrir el panel (200) dentro del mismo paso de 30 s | Quien vea o intercepte un código (pantalla, reenvío) entra hasta ~90 s después, si además tiene la contraseña | `src/server/services/auth.ts` | Corregido (local) | Último paso aceptado en `users.mfa_totp_last_step` (migración 0024, solo agrega); actualización atómica que rechaza ese paso y los anteriores (RFC 6238 §5.2) |
 | A-02 | Baja | Prueba unitaria: el registro de cada petición guardaba la IP en claro | Contradice la política de privacidad («la IP se guarda solo como huella»); dato personal en los registros de Render | `src/server/plugins/logging.ts` | Corregido (local) | Se registra la huella con clave (`ipHash`), la misma de la auditoría y del escudo |
-| A-03 | Baja | Capturas: «OAuth 2.0», «ACCOUNT / TGS», «No configurado» y etiquetas en inglés técnico; en producción Facebook está apagado y se habría mostrado «No configurado» | Desconfianza y confusión del cliente | `src/web/index.html`, `features/account.js` | Corregido (local) | Etiquetas en español claro; un acceso apagado no se muestra; el subtítulo nombra solo los accesos activos |
+| A-03 | Baja | Capturas: etiquetas en inglés técnico en la tienda; en el acceso, «OAuth 2.0», «ACCOUNT / TGS» y «No configurado» (en producción Facebook está apagado) | Confusión del cliente | `src/web/index.html` | Tienda: corregido (local). Acceso: sin cambios por decisión del dueño («los logins no me lo toques») | Etiquetas de la tienda en español claro; la ventana de acceso es idéntica a la de `aba648b` (captura 02 sin cambios) |
 | A-04 | Media | Neon: un snapshot manual (2026-10-13), sin programación; retención del historial de 6 h | Ante un borrado o una corrupción detectada tarde se perderían hasta 12 días de pedidos | Neon (proyecto de producción) | Abierto | Snapshot antes de publicar la migración 0024 y programación diaria (necesita autorización: es un cambio en un servicio externo) |
 | A-05 | Baja | Render: `healthCheckPath` vacío; `render.yaml` dice `/api/ready` | Un proceso colgado no se reinicia solo | Render | Abierto (dueño) | Poner `/api/health` (no consulta la base y no impide que Neon se suspenda) |
 | A-06 | Baja | `/api/ready` y cualquier ruta pública que lea la base pueden mantener despierto Neon | Gasto de horas de cómputo del plan gratuito; proyección actual ~65 de 100 CU-h al mes | `src/server/modules/health/routes.ts` | Aceptado, en vigilancia | La ronda diaria mide el consumo; actuar si pasa de 80 CU-h |
@@ -129,9 +129,10 @@ reales suficientes), H-05 acciones de GitHub sin fijar por SHA.
   «Ese código ya se usó» y `reused: true` en la auditoría.
 - `src/server/db/schema.ts` + migración `0024_totp_un_solo_uso.sql` (+ snapshot y diario).
 - `src/server/plugins/logging.ts`: `ipHash` en lugar de la IP.
-- Landing (`src/web/index.html`, `features/entry.js`, `features/account.js`, `app.js`,
-  `styles/layers/39-landing-clarity.css`): ver `docs/auditoria/registro.md`, entrada del
-  2026-10-25.
+- Landing e interfaz (`src/web/index.html`, `features/entry.js`, `app.js`, tokens de
+  tipografía en las capas CSS y `styles/layers/39-landing-clarity.css`): ver
+  `docs/auditoria/registro.md`, entradas del 2026-10-25. El acceso (`features/account.js` y la
+  ventana de acceso) no cambia.
 - `package.json` / `package-lock.json`: dependencias de A-10.
 
 ## J. Pruebas (ejecutadas, con cifras)
@@ -144,9 +145,10 @@ reales suficientes), H-05 acciones de GitHub sin fijar por SHA.
 - Resultados locales: lint y formato OK, tipos OK, unitarias 327/327, integración 304/304, e2e
   74/74, visuales 3/3 (capturas 01, 02 y 03 regeneradas tras revisarlas), `drizzle-kit check` OK,
   escáner de datos sensibles 0 coincidencias, `npm audit` 0.
-- e2e con el código final: 4 ejecuciones completas; 1 terminó con 1 fallo cuyo nombre no quedó
-  registrado y las otras 3 dieron 74/74. Causa de ese fallo: **NO VERIFICADO** (no se repitió).
-  Firefox y WebKit solo corren en CI: **NO VERIFICADO** en local.
+- Fallos intermitentes encontrados y corregidos: eran carreras en las dos pruebas e2e nuevas,
+  no en la tienda. Una leía los precios antes de que se pintaran las tarjetas (ahora espera con
+  `expect.poll`) y otra recalculaba el código de la activación con la hora actual (ahora
+  reutiliza el mismo). Firefox y WebKit solo corren en CI: **NO VERIFICADO** en local.
 
 ## K. Dependencias
 

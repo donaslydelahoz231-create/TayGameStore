@@ -5,7 +5,7 @@
 }
 .tracking-ref small {
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .tracking-ref strong {
   color: var(--cyan);
@@ -45,7 +45,7 @@
   background: #080e29;
   color: var(--muted);
   font-family: var(--display);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   font-weight: 900;
 }
 .track.active > span,
@@ -57,12 +57,12 @@
 }
 .track b {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .track small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   margin-top: 2px;
 }
 .tracking-bottom {
@@ -77,7 +77,7 @@
   align-items: center;
   gap: 7px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 
 /* PIN entregados automáticamente: solo visibles para el comprador de un pedido entregado. */

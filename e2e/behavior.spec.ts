@@ -64,9 +64,16 @@ test.describe('entrada y acceso', () => {
     const desde = await page.locator('#entryFrom').innerText();
     await enterAsGuest(page);
     await expect(page.locator('#products .product')).toHaveCount(6);
-    const precios = await page.locator('#products .product .product-price strong').allInnerTexts();
+    // Espera a que las tarjetas pinten sus precios (leerlos antes daba una lista vacía).
     const valor = (t: string) => Number(t.replace(/\D/g, ''));
-    expect(valor(desde)).toBe(Math.min(...precios.map(valor).filter((n) => n > 0)));
+    const precioMinimo = async () => {
+      const precios = await page
+        .locator('#products .product .product-price strong')
+        .allInnerTexts();
+      const valores = precios.map(valor).filter((n) => n > 0);
+      return valores.length ? Math.min(...valores) : null;
+    };
+    await expect.poll(precioMinimo).toBe(valor(desde));
     await expect(page.locator('#catalogStatus')).toHaveText('Catálogo disponible');
     // El servidor de pruebas no cobra dinero real: la tienda lo anuncia sin tecnicismos.
     await expect(page.locator('#serverState')).toContainText('Modo prueba · sin cobros reales');
@@ -92,15 +99,18 @@ test.describe('entrada y acceso', () => {
     await expect(page.locator('[data-provider="discord"]')).toHaveCount(0);
     // El servidor de pruebas configura Facebook (doble), no Google.
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
-    // Un acceso apagado no se le muestra al cliente (antes decía «No configurado»), sigue
-    // deshabilitado y el texto invita solo a lo que sí funciona.
-    await expect(page.locator('[data-provider="google"]')).toBeHidden();
+    await expect(page.locator('#googleState')).toHaveText('No configurado');
+    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega: ni
+    // siquiera sale la petición (la URL sola no basta: el servidor redirige de vuelta a "/").
+    const intentos: string[] = [];
+    page.on('request', (r) => {
+      if (new URL(r.url()).pathname.startsWith('/auth/')) intentos.push(r.url());
+    });
     await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.locator('#authSubtitle')).toHaveText(
-      'Entra con Facebook para conservar tu historial de pedidos.',
-    );
-    await expect(page.locator('#loginModal')).not.toContainText('No configurado');
-    await expect(page.locator('#loginModal')).not.toContainText('OAuth');
+    await page.locator('[data-provider="google"]').click({ force: true });
+    await expect(page.locator('#toastStack')).toContainText('no está disponible');
+    await expect(page).toHaveURL(/\/$/);
+    expect(intentos).toEqual([]);
   });
 
   test('pantalla baja (teléfono en horizontal): «Entrar» se ve, se pulsa y la tienda abre', async ({
@@ -1092,9 +1102,8 @@ test.describe('panel de administración', () => {
     await page.locator('#admMfaEnable').click();
     await expect(page.locator('#admMessage')).toContainText('Código incorrecto');
     // Escrito tal como lo muestra la app, con espacio.
-    await page
-      .locator('#admMfaEnableCode')
-      .fill(totp(secret, Date.now()).replace(/^(\d{3})/, '$1 '));
+    const enrollmentCode = totp(secret, Date.now());
+    await page.locator('#admMfaEnableCode').fill(enrollmentCode.replace(/^(\d{3})/, '$1 '));
     await page.locator('#admMfaEnable').click();
     // Códigos de recuperación (un solo uso) antes de entrar.
     await expect(page.locator('#admRecoveryCodes')).toContainText(/[A-Z2-7]{5}-[A-Z2-7]{5}/);
@@ -1114,7 +1123,8 @@ test.describe('panel de administración', () => {
     await expect(page.locator('#admMessage')).toContainText('inválido');
     // El código con el que se activó la app ya se gastó (un solo uso, RFC 6238 §5.2): aunque
     // siga en su ventana de 30 s, no vuelve a abrir el panel.
-    await page.locator('#admMfaCode').fill(totp(secret, Date.now()));
+    // El mismo código de la activación (no uno recalculado: a los 30 s ya sería otro).
+    await page.locator('#admMfaCode').fill(enrollmentCode);
     await page.locator('#admMfaVerifyBtn').click();
     await expect(page.locator('#admMessage')).toContainText('ya se usó');
     await expect(page.locator('#admApp')).toBeHidden();

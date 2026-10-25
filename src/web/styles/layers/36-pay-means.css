@@ -12,7 +12,7 @@
   margin: 0 0 6px;
   padding: 0;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
 }
 .pay-means-grid {
@@ -71,7 +71,7 @@
 .pay-mean small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .pay-mean:hover span {
   border-color: #3a4687;
@@ -99,7 +99,7 @@
 .id-help {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .id-help summary {
   width: fit-content;
@@ -126,7 +126,7 @@
   gap: 2px 8px;
   margin-top: 4px;
   color: var(--muted2);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .product-meta span:last-child {
   color: #b9c6f2;
@@ -190,7 +190,7 @@
 .tariff-table caption {
   margin-bottom: 6px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   text-align: left;
 }
 .tariff-table th,
@@ -205,7 +205,7 @@
 }
 .tariff-table thead th {
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   font-weight: 800;
 }
 .tariff-table tbody th {
@@ -229,7 +229,7 @@
 .tariff-empty {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 
 /*
@@ -270,7 +270,7 @@ body.entry-locked .support-float {
 .pay-provider {
   margin: 8px 0 5px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   font-weight: 700;
 }
 .pay-means-grid .pay-mean-wide {

@@ -23,6 +23,11 @@
   --display: 'Oxanium', system-ui, sans-serif;
   --body: 'Plus Jakarta Sans', system-ui, sans-serif;
   --shadow: 0 26px 80px rgba(0, 0, 0, 0.38);
+  /* Sistema de tipografía (2026-10-25): el tamaño más pequeño de la tienda en dos usos.
+     --fs-2xs: texto que se lee (descripciones, ayudas, etiquetas de formularios, precios).
+     --fs-label: rótulos cortos en mayúsculas, insignias y números de paso. */
+  --fs-2xs: 0.75rem;
+  --fs-label: 0.6875rem;
 }
 * {
   box-sizing: border-box;

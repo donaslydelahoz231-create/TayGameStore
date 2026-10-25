@@ -19,11 +19,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 - La bienvenida dice qué se compra y cómo: «Escribe tu ID de Free Fire, elige tus diamantes y
   paga en línea», el precio «desde» real del catálogo y los medios de pago activos (del servidor).
-- Etiquetas en español claro en vez de jerga técnica en inglés («NEXUS CATALOG», «ORDER DESK»,
-  «OAuth 2.0»…); pasos del inicio en lenguaje del cliente (ID → diamantes → pago → recarga).
-- Acceso: un proveedor apagado ya no se muestra («No configurado») y el texto nombra solo los
-  accesos activos.
-- Precios en una sola línea y con cifras del mismo ancho.
+- Etiquetas en español claro en vez de jerga técnica en inglés («NEXUS CATALOG», «ORDER DESK»…);
+  pasos del inicio en lenguaje del cliente (ID → diamantes → pago → recarga).
+- Precios en una sola línea y con cifras del mismo ancho; si no cabe, «Disponible» baja.
+- Sistema de tipografía: el texto que se lee (descripciones, ayudas, formularios, pie) pasa de
+  11 a 12 px con dos variables (`--fs-2xs` y `--fs-label`); los rótulos en mayúsculas e
+  insignias siguen en 11 px.
+- Los botones de compra (Agregar, −/+, favoritos, juegos, «Entrar») se hunden un poco al
+  presionarlos (sin movimiento si el sistema lo pide) y «¿Dónde encuentro mi ID?» se toca con el
+  dedo en toda su fila.
+- El acceso (Google y Facebook) queda exactamente como estaba, a pedido del dueño.
 
 ### Seguridad (dependencias al día)
 

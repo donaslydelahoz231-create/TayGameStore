@@ -132,7 +132,7 @@
 }
 .review-stars legend {
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   margin-bottom: 4px;
 }

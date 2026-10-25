@@ -1712,3 +1712,30 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   configuración pública de producción); Firefox y WebKit (solo en CI).
 - **Sin publicar:** commit local; el push despliega en Render y aplica la migración 0024, así que
   espera la autorización explícita del dueño.
+
+### 2026-10-25 · Acceso intacto e interfaz más legible (pedido del dueño)
+
+- **Pedido:** «Los logins no me lo toques … no quiero que lo eliminen y siga funcionando
+  correctamente el inicio de sesión de Google y además quiero que mejore interfaces visuales».
+- **Acceso restaurado:** se deshizo todo lo que el commit local `b5ac9e3` cambiaba en el acceso
+  (ocultar proveedores apagados, textos de la ventana). `features/account.js` y la ventana de
+  acceso son idénticos a `aba648b`; la prueba visual «02-acceso» pasa contra las capturas
+  originales en los 3 tamaños, sin regenerarlas.
+- **Google verificado:** pruebas de acceso 19/19 (Google OIDC con state, nonce y PKCE; Facebook).
+  En producción, `/auth/google` lleva a `accounts.google.com` con PKCE S256, `state`, `nonce` y la
+  dirección de retorno `/auth/google/callback` de la tienda (no se completó ningún inicio de
+  sesión).
+- **Interfaz (medida en un celular táctil de 360 px):** los botones ya medían 44 px en pantallas
+  táctiles; el problema real eran 259 textos de 11 px. Ahora hay un sistema de tipografía con dos
+  variables: `--fs-2xs` (texto que se lee, 12 px) y `--fs-label` (rótulos en mayúsculas e
+  insignias, 11 px). Se cambiaron 116 declaraciones fuera de las capas del acceso y de las
+  ventanas (`21-auth.css`, `15-modals.css`), que no se tocaron. Además: el precio no se parte y
+  «Disponible» baja si no cabe; los botones de compra se hunden al presionarlos (sin movimiento si
+  el sistema lo pide); «¿Dónde encuentro mi ID?» se puede tocar en toda su fila.
+- **Fallos intermitentes explicados:** el fallo «sin identificar» de la ronda anterior venía de
+  dos carreras en las pruebas e2e nuevas, no de la tienda (precios leídos antes de pintarse y un
+  código TOTP recalculado tras cambiar de bloque de 30 s). Ambas corregidas; la del precio
+  detecta la mutación «desde = el más caro».
+- **Pruebas:** lint, formato y tipos OK; unitarias 327/327; integración 304/304; e2e 74/74 en 3
+  ejecuciones completas seguidas con registro guardado; visuales 3/3 (01 y 03 regeneradas tras
+  revisarlas en celular y escritorio; 02 «acceso» sin cambios); escáner 0.

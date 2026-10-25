@@ -62,7 +62,7 @@
 
 /* "catálogo disponible" en la pantalla de entrada (tamaño relativo que quedaba en 9 px). */
 .entry-status small {
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 
 /* "Aumentar contraste": textos secundarios y bordes más marcados. */

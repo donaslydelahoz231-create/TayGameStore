@@ -2,7 +2,6 @@
  * Claridad de la landing (2026-10-25): reglas de diseño aplicadas a la tienda.
  * - Precios en una sola línea y con cifras del mismo ancho (se comparan mejor en columna).
  * - Oferta real en la entrada: «desde» del catálogo y medios de pago activos.
- * - Acceso: si solo hay un proveedor activo, ocupa todo el ancho.
  */
 .product-price strong,
 .smart-total b,
@@ -36,6 +35,37 @@
   display: none;
 }
 
-.oauth-grid:has(> .oauth-btn[hidden]) {
-  grid-template-columns: 1fr;
+/*
+ * Respuesta al tocar (reglas de Emil Kowalski): los botones de compra se hunden un poco al
+ * presionarlos, como ya hacían .btn y los íconos de la cabecera. Sin movimiento si el sistema
+ * pide reducirlo. El acceso (Google/Facebook) no cambia.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .add-btn:not(:disabled):active,
+  .qty button:not(:disabled):active,
+  .fav-btn:active,
+  .entry-cta:active,
+  .game-tab:active,
+  .cart-controls button:active,
+  .drawer-controls button:active {
+    transform: scale(0.97);
+  }
+}
+
+/* «¿Dónde encuentro mi ID?»: toda la fila se puede tocar con el dedo (44 px). */
+@media (pointer: coarse) {
+  .id-help summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+/* Precio y disponibilidad: si no caben en una línea (celular), la disponibilidad baja. */
+.product-price {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.catalog-status b {
+  white-space: nowrap;
 }

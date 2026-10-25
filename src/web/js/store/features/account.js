@@ -95,9 +95,6 @@ export function openAccountMenu() {
 
 export function updateOAuthUI() {
   const auth = state.serverConfig?.auth || {};
-  // Con la configuración del servidor ya leída, un acceso apagado no se muestra al cliente
-  // (antes decía «No configurado», un mensaje técnico que no le sirve a quien compra).
-  const known = !state.previewOnly && !!state.serverConfig;
   for (const prov of OAUTH_PROVIDERS) {
     const el = $(prov + 'State'),
       link = document.querySelector(`[data-provider="${prov}"]`);
@@ -107,25 +104,12 @@ export function updateOAuthUI() {
         ? 'Servidor requerido'
         : ok
           ? 'Disponible'
-          : 'No disponible';
+          : 'No configurado';
     if (link) {
       link.classList.toggle('disabled', !ok);
       link.setAttribute('aria-disabled', String(!ok));
-      link.hidden = known && !ok;
     }
   }
-  if (!known) return;
-  const names = OAUTH_PROVIDERS.filter((p) => auth[p]).map((p) => PROVIDER_NAMES[p]);
-  setText(
-    'authSubtitle',
-    names.length
-      ? `Entra con ${names.join(' o ')} para conservar tu historial de pedidos.`
-      : 'Compra como invitado: no necesitas una cuenta.',
-  );
-  for (const el of document.querySelectorAll(
-    '#loginModal .auth-social-title, #loginModal .auth-divider',
-  ))
-    el.hidden = !names.length;
 }
 
 export async function bootstrapSession() {

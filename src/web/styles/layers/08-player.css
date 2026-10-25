@@ -7,7 +7,7 @@
   border-radius: 999px;
   background: #080e29;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .service-state.bad i {
   background: var(--danger);
@@ -38,7 +38,7 @@
 .card-top small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .step {
   width: 28px;
@@ -48,7 +48,7 @@
   border-radius: 9px;
   background: var(--grad);
   font-family: var(--display);
-  font-size: 0.6875rem;
+  font-size: var(--fs-label);
   font-weight: 900;
 }
 .step.blue {
@@ -68,7 +68,7 @@
 label {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   margin: 0 0 6px;
 }
@@ -96,7 +96,7 @@ select:focus {
 .hint {
   margin: 7px 0 0;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .hint code {
   color: var(--violet2);
@@ -130,7 +130,7 @@ select:focus {
 .player-main small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .player-buttons {
   display: flex;
@@ -180,16 +180,16 @@ select:focus {
 }
 .check-line b {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .check-line small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .check-line strong {
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .check-line strong.ok {
   color: var(--green);
@@ -204,7 +204,7 @@ select:focus {
   border: 1px solid rgba(55, 214, 255, 0.11);
   background: rgba(55, 214, 255, 0.04);
   color: #abb6e2;
-  font-size: 0.6875rem;
+  font-size: var(--fs-2xs);
 }
 .security-box svg {
   width: 15px;
