@@ -90,7 +90,7 @@ export function checkEnvironment(source: NodeJS.ProcessEnv, webRoot: string): Ch
   const pending = pendingLegalFields(config, webRoot);
   need(
     pending.size === 0,
-    'Términos y privacidad completos',
+    'Términos, privacidad, cookies y reembolsos completos',
     `Textos legales pendientes (configura en el hosting): ${describePending(pending)}`,
   );
 

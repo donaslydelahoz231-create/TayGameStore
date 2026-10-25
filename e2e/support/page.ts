@@ -4,8 +4,9 @@ import { expect, test, type BrowserContext, type Page, type Request } from '@pla
 /**
  * Preparación común de las pruebas e2e: servidor real (e2e/support/server.ts), sin red
  * externa y con fuentes reales.
- * Google Fonts se sirve desde e2e/fixtures/google-fonts (regenerar con
- * e2e/fixtures/fetch-google-fonts.sh).
+ * La tienda sirve sus propias fuentes (/fonts, mismos archivos que e2e/fixtures/google-fonts).
+ * La intercepción de Google Fonts queda como red de seguridad: si algo volviera a pedirlas, se
+ * responden en local y la prueba «la tienda no carga nada de terceros» (quality.spec) falla.
  */
 const FONTS_DIR = 'e2e/fixtures/google-fonts';
 const GOOGLE_FONTS_URL = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//;

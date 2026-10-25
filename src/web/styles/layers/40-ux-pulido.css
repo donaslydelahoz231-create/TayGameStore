@@ -62,3 +62,62 @@
     display: none;
   }
 }
+
+/* Pantallas táctiles: tras un toque el «:hover» se queda pegado y la tarjeta quedaba levantada,
+   agrandada e inclinada. Sin cursor no hay elevación ni inclinación; el toque conserva su
+   respuesta (:active en 39-landing-clarity.css). El aspecto en reposo no cambia. */
+@media (hover: none) {
+  #app .product,
+  #app .product:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Las burbujas de soporte (fijas abajo a la derecha, hasta ~130 px de alto con WhatsApp y correo)
+   tapaban el final del aviso de marcas al llegar al fondo de la página. En pantallas anchas el
+   aviso no llega hasta ellas; en las demás, el pie deja libre el espacio de las burbujas. */
+.footer-legal.wrap {
+  max-width: 900px;
+}
+@media (max-width: 1099px) {
+  .footer-legal {
+    padding-bottom: 140px;
+  }
+}
+
+/* Contraste (WCAG 1.4.3, AA): el texto blanco sobre el degradado violeta → azul bajaba a 3,4:1 en
+   el extremo azul (#2f8bff), y el casi blanco #eef2ff a 4,3:1. Donde el degradado lleva texto, el
+   extremo azul es algo más profundo (#2a6cf0) y el texto blanco: 4,7:1 como mínimo en todo el
+   botón. Los íconos y barras sin texto conservan el degradado original. La ventana de acceso no
+   tiene ninguno de estos elementos. */
+:root {
+  --grad-text: linear-gradient(135deg, #8b3dff, #2a6cf0);
+}
+.btn.primary,
+.entry-cta,
+.tariff-toggle button.active,
+.product-actions .add,
+.step,
+.invoice-total,
+.track.active > span,
+.track.done > span,
+.route-list span,
+.promo-list span,
+.result-timeline span.on {
+  background: var(--grad-text);
+  color: #fff;
+}
+.invoice-total span,
+.invoice-total b {
+  color: #fff;
+}
+/* Contador del carrito: #eef2ff sobre violeta daba 4,46:1; en blanco, 5:1. */
+.cart-btn em {
+  color: #fff;
+}
+/* Estrella de favoritos sin marcar: 4,1:1 sobre la tarjeta; ahora 5:1. Al pasar el ratón y
+   marcada sigue dorada (reglas más específicas de 24-visual-evolution.css). */
+.fav-btn {
+  color: #7480b5;
+}

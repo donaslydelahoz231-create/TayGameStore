@@ -113,8 +113,9 @@ export async function registerSecurity(app: FastifyInstance, config: AppConfig):
         formAction: ["'self'"],
         scriptSrc: ["'self'"],
         // 'unsafe-inline' solo para estilos: el marcado heredado usa atributos style.
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // Fuentes propias (/fonts): ningún tercero recibe la IP del visitante al cargar la página.
+        fontSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'"],
         ...(config.secureCookies ? { upgradeInsecureRequests: [] } : {}),

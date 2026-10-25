@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { AppConfig } from './config/env.js';
 
 /**
- * Términos y privacidad. El borrador del repositorio lleva marcadores `[COMPLETAR:VARIABLE]`
+ * Términos, privacidad, cookies y reembolsos. El borrador del repositorio lleva marcadores `[COMPLETAR:VARIABLE]`
  * para los datos del vendedor; el servidor los reemplaza al servir la página con la
  * configuración del hosting (variables LEGAL_*, SUPPORT_* y TERMS_VERSION). Así la cédula, el
  * NIT o la dirección del dueño nunca quedan en el historial de Git ni pasan por un chat.
@@ -23,7 +23,12 @@ export function maskDocument(value: string): string {
   return digits.length >= 4 ? `documento terminado en ${digits.slice(-4)}` : 'documento reservado';
 }
 
-export const LEGAL_PAGES = ['terminos.html', 'privacidad.html'] as const;
+export const LEGAL_PAGES = [
+  'terminos.html',
+  'privacidad.html',
+  'cookies.html',
+  'reembolsos.html',
+] as const;
 export const LEGAL_PLACEHOLDER = '[COMPLETAR';
 
 const MARKER = /\[COMPLETAR(?::([A-Z_]+))?[^\]]*\]/g;

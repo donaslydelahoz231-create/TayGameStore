@@ -3,6 +3,7 @@
  * El ORDEN de las capas es la cascada original del HTML: cada capa posterior puede
  * sobrescribir a las anteriores. No reordenar sin revisar las pruebas visuales.
  */
+@import './fonts.css';
 @import './layers/01-tokens-base.css';
 @import './layers/02-boot-brand.css';
 @import './layers/03-header.css';

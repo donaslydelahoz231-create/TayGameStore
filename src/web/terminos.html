@@ -13,21 +13,18 @@
       <nav aria-label="Documentos legales">
         <a href="/terminos.html" aria-current="page">Términos</a>
         <a href="/privacidad.html">Privacidad</a>
+        <a href="/cookies.html">Cookies</a>
+        <a href="/reembolsos.html">Reembolsos</a>
       </nav>
     </header>
     <main class="legal">
       <h1>Términos y condiciones de compra</h1>
       <p class="legal-meta">
-        Versión: <strong>[COMPLETAR:TERMS_VERSION]</strong> · Aplicables a las compras hechas en
-        este sitio.
-      </p>
-      <p class="legal-review">
-        Borrador técnico basado en el funcionamiento real de la tienda. Debe revisarlo un abogado en
-        Colombia antes de vender. La tienda no permite activar las ventas en producción mientras
-        falten datos del vendedor (se configuran en el servidor con las variables LEGAL_*).
+        Versión y vigencia: <strong>[COMPLETAR:TERMS_VERSION]</strong> · Aplicables a las compras
+        hechas en este sitio.
       </p>
 
-      <h2>1. Quién vende</h2>
+      <h2 id="vendedor">1. Quién vende (datos del vendedor)</h2>
       <p>
         [COMPLETAR:LEGAL_NAME], identificado con [COMPLETAR:LEGAL_ID], con domicilio en
         [COMPLETAR:LEGAL_ADDRESS], Colombia. Contacto: [COMPLETAR:SUPPORT_CHANNELS].
@@ -47,7 +44,8 @@
       <h2>2. Qué se vende</h2>
       <p>
         Recargas de diamantes para cuentas de Free Fire, entregadas al ID (UID) del jugador que
-        indicas. Nunca pedimos ni aceptamos la contraseña de tu cuenta del juego.
+        indicas. Nunca pedimos ni aceptamos la contraseña de tu cuenta del juego. Los diamantes, una
+        vez en la cuenta, quedan sujetos a los términos del juego, que fija su titular.
       </p>
 
       <h2>3. Cómo funciona la compra</h2>
@@ -67,19 +65,28 @@
         </li>
         <li>
           Entregamos la recarga al UID confirmado en un plazo de [COMPLETAR:LEGAL_DELIVERY_TIME].
-          Puedes seguir el estado en la sección “Seguimiento” y guardar tu comprobante. Si tu pedido
-          se entrega con un PIN de diamantes, lo ves en tu pedido (“Ver mi PIN”) y lo recibes por
-          correo, y lo canjeas tú en el sitio oficial de Garena (pagostore.com) con tu UID; cada PIN
-          sirve una sola vez y, una vez entregado, es responsabilidad tuya guardarlo.
+          Puedes seguir el estado en la sección “Seguimiento” y guardar tu comprobante de pago. Si
+          tu pedido se entrega con un PIN de diamantes, lo ves en tu pedido (“Ver mi PIN”) y lo
+          recibes por correo, y lo canjeas tú en el sitio oficial de Garena (pagostore.com) con tu
+          UID; cada PIN sirve una sola vez y, una vez entregado, es responsabilidad tuya guardarlo.
         </li>
       </ol>
+      <p>
+        El comprobante de pago de la tienda resume tu compra; no es una factura electrónica de venta
+        de la DIAN.
+      </p>
 
-      <h2>4. Precios y límites</h2>
+      <h2>4. Precios, promociones y límites</h2>
       <ul>
         <li>Precios en pesos colombianos (COP). [COMPLETAR:LEGAL_TAX_NOTE].</li>
         <li>
           El precio que se cobra es el que calcula nuestro servidor al crear el pedido; si cambió
           mientras comprabas, te lo avisamos antes de pagar.
+        </li>
+        <li>
+          Las promociones indican en la tienda su precio, su vigencia (fecha y hora de fin, hora de
+          Colombia) y sus condiciones; el precio normal tachado es el que se cobra fuera de la
+          promoción.
         </li>
         <li>Máximo 5 unidades por paquete y 1.000.000 COP por pedido.</li>
         <li>
@@ -107,39 +114,54 @@
           entregada a un UID que confirmaste no se puede revertir.
         </li>
         <li>Usar medios de pago propios o autorizados.</li>
+        <li>
+          Ser mayor de edad o comprar con la autorización de tu padre, madre o representante legal.
+        </li>
       </ul>
 
-      <h2>7. Cancelaciones, retracto y reembolsos</h2>
+      <h2>7. Cancelaciones, retracto, reversión del pago y reembolsos</h2>
       <ul>
         <li>
-          Antes de la entrega: si el pago no se completó, no hay cobro. Si se completó y la recarga
-          no se ha entregado, puedes pedir la cancelación y el reembolso se hace por Mercado Pago al
-          mismo medio de pago o, si pagaste por Nequi, con una transferencia a la cuenta Nequi desde
-          la que pagaste.
+          Antes de la entrega puedes cancelar y te devolvemos todo el dinero. También puedes ejercer
+          el derecho de retracto dentro de los 5 días hábiles siguientes a la compra (artículo 47 de
+          la Ley 1480 de 2011).
         </li>
         <li>
-          Después de la entrega: la moneda virtual queda acreditada en la cuenta del juego y no
-          puede retirarse. [REVISAR CON ABOGADO: alcance del derecho de retracto (artículo 47 de la
-          Ley 1480 de 2011) y sus excepciones para contenidos digitales entregados].
+          Después de la entrega: la recarga es un servicio que se presta con tu acuerdo cuando
+          confirmas el UID y pagas, y los diamantes quedan acreditados en la cuenta del juego sin
+          poder retirarse. Por eso, una vez entregada, aplica la excepción al retracto del numeral 1
+          del artículo 47 de la Ley 1480.
+        </li>
+        <li>
+          Si pagaste con un medio electrónico, puedes pedir la reversión del pago por fraude,
+          operación no solicitada, recarga no recibida o que no corresponde a lo pedido (artículo 51
+          de la Ley 1480 y Decreto 587 de 2016).
         </li>
         <li>
           Si no podemos entregar la recarga, el pedido pasa a revisión y te reembolsamos. Plazo:
           [COMPLETAR:LEGAL_REFUND_TIME].
         </li>
       </ul>
+      <p>
+        Plazos, medios de devolución y cómo pedirlo: ver la
+        <a href="/reembolsos.html">Política de cancelaciones, retracto y reembolsos</a>.
+      </p>
 
       <h2>8. Soporte, peticiones, quejas y reclamos</h2>
       <p>
         Escríbenos por [COMPLETAR:SUPPORT_CHANNELS] indicando la referencia del pedido (TGS-…).
-        Respondemos en [COMPLETAR:LEGAL_RESPONSE_TIME]. También puedes acudir a la Superintendencia
-        de Industria y Comercio.
+        Respondemos en [COMPLETAR:LEGAL_RESPONSE_TIME]. También puedes acudir a la
+        <a href="https://www.sic.gov.co" rel="noopener">Superintendencia de Industria y Comercio</a
+        >.
       </p>
 
       <h2>9. Ley aplicable</h2>
       <p>
-        Estos términos se rigen por las leyes de la República de Colombia, incluido el Estatuto del
-        Consumidor (Ley 1480 de 2011). El tratamiento de tus datos se explica en la
-        <a href="/privacidad.html">Política de privacidad</a>.
+        Estos términos se rigen por las leyes de la República de Colombia, incluidos el Estatuto del
+        Consumidor (Ley 1480 de 2011), el Decreto 587 de 2016 y la Ley 527 de 1999 de comercio
+        electrónico. El tratamiento de tus datos se explica en la
+        <a href="/privacidad.html">Política de privacidad</a> y el uso de cookies en la
+        <a href="/cookies.html">Política de cookies</a>.
       </p>
     </main>
   </body>

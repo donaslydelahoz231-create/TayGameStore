@@ -2,7 +2,7 @@ import { currentProducts } from '../cart-model.js';
 import { $, esc } from '../dom.js';
 import { money } from '../format.js';
 import { state } from '../state.js';
-import { weekendPromo } from './promo.js';
+import { promoValidity, weekendPromo } from './promo.js';
 
 /**
  * Tabla de tarifas de TayGameStore: precio normal, precio promo y ahorro REAL de cada paquete,
@@ -41,7 +41,10 @@ export function renderPromoStrip() {
     : weekend.active
       ? 'Promo activa hoy'
       : 'Promo sáb. y dom.';
-  strip.innerHTML = `<b>${esc(when)}</b><span>Ahorra hasta ${esc(short(best))} por paquete</span><em>Ver tarifas</em>`;
+  const validity = weekend
+    ? `<span class="promo-validity">${esc(promoValidity(weekend))}</span>`
+    : '';
+  strip.innerHTML = `<b>${esc(when)}</b><span>Ahorra hasta ${esc(short(best))} por paquete</span>${validity}<em>Ver tarifas</em>`;
 }
 
 /** Tabla en «Radar promo». */

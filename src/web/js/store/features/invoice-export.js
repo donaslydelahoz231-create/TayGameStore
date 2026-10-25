@@ -216,7 +216,7 @@ export async function exportInvoice(type) {
   if (type === 'share') {
     const f = new File([jpg], base + '.jpg', { type: 'image/jpeg' });
     if (navigator.canShare?.({ files: [f] }))
-      return navigator.share({ title: 'Factura TayGameStore', files: [f] });
+      return navigator.share({ title: 'Comprobante TayGameStore', files: [f] });
     saveBlob(jpg, base + '.jpg');
     toast('Tu navegador no permite compartir; se generó el JPG.');
     return;

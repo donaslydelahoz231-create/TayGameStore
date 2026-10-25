@@ -162,6 +162,10 @@
   font-family: var(--display);
   letter-spacing: 0.02em;
 }
+/* Vigencia de la promo (fecha y hora de fin, hora de Colombia). */
+.promo-strip .promo-validity {
+  color: var(--muted);
+}
 .promo-strip em {
   margin-left: auto;
   color: var(--cyan);

@@ -133,7 +133,7 @@ export function renderProducts() {
       e.stopPropagation();
       setQty(p.id, q || 1);
       renderAll();
-      toast('Paquete añadido. Continúa con jugador → factura → pedido.', 'good');
+      toast('Paquete añadido. Continúa con jugador → pedido → pago.', 'good');
     };
     el.querySelector('[data-op="plus"]').onclick = (e) => {
       e.stopPropagation();

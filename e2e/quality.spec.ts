@@ -9,6 +9,8 @@ import { ADMIN_PATH } from './support/admin-path.js';
  */
 
 const WIDTHS = [360, 390, 430, 768, 1024, 1280, 1440, 1920];
+const LEGAL_PATHS = ['/terminos.html', '/privacidad.html', '/cookies.html', '/reembolsos.html'];
+const OWNER_DATA_PATHS = ['/terminos.html', '/privacidad.html'];
 
 let consoleErrors: string[] = [];
 test.beforeEach(async ({ page }, testInfo) => {
@@ -322,13 +324,20 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
   page,
   browser,
 }) => {
-  for (const path of ['/terminos.html', '/privacidad.html']) {
+  for (const path of LEGAL_PATHS) {
     const response = await page.goto(path);
     // Los datos del vendedor no deben aparecer en buscadores.
     expect(response?.headers()['x-robots-tag'], path).toBe('noindex, noarchive, nosnippet');
     await expect(page.locator('h1')).toBeVisible();
     // Los datos del vendedor llegan desde la configuración del servidor (LEGAL_*, SUPPORT_*).
-    await expect(page.locator('main')).toContainText('Tienda de Pruebas');
+    // El nombre del dueño solo sale donde ya estaba (términos y privacidad): cookies y
+    // reembolsos enlazan a «datos del vendedor» en vez de repetirlo (docs/datos-del-propietario.md).
+    if (OWNER_DATA_PATHS.includes(path)) {
+      await expect(page.locator('main')).toContainText('Tienda de Pruebas');
+    } else {
+      await expect(page.locator('main')).not.toContainText('Tienda de Pruebas');
+      await expect(page.locator('main a[href="/terminos.html#vendedor"]')).toHaveCount(1);
+    }
     await expect(page.locator('main')).toContainText('soporte@example.com');
     await expect(page.locator('main')).not.toContainText('[COMPLETAR:LEGAL_NAME]');
     expect(await axe(page), path).toEqual([]);
@@ -348,6 +357,35 @@ test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptaci�
   await expect(links).toHaveCount(2);
   await expect(links.nth(0)).toHaveAttribute('href', '/terminos.html');
   await expect(links.nth(1)).toHaveAttribute('href', '/privacidad.html');
+  // Los cuatro documentos y los datos del vendedor, a un clic desde el pie de la tienda.
+  const docs = page.locator('nav.footer-docs a');
+  await expect(docs).toHaveText([
+    'Términos y condiciones',
+    'Política de privacidad',
+    'Política de cookies',
+    'Reembolsos y retracto',
+    'Datos del vendedor',
+  ]);
+  for (const path of LEGAL_PATHS) {
+    await expect(page.locator(`nav.footer-docs a[href="${path}"]`)).toHaveCount(1);
+  }
+});
+
+test('la tienda no carga nada de terceros: ni analítica, ni fuentes de Google, ni anuncios', async ({
+  page,
+}) => {
+  // La política de cookies y la de privacidad lo afirman; esta prueba lo comprueba.
+  const thirdParty = new Set<string>();
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (!['http:', 'https:'].includes(url.protocol)) return;
+    if (url.origin !== 'http://127.0.0.1:4173') thirdParty.add(url.origin);
+  });
+  await page.goto('/');
+  await enterAsGuest(page);
+  await page.waitForLoadState('networkidle');
+  for (const path of LEGAL_PATHS) await page.goto(path);
+  expect([...thirdParty]).toEqual([]);
 });
 
 test('legibilidad: ningún texto visible bajo 11 px y foco visible con teclado', async ({
@@ -425,7 +463,7 @@ test('panel y páginas legales: texto legible y controles táctiles de 44 px', a
     });
   try {
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-    for (const path of ['/terminos.html', '/privacidad.html', ADMIN_PATH]) {
+    for (const path of [...LEGAL_PATHS, ADMIN_PATH]) {
       await page.goto(path);
       expect(await audit(), path).toEqual({ tiny: 0, small: [] });
     }

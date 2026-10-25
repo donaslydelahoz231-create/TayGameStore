@@ -159,7 +159,7 @@ async function createOrder() {
 }
 
 /**
- * "Revisar factura" (carrito lateral y panel del catálogo): lleva al siguiente paso que falta
+ * "Revisar pedido" (carrito lateral y panel del catálogo): lleva al siguiente paso que falta
  * y le da el foco, en lugar de solo desplazar la página.
  */
 export function goToNextStep() {

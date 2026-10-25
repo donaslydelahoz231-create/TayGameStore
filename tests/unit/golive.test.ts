@@ -35,6 +35,8 @@ function webRoot(legal = 'Términos completos.') {
   const dir = mkdtempSync(path.join(tmpdir(), 'tgs-golive-'));
   writeFileSync(path.join(dir, 'terminos.html'), legal);
   writeFileSync(path.join(dir, 'privacidad.html'), 'Privacidad completa.');
+  writeFileSync(path.join(dir, 'cookies.html'), 'Cookies completa.');
+  writeFileSync(path.join(dir, 'reembolsos.html'), 'Reembolsos completa.');
   return dir;
 }
 

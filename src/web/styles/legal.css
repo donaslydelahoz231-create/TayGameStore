@@ -53,7 +53,8 @@ a {
 
 .legal-header nav {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
 }
 
 .legal-header nav a[aria-current='page'] {
@@ -105,8 +106,41 @@ code {
   color: #b9f5dc;
 }
 
+/* Tablas (cookies): con desplazamiento propio si no caben, nunca la página entera. */
+.legal-table {
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.legal-table table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-wrap: normal;
+}
+
+.legal-table caption {
+  padding: 10px 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.legal-table th,
+.legal-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-table th {
+  background: var(--panel);
+}
+
 /* Foco visible con teclado y enlaces de 44 px en pantallas táctiles (guías de Apple). */
-a:focus-visible {
+a:focus-visible,
+.legal-table:focus-visible {
   outline: 2px solid #37d6ff;
   outline-offset: 3px;
   border-radius: 4px;

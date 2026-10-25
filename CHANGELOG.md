@@ -5,6 +5,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Legal y accesibilidad (2026-10-25, `docs/legal/INFORME-CUMPLIMIENTO-2026-10-25.md`)
+
+- Páginas nuevas `cookies.html` (solo cookies técnicas, con nombre, uso y duración) y
+  `reembolsos.html` (cancelación, retracto de 5 días hábiles, excepción tras la entrega,
+  reversión del pago y cómo pedirlo). Términos y privacidad reescritos según la Ley 1480, el
+  Decreto 587 de 2016, la Ley 1581 y el Decreto 1377 (plazos de consultas y reclamos, menores,
+  datos fuera de Colombia, encargados). Las 4 con `noindex` y enlazadas desde el pie, con
+  «Datos del vendedor». Las páginas nuevas no repiten datos del dueño: enlazan a esa sección.
+- La franja de promoción dice hasta cuándo rige, en hora de Colombia (Ley 1480, art. 33).
+- Afirmaciones sin respaldo fuera: la cifra fija «24 ms»; «Factura» pasa a «Comprobante» o
+  «Pedido» (el comprobante no es factura electrónica de la DIAN, y los términos lo dicen).
+- Fuentes servidas por la propia tienda (OFL 1.1, con su licencia): ningún tercero recibe la IP
+  del visitante al cargar la página. CSP `font-src 'self'`. Prueba e2e nueva: 0 peticiones a
+  otros dominios.
+- Accesibilidad (WCAG 2.2 AA, axe con todas las gravedades: 0 avisos): el texto blanco sobre el
+  degradado de los botones pasa de 3,4:1 a 4,7:1 como mínimo (contador del carrito y estrella de
+  favoritos también); los 9 botones «×» dicen qué cierran; enlaces del pie de 24 px; la tabla de
+  cookies se alcanza con teclado; las burbujas de soporte ya no tapan el final del pie.
+- La ventana de acceso no cambia (captura 02 idéntica en los 3 tamaños).
+
 ### Seguridad (auditoría A–P del 2026-10-25, `docs/seguridad/AUDITORIA-2026-10-25.md`)
 
 - El código de la app autenticadora del panel sirve una sola vez (RFC 6238 §5.2): ni el de la

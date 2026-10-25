@@ -36,12 +36,25 @@ export function weekendPromo() {
   };
 }
 
+// El fin de la ventana es el lunes 00:00: se muestra el último minuto del domingo.
+const lastMinuteOf = (promo) => new Date(promo.endsAt.getTime() - 60_000);
+
+/**
+ * Vigencia de la promo en una línea, para los avisos breves de la tienda (toda promoción debe
+ * indicar su plazo: Ley 1480 de 2011, art. 33).
+ */
+export function promoValidity(promo) {
+  const lastMinute = lastMinuteOf(promo);
+  return promo.active
+    ? `Válida hasta el ${fmt(lastMinute, COLOMBIA)} (hora de Colombia)`
+    : `Del ${fmt(promo.startsAt, COLOMBIA)} al ${fmt(lastMinute, COLOMBIA)} (hora de Colombia)`;
+}
+
 /** Rellena la ventana "Radar promo" con el horario vigente. */
 export function renderPromo() {
   const promo = weekendPromo();
   if (!promo) return;
-  // El fin de la ventana es el lunes 00:00: se muestra el último minuto del domingo.
-  const lastMinute = new Date(promo.endsAt.getTime() - 60_000);
+  const lastMinute = lastMinuteOf(promo);
   setText(
     'promoLead',
     'Cada sábado y domingo (hora de Colombia) los paquetes marcados bajan de precio. El precio final lo confirma el servidor al crear tu pedido.',

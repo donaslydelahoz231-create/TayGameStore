@@ -48,7 +48,8 @@
     width: 22px;
     height: 22px;
   }
-  .footer-links a {
+  .footer-links a,
+  .footer-docs a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;

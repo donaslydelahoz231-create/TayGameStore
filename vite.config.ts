@@ -84,6 +84,8 @@ export default defineConfig({
         admin: resolve(root, 'admin.html'),
         terminos: resolve(root, 'terminos.html'),
         privacidad: resolve(root, 'privacidad.html'),
+        cookies: resolve(root, 'cookies.html'),
+        reembolsos: resolve(root, 'reembolsos.html'),
       },
     },
   },

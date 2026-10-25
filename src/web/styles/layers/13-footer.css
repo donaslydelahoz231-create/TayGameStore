@@ -52,3 +52,21 @@
   line-height: 1.5;
   text-align: center;
 }
+
+/* Documentos legales y datos del vendedor, siempre a un clic desde cualquier parte de la tienda. */
+.footer-docs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  padding-bottom: 10px;
+}
+.footer-docs a {
+  display: inline-flex;
+  align-items: center;
+  /* 24 px como mínimo también con ratón (WCAG 2.2, 2.5.8); 44 px en pantallas táctiles. */
+  min-height: 24px;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}

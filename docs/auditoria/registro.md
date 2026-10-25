@@ -1792,3 +1792,25 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   (03 de celular y tableta regeneradas tras revisarlas); escáner 0. Integración no se volvió a
   correr: este cambio no toca el servidor.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-25 · Cumplimiento legal y accesibilidad (pedido del dueño)
+
+- **Pedido:** volver al diseño publicado; páginas de privacidad, términos, cookies y reembolsos;
+  consentimiento; solo datos necesarios; analítica y terceros; accesibilidad (texto alternativo,
+  contraste, teclado, etiquetas); sin reseñas falsas ni afirmaciones sin respaldo; datos del
+  negocio; derechos de autor; leyes de Colombia y otros riesgos.
+- **Diseño:** se deshicieron con commits de reversión (sin reescribir el historial) los dos
+  commits locales de Facetas y movimiento; se conservan las correcciones táctiles.
+- **Hecho y evidencia:** ver `docs/legal/INFORME-CUMPLIMIENTO-2026-10-25.md` (normas, cambios,
+  axe 0 avisos, contraste medido píxel a píxel, teclado, 0 peticiones a terceros, 0 reseñas en
+  producción, imágenes propias y fuentes OFL).
+- **Datos del dueño:** términos y privacidad muestran los mismos campos que antes; cookies y
+  reembolsos no muestran nombre, documento, dirección ni WhatsApp (prueba e2e). Producción
+  (solo lectura): términos y privacidad sin marcadores pendientes.
+- **Pruebas:** formato, lint y tipos OK; unitarias y API 385/385; integración 304/304; e2e 76/76;
+  visuales 3/3 (01 y 03 regeneradas tras revisarlas; 02 «acceso» idéntica); escáner, ver commit.
+- **Para el dueño:** R1 NIT y dirección (Ley 1480 art. 50) frente a no publicar el documento;
+  R2 `LEGAL_DELIVERY_TIME` dice «inmediata» y la entrega es manual; R3 etiquetas «Top ventas» y
+  «Popular»; R5 ventana de acceso (etiqueta del «×» y aviso de privacidad) espera su permiso.
+- **Sin publicar:** commits locales. El push despliega en Render; espera la autorización del dueño.
+

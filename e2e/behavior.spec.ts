@@ -269,6 +269,13 @@ test.describe('catálogo y carrito', () => {
       await expect(page.locator('#promoStrip')).toContainText(
         active ? 'Promo activa hoy' : 'Promo sáb. y dom.',
       );
+      // Toda promoción dice hasta cuándo rige (Ley 1480, art. 33), en hora de Colombia.
+      await expect(page.locator('#promoStrip .promo-validity')).toContainText(
+        active ? 'Válida hasta el dom' : 'Del sáb',
+      );
+      await expect(page.locator('#promoStrip .promo-validity')).toContainText(
+        '11:59 p. m. (hora de Colombia)',
+      );
       await page.locator('#promoStrip').click();
       await expect(page.locator('#promoModal')).toBeVisible();
       const rows = page.locator('#tariffBoard tbody tr');
@@ -366,7 +373,7 @@ test.describe('carrito y favoritos (mejoras)', () => {
     await expect(page.locator('#favoritesList')).toContainText('520 + 52 Diamantes');
   });
 
-  test('"Revisar factura" lleva al siguiente paso que falta', async ({ page }) => {
+  test('"Revisar pedido" lleva al siguiente paso que falta', async ({ page }) => {
     await page.goto('/');
     await enterAsGuest(page);
     await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
