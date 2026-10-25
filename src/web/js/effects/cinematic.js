@@ -162,8 +162,6 @@ export function initCinematicEffects() {
     document.addEventListener(
       'pointermove',
       (e) => {
-        // Con el dedo no hay inclinación: seguía al dedo mientras la página se desplazaba.
-        if (e.pointerType === 'touch') return;
         const card = e.target.closest?.('.product');
         if (!card) return;
         tiltCard = card;
