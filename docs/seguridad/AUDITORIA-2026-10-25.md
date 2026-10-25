@@ -67,6 +67,7 @@ Se comprobó con un script que todas las rutas del panel pasan por `requireAdmin
 | A-08 | Baja | Revisión: 20 perfiles de invitado nuevos por IP al día | Con muchas IP se puede inflar la pestaña «Usuarios» y gastar cuota de Sheets (los pedidos se sincronizan primero) | `services/profiles.ts` | Residual | Vigilar el conteo de perfiles en la ronda |
 | A-09 | Informativo | Captura móvil completa: 9.338 px de alto (~26 pantallas) | Recorrido largo en celular | `src/web/index.html` | Recomendación | Ver sección P |
 | A-10 | Media (producción) / Baja (desarrollo) | `npm audit`: `fast-uri` (GHSA-w74x-v6f9-j3xg y otros) y `ip-address` (GHSA-rxp7-6hxx-x8q5) en producción; `smtp-server` de pruebas con nodemailer viejo | Validación de URI y una expresión regular lenta en dependencias transitivas | `package-lock.json`, `package.json` | Corregido (local) | `fast-uri` 3.1.9 / 4.2.3, `ip-address` 10.7.4, `smtp-server` 3.21.1; `npm audit` 0 |
+| A-11 | Baja | La tienda no tiene PHP (0 archivos `.php`, servicio `runtime: node`); producción responde 404 JSON a `/index.php`, sin ejecutar nada ni filtrar el servidor. Pero el escudo no reconocía 16 formas de sondeo PHP (`.phtml`, `.phar`, `.phps`, `.pht`, `.inc`, `.user.ini`, `/phpinfo`, `%00`, `php://`, `composer.lock`, `vendor/composer`, `web.config`, `_ignition`, `_profiler`, `telescope`, `storage/logs`) | Un escáner que solo pidiera esas rutas no sumaba señales ni quedaba bloqueado | `src/server/services/shield.ts` | Corregido (local) | Patrones agregados; 2 sondeos bloquean la IP (probado en local: `.phtml` + `laravel.log` → 403); las rutas legítimas siguen igual |
 
 Abiertos de auditorías anteriores (sin cambios, ver `HALLAZGOS.md` y `BACKLOG.md`): H-01 la
 aplicación se conecta como dueña de las tablas (mitigación lista, falta el rol), H-03 testigo
@@ -134,6 +135,7 @@ reales suficientes), H-05 acciones de GitHub sin fijar por SHA.
   `docs/auditoria/registro.md`, entradas del 2026-10-25. El acceso (`features/account.js` y la
   ventana de acceso) no cambia.
 - `package.json` / `package-lock.json`: dependencias de A-10.
+- `src/server/services/shield.ts`: más formas de sondeo PHP (A-11).
 
 ## J. Pruebas (ejecutadas, con cifras)
 

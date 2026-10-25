@@ -36,6 +36,23 @@ describe('detección de sondeos de escáneres', () => {
     '/static/../../etc/passwd',
     '/%2e%2e/%2e%2e/etc/passwd',
     '/index.php?id=1',
+    // Otras formas de PHP: extensiones alternativas, configuración y frameworks.
+    '/upload.phtml',
+    '/shell.phar',
+    '/index.phps',
+    '/x.pht',
+    '/config.inc',
+    '/.user.ini',
+    '/phpinfo',
+    '/index.php%00.jpg',
+    '/php://input',
+    '/vendor/composer/installed.json',
+    '/composer.lock',
+    '/web.config',
+    '/_ignition/execute-solution',
+    '/_profiler/phpinfo',
+    '/telescope/requests',
+    '/storage/logs/laravel.log',
   ])('%s es un sondeo', (path) => {
     expect(isProbePath(path)).toBe(true);
   });
@@ -50,6 +67,9 @@ describe('detección de sondeos de escáneres', () => {
     '/api/catalog?game=freefire',
     '/admin.html',
     '/favicon.ico',
+    '/assets/vendor-Bsv8IbD0.js',
+    '/robots.txt',
+    '/sitemap.xml',
   ])('%s es una ruta legítima', (path) => {
     expect(isProbePath(path)).toBe(false);
   });

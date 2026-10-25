@@ -12,6 +12,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
   `users.mfa_totp_last_step` (migración 0024, solo agrega).
 - Los registros de cada petición ya no guardan la IP del cliente en claro, solo su huella con
   clave (como promete la política de privacidad).
+- Escudo anti-abuso: reconoce más sondeos de PHP (`.phtml`, `.phar`, `.phps`, `.inc`,
+  `.user.ini`, `/phpinfo`, `%00`, `php://`, `composer.lock`, depuración de Laravel y Symfony).
+  La tienda no usa PHP; quien busca esas rutas es un escáner, y con 2 intentos queda bloqueado.
 - Dependencias: `fast-uri` 3.1.9 / 4.2.3 e `ip-address` 10.7.4 (avisos moderados en
   dependencias de `fastify` y `@fastify/rate-limit`); `smtp-server` 3.21.1 (solo pruebas).
 

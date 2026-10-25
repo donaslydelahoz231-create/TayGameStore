@@ -1739,3 +1739,25 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Pruebas:** lint, formato y tipos OK; unitarias 327/327; integración 304/304; e2e 74/74 en 3
   ejecuciones completas seguidas con registro guardado; visuales 3/3 (01 y 03 regeneradas tras
   revisarlas en celular y escritorio; 02 «acceso» sin cambios); escáner 0.
+
+### 2026-10-25 · Seguridad de PHP (pedido del dueño)
+
+- **Pedido:** «ten seguro la seguridad de php en mi sitio web efectiva».
+- **Hecho comprobado:** la tienda no usa PHP. No hay archivos `.php` ni `composer.json` en el
+  repositorio, y Render ejecuta Node (`runtime: node` en `render.yaml`). No hay intérprete de PHP
+  que se pueda atacar; lo que llega son escáneres que buscan WordPress, phpMyAdmin o Laravel.
+- **Producción (una sola petición de prueba, solo lectura):** `/index.php` responde 404 en JSON
+  («Recurso no encontrado»), no la tienda ni un error del servidor, con CSP, HSTS, `nosniff` y
+  `X-Frame-Options: DENY`, sin `X-Powered-By`. Registros de Render del 18 al 25 de octubre: sin
+  sondeos PHP en ese periodo.
+- **Brecha encontrada (A-11, baja):** el escudo ya bloqueaba `.php`, `wp-login`, `xmlrpc` o
+  `phpmyadmin`, pero no reconocía 16 formas más (`.phtml`, `.phar`, `.phps`, `.pht`, `.inc`,
+  `.user.ini`, `/phpinfo`, `%00`, `php://`, `composer.lock`, `vendor/composer`, `web.config`,
+  `_ignition`, `_profiler`, `telescope`, `storage/logs`). Se agregaron a `services/shield.ts`.
+- **Comprobado en local:** una página inexistente normal no suma; `.phtml` + `laravel.log`
+  bloquean la IP (las siguientes peticiones reciben 403).
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385 (16 sondeos nuevos y 3 rutas
+  legítimas más); integración 304/304 en dos ejecuciones completas seguidas (una ejecución
+  anterior falló al preparar el primer archivo, `admin-access`; no se repitió ni completo ni
+  aislado; causa NO VERIFICADA porque no se guardó el error); e2e 74/74; escáner 0.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

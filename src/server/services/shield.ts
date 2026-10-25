@@ -60,12 +60,16 @@ export interface StrikeResult {
 /**
  * Rutas que solo pide un escáner de vulnerabilidades: esta tienda no tiene PHP, WordPress,
  * paneles de base de datos ni archivos ocultos publicados. Solo cuenta si la respuesta es 404.
+ * PHP incluye sus otras extensiones (.phtml, .phar, .phps, .pht, .inc), su configuración
+ * (.user.ini, composer.json) y las rutas de depuración de Laravel y Symfony.
  */
 const PROBE_PATTERNS: readonly RegExp[] = [
   /\/\.(env|git|svn|hg|ht|aws|ssh|docker|vscode|idea|ds_store)/,
   /\/wp-(admin|login|content|includes|json)|\/wordpress\//,
-  /\.(php\d?|aspx?|jsp|cgi|pl|cfm|bak|old|sql|tar|gz|zip|7z)(\/|$)/,
-  /\/(phpmyadmin|pma|myadmin|adminer|xmlrpc|cgi-bin|boaform|hnap1|vendor\/phpunit)/,
+  /\.(php\d?|phtml|phar|phps|pht|inc|ini|log|aspx?|jsp|cgi|pl|cfm|bak|old|sql|tar|gz|zip|7z)(\/|$)/,
+  /\/(phpmyadmin|pma|myadmin|adminer|xmlrpc|cgi-bin|boaform|hnap1|phpinfo|php-?cgi)/,
+  /\/(vendor\/(phpunit|composer)|composer\.(json|lock)|web\.config|_ignition|_profiler|telescope|storage\/logs)/,
+  /%00|php:\/\//,
   /\/(actuator|server-status|server-info|console|solr|jenkins|manager\/html)(\/|$)/,
   /\/etc\/(passwd|shadow)|\/proc\/self|win\.ini/,
   /(\.\.|%2e%2e|%252e)(\/|\\|%2f|%5c)/,
