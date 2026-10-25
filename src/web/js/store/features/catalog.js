@@ -117,8 +117,6 @@ export function renderProducts() {
     el.className =
       'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
     const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
-    // Rareza del paquete (1 a 4, como en los juegos): solo color; la cantidad va en el texto.
-    el.dataset.tier = String(visualCount);
     const soldOut = !p.providerAvailable;
     const addLabel = soldOut ? 'Agotado' : q ? 'Añadido' : 'Agregar';
     const providerNote = soldOut ? 'Agotado por ahora' : 'Disponible';
