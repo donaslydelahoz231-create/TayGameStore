@@ -143,6 +143,8 @@ export const users = pgTable(
     /** Secreto TOTP cifrado (AES-256-GCM) con prefijo de versión de clave. */
     mfaSecretEnc: text('mfa_secret_enc'),
     mfaEnabledAt: timestamp('mfa_enabled_at', { withTimezone: true }),
+    /** Último paso TOTP (30 s) aceptado: ese código y los anteriores ya no sirven. */
+    mfaTotpLastStep: bigint('mfa_totp_last_step', { mode: 'number' }),
     /** Solo administradores: contraseña con scrypt (`scrypt$N$r$p$sal$hash`); nunca en claro. */
     passwordHash: text('password_hash'),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),

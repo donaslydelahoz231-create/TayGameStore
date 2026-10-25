@@ -1,0 +1,41 @@
+/*
+ * Claridad de la landing (2026-10-25): reglas de diseño aplicadas a la tienda.
+ * - Precios en una sola línea y con cifras del mismo ancho (se comparan mejor en columna).
+ * - Oferta real en la entrada: «desde» del catálogo y medios de pago activos.
+ * - Acceso: si solo hay un proveedor activo, ocupa todo el ancho.
+ */
+.product-price strong,
+.smart-total b,
+.drawer-total b,
+.invoice-total strong,
+.entry-offer b {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry-offer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 12px auto 0;
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+.entry-offer b {
+  padding: 4px 10px;
+  border: 1px solid rgba(95, 228, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(95, 228, 255, 0.08);
+  color: var(--cyan);
+  font: 800 0.78rem var(--display);
+}
+.entry-offer b:empty,
+.entry-offer span:empty {
+  display: none;
+}
+
+.oauth-grid:has(> .oauth-btn[hidden]) {
+  grid-template-columns: 1fr;
+}

@@ -13,9 +13,9 @@ import { decrypt, encrypt, randomToken, sha256 } from '../lib/crypto.js';
 import {
   generateRecoveryCodes,
   generateTotpSecret,
+  matchTotpStep,
   normalizeRecoveryCode,
   otpauthUri,
-  verifyTotp,
 } from '../lib/totp.js';
 import type { GoogleIdentity } from '../integrations/google/oidc.js';
 import { AppError } from '../plugins/errors.js';
@@ -326,14 +326,16 @@ async function storedSecret(deps: ServiceDeps, userId: string): Promise<string> 
 
 export async function enableMfa(deps: ServiceDeps, user: AuthUser, code: string, actor: Actor) {
   const secret = await storedSecret(deps, user.id);
-  if (!verifyTotp(secret, code, deps.now().getTime())) {
+  const step = matchTotpStep(secret, code, deps.now().getTime());
+  if (step === undefined) {
     throw new AppError('MFA_INVALID', 400, 'Código de verificación inválido.');
   }
   const codes = generateRecoveryCodes();
   await deps.db.transaction(async (tx) => {
+    // El código de la activación queda gastado: no sirve después para entrar al panel.
     const [updated] = await tx
       .update(users)
-      .set({ mfaEnabledAt: deps.now(), updatedAt: sql`now()` })
+      .set({ mfaEnabledAt: deps.now(), mfaTotpLastStep: step, updatedAt: sql`now()` })
       .where(and(eq(users.id, user.id), isNull(users.mfaEnabledAt)))
       .returning({ id: users.id });
     if (!updated)
@@ -402,15 +404,32 @@ export async function verifyMfa(
   if (!user.mfaEnabled)
     throw new AppError('MFA_REQUIRED', 403, 'Configura la verificación en dos pasos.');
   await assertMfaNotLocked(deps, user, actor);
+  let reused = false;
   if (input.code) {
     const secret = await storedSecret(deps, user.id);
-    if (verifyTotp(secret, input.code, deps.now().getTime())) {
-      await audit(deps.db, actor, {
-        entityType: 'user',
-        entityId: user.id,
-        action: 'admin.mfa_verified',
-      });
-      return;
+    const step = matchTotpStep(secret, input.code, deps.now().getTime());
+    if (step !== undefined) {
+      // Un solo uso por código (RFC 6238 §5.2): solo avanza si el paso es posterior al último
+      // aceptado. Atómico: dos peticiones simultáneas con el mismo código no entran las dos.
+      const [accepted] = await deps.db
+        .update(users)
+        .set({ mfaTotpLastStep: step })
+        .where(
+          and(
+            eq(users.id, user.id),
+            or(isNull(users.mfaTotpLastStep), sql`${users.mfaTotpLastStep} < ${step}`),
+          ),
+        )
+        .returning({ id: users.id });
+      if (accepted) {
+        await audit(deps.db, actor, {
+          entityType: 'user',
+          entityId: user.id,
+          action: 'admin.mfa_verified',
+        });
+        return;
+      }
+      reused = true;
     }
   } else if (input.recoveryCode) {
     // Un solo uso: CAS sobre used_at.
@@ -439,7 +458,13 @@ export async function verifyMfa(
     entityType: 'user',
     entityId: user.id,
     action: 'admin.mfa_failed',
-    data: { alert: true },
+    data: reused ? { alert: true, reused: true } : { alert: true },
   });
-  throw new AppError('MFA_INVALID', 400, 'Código de verificación inválido.');
+  throw new AppError(
+    'MFA_INVALID',
+    400,
+    reused
+      ? 'Ese código ya se usó. Espera el siguiente código de tu app.'
+      : 'Código de verificación inválido.',
+  );
 }

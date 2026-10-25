@@ -204,6 +204,55 @@ describe('MFA de administración (TOTP + códigos de recuperación)', () => {
     expect(reused.statusCode).toBe(400);
   });
 
+  it('un código de la app sirve una sola vez (RFC 6238 §5.2): ni el de la activación ni uno ya usado', async () => {
+    const [adminUser] = await h.database.db
+      .select()
+      .from(users)
+      .where(eq(users.email, ADMIN_EMAIL));
+    const secret = decrypt(h.deps.config.secrets.mfaKeys, adminUser?.mfaSecretEnc ?? '').plaintext;
+    const verifyWith = async (code: string) => {
+      const login = await googleLogin('admin');
+      if (!login.session) throw new Error('sin sesión');
+      return inject({
+        method: 'POST',
+        url: '/api/admin/mfa/verify',
+        headers: CSRF,
+        cookies: login.session,
+        payload: { code },
+      });
+    };
+    const startedAt = h.clock.now;
+    try {
+      // El código con el que se activó la app (mismo paso de 30 s) ya no abre el panel.
+      const enrollmentCode = totp(secret, startedAt.getTime());
+      const reusedEnrollment = await verifyWith(enrollmentCode);
+      expect(reusedEnrollment.statusCode).toBe(400);
+      expect(reusedEnrollment.json<ApiErrorBody>().error.code).toBe('MFA_INVALID');
+
+      // Paso siguiente: entra una vez y la segunda vez el mismo código se rechaza.
+      h.clock.now = new Date(startedAt.getTime() + 30_000);
+      const fresh = totp(secret, h.clock.now.getTime());
+      expect((await verifyWith(fresh)).statusCode).toBe(200);
+      const replay = await verifyWith(fresh);
+      expect(replay.statusCode).toBe(400);
+      expect(replay.json<ApiErrorBody>().error.code).toBe('MFA_INVALID');
+      // Un código de un paso anterior (aún dentro de la tolerancia de reloj) tampoco sirve.
+      expect((await verifyWith(enrollmentCode)).statusCode).toBe(400);
+
+      const events = await h.database.db
+        .select({ action: auditEvents.action, data: auditEvents.data })
+        .from(auditEvents)
+        .where(eq(auditEvents.entityId, adminUser?.id ?? ''))
+        .orderBy(auditEvents.id);
+      const reused = events.filter(
+        (e) => e.action === 'admin.mfa_failed' && (e.data as { reused?: boolean }).reused,
+      );
+      expect(reused).toHaveLength(3);
+    } finally {
+      h.clock.now = startedAt;
+    }
+  });
+
   it('bloquea la verificación de la CUENTA tras 5 códigos erróneos, aunque cambie la IP', async () => {
     const login = await googleLogin('admin');
     if (!login.session) throw new Error('sin sesión');

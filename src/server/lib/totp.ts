@@ -58,12 +58,22 @@ export function totp(secretBase32: string, timeMs: number): string {
   return hotp(base32Decode(secretBase32), Math.floor(timeMs / 1000 / STEP_SECONDS));
 }
 
-/** Acepta el código del paso actual y ±1 paso (desfase de reloj). */
-export function verifyTotp(secretBase32: string, code: string, timeMs: number): boolean {
-  if (!/^\d{6}$/.test(code)) return false;
+/**
+ * Paso de 30 s del código (actual o ±1 por desfase de reloj), o `undefined` si no coincide.
+ * Quien lo verifica debe guardar el paso aceptado y rechazar ese y los anteriores (RFC 6238 §5.2).
+ */
+export function matchTotpStep(secretBase32: string, code: string, timeMs: number) {
+  if (!/^\d{6}$/.test(code)) return undefined;
   const secret = base32Decode(secretBase32);
   const counter = Math.floor(timeMs / 1000 / STEP_SECONDS);
-  return [-1, 0, 1].some((drift) => safeEqual(hotp(secret, counter + drift), code));
+  return [-1, 0, 1]
+    .map((drift) => counter + drift)
+    .find((step) => safeEqual(hotp(secret, step), code));
+}
+
+/** Acepta el código del paso actual y ±1 paso (desfase de reloj). */
+export function verifyTotp(secretBase32: string, code: string, timeMs: number): boolean {
+  return matchTotpStep(secretBase32, code, timeMs) !== undefined;
 }
 
 export function otpauthUri(secretBase32: string, account: string, issuer = 'TayGameStore'): string {

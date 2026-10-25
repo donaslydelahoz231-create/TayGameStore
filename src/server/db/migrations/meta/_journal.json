@@ -169,6 +169,13 @@
       "when": 1792586440871,
       "tag": "0023_perfiles_clientes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792887415580,
+      "tag": "0024_totp_un_solo_uso",
+      "breakpoints": true
     }
   ]
 }

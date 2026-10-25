@@ -22,7 +22,7 @@ import {
   publicOrderRef,
   verifyKeyedHash,
 } from '../../src/server/lib/crypto.js';
-import { base32Encode, hotp, totp, verifyTotp } from '../../src/server/lib/totp.js';
+import { base32Encode, hotp, matchTotpStep, totp, verifyTotp } from '../../src/server/lib/totp.js';
 import type { Keyring } from '../../src/server/config/env.js';
 
 const keyring = (entries: [number, number][]): Keyring => ({
@@ -192,6 +192,15 @@ describe('TOTP (RFC 6238)', () => {
     expect(verifyTotp(secret, totp(secret, now - 30_000), now)).toBe(true);
     expect(verifyTotp(secret, totp(secret, now - 90_000), now)).toBe(false);
     expect(verifyTotp(secret, 'abc123', now)).toBe(false);
+  });
+
+  it('devuelve el paso de 30 s del código para poder gastarlo (un solo uso)', () => {
+    const now = 1_234_567_890_000;
+    const step = Math.floor(now / 30_000);
+    expect(matchTotpStep(secret, totp(secret, now), now)).toBe(step);
+    expect(matchTotpStep(secret, totp(secret, now - 30_000), now)).toBe(step - 1);
+    expect(matchTotpStep(secret, totp(secret, now + 30_000), now)).toBe(step + 1);
+    expect(matchTotpStep(secret, totp(secret, now - 90_000), now)).toBeUndefined();
   });
 });
 

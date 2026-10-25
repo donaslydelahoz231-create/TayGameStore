@@ -5,6 +5,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Seguridad (auditoría A–P del 2026-10-25, `docs/seguridad/AUDITORIA-2026-10-25.md`)
+
+- El código de la app autenticadora del panel sirve una sola vez (RFC 6238 §5.2): ni el de la
+  activación ni uno ya usado vuelven a abrir el panel dentro de su ventana de 30 s. Columna
+  `users.mfa_totp_last_step` (migración 0024, solo agrega).
+- Los registros de cada petición ya no guardan la IP del cliente en claro, solo su huella con
+  clave (como promete la política de privacidad).
+- Dependencias: `fast-uri` 3.1.9 / 4.2.3 e `ip-address` 10.7.4 (avisos moderados en
+  dependencias de `fastify` y `@fastify/rate-limit`); `smtp-server` 3.21.1 (solo pruebas).
+
+### Cambiado (landing más clara, sin quitar secciones ni animaciones)
+
+- La bienvenida dice qué se compra y cómo: «Escribe tu ID de Free Fire, elige tus diamantes y
+  paga en línea», el precio «desde» real del catálogo y los medios de pago activos (del servidor).
+- Etiquetas en español claro en vez de jerga técnica en inglés («NEXUS CATALOG», «ORDER DESK»,
+  «OAuth 2.0»…); pasos del inicio en lenguaje del cliente (ID → diamantes → pago → recarga).
+- Acceso: un proveedor apagado ya no se muestra («No configurado») y el texto nombra solo los
+  accesos activos.
+- Precios en una sola línea y con cifras del mismo ancho.
+
 ### Seguridad (dependencias al día)
 
 - `fastify` 5.12.5 → 5.12.7: incluye la versión de seguridad 5.12.6 (aviso GHSA-389g-gv7q-r4x8).

@@ -58,8 +58,15 @@ test.describe('entrada y acceso', () => {
   }) => {
     await page.goto('/');
     await expect(page.locator('body')).toHaveClass(/entry-locked/);
+    // La bienvenida ofrece datos reales del servidor: el precio «desde» y los medios activos.
+    await expect(page.locator('#entryFrom')).toHaveText(/^Desde \$ [\d.]+ COP$/);
+    await expect(page.locator('#entryPay')).toHaveText(/^Paga con .*Mercado Pago$/);
+    const desde = await page.locator('#entryFrom').innerText();
     await enterAsGuest(page);
     await expect(page.locator('#products .product')).toHaveCount(6);
+    const precios = await page.locator('#products .product .product-price strong').allInnerTexts();
+    const valor = (t: string) => Number(t.replace(/\D/g, ''));
+    expect(valor(desde)).toBe(Math.min(...precios.map(valor).filter((n) => n > 0)));
     await expect(page.locator('#catalogStatus')).toHaveText('Catálogo disponible');
     // El servidor de pruebas no cobra dinero real: la tienda lo anuncia sin tecnicismos.
     await expect(page.locator('#serverState')).toContainText('Modo prueba · sin cobros reales');
@@ -85,18 +92,15 @@ test.describe('entrada y acceso', () => {
     await expect(page.locator('[data-provider="discord"]')).toHaveCount(0);
     // El servidor de pruebas configura Facebook (doble), no Google.
     await expect(page.locator('#facebookState')).toHaveText('Disponible');
-    await expect(page.locator('#googleState')).toHaveText('No configurado');
-    // Un acceso no configurado está deshabilitado y, aun forzando el clic, no navega: ni
-    // siquiera sale la petición (la URL sola no basta: el servidor redirige de vuelta a "/").
-    const intentos: string[] = [];
-    page.on('request', (r) => {
-      if (new URL(r.url()).pathname.startsWith('/auth/')) intentos.push(r.url());
-    });
+    // Un acceso apagado no se le muestra al cliente (antes decía «No configurado»), sigue
+    // deshabilitado y el texto invita solo a lo que sí funciona.
+    await expect(page.locator('[data-provider="google"]')).toBeHidden();
     await expect(page.locator('[data-provider="google"]')).toHaveAttribute('aria-disabled', 'true');
-    await page.locator('[data-provider="google"]').click({ force: true });
-    await expect(page.locator('#toastStack')).toContainText('no está disponible');
-    await expect(page).toHaveURL(/\/$/);
-    expect(intentos).toEqual([]);
+    await expect(page.locator('#authSubtitle')).toHaveText(
+      'Entra con Facebook para conservar tu historial de pedidos.',
+    );
+    await expect(page.locator('#loginModal')).not.toContainText('No configurado');
+    await expect(page.locator('#loginModal')).not.toContainText('OAuth');
   });
 
   test('pantalla baja (teléfono en horizontal): «Entrar» se ve, se pulsa y la tienda abre', async ({
@@ -1108,7 +1112,14 @@ test.describe('panel de administración', () => {
     await page.locator('#admMfaCode').fill('123456');
     await page.locator('#admMfaVerifyBtn').click();
     await expect(page.locator('#admMessage')).toContainText('inválido');
+    // El código con el que se activó la app ya se gastó (un solo uso, RFC 6238 §5.2): aunque
+    // siga en su ventana de 30 s, no vuelve a abrir el panel.
     await page.locator('#admMfaCode').fill(totp(secret, Date.now()));
+    await page.locator('#admMfaVerifyBtn').click();
+    await expect(page.locator('#admMessage')).toContainText('ya se usó');
+    await expect(page.locator('#admApp')).toBeHidden();
+    // El siguiente código de la app (dentro de la tolerancia de reloj) sí entra.
+    await page.locator('#admMfaCode').fill(totp(secret, Date.now() + 30_000));
     await page.locator('#admMfaVerifyBtn').click();
     await expect(page.locator('#admApp')).toBeVisible();
     expect((await page.request.get('/api/admin/orders')).status()).toBe(200);

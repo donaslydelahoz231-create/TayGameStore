@@ -1672,3 +1672,43 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   `security/*`) y el PR de Dependabot de herramientas de desarrollo, por subir Playwright a 1.64
   (cambia los navegadores de prueba: se hará aparte).
 
+
+### 2026-10-25 · Auditoría A–P, ronda de mantenimiento y landing (pedido del dueño)
+
+- **Pedidos:** «PROMPT MAESTRO DEFINITIVO» (auditoría total con informe A–P) y «Aprende de este
+  creador de contenido (@geradevtech en TikTok) … mejorar el landing page y mi sitio web». Las dos
+  rondas automáticas del 2026-10-21 llegaron con 3 días de retraso: se hizo una sola ronda con el
+  estado de hoy.
+- **Ronda (solo lectura):** Render en vivo con `aba648b`; 2026-10-21 → 2026-10-25 sin 5xx ni
+  errores, solo avisos «Hoja de Google apagada». GitHub: flujos programados en verde, sin issues
+  de incidente. Neon: ~45,6 CU-h del período (proyección ~65 de 100). Pedidos: 0 pagados por
+  entregar, 0 en revisión, 0 reembolsos, 0 reseñas por revisar. **URGENTE:** aviso de transferencia
+  Nequi de `TGS-TKRX3MBM03` (11.000 COP) sin revisar; el pedido venció el 2026-10-21. Correo y hoja
+  de Google apagados (faltan credenciales); 14 perfiles esperan la hoja.
+- **Auditoría:** informe `docs/seguridad/AUDITORIA-2026-10-25.md`. Corregido en local con pruebas
+  que fallaban antes: A-01 código TOTP reutilizable (migración 0024), A-02 IP en claro en los
+  registros, A-03 textos técnicos y accesos apagados visibles, A-10 dependencias. Abierto:
+  respaldos de Neon sin programación (A-04, necesita autorización) y ruta de salud de Render
+  (A-05, dueño).
+- **Creador de TikTok:** los videos no se pueden reproducir desde aquí (Firecrawl no admite
+  TikTok y el navegador de pruebas no confía en el certificado del proxy; no se desactivó TLS).
+  Se leyeron el perfil público y los títulos: su contenido de diseño web recomienda trabajar con
+  un sistema de diseño, la skill «UI UX Pro Max» para landings y las reglas de diseño y animación
+  de Emil Kowalski (fuente original revisada: emilkowal.ski). No se instaló ninguna skill de
+  terceros en el repositorio (riesgo de cadena de suministro); se aplicaron las reglas.
+- **Errores encontrados en la landing y corregidos:** propuesta de valor vaga en la bienvenida;
+  jerga en inglés en 19 etiquetas («GAMER COMMERCE», «NEXUS CATALOG», «ORDER DESK», «OAuth
+  2.0»…); el acceso mostraría «No configurado» para Facebook en producción; textos que solo
+  nombraban Mercado Pago cuando Nequi también cobra; precios con «COP» partido en otra línea.
+  Ahora: precio «desde» y medios de pago reales en la bienvenida, etiquetas en español claro,
+  accesos apagados ocultos y precios en una línea con cifras tabulares. Sin quitar secciones ni
+  animaciones.
+- **Pruebas:** lint, formato y tipos OK; unitarias 327/327; integración 304/304; e2e 74/74;
+  visuales 3/3 (capturas 01, 02 y 03 regeneradas tras revisarlas); `drizzle-kit check` OK;
+  escáner 0; `npm audit` 0. e2e con el código final: 4 ejecuciones completas; 1 terminó con 1
+  fallo cuyo nombre no quedó registrado y las otras 3 dieron 74/74 (dos con registro completo
+  guardado). Causa de ese fallo: NO VERIFICADO (no se volvió a presentar).
+- **NO VERIFICADO:** la tienda publicada en un navegador real (se verificó en local con la misma
+  configuración pública de producción); Firefox y WebKit (solo en CI).
+- **Sin publicar:** commit local; el push despliega en Render y aplica la migración 0024, así que
+  espera la autorización explícita del dueño.

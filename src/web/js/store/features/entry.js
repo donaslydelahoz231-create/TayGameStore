@@ -1,6 +1,29 @@
-import { $ } from '../dom.js';
+import { priceOf } from '../cart-model.js';
+import { $, setText } from '../dom.js';
+import { money } from '../format.js';
 import { renderAll } from '../render.js';
 import { state } from '../state.js';
+
+/**
+ * Oferta de la pantalla de entrada: precio «desde» y medios de pago, ambos del servidor (el
+ * catálogo y /api/config). Sin datos no se muestra nada: nunca un precio ni un medio inventado.
+ */
+export function renderEntryOffer() {
+  const box = $('entryOffer');
+  if (!box) return;
+  const products = Array.isArray(state.products.freefire) ? state.products.freefire : [];
+  const prices = products
+    .filter((p) => p.providerAvailable !== false)
+    .map(priceOf)
+    .filter((n) => n > 0);
+  const methods = state.serverConfig?.paymentMethods || {};
+  const names = [methods.nequiManual && 'Nequi', methods.mercadopago && 'Mercado Pago'].filter(
+    Boolean,
+  );
+  setText('entryFrom', prices.length ? 'Desde ' + money(Math.min(...prices)) : '');
+  setText('entryPay', names.length ? 'Paga con ' + names.join(' o ') : '');
+  box.hidden = !prices.length && !names.length;
+}
 
 /** Abre la tienda tras la pantalla de entrada (invitado o sesión). */
 export function revealStore() {

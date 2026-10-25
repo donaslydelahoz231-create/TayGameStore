@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { FastifyRequest, FastifyServerOptions } from 'fastify';
 import type { AppConfig } from '../config/env.js';
+import { hashIp } from '../lib/crypto.js';
 
 /** Cabeceras y campos que nunca deben aparecer en los logs. */
 export const REDACTED_PATHS = [
@@ -35,11 +36,13 @@ export function buildLoggerOptions(config: AppConfig): FastifyServerOptions['log
     level: config.logLevel,
     redact: { paths: REDACTED_PATHS, censor: '[REDACTED]' },
     serializers: {
+      // Sin la IP en claro (la política de privacidad lo promete): solo su huella con clave, la
+      // misma de la auditoría y del escudo, así un incidente se puede cruzar con la base.
       req: (request: FastifyRequest) => ({
         method: request.method,
         url: sanitizeLoggedUrl(request.url),
         host: request.host,
-        remoteAddress: request.ip,
+        ipHash: hashIp(config.secrets.ipHashPepper, request.ip),
       }),
     },
   };

@@ -8,7 +8,7 @@ import { bind } from './bindings.js';
 import { bootstrapSession, renderAccount, renderHeader } from './features/account.js';
 import { renderDrawer, renderSmartCart } from './features/cart.js';
 import { loadCatalog, renderGames, renderProducts } from './features/catalog.js';
-import { showEntryLanding, revealStore } from './features/entry.js';
+import { renderEntryOffer, showEntryLanding, revealStore } from './features/entry.js';
 import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
@@ -30,6 +30,7 @@ const CLOCK_REFRESH_MS = 1000;
 // Orden de render del HTML original; saveLocal persiste las preferencias al final.
 registerRenderers([
   renderHeader,
+  renderEntryOffer,
   renderService,
   renderGames,
   renderProducts,
