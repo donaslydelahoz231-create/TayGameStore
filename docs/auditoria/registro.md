@@ -1822,3 +1822,36 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   violaciones graves, sin desbordes de 360 a 1920 px y botones de cantidad completos); visuales
   3/3 (03 regenerada en los 3 tamaños tras revisarla); escáner 0.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-25 · Emil Kowalski, Impeccable y Taste skill (pedido del dueño)
+
+- **Pedido:** aplicar las animaciones de interfaz de Emil Kowalski, la limpieza de diseño de
+  Impeccable (`pbakaus/impeccable`) y las referencias de Taste skill (`Leonxlnx/taste-skill`).
+- **Qué se usó y qué no:** los tres repositorios se descargaron en una carpeta temporal y se
+  leyeron sus guías (`emilkowalski/skills` › improve-animations y AUDIT.md; Impeccable ›
+  SKILL.md, craft-floor.md y layout.md; Taste › SKILL.md). No se instalaron en el proyecto ni
+  se ejecutaron sus scripts: Impeccable descarga y corre un binario, agrega hooks en
+  `.claude/settings.local.json` y envía telemetría; Taste corre scripts de Node con Chrome.
+  Instalarlos queda a decisión del dueño.
+- **Emil (auditoría de movimiento, confirmada en el código):** `transition: 0.18s` sin propiedad
+  en `.btn` (04-hero) y `.game-tab` (06-sections-catalog) animaba todo; la tarjeta respondía
+  al cursor en 0,5 s (28-cinematic-v4); en pantallas táctiles el `:hover` pegado dejaba la
+  tarjeta levantada e inclinada, y `pointermove` inclinaba la tarjeta con el dedo
+  (`effects/cinematic.js`); el carrito usaba `ease` genérico. Corregido en
+  `42-movimiento-y-limpieza.css` y en `cinematic.js` (sin inclinación con `pointerType`
+  táctil). Excluidos con criterio: la onda del clic y las partículas usan `scale(0)` como
+  efecto, no como elemento que aparece. Se respetó la decisión del dueño de conservar las
+  animaciones de ambiente (aura del botón, anillos y barrido de las tarjetas).
+- **Impeccable:** la franja de confianza (4 cajas iguales de ícono + título + texto) pasa a
+  una banda con divisores; selección de texto, cursor y barra de desplazamiento con la marca.
+  No se quitaron los rótulos sobre los títulos ni la numeración de las secciones, aunque
+  Impeccable los prohíbe: describen el orden real de la compra y el dueño pidió no quitar
+  contenido. Queda como decisión del dueño.
+- **Taste:** su regla central, que la idea salga del propio producto, ya está aplicada con
+  «Facetas» (el diamante de Tay). No se agregaron adornos nuevos.
+- **Comprobado en local:** con el dedo la tarjeta tocada queda con `transform: none`; con
+  ratón se eleva en 280 ms; `.btn` anima solo transform, border-color, background-color,
+  color y box-shadow.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 75/75; visuales 3/3 (03
+  regenerada en los 3 tamaños; 01 «entrada» y 02 «acceso» sin cambios); escáner 0.
+- **Sin publicar:** commit local; el push despliega en Render y espera la autorización del dueño.

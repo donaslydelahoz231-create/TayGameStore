@@ -1,0 +1,130 @@
+/*
+ * Movimiento y limpieza (2026-10-25), con las reglas de Emil Kowalski (improve-animations,
+ * AUDIT.md) y de Impeccable (craft-floor y layout). Se conservan todas las animaciones de
+ * ambiente que pidió el dueño; se corrige cómo responden las interacciones.
+ * El acceso (ventana de inicio de sesión) no cambia: las reglas van dentro de #app o nombran
+ * piezas que no pertenecen al acceso (carrito, avisos).
+ */
+:root {
+  /* Curvas fuertes (AUDIT.md › Easing & duration): las de CSS son demasiado débiles. */
+  --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 160ms;
+  --dur-hover: 200ms;
+}
+
+/* ── Emil · Rendimiento: nada de «transition: 0.18s» que anima todas las propiedades ─────── */
+#app .btn {
+  transition:
+    transform var(--dur-press) var(--ease-out-ui),
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease,
+    color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+#app .game-tab {
+  transition:
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+/* ── Emil · Duración: la tarjeta respondía al cursor en 0,5 s; la interfaz va bajo 300 ms ─── */
+#app .product {
+  transition:
+    transform 280ms var(--ease-out-ui),
+    border-color var(--dur-hover) ease,
+    box-shadow 280ms ease,
+    filter 280ms ease;
+}
+
+/* ── Emil · Accesibilidad: en pantallas táctiles el «hover» se queda pegado tras un toque ──── */
+/* La tarjeta tocada se quedaba levantada, agrandada e inclinada, y la inclinación seguía al
+   dedo mientras la página se desplazaba. Sin cursor no hay inclinación ni elevación; el
+   toque sigue teniendo su respuesta (39-landing-clarity.css, :active). */
+@media (hover: none) {
+  #app .product,
+  #app .product:hover {
+    transform: none;
+    filter: none;
+  }
+  #app .product:hover::before {
+    transform: translateX(-65%);
+  }
+  #app .product:hover::after {
+    transform: translateX(-45%) rotate(8deg);
+  }
+  #app .btn:hover {
+    transform: none;
+  }
+}
+
+/* ── Emil · Carrito lateral: curva de cajón (antes «ease» genérico) ───────────────────────── */
+#cartDrawer.drawer:not(.open) {
+  transition:
+    transform 300ms var(--ease-drawer),
+    visibility 0s linear 300ms;
+}
+#cartDrawer.drawer.open {
+  transition:
+    transform 300ms var(--ease-drawer),
+    visibility 0s;
+}
+
+/* ── Emil · Avisos: entran con salida rápida (ease-out), no con «ease» ───────────────────── */
+.toast {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease-out-ui);
+}
+
+/* ── Impeccable · Layout: la franja de confianza eran 4 cajas iguales de ícono + título ───── */
+/* «Cards are the lazy container»: queda una banda con divisores, el ícono sin baldosa y el
+   mismo contenido. */
+#app .trust {
+  gap: 0;
+  border-block: 1px solid rgba(38, 48, 95, 0.75);
+  padding-top: 0;
+  margin-top: 12px;
+}
+#app .trust article {
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+#app .trust article + article {
+  border-left: 1px solid rgba(38, 48, 95, 0.75);
+}
+#app .trust article > span {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+}
+#app .trust article > span svg {
+  width: 18px;
+}
+@media (max-width: 640px) {
+  #app .trust article {
+    padding: 10px 12px;
+  }
+  /* En 2 columnas: divisor vertical solo en la segunda columna y uno horizontal entre filas. */
+  #app .trust article:nth-child(odd) {
+    border-left: 0;
+  }
+  #app .trust article:nth-child(n + 3) {
+    border-top: 1px solid rgba(38, 48, 95, 0.75);
+  }
+}
+
+/* ── Impeccable · Superficies del navegador: selección, cursor y barra con la marca ──────── */
+::selection {
+  background: rgba(55, 214, 255, 0.32);
+  color: #fff;
+}
+#app {
+  caret-color: var(--cyan);
+}
+html {
+  scrollbar-color: #2c3770 var(--bg);
+}

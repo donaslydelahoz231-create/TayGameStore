@@ -18,6 +18,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Dependencias: `fast-uri` 3.1.9 / 4.2.3 e `ip-address` 10.7.4 (avisos moderados en
   dependencias de `fastify` y `@fastify/rate-limit`); `smtp-server` 3.21.1 (solo pruebas).
 
+### Cambiado (movimiento y limpieza con las reglas de Emil Kowalski e Impeccable)
+
+- Con el dedo, la tarjeta tocada ya no se queda levantada ni inclinada, y la inclinación 3D ya
+  no sigue al dedo mientras se desplaza la página; con ratón responde en 280 ms (antes 0,5 s).
+- Los botones y las pestañas de juego animan solo lo que cambia (antes animaban todas las
+  propiedades); el carrito lateral abre con curva de cajón y los avisos entran con salida
+  rápida. Curvas y duraciones quedan como variables (`--ease-out-ui`, `--ease-drawer`).
+- La franja de confianza bajo el inicio deja de ser 4 cajas iguales: es una banda con
+  divisores y el mismo contenido. Selección de texto, cursor y barra de desplazamiento con los
+  colores de la marca.
+- Se conservan todas las animaciones de ambiente y todo el contenido.
+
 ### Cambiado (identidad visual «Facetas»: menos genérica, sin tocar el acceso)
 
 - Las tarjetas de paquete, el botón principal, las etiquetas doradas y el panel «LIVE STORE»
