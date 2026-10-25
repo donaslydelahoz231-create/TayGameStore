@@ -214,6 +214,8 @@ export function renderInvoice() {
         ? PAY_MEANS[means].split(' (')[0]
         : 'Pendiente',
   );
+  // Sin paquetes ni pedido, en celular solo se ve la cabecera y el total (ver 40-ux-pulido.css).
+  $('invoice')?.classList.toggle('is-empty', !lines.length && !order);
   const rows = $('invoiceRows');
   rows.replaceChildren();
   if (!lines.length)

@@ -18,6 +18,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - Dependencias: `fast-uri` 3.1.9 / 4.2.3 e `ip-address` 10.7.4 (avisos moderados en
   dependencias de `fastify` y `@fastify/rate-limit`); `smtp-server` 3.21.1 (solo pruebas).
 
+### Corregido (UI/UX en celular, medido a 360 px)
+
+- En las tarjetas de producto el «+» de la cantidad ya no queda cortado (7 px a 360 px y
+  17 px a 320 px con pantalla táctil; 20 px a 320 px con ratón): si no cabe junto a «Agregar»,
+  baja a su propia fila con botones de 44 px. Los botones − y + dicen a los lectores de pantalla
+  qué paquete cambian. Prueba e2e nueva en 7 tamaños, táctil y ratón.
+- El pedido vacío ya no ocupa media pantalla antes del formulario en celular y tableta: muestra
+  la cabecera, el total y «Aquí verás tu resumen cuando agregues una recarga».
+- Los 4 pasos del inicio se ven en 2 × 2 (antes 3 + 1) y «Opiniones» sin reseñas muestra un
+  solo aviso (antes dos seguidos).
+- Accesibilidad: axe sin avisos en la tienda (el título del panel «LIVE STORE» sigue el orden de
+  títulos y la burbuja de soporte es una región con nombre).
+
 ### Cambiado (landing más clara, sin quitar secciones ni animaciones)
 
 - La bienvenida dice qué se compra y cómo: «Escribe tu ID de Free Fire, elige tus diamantes y

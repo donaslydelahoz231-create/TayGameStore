@@ -1,0 +1,64 @@
+/*
+ * Pulido de UI/UX (2026-10-25), medido en un celular táctil de 360 px con Playwright y axe.
+ * El acceso (ventana de inicio de sesión, 15-modals.css y 21-auth.css) no cambia.
+ */
+
+/* Tarjetas de producto: la cantidad vivía en media tarjeta (63 px a 360 px) y el «+» quedaba
+   cortado: con pantalla táctil (botones de 44 px) 7 px a 360 px y 17 px a 320 px; con ratón,
+   20 px a 320 px. Ahora, si la cantidad no cabe junto a «Agregar», baja a su propia fila, y en
+   pantallas táctiles usa sus 44 px completos. */
+@media (pointer: coarse), (max-width: 650px) {
+  .product-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .product-actions .add-btn {
+    flex: 1 1 64px;
+  }
+  .product-actions .qty {
+    flex: 1 0 84px;
+    /* En su propia fila no se estira con «Agregar»: misma altura que el botón. */
+    min-height: 32px;
+  }
+}
+@media (pointer: coarse) {
+  .product-actions .qty {
+    flex-basis: 120px;
+    grid-template-columns: 44px 1fr 44px;
+  }
+}
+
+/* Pedido vacío: en celular y tableta el resumen sin paquetes ocupaba ~600 px antes del
+   formulario. Hasta que haya algo que resumir se ven la cabecera, el total y una nota. */
+.invoice-empty-note {
+  display: none;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+}
+@media (max-width: 900px) {
+  .invoice.is-empty
+    :is(.invoice-grid, .invoice-table-head, #invoiceRows, .invoice-meta-row, .invoice-foot) {
+    display: none;
+  }
+  .invoice.is-empty .invoice-empty-note {
+    display: block;
+  }
+}
+
+/* Pasos del inicio: en pantallas estrechas quedaban 3 + 1; ahora 2 × 2. */
+@media (max-width: 480px) {
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+}
+
+/* Opiniones sin reseñas: en una columna el aviso se repetía en dos tarjetas seguidas; queda
+   el del resumen («Aún no hay reseñas publicadas» y cómo calificar). */
+@media (max-width: 760px) {
+  .reviews-empty {
+    display: none;
+  }
+}

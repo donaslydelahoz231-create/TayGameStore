@@ -273,6 +273,51 @@ test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x
   expect(problems).toEqual([]);
 });
 
+test('las tarjetas de producto muestran completos los botones de cantidad (táctil y ratón)', async ({
+  browser,
+}) => {
+  // Con 44 px por botón en pantallas táctiles, el «+» quedaba cortado 7 px a 360 px y 17 px a
+  // 320 px; con ratón, 20 px a 320 px. Cada botón debe quedar entero dentro de su cantidad.
+  const problems: string[] = [];
+  for (const [width, touch] of [
+    [320, true],
+    [360, true],
+    [390, true],
+    [768, true],
+    [320, false],
+    [360, false],
+    [1280, false],
+  ] as const) {
+    const context = await browser.newContext({
+      viewport: { width, height: 900 },
+      isMobile: touch,
+      hasTouch: touch,
+      reducedMotion: 'reduce',
+      locale: 'es-CO',
+    });
+    const page = await context.newPage();
+    const errors = await preparePage(page);
+    await page.goto('/');
+    await enterAsGuest(page);
+    await expect(page.locator('#products .product').first()).toBeVisible();
+    const cut = await page.evaluate(
+      (minSize) =>
+        Array.from(document.querySelectorAll('#products .product .qty button')).filter((button) => {
+          const box = button.getBoundingClientRect();
+          const qty = button.closest('.qty')!.getBoundingClientRect();
+          return (
+            box.left < qty.left - 0.5 || box.right > qty.right + 0.5 || box.width < minSize - 0.5
+          );
+        }).length,
+      touch ? 44 : 28,
+    );
+    if (cut) problems.push(`${width}px ${touch ? 'táctil' : 'ratón'}: ${cut} botones cortados`);
+    consoleErrors.push(...errors);
+    await context.close();
+  }
+  expect(problems).toEqual([]);
+});
+
 test('páginas legales: accesibles, sin desbordes y enlazadas desde la aceptación', async ({
   page,
   browser,

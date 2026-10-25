@@ -1761,3 +1761,34 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   anterior falló al preparar el primer archivo, `admin-access`; no se repitió ni completo ni
   aislado; causa NO VERIFICADA porque no se guardó el error); e2e 74/74; escáner 0.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-25 · Mejor diseño UI/UX en celular (pedido del dueño)
+
+- **Pedido:** «Ejecute y aplica un mejor desing en UI/UX».
+- **Medición antes (Playwright + axe, servidor local de pruebas):** celular táctil de 360 px,
+  10.470 px de alto (13,4 pantallas); escritorio 1280 px, 5.749 px. Axe: 2 avisos (orden de
+  títulos en el panel «LIVE STORE» y la burbuja de soporte fuera de una región).
+- **Fallo real encontrado:** en las tarjetas de producto el «+» de la cantidad quedaba cortado.
+  Con pantalla táctil los botones miden 44 px pero la cantidad vivía en media tarjeta (63 px a
+  360 px): 7 px cortados a 360 px, 17 px a 320 px, 3 px a 390 px. Con ratón, 20 px a 320 px.
+- **Cambios (`styles/layers/40-ux-pulido.css`, `index.html`, `catalog.js`, `invoice.js`):**
+  la cantidad baja a su propia fila cuando no cabe (0 px cortados de 320 a 1280 px, táctil y
+  ratón); el pedido vacío en celular y tableta muestra solo cabecera, total y una nota (la
+  sección pasa de 1.982 a 1.600 px); los 4 pasos del inicio en 2 × 2; «Opiniones» sin reseñas
+  con un solo aviso en celular; título del panel `h3` → `h2` (mismo estilo) y la burbuja de
+  soporte como `<aside>` con nombre; los botones − y + nombran el paquete para lectores de
+  pantalla («Aumentar cantidad de …», como en el carrito).
+- **Descartado con medición:** pasar «Entrega» a una columna no acortaba la página; plegar los
+  formularios «Consultar un pedido» y «Verificar comprobante» se dejó fuera (los enlaces
+  `#consultar-pedido` y el relleno automático desde el enlace privado dependen de que estén
+  abiertos).
+- **Acceso intacto:** las capturas 01 «entrada» y 02 «acceso» pasan sin regenerarse en los 3
+  tamaños; `features/account.js`, `15-modals.css` y `21-auth.css` sin cambios.
+- **Después:** celular 10.142 px; escritorio igual (5.749 px, captura 03 de escritorio sin
+  cambios); axe 0 avisos en celular y escritorio.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 75/75 (nueva: «las
+  tarjetas de producto muestran completos los botones de cantidad», en 7 tamaños táctil y
+  ratón; sin la corrección falla con 6 botones cortados en cada tamaño estrecho); visuales 3/3
+  (03 de celular y tableta regeneradas tras revisarlas); escáner 0. Integración no se volvió a
+  correr: este cambio no toca el servidor.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
