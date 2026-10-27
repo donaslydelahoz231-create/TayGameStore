@@ -5,6 +5,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Nequi en la vista previa, comprobante para compartir y burbujas de soporte (2026-10-27)
+
+- «Compartir» del comprobante ahora se ve siempre (antes solo aparecía en navegadores que
+  comparten archivos, así que en computador no estaba). Se activa con el pedido pagado. En el
+  celular abre el menú de compartir con la imagen y un texto con el número, el pedido, el total y
+  el código para verificarlo. Donde no hay ese menú, descarga el JPG y ofrece WhatsApp (sin
+  número: el cliente elige a quién), correo o «Copiar datos».
+- En la columna del comprobante, JPG y PDF van lado a lado y «Compartir» en su propia fila (antes
+  se recortaba).
+- Vista previa (nunca en producción): Nequi como método de pago con una llave y un titular
+  **ficticios**, aviso «Ya transferí» y una revisión del dueño simulada (confirmar, rechazar o
+  revisar después). La vista previa ahora emite comprobantes numerados con código de prueba
+  («V0-…») que pasan «Verificar comprobante», y muestra las dos burbujas (WhatsApp con un número
+  ficticio que no se marca: sale un aviso). En la tienda real, las burbujas salen con los canales
+  que configura el servidor y solo dentro de la tienda.
+
 ### Inicio animado e interactivo (2026-10-27)
 
 - Mismo recorrido del sitio publicado (abrir → bienvenida → «Entrar» → acceso), ahora con

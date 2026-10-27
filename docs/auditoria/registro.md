@@ -1883,3 +1883,33 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Vista previa:** publicada en el mismo artefacto privado; comprobada en local sin errores de
   consola. Su visualización dentro de claude.ai: NO VERIFICADO.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-27 · Nequi, compartir el comprobante y burbujas de soporte (pedido del dueño)
+
+- **Pedido:** «falto nequi y ademas compartir el comprobante y el soporte flotante el whatzap y
+  correo».
+- **Causas encontradas:** (1) la vista previa no ofrecía Nequi: su simulador no tenía
+  `paymentMethods` ni las rutas de Nequi; (2) «Compartir» estaba oculto salvo en navegadores con
+  Web Share de archivos (no aparecía en computador) y la vista previa nunca emitía comprobantes,
+  así que JPG/PDF/Compartir quedaban inactivos; (3) en la vista previa WhatsApp no tenía número y
+  solo salía la burbuja de correo. En la tienda real el código de Nequi y de las burbujas no
+  cambió.
+- **Hecho (tienda):** `#shareBtn` visible siempre y activo con comprobante; con Web Share comparte
+  el JPG y un texto (número, pedido, total, código de verificación); sin Web Share descarga el JPG
+  y muestra `#sharePanel` (WhatsApp `wa.me/?text=` sin número, correo `mailto:?`, copiar). Ícono
+  `icon-share`. Solo datos del propio comprobante: ningún dato del dueño ni del pago.
+- **Hecho (vista previa, `tools/preview/shim.js`):** Nequi con llave `@tay-demo` y titular «Titular
+  de ejemplo» (ficticios), rutas `/nequi`, `/payment-method` y `/nequi/report` con las mismas
+  reglas del servidor (un pedido de Nequi nunca abre Mercado Pago), revisión simulada del dueño,
+  comprobantes numerados con código de prueba `V0-…` y verificación pública, y WhatsApp ficticio
+  (57 + diez ceros) cuyos clics se interceptan con un aviso.
+- **Acceso intacto:** las líneas de `#loginModal` y `icon-shield` no cambiaron (diff comparado).
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 80/80 con axe (nueva: las dos
+  burbujas abajo a la derecha sin taparse; ampliada: compartir con y sin menú del sistema); visuales
+  3/3 (solo 03 regenerada tras revisarla: la tarjeta del comprobante crece 52 px; 01 y 02
+  idénticas); flujo completo en la vista previa a 1280 y 360 px sin errores ni desbordamiento;
+  escáner 0. Integración no se volvió a correr: el cambio no toca el servidor.
+- **Vista previa:** publicada en el mismo artefacto privado (versión 7). Su visualización dentro de
+  claude.ai: NO VERIFICADO. Burbujas y Nequi en producción: no se volvieron a comprobar en esta
+  ronda (NO VERIFICADO).
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

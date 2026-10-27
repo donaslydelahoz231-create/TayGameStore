@@ -491,6 +491,38 @@ test.describe('estado de la tienda y soporte', () => {
     expect(box?.width).toBe(box?.height);
   });
 
+  test('con WhatsApp y correo configurados, las dos burbujas flotan abajo a la derecha', async ({
+    page,
+  }) => {
+    // Número ficticio (57 + diez ceros no existe): el servidor de pruebas no define WhatsApp.
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { support?: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: { ...body, support: { ...body.support, whatsapp: '570000000000' } },
+      });
+    });
+    await page.goto('/');
+    await expect(page.locator('#supportFloat')).toBeHidden();
+    await enterAsGuest(page);
+    const wa = page.locator('#floatWhatsApp');
+    const mail = page.locator('#floatEmail');
+    await expect(wa).toBeVisible();
+    await expect(mail).toBeVisible();
+    await expect(wa).toHaveAttribute('href', /^https:\/\/wa\.me\/570000000000\?text=Hola/);
+    await expect(page.locator('#supportWhatsappState')).toHaveText('Canal oficial disponible');
+    const viewport = page.viewportSize();
+    const a = await wa.boundingBox();
+    const b = await mail.boundingBox();
+    if (!a || !b || !viewport) throw new Error('sin medidas');
+    // Una sobre otra, sin taparse, dentro de la ventana y pegadas al borde derecho.
+    expect(a.y + a.height).toBeLessThanOrEqual(b.y);
+    expect(Math.max(a.x + a.width, b.x + b.width)).toBeLessThanOrEqual(viewport.width);
+    expect(viewport.width - (b.x + b.width)).toBeLessThan(40);
+    expect(b.y + b.height).toBeLessThanOrEqual(viewport.height);
+  });
+
   test('"Mis favoritos" en el menú de cuenta abre los favoritos guardados', async ({ page }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
@@ -1079,7 +1111,10 @@ test.describe('comprobante', () => {
       // Antes del pedido: un resumen, nunca un «borrador» descargable.
       await expect(page.locator('#invoiceRef')).toHaveText('RESUMEN');
       await expect(page.locator('#exportMsg')).toContainText('no una factura');
-      for (const id of ['#jpgBtn', '#pdfBtn']) await expect(page.locator(id)).toBeDisabled();
+      for (const id of ['#jpgBtn', '#pdfBtn', '#shareBtn'])
+        await expect(page.locator(id)).toBeDisabled();
+      // «Compartir» siempre está a la vista (inactivo hasta que hay comprobante).
+      await expect(page.locator('#shareBtn')).toBeVisible();
 
       await page.locator('#playerUid').fill('734567890');
       await page.locator('#verifyBtn').click();
@@ -1109,6 +1144,47 @@ test.describe('comprobante', () => {
       ]);
       const bytes = await readFile(await pdf.path());
       expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+      const code = ((await page.locator('#invoiceCode').textContent()) ?? '').split(' · ')[1];
+
+      // Con el menú de compartir del sistema (celular): la imagen va con su texto de verificación.
+      await page.evaluate(() => {
+        const nav = navigator as Navigator & { __shared?: unknown };
+        nav.canShare = () => true;
+        nav.share = async (data?: ShareData) => {
+          nav.__shared = {
+            text: data?.text,
+            files: (data?.files ?? []).map((f) => `${f.name}|${f.type}`),
+          };
+        };
+      });
+      await page.locator('#shareBtn').click();
+      await expect
+        .poll(() => page.evaluate(() => (navigator as Navigator & { __shared?: unknown }).__shared))
+        .toMatchObject({ files: [`Comprobante-${ref}.jpg|image/jpeg`] });
+      const shared = await page.evaluate(
+        () => (navigator as Navigator & { __shared?: { text: string } }).__shared?.text ?? '',
+      );
+      expect(shared).toContain(ref);
+      expect(shared).toContain(code);
+      await expect(page.locator('#sharePanel')).toBeHidden();
+
+      // Sin menú de compartir (computador): se descarga el JPG y se ofrecen WhatsApp, correo y
+      // copiar. WhatsApp abre sin número: el cliente elige a quién enviarlo.
+      await page.evaluate(() => {
+        Object.assign(navigator, { canShare: undefined });
+      });
+      const [shareJpg] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('#shareBtn').click(),
+      ]);
+      expect(shareJpg.suggestedFilename()).toBe(`Comprobante-${ref}.jpg`);
+      await expect(page.locator('#sharePanel')).toBeVisible();
+      const wa = (await page.locator('#shareWa').getAttribute('href')) ?? '';
+      expect(wa.startsWith('https://wa.me/?text=')).toBe(true);
+      expect(decodeURIComponent(wa)).toContain(ref);
+      expect(decodeURIComponent(wa)).toContain(code);
+      expect(await page.locator('#shareMail').getAttribute('href')).toMatch(/^mailto:\?subject=/);
+      await expect(page.locator('#exportMsg')).toContainText('JPG descargado');
     } finally {
       await operator(page, 'player-verification', { mode: 'operator' });
     }

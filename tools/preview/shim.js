@@ -20,7 +20,15 @@
   var LOOKUP_TTL_MS = 30 * 60 * 1000;
   // Canales de soporte de la vista previa. build.mjs los reemplaza con PREVIEW_SUPPORT_WHATSAPP y
   // PREVIEW_SUPPORT_EMAIL al construir (nunca se escriben en el repositorio).
-  var PREVIEW_SUPPORT = /*__PREVIEW_SUPPORT__*/ { whatsapp: null, email: 'soporte@example.com' };
+  // Sin variables, un número ficticio (57 + diez ceros no existe en Colombia): las burbujas se ven
+  // igual que en la tienda y los clics a WhatsApp se interceptan con un aviso (no se contacta a nadie).
+  var PREVIEW_SUPPORT = /*__PREVIEW_SUPPORT__*/ {
+    whatsapp: '570000000000',
+    email: 'soporte@example.com',
+  };
+  // Cuenta Nequi FICTICIA de la vista previa: nunca la real del dueño (esa solo vive en Render).
+  var PREVIEW_NEQUI = { brebKey: '@tay-demo', phone: null, holder: 'Titular de ejemplo' };
+  var NEQUI_REVIEW_HOURS = 24;
   var IS_ADMIN_PAGE = /admin\.html$/.test(location.pathname);
 
   var SEED_PRODUCTS = [
@@ -199,15 +207,50 @@
         nickname: o.verification.nickname,
         region: o.verification.region,
       },
-      payment: {
-        status: o.payment.status,
-        canPay: o.status === 'AWAITING_PAYMENT',
-        checkoutAvailable: true,
-      },
+      payment: publicPayment(o),
+      // Comprobante numerado: solo existe con el pago confirmado (como en el servidor).
+      receipt: o.receipt ? clone(o.receipt) : null,
       fulfillment: {
         status: o.fulfillment ? o.fulfillment.status : null,
         deliveredAt: o.fulfillment ? o.fulfillment.deliveredAt : null,
       },
+    };
+  }
+  // Igual que el servidor (orders.ts): un pedido de Nequi nunca abre Mercado Pago.
+  function publicPayment(o) {
+    var awaiting = o.status === 'AWAITING_PAYMENT';
+    var method = o.payment.method || null;
+    var transfers = o.nequiTransfers || [];
+    var latest = transfers[0];
+    return {
+      status: o.payment.status,
+      method: method,
+      canPay: awaiting && (method === null || method === 'mercadopago'),
+      checkoutAvailable: true,
+      methods: { mercadopago: true, nequi_manual: true, nequi_push: false },
+      canChangeMethod:
+        awaiting &&
+        method === 'mercadopago' &&
+        !o.payment.id &&
+        !transfers.some(function (t) {
+          return t.status === 'REPORTED';
+        }),
+      nequi:
+        method === 'nequi_manual'
+          ? {
+              account: awaiting ? clone(PREVIEW_NEQUI) : null,
+              amountCop: o.totalCop,
+              reference: o.reference,
+              reviewHours: NEQUI_REVIEW_HOURS,
+              transfer: latest
+                ? {
+                    status: latest.status,
+                    reportedAt: latest.reportedAt,
+                    rejectionReason: latest.status === 'REJECTED' ? latest.rejectionReason : null,
+                  }
+                : null,
+            }
+          : null,
     };
   }
   function expireOld(db) {
@@ -324,7 +367,8 @@
             verifiedAt: null,
             confirmedAt: null,
           },
-      payment: { status: null, id: null, approvedAt: null },
+      payment: { status: null, id: null, approvedAt: null, method: null },
+      nequiTransfers: [],
       attempts: [],
       fulfillment: null,
       owner: db.session ? db.session.email : 'invitado',
@@ -338,19 +382,47 @@
   }
 
   // ── Pasarela de pago de PRUEBA (no es Mercado Pago) ──
+  /**
+   * Código de verificación de PRUEBA («V0-…»): una huella simple del comprobante, no la firma real
+   * (la real es HMAC con una llave que solo tiene el servidor y empieza por V1 o más).
+   */
+  function previewReceiptCode(number, o, paymentId) {
+    var text = 'tgs-receipt|' + number + '|' + o.reference + '|' + o.totalCop + '|' + paymentId;
+    var alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    var h = 2166136261;
+    var out = '';
+    for (var round = 0; out.length < 16; round++) {
+      for (var i = 0; i < text.length; i++) {
+        h ^= text.charCodeAt(i) + round;
+        h = Math.imul(h, 16777619) >>> 0;
+      }
+      out += alphabet[h % alphabet.length] + alphabet[(h >>> 8) % alphabet.length];
+    }
+    return 'V0-' + out.slice(0, 16).match(/.{4}/g).join('-');
+  }
   function settlePayment(ref, approved) {
     var db = load();
     var o = findOrder(db, ref);
     if (!o || o.status !== 'AWAITING_PAYMENT') return;
+    var method = o.payment.method || 'mercadopago';
+    // Mercado Pago lo confirma por webhook; Nequi, el dueño desde su panel al ver el dinero.
+    var actor = method === 'nequi_manual' ? 'admin' : 'webhook';
     var attempt = o.attempts[o.attempts.length - 1];
     if (attempt) attempt.status = 'CLOSED';
     if (approved) {
-      o.payment = { status: 'APPROVED', id: uuid(), approvedAt: now() };
-      audit(db, 'payment', o.payment.id, 'payment.synced', null, 'APPROVED', 'webhook', {
+      o.payment = { status: 'APPROVED', id: uuid(), approvedAt: now(), method: method };
+      if (method === 'nequi_manual' && o.nequiTransfers && o.nequiTransfers[0])
+        o.nequiTransfers[0].status = 'CONFIRMED';
+      audit(db, 'payment', o.payment.id, 'payment.synced', null, 'APPROVED', actor, {
         orderId: o.id,
         liveMode: false,
       });
-      transition(db, o, 'PAID', 'webhook');
+      transition(db, o, 'PAID', actor);
+      db.receiptSeq = (db.receiptSeq || 0) + 1;
+      o.receipt = {
+        number: db.receiptSeq,
+        verificationCode: previewReceiptCode(db.receiptSeq, o, o.payment.id),
+      };
       o.fulfillment = {
         id: uuid(),
         orderId: o.id,
@@ -373,11 +445,18 @@
         'fulfillment.ready',
         null,
         'READY_FOR_FULFILLMENT',
-        'webhook',
+        actor,
       );
+    } else if (method === 'nequi_manual') {
+      // El dueño no encontró la transferencia: el pedido sigue esperando pago.
+      if (o.nequiTransfers && o.nequiTransfers[0]) {
+        o.nequiTransfers[0].status = 'REJECTED';
+        o.nequiTransfers[0].rejectionReason = 'el monto no coincide (prueba)';
+      }
+      audit(db, 'nequi_transfer', o.id, 'nequi.rejected', 'REPORTED', 'REJECTED', actor);
     } else {
-      o.payment = { status: 'REJECTED', id: uuid(), approvedAt: null };
-      audit(db, 'payment', o.payment.id, 'payment.synced', null, 'REJECTED', 'webhook', {
+      o.payment = { status: 'REJECTED', id: uuid(), approvedAt: null, method: method };
+      audit(db, 'payment', o.payment.id, 'payment.synced', null, 'REJECTED', actor, {
         orderId: o.id,
       });
     }
@@ -428,6 +507,49 @@
     box.querySelector('[data-r="no"]').onclick = function () {
       finish(false);
     };
+    box.querySelector('[data-r="ok"]').focus();
+  }
+
+  /**
+   * Revisión del dueño, SIMULADA. En la tienda real nadie la ve: el dueño confirma desde su panel
+   * solo cuando ve el dinero en su cuenta Nequi. Aquí se simula para recorrer el flujo completo.
+   */
+  function openNequiReview(order) {
+    var old = document.getElementById('tgsPreviewPay');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.id = 'tgsPreviewPay';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'tgsPreviewPayTitle');
+    box.innerHTML =
+      '<div class="tgsp-card">' +
+      '<div class="tgsp-eyebrow">REVISIÓN DEL DUEÑO · SIMULADA</div>' +
+      '<h2 id="tgsPreviewPayTitle">¿Llegó la transferencia Nequi?</h2>' +
+      '<p>En tu tienda real <b>tú</b> haces este paso desde el panel, solo cuando ves el dinero en tu cuenta Nequi. ' +
+      'Aquí la cuenta es <b>ficticia</b> y no se cobra nada.</p>' +
+      '<div class="tgsp-sum"><span>Pedido</span><b>' +
+      order.reference +
+      '</b><span>Total</span><b>$ ' +
+      order.totalCop.toLocaleString('es-CO') +
+      ' COP</b></div>' +
+      '<div class="tgsp-actions"><button type="button" data-r="ok">Confirmar: llegó el dinero</button>' +
+      '<button type="button" data-r="no" class="ghost">No la encontré</button>' +
+      '<button type="button" data-r="later" class="ghost">Revisar después</button></div></div>';
+    document.body.appendChild(box);
+    var finish = function (result) {
+      if (result !== 'later') settlePayment(order.reference, result === 'ok');
+      box.remove();
+      var refresh = document.getElementById('refreshOrderBtn');
+      if (refresh) refresh.click();
+      var target = document.getElementById(result === 'ok' ? 'seguimiento' : 'factura');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    };
+    ['ok', 'no', 'later'].forEach(function (r) {
+      box.querySelector('[data-r="' + r + '"]').onclick = function () {
+        finish(r);
+      };
+    });
     box.querySelector('[data-r="ok"]').focus();
   }
 
@@ -544,6 +666,7 @@
         paymentsEnabled: true,
         paymentsMode: 'sandbox',
         paymentMethod: 'mercadopago',
+        paymentMethods: { mercadopago: true, nequiManual: true, nequiPush: false },
         auth: { google: true, discord: true, facebook: true },
         playerLookup: true,
         support: PREVIEW_SUPPORT,
@@ -608,7 +731,24 @@
           .map(publicOrder),
       });
     }
-    if ((m = path.match(/^\/api\/orders\/(TGS-[0-9A-Z]{10})(\/[a-z-]+)?$/))) {
+    if (path === '/api/receipts/verify' && method === 'POST') {
+      var asked = findOrder(db, String((body && body.reference) || '').toUpperCase());
+      var code = String((body && body.code) || '')
+        .toUpperCase()
+        .replace(/\s+/g, '');
+      // Igual que el servidor: si no es auténtico, la respuesta no revela si el pedido existe.
+      if (!asked || !asked.receipt || asked.receipt.verificationCode !== code)
+        return json(200, { authentic: false });
+      return json(200, {
+        authentic: true,
+        number: asked.receipt.number,
+        reference: asked.reference,
+        totalCop: asked.totalCop,
+        status: asked.status,
+        paidAt: asked.payment.approvedAt,
+      });
+    }
+    if ((m = path.match(/^\/api\/orders\/(TGS-[0-9A-Z]{10})(\/[a-z-]+(?:\/[a-z-]+)?)?$/))) {
       var order = findOrder(db, m[1]);
       if (!order) return fail(404, 'NOT_FOUND', 'No encontramos ese pedido.');
       var action = m[2];
@@ -632,6 +772,13 @@
       if (action === '/pay' && method === 'POST') {
         if (order.status !== 'AWAITING_PAYMENT')
           return fail(409, 'INVALID_STATE', 'Este pedido no está pendiente de pago.');
+        if (order.payment.method === 'nequi_manual')
+          return fail(
+            400,
+            'BAD_REQUEST',
+            'Nequi no se paga con Mercado Pago: elige «Nequi (transferencia)».',
+          );
+        order.payment.method = 'mercadopago';
         order.attempts.push({
           id: uuid(),
           status: 'OPEN',
@@ -648,6 +795,77 @@
         return json(200, {
           checkoutUrl: location.origin + location.pathname + location.search + '#pago-prueba',
         });
+      }
+      // ── Nequi por transferencia (vista previa: cuenta ficticia, nada se cobra) ──
+      if (action === '/nequi' && method === 'POST') {
+        if (order.status !== 'AWAITING_PAYMENT')
+          return fail(409, 'INVALID_STATE', 'Este pedido no está pendiente de pago.');
+        if (order.payment.method === 'mercadopago')
+          return fail(
+            409,
+            'METHOD_LOCKED',
+            'Este pedido va por Mercado Pago. Cámbialo a Nequi primero.',
+          );
+        if (order.payment.method !== 'nequi_manual') {
+          order.payment.method = 'nequi_manual';
+          audit(db, 'order', order.id, 'payment.method_chosen', null, 'nequi_manual', 'customer');
+          save();
+        }
+        return json(200, { order: publicOrder(order) });
+      }
+      if (action === '/payment-method' && method === 'POST') {
+        if (!body || body.to !== 'nequi_manual' || body.confirm !== true)
+          return fail(400, 'VALIDATION_ERROR', 'Confirma el cambio a Nequi.');
+        if (!publicPayment(order).canChangeMethod)
+          return fail(409, 'INVALID_STATE', 'Este pedido ya no puede cambiar de método de pago.');
+        order.payment.method = 'nequi_manual';
+        audit(
+          db,
+          'order',
+          order.id,
+          'payment.method_changed',
+          'mercadopago',
+          'nequi_manual',
+          'customer',
+        );
+        save();
+        return json(200, { order: publicOrder(order) });
+      }
+      if (action === '/nequi/report' && method === 'POST') {
+        if (order.status !== 'AWAITING_PAYMENT' || order.payment.method !== 'nequi_manual')
+          return fail(409, 'INVALID_STATE', 'Este pedido no espera una transferencia Nequi.');
+        var last4 = String((body && body.senderLast4) || '');
+        var customerRef = body && body.reference ? String(body.reference) : null;
+        if (!/^\d{4}$/.test(last4))
+          return fail(400, 'VALIDATION_ERROR', 'Escribe los 4 últimos dígitos de tu cuenta.');
+        if (customerRef && !/^[A-Za-z0-9-]{4,40}$/.test(customerRef))
+          return fail(
+            400,
+            'VALIDATION_ERROR',
+            'La referencia solo lleva letras, números o guiones.',
+          );
+        order.nequiTransfers = order.nequiTransfers || [];
+        var open = order.nequiTransfers[0];
+        if (open && open.status === 'REPORTED') {
+          open.senderLast4 = last4;
+          open.customerReference = customerRef;
+          open.reportedAt = now();
+        } else {
+          order.nequiTransfers.unshift({
+            status: 'REPORTED',
+            senderLast4: last4,
+            customerReference: customerRef,
+            reportedAt: now(),
+            rejectionReason: null,
+          });
+        }
+        audit(db, 'nequi_transfer', order.id, 'nequi.reported', null, 'REPORTED', 'customer');
+        save();
+        var reported = publicOrder(order);
+        setTimeout(function () {
+          openNequiReview(reported);
+        }, 900);
+        return json(200, { order: reported });
       }
     }
 
@@ -879,7 +1097,38 @@
     '.tgsp-eyebrow{color:#ffb52e;font:800 11px system-ui,sans-serif;letter-spacing:.12em}' +
     '.tgsp-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:12px 0;padding:10px;border:1px solid #26305f;border-radius:10px}.tgsp-sum b{text-align:right}' +
     '.tgsp-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.tgsp-actions button{flex:1;min-width:150px;padding:11px;border:0;border-radius:10px;background:#3fbf8f;color:#03170b;font:800 14px system-ui,sans-serif;cursor:pointer}' +
-    '.tgsp-actions button.ghost{background:transparent;color:#ff9fb0;border:1px solid #ff6b81}.tgsp-card code{color:#37d6ff}';
+    '.tgsp-actions button.ghost{background:transparent;color:#ff9fb0;border:1px solid #ff6b81}.tgsp-card code{color:#37d6ff}' +
+    '#tgsPreviewNote{position:fixed;left:50%;top:16px;z-index:2147483002;transform:translateX(-50%);width:min(440px,calc(100vw - 32px));padding:12px 14px;border:1px solid #ffb52e;border-radius:12px;background:#140f02f2;color:#ffe2a6;font:600 13px/1.45 system-ui,sans-serif;box-shadow:0 12px 30px #000a}';
+  // Aviso breve en lugar de abrir WhatsApp (el número de la vista previa es ficticio).
+  var noteTimer = 0;
+  function note(text) {
+    var el = document.getElementById('tgsPreviewNote');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'tgsPreviewNote';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function () {
+      el.remove();
+    }, 5200);
+  }
+  document.addEventListener(
+    'click',
+    function (event) {
+      var link =
+        event.target.closest &&
+        event.target.closest('a[href^="https://wa.me/"]:not([href^="https://wa.me/?"])');
+      if (!link) return;
+      event.preventDefault();
+      note(
+        'Vista previa: aquí se abriría WhatsApp con el mensaje listo. En tu tienda real abre tu número oficial; en esta prueba el número es ficticio y no se contacta a nadie.',
+      );
+    },
+    true,
+  );
   function help() {
     var box = document.createElement('div');
     box.id = 'tgsPreviewHelp';
@@ -890,6 +1139,8 @@
       '<p>Es tu tienda real (misma interfaz y mismas reglas de pedido), funcionando dentro de tu navegador. No hay servidor, dinero ni cuentas reales; los datos se guardan solo en este navegador.</p>' +
       '<ul><li>ID de jugador que empieza por <code>9</code>: aparece nickname y región. Por <code>8</code>: "no existe". Otro: verificación manual por el equipo.</li>' +
       '<li>El pago abre una <b>pasarela de prueba</b> (no es Mercado Pago): eliges aprobar o rechazar.</li>' +
+      '<li><b>Nequi</b> muestra una llave <b>ficticia</b>. Tras «Ya transferí» simulas la revisión del dueño: confirmar, rechazar o revisar después.</li>' +
+      '<li>WhatsApp no se abre: el número es ficticio y verás un aviso. En tu tienda abre tu canal oficial.</li>' +
       '<li>Google, Discord y Facebook crean una sesión de prueba al instante.</li>' +
       '<li>En el <b>Panel</b> haces de operador: verificas jugadores y marcas entregas. El cliente lo ve con "Actualizar estado".</li></ul>' +
       '<div class="tgsp-actions"><button type="button" data-a="close">Entendido</button><button type="button" data-a="reset" class="ghost">Borrar datos de prueba</button></div></div>';

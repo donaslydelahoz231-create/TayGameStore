@@ -237,7 +237,16 @@ export function renderInvoice() {
   for (const id of ['jpgBtn', 'pdfBtn', 'shareBtn']) {
     if ($(id)) $(id).disabled = !exportInfo.enabled;
   }
-  setText('exportMsg', exportInfo.text);
+  // Las opciones para compartir solo valen para el comprobante con el que se abrieron.
+  const sharePanel = $('sharePanel');
+  if (sharePanel && (!exportInfo.enabled || sharePanel.dataset.ref !== order?.reference))
+    sharePanel.hidden = true;
+  setText(
+    'exportMsg',
+    sharePanel && !sharePanel.hidden
+      ? 'JPG descargado: adjúntalo al enviarlo por WhatsApp o correo.'
+      : exportInfo.text,
+  );
   if ($('customerName') && !order && $('customerName').value !== state.customerName)
     $('customerName').value = state.customerName;
 }

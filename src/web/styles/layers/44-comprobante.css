@@ -322,3 +322,47 @@
     min-width: 0;
   }
 }
+
+/*
+ * Compartir el comprobante (2026-10-27): el botón siempre está a la vista (activo solo con pedido
+ * pagado). Donde el navegador no comparte archivos, se descarga el JPG y aquí aparecen WhatsApp,
+ * correo y «Copiar datos» para enviarlo.
+ */
+#app .export-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.export-grid .btn {
+  min-width: 0;
+  padding-inline: 8px;
+}
+/* La columna de herramientas es angosta: «Compartir» va en su propia fila y no se recorta. */
+#app .export-grid #shareBtn {
+  grid-column: 1 / -1;
+}
+.share-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(124, 92, 255, 0.38);
+  border-radius: 14px;
+  background: rgba(124, 92, 255, 0.09);
+}
+.share-panel p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.share-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.share-links #shareCopy {
+  grid-column: 1 / -1;
+}
+.share-links .btn {
+  min-width: 0;
+  padding-inline: 8px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}

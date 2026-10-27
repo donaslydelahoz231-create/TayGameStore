@@ -1,5 +1,6 @@
 import { $, setText } from '../dom.js';
 import { money } from '../format.js';
+import { state } from '../state.js';
 import { toast } from '../ui.js';
 import {
   hasReceipt,
@@ -295,6 +296,46 @@ function jpegToPdf(jpegBytes, width, height) {
   return new Blob([out], { type: 'application/pdf' });
 }
 
+/**
+ * Texto que acompaña al comprobante: número, pedido, total y código para verificarlo. Solo datos
+ * del propio comprobante (ningún dato del dueño ni del pago).
+ */
+export function receiptShareText() {
+  const order = state.currentOrder;
+  if (!order?.receipt) return '';
+  const number = String(order.receipt.number).padStart(6, '0');
+  return (
+    `Comprobante TayGameStore N.º ${number} · Pedido ${order.reference} · Total ${money(invoiceTotal())}. ` +
+    `Código de verificación: ${order.receipt.verificationCode}. ` +
+    `Verifícalo en ${location.origin} → Soporte → «Verificar comprobante».`
+  );
+}
+
+function showSharePanel(text) {
+  const panel = $('sharePanel');
+  if (!panel) return;
+  const subject = 'Comprobante TayGameStore ' + invoiceReference();
+  $('shareWa').href = 'https://wa.me/?text=' + encodeURIComponent(text);
+  $('shareMail').href =
+    'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
+  panel.dataset.ref = invoiceReference();
+  panel.hidden = false;
+  setText('exportMsg', 'JPG descargado: adjúntalo al enviarlo por WhatsApp o correo.');
+  $('shareWa').focus({ preventScroll: true });
+}
+
+/** Copia el texto del comprobante para pegarlo donde el cliente quiera. */
+export async function copyShareText() {
+  const text = receiptShareText();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Datos del comprobante copiados.', 'good');
+  } catch {
+    toast('No se pudo copiar: compártelo por WhatsApp o correo.', 'bad');
+  }
+}
+
 export async function exportInvoice(type) {
   if (!hasReceipt()) {
     toast('El comprobante se emite cuando Mercado Pago confirma el pago.', 'bad');
@@ -312,11 +353,20 @@ export async function exportInvoice(type) {
     return;
   }
   if (type === 'share') {
-    const f = new File([jpg], base + '.jpg', { type: 'image/jpeg' });
-    if (navigator.canShare?.({ files: [f] }))
-      return navigator.share({ title: 'Comprobante TayGameStore', files: [f] });
+    const file = new File([jpg], base + '.jpg', { type: 'image/jpeg' });
+    const text = receiptShareText();
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ title: 'Comprobante TayGameStore', text, files: [file] });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return; // El cliente cerró el menú de compartir.
+      }
+    }
+    // Sin menú de compartir con archivos (computador, algunos navegadores): se descarga el JPG y
+    // se ofrecen WhatsApp, correo o copiar los datos para adjuntarlo.
     saveBlob(jpg, base + '.jpg');
-    toast('Tu navegador no permite compartir; se generó el JPG.');
+    showSharePanel(text);
     return;
   }
   const fr = new FileReader();
