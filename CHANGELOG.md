@@ -5,6 +5,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Tienda con acabado profesional (2026-10-27)
+
+- Cada paquete tiene su arte en lugar de los íconos repetidos, y el valor se ve al crecer: 3
+  gemas, montón, bolsa, cofre, cofre adornado y bóveda (`src/web/public/art`, WebP de 480 px,
+  7–24 KB, carga diferida, sin metadatos). Imágenes generadas para la tienda, sin logos ni
+  diamantes del juego; procedencia en el informe legal §4.
+- La promoción es un banner con un cofre que se funde con el fondo; el texto y «Ver tarifas»
+  quedan a la izquierda.
+- Celular: barra de compra fija abajo con lo elegido, el total y «Revisar pedido» (lleva al
+  siguiente paso). Se oculta en la bienvenida, en escritorio y con el pedido a la vista; las
+  burbujas de soporte y los avisos suben para no taparse.
+- La ventana de acceso no cambia (capturas 01 y 02 idénticas; solo se regeneró la 03).
+- Vista previa: incluye cookies y reembolsos, y su aviso de «entorno de prueba» sube para no
+  tapar la barra de compra.
+
 ### Legal y accesibilidad (2026-10-25, `docs/legal/INFORME-CUMPLIMIENTO-2026-10-25.md`)
 
 - Páginas nuevas `cookies.html` (solo cookies técnicas, con nombre, uso y duración) y

@@ -1,0 +1,180 @@
+/*
+ * Tienda con acabado profesional (2026-10-27): arte de producto por paquete, banner de promoción
+ * con imagen y barra de compra fija en el celular, como las tiendas de recargas líderes. Mantiene
+ * la identidad publicada (fondo oscuro, violeta, cian, Tay). La ventana de acceso no cambia.
+ */
+
+/* Tarjetas: el arte del paquete manda (montón, bolsa, cofre, bóveda: el valor se ve). */
+#products .product-visual.has-art {
+  display: block;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  margin: 0 0 10px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0b1022;
+}
+#products .product-visual.has-art::before,
+#products .product-visual.has-art::after {
+  content: none;
+}
+#products .product-visual.has-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  #products .product:hover .product-visual.has-art img {
+    transform: scale(1.06);
+  }
+}
+/* Etiqueta y favorito encima de la imagen. */
+#products .product-visual .product-top {
+  position: absolute;
+  inset: 8px 8px auto;
+  z-index: 2;
+}
+#products .product-name {
+  font-size: 0.92rem;
+}
+#products .product-price strong {
+  color: #fff;
+  font-family: var(--display);
+  font-size: 1.02rem;
+}
+
+/* Promoción como banner con imagen: el cofre se funde con el fondo y el texto queda a la izquierda. */
+#app .promo-strip {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 3px;
+  min-height: 108px;
+  padding: 16px 190px 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 181, 46, 0.16),
+    rgba(139, 61, 255, 0.16) 55%,
+    #0b1022 85%
+  );
+  overflow: hidden;
+}
+#app .promo-strip::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 240px;
+  background: url('/art/promo-cofre.webp') center 40% / cover no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 45%);
+  mask-image: linear-gradient(90deg, transparent, #000 45%);
+}
+#app .promo-strip b {
+  font-size: 1.16rem;
+}
+#app .promo-strip span {
+  font-size: 0.86rem;
+}
+#app .promo-strip .promo-validity {
+  font-size: var(--fs-2xs);
+}
+#app .promo-strip em {
+  margin: 6px 0 0;
+  padding: 6px 14px;
+  border: 1px solid rgba(55, 214, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(55, 214, 255, 0.1);
+}
+@media (max-width: 520px) {
+  #app .promo-strip {
+    padding-right: 120px;
+  }
+  #app .promo-strip::after {
+    width: 150px;
+  }
+}
+
+/* Celular: tarjetas más compactas sin perder nada (el texto sigue para lectores de pantalla). */
+@media (max-width: 560px) {
+  #products .product {
+    padding: 9px;
+  }
+  #products .product-visual.has-art {
+    margin-bottom: 8px;
+  }
+  #products .product-meta span:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  #products .product-price {
+    margin: 6px 0;
+  }
+}
+
+/* Barra de compra del celular: lo elegido y el total, con el siguiente paso a un toque. */
+.buy-bar {
+  display: none;
+}
+@media (max-width: 760px) {
+  .buy-bar:not([hidden]) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 320;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(8, 12, 32, 0.95);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.35);
+  }
+  .buy-bar-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .buy-bar-info span {
+    color: var(--muted);
+    font-size: var(--fs-2xs);
+  }
+  .buy-bar-info b {
+    font-family: var(--display);
+    font-size: 1.1rem;
+  }
+  .buy-bar .btn {
+    min-height: 48px;
+    padding: 0 18px;
+    white-space: nowrap;
+  }
+  /* En la bienvenida y con el pedido a la vista no hace falta. */
+  body.entry-locked .buy-bar,
+  body.in-checkout .buy-bar {
+    display: none;
+  }
+  /* Con la barra, las burbujas de soporte y los avisos suben para no taparse. */
+  body.has-buy-bar:not(.in-checkout):not(.entry-locked) .support-float,
+  body.has-buy-bar:not(.in-checkout):not(.entry-locked) .toast-stack {
+    bottom: 88px;
+  }
+  body.has-buy-bar .footer-legal {
+    padding-bottom: 230px;
+  }
+}

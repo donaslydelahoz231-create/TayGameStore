@@ -91,6 +91,12 @@ Este documento no contiene datos personales del propietario.
 - **Imágenes:** la mascota «Tay», la imagen social y los íconos se dibujaron para la tienda (SVG
   del repositorio); las fuentes son OFL; no se usan logos ni imágenes de Garena ni de otros
   juegos.
+- **Arte de los paquetes (2026-10-27):** las 7 imágenes de `src/web/public/art` (gemas, montón,
+  bolsa, cofres, bóveda y el cofre del banner) se generaron con IA (Gamma, `generate_image`)
+  para esta tienda, con instrucciones que excluyen logos, texto y marcas; muestran gemas
+  genéricas, no el diamante de Free Fire. Se recortaron y pasaron a WebP sin metadatos.
+  **NO VERIFICADO:** que los términos de Gamma permitan el uso comercial de las imágenes
+  generadas en el plan de la cuenta; revísalo en sus condiciones antes de publicar.
 
 ## 5. Riesgos y acciones del dueño (por prioridad)
 

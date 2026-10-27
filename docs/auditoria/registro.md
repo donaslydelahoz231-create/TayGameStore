@@ -1814,3 +1814,25 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   «Popular»; R5 ventana de acceso (etiqueta del «×» y aviso de privacidad) espera su permiso.
 - **Sin publicar:** commits locales. El push despliega en Render; espera la autorización del dueño.
 
+
+### 2026-10-27 · Tienda con acabado profesional (pedido del dueño)
+
+- **Pedido:** el lienzo de diseño (opciones «Mostrador» y «Tablero») le pareció poco
+  profesional y no una página real; quiere una tienda que funcione y dé buena experiencia.
+- **Hecho:** en la tienda real, sin tocar el acceso (`#loginModal`, `account.js`,
+  `15-modals.css`, `21-auth.css`): arte por paquete en las tarjetas, banner de promoción con
+  imagen y barra de compra fija en el celular que lleva al siguiente paso. Capa nueva
+  `41-tienda-pro.css`; JS en `catalog.js`, `cart.js` y `bindings.js`.
+- **Imágenes:** 7 WebP generadas con IA (Gamma) para la tienda, sin marcas ni metadatos; uso
+  comercial según los términos de Gamma: NO VERIFICADO (informe legal §4).
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 77/77 con axe (nueva:
+  arte de los 6 paquetes, barra oculta en escritorio, visible en celular con «1 paquete» y el
+  total, y su botón lleva al UID); visuales 3/3 (solo la 03 regenerada tras revisarla; 01 y 02
+  idénticas); escáner 0 (árbol, compilado, ignorados e historial). Integración no se volvió a
+  correr: el cambio no toca el servidor.
+- **Vista previa:** compilada con el simulador (nada se cobra) y comprobada en local: 6
+  imágenes cargadas, barra con el total, foco en el UID, cookies/reembolsos/términos 200, sin
+  errores de consola. Publicada como artefacto privado en el mismo enlace de «Tienda
+  TayGameStore»; su visualización dentro de claude.ai: NO VERIFICADO. Las páginas legales de la
+  vista previa solo llevan marcadores `[COMPLETAR:…]`, ningún dato del dueño.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

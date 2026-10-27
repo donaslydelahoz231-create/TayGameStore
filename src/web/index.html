@@ -98,6 +98,9 @@
   <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M10 4H5.5A1.5 1.5 0 004 5.5v13A1.5 1.5 0 005.5 20H10M13 8l4 4-4 4M8 12h9" fill="none"/></symbol>
 </defs></svg>
 
+<!-- Barra de compra en celular: lo elegido y el total siempre a la vista (se oculta en el pedido). -->
+<div class="buy-bar" id="buyBar" hidden><div class="buy-bar-info"><span id="buyBarCount">0 paquetes</span><b id="buyBarTotal">$ 0 COP</b></div><button class="btn primary" id="buyBarGo" type="button">Revisar pedido <svg aria-hidden="true"><use href="#icon-arrow"/></svg></button></div>
+
 <aside class="support-float" id="supportFloat" aria-label="Soporte TayGameStore">
   <a id="floatWhatsApp" class="support-float-btn whatsapp" href="#" target="_blank" rel="noopener" aria-label="Soporte por WhatsApp" title="Soporte por WhatsApp">
     <svg aria-hidden="true"><use href="#icon-whatsapp"/></svg><span>Escríbenos por WhatsApp</span>

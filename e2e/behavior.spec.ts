@@ -381,6 +381,37 @@ test.describe('carrito y favoritos (mejoras)', () => {
     await expect(page.locator('#playerUid')).toBeFocused();
   });
 
+  test('cada paquete muestra su arte y, en el celular, la barra de compra lleva al siguiente paso', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await enterAsGuest(page);
+    // Arte propio por paquete (montón, bolsa, cofre, bóveda): todas las imágenes cargan.
+    await expect(page.locator('#products .product-visual.has-art img')).toHaveCount(6);
+    await expect
+      .poll(() =>
+        page
+          .locator('#products .product-visual.has-art img')
+          .evaluateAll((imgs) =>
+            imgs.every(
+              (img) =>
+                (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
+            ),
+          ),
+      )
+      .toBe(true);
+    // En escritorio el carrito lateral basta: la barra no aparece.
+    await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+    await expect(page.locator('#buyBar')).toBeHidden();
+    // En el celular: lo elegido y el total siempre a la vista, y un toque al siguiente paso.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('#buyBar')).toBeVisible();
+    await expect(page.locator('#buyBarCount')).toHaveText('1 paquete');
+    await expect(page.locator('#buyBarTotal')).toHaveText(/3\.800/);
+    await page.locator('#buyBarGo').click();
+    await expect(page.locator('#playerUid')).toBeFocused();
+  });
+
   test('el carrito se sincroniza entre pestañas', async ({ page, context }) => {
     await page.goto('/');
     await enterAsGuest(page);

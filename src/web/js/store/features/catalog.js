@@ -9,6 +9,20 @@ import { saveLocal } from '../storage.js';
 import { toast } from '../ui.js';
 import { setQty } from './cart.js';
 
+/**
+ * Arte de cada paquete por cantidad total de diamantes (src/web/public/art, generado para la
+ * tienda; ver docs/legal/INFORME-CUMPLIMIENTO-2026-10-25.md). Un paquete sin arte conserva los
+ * íconos de diamante. Ruta relativa: sirve igual en la tienda y en la vista previa.
+ */
+const PACK_ART = {
+  110: 'art/paquete-110.webp',
+  341: 'art/paquete-341.webp',
+  572: 'art/paquete-572.webp',
+  1166: 'art/paquete-1166.webp',
+  2398: 'art/paquete-2398.webp',
+  6160: 'art/paquete-6160.webp',
+};
+
 /** Convierte un producto del servidor al formato de la interfaz. */
 function fromServer(p) {
   return {
@@ -116,12 +130,16 @@ export function renderProducts() {
     const el = document.createElement('article');
     el.className =
       'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
+    const art = PACK_ART[Number(p.diamonds)];
     const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
+    const visual = art
+      ? `<img src="${art}" alt="" width="480" height="480" loading="lazy" decoding="async">`
+      : `${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span>`;
     const soldOut = !p.providerAvailable;
     const addLabel = soldOut ? 'Agotado' : q ? 'Añadido' : 'Agregar';
     const providerNote = soldOut ? 'Agotado por ahora' : 'Disponible';
     const perHundred = Math.round((priceOf(p) / Number(p.diamonds || 1)) * 100);
-    el.innerHTML = `<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div><div class="product-visual">${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button"${soldOut ? ' disabled' : ''}>${addLabel}</button><div class="qty"><button type="button" data-op="minus" aria-label="Disminuir cantidad de ${esc(p.name)}" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus" aria-label="Aumentar cantidad de ${esc(p.name)}"${soldOut ? ' disabled' : ''}>+</button></div></div>`;
+    el.innerHTML = `<div class="product-visual${art ? ' has-art' : ''}">${visual}<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button"${soldOut ? ' disabled' : ''}>${addLabel}</button><div class="qty"><button type="button" data-op="minus" aria-label="Disminuir cantidad de ${esc(p.name)}" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus" aria-label="Aumentar cantidad de ${esc(p.name)}"${soldOut ? ' disabled' : ''}>+</button></div></div>`;
     const favBtn = el.querySelector('.fav-btn');
     favBtn.addEventListener('click', (e) => {
       e.preventDefault();

@@ -56,6 +56,29 @@ export function cartSaving() {
   );
 }
 
+/** Barra de compra del celular: lo elegido y el total (el CSS la muestra solo en pantallas estrechas). */
+function renderBuyBar(hasItems, count) {
+  const bar = $('buyBar');
+  if (!bar) return;
+  setText('buyBarCount', count + (count === 1 ? ' paquete' : ' paquetes'));
+  setText('buyBarTotal', money(total()));
+  bar.hidden = !hasItems;
+  document.body.classList.toggle('has-buy-bar', hasItems);
+}
+
+/**
+ * Con el pedido a la vista la barra sobra (el botón de pagar ya está ahí): se oculta mientras la
+ * sección «Pedido» ocupa la pantalla.
+ */
+export function watchBuyBar() {
+  const invoice = document.getElementById('factura');
+  if (!invoice || typeof IntersectionObserver !== 'function') return;
+  new IntersectionObserver(
+    ([entry]) => document.body.classList.toggle('in-checkout', entry.isIntersecting),
+    { rootMargin: '0px 0px -35% 0px' },
+  ).observe(invoice);
+}
+
 /** Panel "Compra en curso" junto al catálogo. */
 export function renderSmartCart() {
   const items = cartItems(),
@@ -63,6 +86,7 @@ export function renderSmartCart() {
   setText('smartCount', count + (count === 1 ? ' ítem' : ' ítems'));
   setText('smartTotal', money(total()));
   $('smartReview').disabled = !items.length;
+  renderBuyBar(items.length > 0, count);
   const list = $('smartList');
   list.replaceChildren();
   if (!items.length) {

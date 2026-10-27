@@ -869,6 +869,8 @@
   // ── Aviso permanente de entorno de prueba ──
   var STYLE =
     '#tgsPreviewBadge{position:fixed;left:12px;bottom:12px;z-index:2147483000;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 96px);padding:8px 10px;border:1px solid #ffb52e;border-radius:12px;background:#140f02ee;color:#ffe2a6;font:700 12px/1.3 system-ui,sans-serif;box-shadow:0 10px 28px #0008}' +
+    // Con la barra de compra del celular a la vista, el aviso sube para no tapar su botón.
+    '@media (max-width:760px){body.has-buy-bar:not(.in-checkout):not(.entry-locked) #tgsPreviewBadge{bottom:84px}}' +
     '#tgsPreviewBadge button,#tgsPreviewBadge a{font:inherit;color:#140f02;background:#ffb52e;border:0;border-radius:8px;padding:5px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}' +
     '#tgsPreviewBadge .tgsp-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '#tgsPreviewHelp,#tgsPreviewPay{position:fixed;inset:0;z-index:2147483001;display:grid;place-items:center;padding:16px;background:#03050fcc}' +

@@ -15,7 +15,7 @@ import {
   openProfileEditor,
   saveProfile,
 } from './features/account.js';
-import { clearCart, closeDrawer, openDrawer } from './features/cart.js';
+import { clearCart, closeDrawer, openDrawer, watchBuyBar } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
 import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
@@ -192,6 +192,8 @@ function bindCatalogAndCart() {
     }),
   );
   $('smartReview').onclick = goToNextStep;
+  $('buyBarGo').onclick = goToNextStep;
+  watchBuyBar();
   $('smartClear').onclick = clearCart;
   $('drawerClose').onclick = closeDrawer;
   $('drawerOverlay').onclick = closeDrawer;

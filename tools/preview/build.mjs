@@ -40,13 +40,20 @@ if (wa || mail) {
 await writeFile(join(out, 'preview/shim.js'), shim);
 
 const SHIM_TAG = '<script src="./preview/shim.js"></script>';
-for (const page of ['index.html', 'admin.html', 'terminos.html', 'privacidad.html']) {
+const PAGES = [
+  'index.html',
+  'admin.html',
+  'terminos.html',
+  'privacidad.html',
+  'cookies.html',
+  'reembolsos.html',
+];
+for (const page of PAGES) {
   const file = join(out, page);
   let html = await readFile(file, 'utf8');
   // Enlaces relativos: la vista previa no vive en la raíz de un dominio.
   html = html
-    .replaceAll('href="/terminos.html"', 'href="terminos.html"')
-    .replaceAll('href="/privacidad.html"', 'href="privacidad.html"')
+    .replace(/href="\/(terminos|privacidad|cookies|reembolsos)\.html/g, 'href="$1.html')
     .replaceAll('href="/"', 'href="index.html"');
   if (page === 'index.html') {
     // Nombre propio en la galería de artefactos: se distingue de la tienda real.
