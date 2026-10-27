@@ -448,8 +448,12 @@ test.describe('carrito y favoritos (mejoras)', () => {
   }) => {
     await page.goto('/');
     await enterAsGuest(page);
-    // Arte propio por paquete (montón, bolsa, cofre, bóveda): todas las imágenes cargan.
-    await expect(page.locator('#products .product-visual.has-art img')).toHaveCount(6);
+    // Arte propio por paquete (montón, bolsa, cofre, bóveda): todas las imágenes cargan. Son
+    // `loading="lazy"`: Firefox solo las pide cerca de la pantalla, así que se recorren como un
+    // visitante que baja por el catálogo.
+    const art = page.locator('#products .product-visual.has-art img');
+    await expect(art).toHaveCount(6);
+    for (const img of await art.all()) await img.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
         page

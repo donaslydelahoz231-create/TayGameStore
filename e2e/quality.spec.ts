@@ -277,6 +277,7 @@ test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x
 
 test('las tarjetas de producto muestran completos los botones de cantidad (táctil y ratón)', async ({
   browser,
+  browserName,
 }) => {
   // Con 44 px por botón en pantallas táctiles, el «+» quedaba cortado 7 px a 360 px y 17 px a
   // 320 px; con ratón, 20 px a 320 px. Cada botón debe quedar entero dentro de su cantidad.
@@ -290,10 +291,11 @@ test('las tarjetas de producto muestran completos los botones de cantidad (táct
     [360, false],
     [1280, false],
   ] as const) {
+    // Firefox no admite `isMobile` ni emula un puntero táctil: ahí solo se miden los de ratón.
+    if (touch && browserName === 'firefox') continue;
     const context = await browser.newContext({
       viewport: { width, height: 900 },
-      isMobile: touch,
-      hasTouch: touch,
+      ...(touch ? { isMobile: true, hasTouch: true } : {}),
       reducedMotion: 'reduce',
       locale: 'es-CO',
     });

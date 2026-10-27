@@ -1950,3 +1950,29 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   sonido dentro de claude.ai: NO VERIFICADO. En iPhone con el interruptor de silencio activado,
   Safari no reproduce sonidos web (comportamiento del sistema).
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-27 · Publicación de 14 commits (b5ac9e3…bd8aa53) y verificación
+
+- **Autorización del dueño:** «Autorizo el snapshot y el push de los 14 commits».
+- **Respaldo de la base:** el snapshot de Neon fue rechazado («snapshots limit exceeded»: el plan
+  admite uno y ya existe el del 2026-10-13, que no se borró). En su lugar, rama de respaldo
+  `respaldo-2026-10-27-antes-de-14-commits` (`br-calm-scene-b53pu2dr`) desde `production`, LSN
+  `0/7F80A50` (último dato 19:24:16 UTC), sin cómputo; estado `ready` antes del push.
+- **Push:** avance rápido `aba648b..bd8aa53`; `git ls-remote` = `bd8aa53`.
+- **Render:** despliegue `dep-dbgfpnp42hec739a55dg` en `live` a las 19:36:05 UTC. La compilación
+  aplicó la migración `0024_totp_un_solo_uso` («Migraciones aplicadas.»); la columna
+  `users.mfa_totp_last_step` (bigint, admite nulos) existe en producción (consulta de esquema, sin
+  datos). Registros de error o aviso desde el despliegue: ninguno.
+- **GitHub Actions sobre `bd8aa53`:** CodeQL OK; prueba de producción OK (navegador real a 360 y
+  1280 px, 19:36:16–19:36:30, después del despliegue: diseño cargado, bienvenida sin burbuja,
+  burbujas de WhatsApp y correo a la derecha, 6 paquetes a la venta, acceso de invitado y Google
+  activos). CI: gitleaks, lint/formato/tipos/unitarias/build, integración, e2e Chromium y e2e WebKit
+  OK; **e2e Firefox con 2 fallos de las pruebas** (no de la tienda): `isMobile` no existe en
+  Firefox (`quality.spec.ts`) y las imágenes `loading="lazy"` que Firefox solo pide cerca de la
+  pantalla (`behavior.spec.ts`).
+- **Corrección local (este commit, sin publicar):** en Firefox se miden solo los casos con ratón
+  (como la prueba vecina que ya lo excluía del puntero táctil) y la prueba del arte recorre el
+  catálogo antes de comprobar las imágenes. Pasan en Chromium; en Firefox: NO VERIFICADO en local
+  (sin ese navegador aquí), lo verificará la CI al publicar.
+- **NO VERIFICADO:** la tienda publicada desde este entorno (el navegador local recibe
+  `ERR_CERT_AUTHORITY_INVALID` por el proxy del entorno; no se desactivó la verificación TLS).
