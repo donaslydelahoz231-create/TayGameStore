@@ -1,0 +1,272 @@
+/*
+ * Marca propia (2026-10-27): un solo sistema de texto y de controles para toda la tienda.
+ *
+ * Letra:   Unbounded (títulos, marca, precios y totales) + Instrument Sans (texto e interfaz;
+ *          su eje de ancho da los rótulos estrechos). Fuentes en styles/fonts.css.
+ * Escala:  --t-* para texto (fluida con clamp: crece con la pantalla sin saltos) y --ctl-* para
+ *          la altura de los controles (botones y campos), mayor en el celular para el dedo.
+ * Acceso:  la ventana de acceso (#loginModal) no cambia: conserva sus fuentes, tamaños e íconos.
+ *          Por eso las reglas de componentes llevan :not(#loginModal *).
+ */
+:root {
+  --font-display: 'Unbounded', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Las capas anteriores usan --display para rótulos pequeños: ahora es la letra de interfaz. */
+  --display: var(--font-ui);
+  --body: var(--font-ui);
+
+  /* Texto. Lo más pequeño que se lee es 13,5 px; los rótulos en mayúsculas, 12 px. */
+  --fs-label: 0.75rem;
+  --fs-2xs: 0.84375rem;
+  --t-sm: 0.9375rem;
+  --t-base: 1rem;
+  --t-md: 1.125rem;
+  --t-lg: clamp(1.2rem, 1.05rem + 0.6vw, 1.45rem);
+  --t-xl: clamp(1.45rem, 1.15rem + 1.3vw, 2.1rem);
+  --t-2xl: clamp(1.7rem, 1.15rem + 2.4vw, 2.9rem);
+  --t-3xl: clamp(2.1rem, 1.1rem + 4.4vw, 4.4rem);
+
+  /* Controles: pequeño, normal y grande. */
+  --ctl-sm: 38px;
+  --ctl-md: 46px;
+  --ctl-lg: 54px;
+  --ctl-radius: 14px;
+}
+@media (max-width: 760px) {
+  :root {
+    --ctl-sm: 42px;
+    --ctl-md: 48px;
+    --ctl-lg: 54px;
+  }
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.55;
+  font-feature-settings: 'tnum' 0;
+}
+
+/* ── La ventana de acceso conserva su letra y sus tamaños de siempre ── */
+#loginModal {
+  --display: 'Oxanium', system-ui, sans-serif;
+  --body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --fs-2xs: 0.75rem;
+  --fs-label: 0.6875rem;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Títulos ── */
+:is(#app, #factura, .modal, .drawer) :is(h1, h2, h3):not(#loginModal *) {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+#app .heading h2 {
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  line-height: 1.04;
+}
+#app .heading p {
+  font-size: var(--t-sm);
+  color: #b9c0e6;
+}
+#app .eyebrow,
+#app .smart-label {
+  font-family: var(--font-ui);
+  font-stretch: 85%;
+  font-weight: 700;
+  font-size: var(--fs-label);
+  letter-spacing: 0.16em;
+}
+#app h3 {
+  font-weight: 600;
+}
+
+/* ── Cifras: precios y totales con la letra de marca y números alineados ── */
+#app :is(.product-price strong, .smart-total b, #invoiceTotal, #drawerTotal, .tariff-board b),
+.drawer-total b,
+.buy-bar-info b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Botones: tres alturas, una sola forma; el texto ya no es diminuto ── */
+.btn:not(#loginModal *) {
+  min-height: var(--ctl-md);
+  padding: 0 18px;
+  gap: 9px;
+  border-radius: var(--ctl-radius);
+  font-family: var(--font-ui);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+.btn:not(#loginModal *) svg {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+}
+#app .heading-actions .btn,
+#app .catalog-note button,
+#app .tracking-bottom .btn {
+  min-height: var(--ctl-sm);
+  padding: 0 14px;
+  font-size: var(--fs-2xs);
+}
+.btn.full:not(#loginModal *),
+#app .entry-cta {
+  min-height: var(--ctl-lg);
+  font-size: var(--t-base);
+}
+#app .add-btn,
+#app .qty {
+  min-height: var(--ctl-sm);
+}
+#app .add-btn {
+  border-radius: 12px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+#app .header-icon,
+#app .account-btn,
+#app .cart-btn {
+  min-height: var(--ctl-sm);
+}
+#app :is(input, select):not([type='checkbox']):not([type='radio']) {
+  min-height: var(--ctl-md);
+  font-size: var(--t-base);
+}
+@media (max-width: 760px) {
+  /* En el celular, la acción principal de cada tarjeta ocupa el ancho para el pulgar. */
+  #app .card .btn.primary:not(.input-action .btn),
+  #app .invoice-tools .btn.payment {
+    width: 100%;
+  }
+}
+
+/* ── Logotipo en texto (cabecera, portada, pedido, pie): la letra de marca en todas partes ── */
+:is(.hero-wordmark, .brand-text, .boot-title, .invoice-brand b, .footer-brand b),
+:is(.hero-wordmark, .brand-text, .boot-title, .invoice-brand b, .footer-brand b) span {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+#app .service-pill b {
+  font-size: var(--fs-label);
+}
+
+/* ── Portada: el panel muestra la bóveda de diamantes en vez de un ícono suelto ── */
+#app .hero-left h1.hero-brand .hero-wordmark {
+  font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem);
+}
+#app .hero-core .diamond-reactor {
+  width: 176px;
+  height: 176px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: #0b1022 url('/art/paquete-6160.webp') center / cover no-repeat;
+  box-shadow:
+    0 22px 46px -18px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(167, 197, 255, 0.22),
+    0 0 40px rgba(55, 214, 255, 0.18);
+}
+#app .hero-core .diamond-reactor :is(svg, .reactor-ring) {
+  display: none;
+}
+
+/* ── Franja de garantías: texto legible ── */
+#app .trust b {
+  font-size: var(--t-sm);
+}
+#app .trust small {
+  font-size: var(--fs-2xs);
+}
+#app .trust article > span svg {
+  width: 20px;
+  height: 20px;
+}
+@media (max-width: 760px) {
+  /* La letra de marca es ancha: en el celular el logotipo de la portada se ajusta al ancho. */
+  #app .hero-left h1.hero-brand .hero-wordmark {
+    font-size: clamp(1.25rem, 6.2vw, 2rem);
+  }
+  #app .hero-left,
+  #app .hero-panel {
+    min-width: 0;
+  }
+}
+@media (max-width: 380px) {
+  /* Teléfonos estrechos: el nombre de la cabecera cede espacio a los botones. */
+  #app .header .brand-text {
+    font-size: 0.95rem;
+  }
+  #app .header-actions {
+    gap: 6px;
+  }
+}
+@media (max-width: 340px) {
+  #app .header .brand-text {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  /* En el celular, la bóveda va arriba a todo el ancho y el estado debajo. */
+  #app .hero-core {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 18px 0;
+  }
+  #app .hero-core .diamond-reactor {
+    width: 100%;
+    height: 150px;
+    background-position: center 55%;
+  }
+}
+
+/* ── Últimos textos diminutos: navegación, cuenta, títulos de tarjeta y estados ── */
+#app .nav a {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+#app .account-btn b,
+#app .cart-btn span {
+  font-size: 0.8125rem;
+}
+#app .card-top b {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+#app .card-top small {
+  font-size: var(--fs-2xs);
+}
+#app .catalog-status b,
+#app .promo-strip em,
+#app .tracking-ref strong {
+  font-size: var(--fs-2xs);
+}
+#app .reviews-layout small {
+  font-size: var(--fs-2xs);
+}
+#app .footer-brand b {
+  font-size: 1rem;
+}
+/* El pulso del servicio deja solo el punto y su código cuando la cabecera va justa. */
+@media (max-width: 1440px) {
+  #app .service-pill b {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  /* Dos tarjetas por fila en teléfonos estrechos: el precio más largo cabe completo. */
+  #app .product-price strong {
+    font-size: clamp(0.84rem, 3.7vw, 1.02rem);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+}

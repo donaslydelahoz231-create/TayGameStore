@@ -1,5 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
-  <title>Tay · TayGameStore</title>
-  <defs><linearGradient id="tyBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b4f6ff"/><stop offset=".42" stop-color="#3f8dff"/><stop offset="1" stop-color="#6a2fe0"/></linearGradient><linearGradient id="tyVisor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#141a46"/><stop offset="1" stop-color="#070a1f"/></linearGradient><linearGradient id="tyOrbit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#37d6ff" stop-opacity="0"/><stop offset=".3" stop-color="#37d6ff"/><stop offset=".72" stop-color="#a26bff"/><stop offset="1" stop-color="#a26bff" stop-opacity="0"/></linearGradient><radialGradient id="tyEye" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#9ff6ff"/><stop offset="1" stop-color="#29c8ff"/></radialGradient><linearGradient id="tyShine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="tyBodyClip"><path d="M42 34H118L138 58L80 138L22 58Z"/></clipPath></defs>
-  <ellipse cx="80" cy="96" rx="70" ry="17" transform="rotate(-14 80 96)" fill="none" stroke="url(#tyOrbit)" stroke-width="2.4" opacity=".4"/><path d="M104 34Q108 24 116 20" fill="none" stroke="#ffc857" stroke-width="2.6" stroke-linecap="round"/><path d="M118 8L120.6 15.4L128 18L120.6 20.6L118 28L115.4 20.6L108 18L115.4 15.4Z" fill="#ffc857"/><path d="M42 34H118L138 58L80 138L22 58Z" fill="url(#tyBody)"/><path d="M22 58L42 34L56 58Z" fill="#fff" opacity=".42"/><path d="M56 58L80 34L104 58Z" fill="#fff" opacity=".22"/><path d="M104 58L118 34L138 58Z" fill="#fff" opacity=".08"/><path d="M22 58H56L80 138Z" fill="#fff" opacity=".2"/><path d="M104 58H138L80 138Z" fill="#000" opacity=".22"/><path d="M22 58H138M42 34L56 58L80 34L104 58L118 34M56 58L80 138L104 58" fill="none" stroke="#e8fbff" stroke-opacity=".5" stroke-width="1"/><path d="M42 34H118L138 58L80 138L22 58Z" fill="none" stroke="#e2f9ff" stroke-width="2" stroke-linejoin="round"/><rect x="36" y="46" width="88" height="26" rx="13" fill="url(#tyVisor)" stroke="#5fe4ff" stroke-width="1.6"/><rect x="44" y="49" width="40" height="4" rx="2" fill="#fff" opacity=".12"/><rect x="58" y="52" width="12" height="15" rx="5" fill="url(#tyEye)"/><rect x="90" y="52" width="12" height="15" rx="5" fill="url(#tyEye)"/><circle cx="66.5" cy="56" r="2" fill="#fff"/><circle cx="98.5" cy="56" r="2" fill="#fff"/><ellipse cx="56" cy="82" rx="6" ry="3.4" fill="#ff7ad9" opacity=".45"/><ellipse cx="104" cy="82" rx="6" ry="3.4" fill="#ff7ad9" opacity=".45"/><path d="M72 82Q80 90 88 82" fill="none" stroke="#f2fcff" stroke-width="2.8" stroke-linecap="round"/><path d="M10 84L18 74L26 84L18 96Z" fill="url(#tyBody)" stroke="#e2f9ff" stroke-width="1.4" stroke-linejoin="round"/><path d="M134 84L142 74L150 84L142 96Z" fill="url(#tyBody)" stroke="#e2f9ff" stroke-width="1.4" stroke-linejoin="round"/><path d="M12.6 113.5A70 17 -14 0 0 147.4 78.5" fill="none" stroke="url(#tyOrbit)" stroke-width="3" stroke-linecap="round"/>
-</svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TayGameStore · «Tay» (2026-10-27). Diseño propio de la tienda. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Tay, la mascota de TayGameStore"><title>Tay</title><defs>
+    <linearGradient id="fA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f2feff"/><stop offset="1" stop-color="#9eeaff"/></linearGradient>
+    <linearGradient id="fB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f7ff"/><stop offset="1" stop-color="#5fc6ff"/></linearGradient>
+    <linearGradient id="fC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fe2ff"/><stop offset="1" stop-color="#3f8dff"/></linearGradient>
+    <linearGradient id="fD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5aa8ff"/><stop offset="1" stop-color="#4a63f5"/></linearGradient>
+    <linearGradient id="fE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5a5cf0"/><stop offset="1" stop-color="#5a2fd6"/></linearGradient>
+    <linearGradient id="fF" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#3a7dff"/></linearGradient>
+    <linearGradient id="fG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86ff"/><stop offset="1" stop-color="#6a35e6"/></linearGradient>
+    <linearGradient id="fH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4d3fd9"/><stop offset="1" stop-color="#2c1588"/></linearGradient>
+    <linearGradient id="visor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2160"/><stop offset=".55" stop-color="#0a0e2e"/><stop offset="1" stop-color="#05071a"/></linearGradient>
+    <radialGradient id="eye" cx=".5" cy=".35" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#b8fbff"/><stop offset="1" stop-color="#22c3ff"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".5" stop-color="#ffc145"/><stop offset="1" stop-color="#ff9d1f"/></linearGradient>
+  </defs>
+  <!-- antena y estrella -->
+  <path d="M106 37 C108 28 112 23 118 20" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M121 4 L123.8 13.2 L133 16 L123.8 18.8 L121 28 L118.2 18.8 L109 16 L118.2 13.2 Z" fill="url(#gold)"/>
+  <!-- contorno de separación -->
+  <path d="M44 36H116L142 62L80 142L18 62Z" fill="none" stroke="#120a3d" stroke-width="7" stroke-linejoin="round"/>
+  <!-- facetas -->
+  <path d="M44 36L18 62H50Z" fill="url(#fA)"/>
+  <path d="M44 36L50 62L80 36Z" fill="url(#fB)"/>
+  <path d="M80 36L50 62H110Z" fill="url(#fC)"/>
+  <path d="M80 36L110 62L116 36Z" fill="url(#fD)"/>
+  <path d="M116 36L110 62H142Z" fill="url(#fE)"/>
+  <path d="M18 62H50L80 142Z" fill="url(#fF)"/>
+  <path d="M50 62H110L80 142Z" fill="url(#fG)"/>
+  <path d="M110 62H142L80 142Z" fill="url(#fH)"/>
+  <!-- aristas -->
+  <path d="M18 62H142M44 36L50 62L80 36L110 62L116 36M50 62L80 142L110 62" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1.1" stroke-linejoin="round"/>
+  <path d="M44 36H116L142 62L80 142L18 62Z" fill="none" stroke="#e9fbff" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- brillo -->
+  <path d="M46 40L27 59H38Z" fill="#fff" opacity=".7"/>
+  <!-- visor -->
+  <rect x="34" y="50" width="92" height="28" rx="14" fill="url(#visor)" stroke="#6ff0ff" stroke-width="1.8"/>
+  <path d="M46 54.5H92" stroke="#fff" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>
+  <!-- ojos -->
+  <rect x="58" y="55" width="13" height="18" rx="6.5" fill="url(#eye)"/>
+  <rect x="89" y="55" width="13" height="18" rx="6.5" fill="url(#eye)"/>
+  <circle cx="67" cy="59.5" r="2.3" fill="#fff"/>
+  <circle cx="98" cy="59.5" r="2.3" fill="#fff"/>
+  <!-- mejillas y sonrisa -->
+  <ellipse cx="55" cy="88" rx="6.5" ry="3.6" fill="#ff7ad9" opacity=".5"/>
+  <ellipse cx="105" cy="88" rx="6.5" ry="3.6" fill="#ff7ad9" opacity=".5"/>
+  <path d="M71 88Q80 97 89 88" fill="none" stroke="#f4fdff" stroke-width="3.2" stroke-linecap="round"/></svg>

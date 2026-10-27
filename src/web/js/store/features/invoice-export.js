@@ -13,129 +13,227 @@ import {
 // pedidos pagados: número y código de verificación del servidor (sin borradores ni comprobantes
 // de pedidos sin pagar). Es una representación visual: no es un documento fiscal.
 
-const FONT = 'Oxanium,Segoe UI,sans-serif';
+const DISPLAY = 'Unbounded, Segoe UI, sans-serif';
+const UI = '"Instrument Sans", Segoe UI, sans-serif';
+const INK = '#141a4a';
+const INK_2 = '#5b628f';
+const RULE = '#dfe2f3';
 
-function invoiceCanvas() {
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, r);
+  else c.rect(x, y, w, h);
+}
+
+/** Recorta el texto con «…» para que no se salga de su columna. */
+function fit(c, text, max) {
+  let t = String(text || '—');
+  while (c.measureText(t).width > max && t.length > 1) t = t.slice(0, -2) + '…';
+  return t;
+}
+
+function rule(c, x1, x2, y, dashed = false) {
+  c.save();
+  c.strokeStyle = RULE;
+  c.lineWidth = dashed ? 1.5 : 1;
+  if (dashed) c.setLineDash([6, 5]);
+  c.beginPath();
+  c.moveTo(x1, y);
+  c.lineTo(x2, y);
+  c.stroke();
+  c.restore();
+}
+
+/** El mismo recibo de la pantalla (44-comprobante.css), dibujado en un lienzo. */
+async function invoiceCanvas() {
+  await Promise.all([
+    document.fonts?.load(`700 30px ${DISPLAY}`),
+    document.fonts?.load(`600 16px ${UI}`),
+  ]).catch(() => {});
+  const logo = await loadImage(new URL('brand/tay-logo.svg', document.baseURI).href);
   const items = invoiceLines(),
     W = 760,
-    H = 562 + items.length * 72,
+    PAD = 40,
+    H = 760 + items.length * 64,
     S = 2,
     cv = document.createElement('canvas');
   cv.width = W * S;
   cv.height = H * S;
   const c = cv.getContext('2d');
   c.scale(S, S);
-  const bg = c.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#151e4f');
-  bg.addColorStop(0.62, '#0a1030');
-  bg.addColorStop(1, '#050815');
-  c.fillStyle = bg;
+  c.fillStyle = '#fbfbff';
   c.fillRect(0, 0, W, H);
-  c.fillStyle = 'rgba(139,61,255,.13)';
-  c.beginPath();
-  c.arc(W - 30, 55, 180, 0, Math.PI * 2);
-  c.fill();
-  c.fillStyle = '#b18cff';
-  c.font = `800 34px ${FONT}`;
-  c.fillText('TayGameStore', 42, 48);
-  c.fillStyle = '#37d6ff';
-  c.font = `800 18px ${FONT}`;
-  c.textAlign = 'right';
-  c.fillText($('invoiceRef').textContent, W - 42, 48);
-  c.textAlign = 'left';
-  c.strokeStyle = '#394780';
-  c.beginPath();
-  c.moveTo(42, 68);
-  c.lineTo(W - 42, 68);
-  c.stroke();
-  let y = 100;
-  const fields = [
-    ['Cliente', $('invoiceClient').textContent],
-    ['UID', $('invoiceUid').textContent],
-    ['Nickname', $('invoiceNick').textContent],
-    ['Región', $('invoiceRegion').textContent],
-  ];
-  c.font = `500 15px ${FONT}`;
-  for (const [a, b] of fields) {
-    c.fillStyle = '#8f9bc9';
-    c.fillText(a, 42, y);
-    c.fillStyle = '#eef2ff';
-    c.font = `700 16px ${FONT}`;
-    c.fillText(String(b || '—').slice(0, 42), 160, y);
-    c.font = `500 15px ${FONT}`;
-    y += 27;
+
+  // Banda de marca
+  const band = c.createLinearGradient(0, 0, W, 0);
+  band.addColorStop(0, '#1b1460');
+  band.addColorStop(0.55, '#2a1a8a');
+  band.addColorStop(1, '#163a86');
+  c.fillStyle = band;
+  c.fillRect(0, 0, W, 128);
+  const glow = c.createRadialGradient(W, 0, 0, W, 0, 340);
+  glow.addColorStop(0, 'rgba(55,214,255,.32)');
+  glow.addColorStop(1, 'rgba(55,214,255,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, W, 128);
+  if (logo) {
+    const ratio =
+      logo.naturalWidth && logo.naturalHeight ? logo.naturalWidth / logo.naturalHeight : 999 / 160;
+    c.drawImage(logo, PAD, 42, 44 * ratio, 44);
+  } else {
+    c.fillStyle = '#fff';
+    c.font = `700 30px ${DISPLAY}`;
+    c.fillText('TayGameStore', PAD, 76);
   }
-  y += 8;
-  c.fillStyle = '#b18cff';
-  c.font = `700 14px ${FONT}`;
-  c.fillText('DETALLE', 42, y);
-  c.textAlign = 'center';
-  c.fillText('CANT.', W - 260, y);
   c.textAlign = 'right';
-  c.fillText('TOTAL', W - 42, y);
-  c.textAlign = 'left';
-  y += 15;
-  c.fillStyle = '#8b3dff';
-  c.fillRect(42, y, W - 84, 2);
-  items.forEach((it) => {
-    y += 38;
-    c.fillStyle = '#eef2ff';
-    c.font = `700 17px ${FONT}`;
-    c.fillText(it.name, 42, y);
-    c.textAlign = 'center';
-    c.fillStyle = '#37d6ff';
-    c.fillText(String(it.qty), W - 260, y);
-    c.textAlign = 'right';
-    c.fillStyle = '#eef2ff';
-    c.fillText(money(it.line), W - 42, y);
-    c.textAlign = 'left';
-    y += 18;
-    c.fillStyle = '#26305f';
-    c.fillRect(42, y, W - 84, 1);
-  });
-  y += 27;
-  const g = c.createLinearGradient(42, 0, W - 42, 0);
-  g.addColorStop(0, '#8b3dff');
-  g.addColorStop(1, '#2f8bff');
-  c.fillStyle = g;
-  c.roundRect?.(42, y, W - 84, 62, 12);
-  if (!c.roundRect) {
-    c.beginPath();
-    c.rect(42, y, W - 84, 62);
-    c.closePath();
-  }
-  c.fill();
+  c.fillStyle = '#bff3ff';
+  c.font = `700 12px ${UI}`;
+  c.fillText('COMPROBANTE', W - PAD, 48);
   c.fillStyle = '#fff';
-  c.font = `800 21px ${FONT}`;
-  c.fillText('TOTAL', 60, y + 40);
-  c.textAlign = 'right';
-  c.font = `800 28px ${FONT}`;
-  c.fillText(money(invoiceTotal()), W - 60, y + 40);
+  c.font = `700 20px ${DISPLAY}`;
+  c.fillText(fit(c, $('invoiceRef').textContent, 300), W - PAD, 78);
+  c.fillStyle = 'rgba(225,230,255,.85)';
+  c.font = `500 14px ${UI}`;
+  c.fillText($('invoiceDate').textContent, W - PAD, 102);
   c.textAlign = 'left';
-  y += 92;
-  c.fillStyle = '#b18cff';
-  c.font = `700 14px ${FONT}`;
+
+  // Datos del jugador
+  let y = 128;
+  const colW = (W - PAD * 2) / 2;
+  const fields = [
+    ['CLIENTE', $('invoiceClient').textContent],
+    ['UID', $('invoiceUid').textContent],
+    ['NICKNAME', $('invoiceNick').textContent],
+    ['REGIÓN', $('invoiceRegion').textContent],
+  ];
+  fields.forEach(([label, value], i) => {
+    const x = PAD + (i % 2) * colW,
+      top = y + 36 + Math.floor(i / 2) * 62;
+    c.fillStyle = INK_2;
+    c.font = `600 12px ${UI}`;
+    c.fillText(label, x, top);
+    c.fillStyle = INK;
+    c.font = `700 18px ${UI}`;
+    c.fillText(fit(c, value, colW - 24), x, top + 26);
+  });
+  y += 168;
+  rule(c, PAD, W - PAD, y, true);
+
+  // Detalle
+  y += 34;
+  c.fillStyle = INK_2;
+  c.font = `600 12px ${UI}`;
+  c.fillText('DETALLE', PAD, y);
+  c.textAlign = 'center';
+  c.fillText('CANT.', W - 230, y);
+  c.textAlign = 'right';
+  c.fillText('TOTAL', W - PAD, y);
+  c.textAlign = 'left';
+  y += 12;
+  items.forEach((it) => {
+    c.fillStyle = INK;
+    c.font = `700 17px ${UI}`;
+    c.fillText(fit(c, it.name, W - 340), PAD, y + 28);
+    c.fillStyle = INK_2;
+    c.font = `500 13px ${UI}`;
+    c.fillText(fit(c, it.desc, W - 340), PAD, y + 48);
+    c.fillStyle = INK;
+    c.font = `600 16px ${UI}`;
+    c.textAlign = 'center';
+    c.fillText(String(it.qty), W - 230, y + 36);
+    c.textAlign = 'right';
+    c.font = `700 16px ${DISPLAY}`;
+    c.fillText(money(it.line), W - PAD, y + 36);
+    c.textAlign = 'left';
+    y += 64;
+    rule(c, PAD, W - PAD, y);
+  });
+
+  // Total
+  y += 22;
+  const dark = c.createLinearGradient(PAD, 0, W - PAD, 0);
+  dark.addColorStop(0, '#141a4a');
+  dark.addColorStop(1, '#221a6b');
+  c.fillStyle = dark;
+  roundRect(c, PAD, y, W - PAD * 2, 78, 16);
+  c.fill();
+  const accent = c.createLinearGradient(0, y, 0, y + 78);
+  accent.addColorStop(0, '#8b3dff');
+  accent.addColorStop(1, '#2f8bff');
+  c.save();
+  roundRect(c, PAD, y, W - PAD * 2, 78, 16);
+  c.clip();
+  c.fillStyle = accent;
+  c.fillRect(PAD, y, 7, 78);
+  c.restore();
+  c.fillStyle = '#c9cff5';
+  c.font = `700 13px ${UI}`;
+  c.fillText('TOTAL', PAD + 28, y + 45);
+  c.textAlign = 'right';
+  c.fillStyle = '#fff';
+  c.font = `700 30px ${DISPLAY}`;
+  c.fillText(money(invoiceTotal()), W - PAD - 26, y + 50);
+  c.textAlign = 'left';
+
+  // Método y moneda
+  y += 116;
+  for (const [i, [label, value]] of [
+    ['MÉTODO', $('invoiceMethod').textContent],
+    ['MONEDA', 'COP'],
+  ].entries()) {
+    const x = PAD + i * colW;
+    c.fillStyle = INK_2;
+    c.font = `600 12px ${UI}`;
+    c.fillText(label, x, y);
+    c.fillStyle = INK;
+    c.font = `700 17px ${UI}`;
+    c.fillText(fit(c, value, colW - 24), x, y + 25);
+  }
+
+  // Verificación
+  y += 52;
+  c.fillStyle = '#f1eeff';
+  c.strokeStyle = '#d9d2ff';
+  c.lineWidth = 1;
+  roundRect(c, PAD, y, W - PAD * 2, 92, 16);
+  c.fill();
+  c.stroke();
+  c.fillStyle = '#5b21b6';
+  c.font = `700 12px ${UI}`;
   c.fillText(
     invoiceCode().startsWith('N.º') ? 'COMPROBANTE Y CÓDIGO DE VERIFICACIÓN' : 'CÓDIGO',
-    42,
-    y,
+    PAD + 22,
+    y + 32,
   );
-  y += 30;
-  c.fillStyle = '#37d6ff';
-  c.font = `800 ${invoiceCode().length > 12 ? 18 : 26}px ${FONT}`;
-  c.fillText(invoiceCode(), 42, y);
-  y += 36;
-  c.fillStyle = '#8f9bc9';
-  c.font = `500 13px ${FONT}`;
-  c.fillText('Recarga por ID. Nunca solicita contraseña del juego.', 42, y);
-  y += 21;
-  c.fillText(
+  c.font = `700 ${invoiceCode().length > 12 ? 19 : 24}px ${DISPLAY}`;
+  c.fillText(fit(c, invoiceCode(), W - PAD * 2 - 44), PAD + 22, y + 68);
+
+  // Notas
+  y += 128;
+  c.fillStyle = INK_2;
+  c.font = `500 13px ${UI}`;
+  for (const line of [
+    'Recarga por ID. Nunca solicita contraseña del juego.',
     'Estado confirmado por el servidor de TayGameStore. No es una factura electrónica.',
-    42,
-    y,
-  );
-  y += 21;
-  c.fillText('Verifícalo en TayGameStore → Soporte → «Verificar comprobante».', 42, y);
+    'Verifícalo en TayGameStore → Soporte → «Verificar comprobante».',
+  ]) {
+    c.fillText(line, PAD, y);
+    y += 21;
+  }
+  const foot = c.createLinearGradient(0, 0, W, 0);
+  foot.addColorStop(0, '#8b3dff');
+  foot.addColorStop(1, '#37d6ff');
+  c.fillStyle = foot;
+  c.fillRect(0, H - 6, W, 6);
   return cv;
 }
 
@@ -202,7 +300,7 @@ export async function exportInvoice(type) {
     toast('El comprobante se emite cuando Mercado Pago confirma el pago.', 'bad');
     return;
   }
-  const cv = invoiceCanvas(),
+  const cv = await invoiceCanvas(),
     jpg = await new Promise((res, rej) =>
       cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
     );

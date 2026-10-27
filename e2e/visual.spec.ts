@@ -14,16 +14,17 @@ async function settle(page: Page): Promise<void> {
   // guardar capturas con fuentes de respaldo.
   const fontsLoaded = await page.evaluate(async () => {
     await document.fonts.ready;
-    await Promise.all([
-      document.fonts.load('800 16px Oxanium'),
-      document.fonts.load('500 16px "Plus Jakarta Sans"'),
-    ]);
-    return (
-      document.fonts.check('800 16px Oxanium') &&
-      document.fonts.check('500 16px "Plus Jakarta Sans"')
-    );
+    // Unbounded e Instrument Sans: la tienda. Oxanium y Plus Jakarta Sans: la ventana de acceso.
+    const fonts = [
+      '700 16px Unbounded',
+      '500 16px "Instrument Sans"',
+      '800 16px Oxanium',
+      '500 16px "Plus Jakarta Sans"',
+    ];
+    await Promise.all(fonts.map((font) => document.fonts.load(font)));
+    return fonts.every((font) => document.fonts.check(font));
   });
-  expect(fontsLoaded, 'Oxanium y Plus Jakarta Sans deben estar cargadas').toBe(true);
+  expect(fontsLoaded, 'las cuatro tipografías de la tienda deben estar cargadas').toBe(true);
 }
 
 test('captura las vistas principales del frontend original', async ({ page }) => {

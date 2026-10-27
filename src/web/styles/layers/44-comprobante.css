@@ -1,0 +1,324 @@
+/*
+ * Comprobante como documento (2026-10-27): un recibo claro, tipo ticket, sobre la página oscura.
+ * Banda de marca arriba, datos del jugador en celdas, detalle con cifras alineadas, total en una
+ * banda oscura y el pie con la verificación. Tinta oscura sobre papel: contraste AA o mejor.
+ * La exportación a JPG/PDF (invoice-export.js) dibuja el mismo diseño.
+ */
+#invoice {
+  --paper: #fbfbff;
+  --ink: #141a4a;
+  --ink-2: #5b628f;
+  --rule: #dfe2f3;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow:
+    0 30px 70px -28px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+#invoice .invoice-glow,
+#invoice .invoice-watermark {
+  display: none;
+}
+
+/* Banda de marca */
+#invoice .invoice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 20px 24px;
+  border: 0;
+  background:
+    radial-gradient(120% 160% at 100% 0%, rgba(55, 214, 255, 0.28), transparent 55%),
+    linear-gradient(110deg, #1b1460 0%, #2a1a8a 55%, #163a86 100%);
+  color: #fff;
+}
+#invoice .invoice-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#invoice .invoice-brand .brand-mark {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+#invoice .invoice-brand .brand-mark svg {
+  width: 30px;
+  height: 30px;
+}
+#invoice .invoice-brand b {
+  display: block;
+  color: #fff;
+  font-size: 1.05rem;
+}
+#invoice .invoice-brand b span {
+  color: #8fe2ff;
+}
+#invoice .invoice-brand small {
+  color: rgba(225, 230, 255, 0.78);
+  font-size: var(--fs-2xs);
+}
+#invoice .invoice-ref {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+#invoice .invoice-ref strong {
+  padding: 5px 10px;
+  border: 1px solid rgba(143, 226, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(143, 226, 255, 0.12);
+  color: #bff3ff;
+  font: 700 var(--fs-label) / 1 var(--font-ui);
+  font-stretch: 85%;
+  letter-spacing: 0.12em;
+}
+#invoice .invoice-ref span {
+  color: rgba(225, 230, 255, 0.82);
+  font-size: var(--fs-2xs);
+}
+
+/* Datos */
+#invoice .invoice-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0 24px;
+  border-bottom: 1.5px dashed var(--rule);
+}
+#invoice .invoice-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 16px 12px 16px 0;
+}
+#invoice .invoice-grid > div + div {
+  padding-left: 14px;
+  border-left: 1px solid var(--rule);
+}
+#invoice :is(.invoice-grid, .invoice-meta-row) small {
+  color: var(--ink-2);
+  font: 600 var(--fs-label) / 1.2 var(--font-ui);
+  font-stretch: 85%;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+#invoice :is(.invoice-grid, .invoice-meta-row) b {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+#invoice #invoiceState {
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+}
+#invoice #invoiceState.pending {
+  background: #fff3d6;
+  color: #8a5300;
+}
+#invoice #invoiceState.ready {
+  background: #dcfbe9;
+  color: #0b6b3a;
+}
+
+/* Detalle */
+#invoice .invoice-table-head {
+  margin: 0;
+  padding: 16px 24px 8px;
+  border: 0;
+  color: var(--ink-2);
+  font: 600 var(--fs-label) / 1 var(--font-ui);
+  font-stretch: 85%;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+#invoice #invoiceRows {
+  padding: 0 24px;
+}
+#invoice .invoice-line {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+}
+#invoice .invoice-line span:first-child {
+  font-weight: 700;
+}
+#invoice .invoice-line small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+}
+#invoice .invoice-line strong {
+  color: var(--ink);
+  font: 700 var(--t-sm) / 1.2 var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Total: la cifra manda */
+#invoice .invoice-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 24px 0;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, #8b3dff, #2f8bff) left / 6px 100% no-repeat,
+    linear-gradient(110deg, #141a4a, #221a6b);
+  color: #fff;
+  box-shadow: none;
+}
+#invoice .invoice-total span {
+  color: #c9cff5;
+  font: 700 var(--fs-label) / 1 var(--font-ui);
+  font-stretch: 85%;
+  letter-spacing: 0.16em;
+}
+#invoice .invoice-total strong {
+  color: #fff;
+  font: 700 clamp(1.4rem, 1.1rem + 1.2vw, 1.9rem) / 1 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Método, código, moneda y región */
+#invoice .invoice-meta-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 18px 24px;
+}
+#invoice .invoice-meta-row div {
+  display: grid;
+  gap: 4px;
+}
+#invoice #invoiceCode {
+  color: #5b21b6;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+#invoice .invoice-empty-note {
+  margin: 14px 24px 0;
+  color: var(--ink-2);
+}
+
+/* Pie con la verificación y borde de ticket */
+#invoice .invoice-foot {
+  position: relative;
+  margin: 0;
+  padding: 16px 24px 30px;
+  border-top: 1.5px dashed var(--rule);
+  background: #f3f2fd;
+  color: var(--ink-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.55;
+}
+#invoice .invoice-foot::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 10px;
+  background: radial-gradient(circle at 8px 10px, #0b1030 6px, transparent 6.5px) 0 0 / 16px 10px
+    repeat-x;
+}
+
+@media (max-width: 640px) {
+  #invoice .invoice-head {
+    padding: 16px;
+  }
+  #invoice .invoice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 16px;
+  }
+  #invoice .invoice-grid > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  #invoice .invoice-grid > div:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+  #invoice :is(.invoice-table-head, #invoiceRows) {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  #invoice .invoice-total {
+    margin: 16px 16px 0;
+  }
+  #invoice .invoice-meta-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 16px;
+  }
+  #invoice .invoice-foot {
+    padding: 14px 16px 28px;
+  }
+}
+
+/* Columnas del detalle: la cifra nunca se parte en dos líneas. */
+#invoice :is(.invoice-line, .invoice-table-head) {
+  grid-template-columns: minmax(0, 1fr) 52px max-content;
+  gap: 12px;
+}
+#invoice :is(.invoice-line, .invoice-table-head) > :nth-child(2) {
+  text-align: center;
+}
+#invoice :is(.invoice-line, .invoice-table-head) > :last-child {
+  min-width: 7.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+#invoice .invoice-line span {
+  font-size: var(--t-sm);
+}
+
+/* El código de verificación ocupa su propia fila completa (no se parte en tres líneas). */
+#invoice .invoice-meta-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+#invoice .invoice-meta-row > div:nth-child(2) {
+  order: 5;
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border: 1px solid #d9d2ff;
+  border-radius: 12px;
+  background: #f1eeff;
+}
+#invoice #invoiceCode {
+  font-size: var(--t-sm);
+  overflow-wrap: normal;
+}
+#invoice .invoice-ref strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-stretch: 100%;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 640px) {
+  #invoice .invoice-meta-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  #invoice .invoice-head {
+    flex-wrap: wrap;
+  }
+  #invoice .invoice-ref {
+    min-width: 0;
+  }
+}

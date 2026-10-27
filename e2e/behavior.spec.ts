@@ -412,6 +412,37 @@ test.describe('carrito y favoritos (mejoras)', () => {
     await expect(page.locator('#playerUid')).toBeFocused();
   });
 
+  test('la bienvenida muestra los paquetes del catálogo en su vitrina y su botón lleva al acceso', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const tiles = page.locator('#entryShowcase .entry-tile');
+    await expect(tiles).toHaveCount(6);
+    await expect
+      .poll(() =>
+        tiles
+          .locator('img')
+          .evaluateAll((imgs) =>
+            imgs.every(
+              (img) =>
+                (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
+            ),
+          ),
+      )
+      .toBe(true);
+    // Cantidad y precio salen del catálogo del servidor, el mismo de las tarjetas de la tienda.
+    const first = page.locator('#entryShowcase .entry-tile[data-units="110"]');
+    await expect(first.locator('figcaption b')).toHaveText('110');
+    await expect(first.locator('figcaption em')).toHaveText(/3\.800/);
+    // El logotipo es la imagen vectorial de la marca y tiene nombre para lectores de pantalla.
+    await expect(page.locator('#entryExperience .entry-logo')).toHaveAttribute(
+      'alt',
+      'TayGameStore',
+    );
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#loginModal')).toBeVisible();
+  });
+
   test('el carrito se sincroniza entre pestañas', async ({ page, context }) => {
     await page.goto('/');
     await enterAsGuest(page);

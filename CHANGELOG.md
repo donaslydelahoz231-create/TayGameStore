@@ -5,6 +5,28 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Marca propia: tipografía, logo, íconos, bienvenida y comprobante (2026-10-27)
+
+- Tipografía con identidad propia y un solo sistema: Unbounded (títulos, marca, precios y
+  totales) e Instrument Sans (texto e interfaz), servidas por la tienda (OFL 1.1, licencias en
+  `/fonts`). Escala fluida que crece con la pantalla: el texto que se lee pasa de 12 a 13,5 px
+  como mínimo y los rótulos de 11 a 12 px; de unos 28 tamaños distintos a una escala definida.
+- Botones en tres alturas (38/46/54 px en escritorio, 42/48/54 px en el celular) con la misma
+  forma y texto legible; en el celular la acción principal de cada tarjeta ocupa el ancho.
+- Logo de Tay redibujado en alta calidad: emblema facetado con luz y sombra, símbolo
+  simplificado que se lee a 16 px (cabecera, favicon), ícono de app y logotipo «TayGameStore» en
+  trazos vectoriales (`brand/`, `tools/marca/logotipo.py`). Imagen social, ícono de app y favicon
+  regenerados; la imagen social pesa 251 KB para que WhatsApp la muestre.
+- Íconos de dos tonos (trazo del color del texto y relleno cian→violeta de la marca).
+- Bienvenida nueva: promesa clara, oferta del servidor, botón grande, los 4 pasos de la compra y
+  una vitrina con los 6 paquetes y Tay; cantidad y precio solo si el catálogo los trae.
+- Comprobante como recibo: banda de marca, datos en celdas, total destacado, código de
+  verificación en su propia fila y borde de ticket. El JPG/PDF descargable tiene el mismo diseño.
+- Portada sin huecos: el panel de estado muestra la bóveda de diamantes. Páginas legales con la
+  misma tipografía.
+- La ventana de acceso no cambia: conserva sus fuentes e ícono (captura 02 idéntica en los 3
+  tamaños).
+
 ### Tienda con acabado profesional (2026-10-27)
 
 - Cada paquete tiene su arte en lugar de los íconos repetidos, y el valor se ve al crecer: 3

@@ -1,0 +1,391 @@
+/*
+ * Bienvenida propia (2026-10-27): la primera pantalla presenta la tienda como una vitrina real.
+ * Izquierda: logotipo, promesa, oferta del servidor, botón de entrada y los 4 pasos de la compra.
+ * Derecha: los 6 paquetes con su arte en una vitrina inclinada (cantidad y precio solo si el
+ * catálogo los trae) y Tay delante. Las reglas llevan #entryExperience para mandar sobre las capas
+ * anteriores de la entrada. Movimiento: solo si el sistema no pide reducirlo, y se pausa al salir
+ * (33-motion-budget.css).
+ */
+#entryExperience {
+  display: block;
+  padding: 0;
+  background:
+    radial-gradient(60% 55% at 12% 8%, rgba(139, 61, 255, 0.3), transparent 70%),
+    radial-gradient(50% 50% at 92% 30%, rgba(55, 214, 255, 0.16), transparent 70%),
+    radial-gradient(40% 40% at 70% 100%, rgba(255, 181, 46, 0.09), transparent 70%),
+    linear-gradient(180deg, #070a20 0%, #050716 100%);
+}
+#entryExperience .entry-grid {
+  opacity: 0.45;
+  mask-image: radial-gradient(70% 70% at 60% 40%, #000, transparent 75%);
+}
+
+#entryExperience .entry-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(28px, 4vw, 64px);
+  width: min(1240px, 100%);
+  min-height: calc(100svh - 150px);
+  margin: 0 auto;
+  padding: clamp(28px, 5vh, 64px) clamp(16px, 4vw, 40px) 24px;
+  text-align: left;
+}
+#entryExperience .entry-main {
+  display: grid;
+  justify-items: start;
+  gap: 0;
+}
+
+/* Marca y rótulo */
+#entryExperience .entry-brandbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-bottom: clamp(22px, 4vh, 40px);
+}
+#entryExperience .entry-logo {
+  display: block;
+  width: auto;
+  height: clamp(36px, 4.4vw, 48px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+#entryExperience .entry-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid rgba(55, 214, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(55, 214, 255, 0.07);
+  color: #9feeff;
+  font: 700 var(--fs-label) / 1 var(--font-ui);
+  font-stretch: 85%;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Promesa */
+#entryExperience .entry-shell h1.entry-seo {
+  max-width: 16ch;
+  margin: 0;
+  color: #f4f6ff;
+  font: 700 clamp(2.1rem, 1.2rem + 3.6vw, 3.9rem) / 1.04 var(--font-display);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+#entryExperience .entry-shell h1.entry-seo span {
+  background: linear-gradient(100deg, #37d6ff 0%, #7d8bff 55%, #b06bff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+#entryExperience .entry-copy {
+  max-width: 34em;
+  margin: 18px 0 0;
+  color: #c3c9ee;
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* Oferta real (servidor) */
+#entryExperience .entry-offer {
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 20px 0 0;
+  font-size: var(--t-sm);
+}
+#entryExperience .entry-offer b {
+  padding: 7px 14px;
+  border-color: rgba(255, 193, 69, 0.45);
+  background: rgba(255, 181, 46, 0.12);
+  color: #ffd27a;
+  font: 700 var(--t-sm) / 1 var(--font-display);
+}
+#entryExperience .entry-offer span {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: #dfe3ff;
+}
+
+/* Entrada */
+#entryExperience .entry-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 58px;
+  margin: 26px 0 0;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(100deg, #8b3dff 0%, #5a5cff 50%, #2f8bff 100%);
+  color: #fff;
+  font: 600 1.0625rem / 1 var(--font-ui);
+  letter-spacing: 0;
+  box-shadow:
+    0 18px 40px -12px rgba(110, 70, 255, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+#entryExperience .entry-cta svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Pasos de la compra */
+#entryExperience .entry-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: clamp(28px, 5vh, 44px) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+#entryExperience .entry-steps li {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 14px 14px 13px;
+  border: 1px solid rgba(160, 175, 255, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(31, 37, 92, 0.55), rgba(12, 16, 44, 0.55));
+  counter-increment: paso;
+}
+#entryExperience .entry-steps li::after {
+  content: '0' counter(paso);
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  color: rgba(190, 200, 255, 0.4);
+  font: 700 var(--fs-label) / 1 var(--font-display);
+}
+#entryExperience .entry-step-ico {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background:
+    linear-gradient(#10153d, #10153d) padding-box,
+    linear-gradient(135deg, #37d6ff, #8b3dff) border-box;
+  border: 1px solid transparent;
+  color: #e9f4ff;
+}
+#entryExperience .entry-step-ico svg {
+  width: 20px;
+  height: 20px;
+}
+#entryExperience .entry-steps b {
+  color: #f1f3ff;
+  font: 600 var(--t-sm) / 1.2 var(--font-display);
+}
+#entryExperience .entry-steps small {
+  color: #a9b1df;
+  font-size: var(--fs-2xs);
+  line-height: 1.35;
+}
+
+/* Vitrina de paquetes */
+#entryExperience .entry-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 460px;
+  perspective: 1400px;
+}
+#entryExperience .entry-vitrina {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.2vw, 16px);
+  width: min(520px, 100%);
+  transform: rotateX(12deg) rotateY(-14deg) rotateZ(2deg);
+  transform-style: preserve-3d;
+}
+#entryExperience .entry-tile {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  background: #0b1022;
+  box-shadow:
+    0 24px 50px -18px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(167, 197, 255, 0.16);
+}
+#entryExperience .entry-tile:nth-child(3n + 2) {
+  translate: 0 -18px;
+}
+#entryExperience .entry-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#entryExperience .entry-tile figcaption {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  padding: 26px 12px 10px;
+  background: linear-gradient(180deg, transparent, rgba(5, 7, 22, 0.92) 60%);
+}
+#entryExperience .entry-tile figcaption:empty {
+  display: none;
+}
+#entryExperience .entry-tile figcaption b {
+  color: #fff;
+  font: 700 clamp(0.95rem, 0.7rem + 0.6vw, 1.15rem) / 1 var(--font-display);
+}
+#entryExperience .entry-tile figcaption small {
+  color: #a9b1df;
+  font-size: var(--fs-label);
+}
+#entryExperience .entry-tile figcaption em {
+  flex-basis: 100%;
+  color: #ffd27a;
+  font: 600 var(--fs-2xs) / 1.2 var(--font-ui);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+#entryExperience .entry-stage .entry-mascot {
+  position: absolute;
+  left: -2%;
+  top: -2%;
+  z-index: 2;
+  width: clamp(110px, 11vw, 150px);
+  height: auto;
+  filter: drop-shadow(0 18px 30px rgba(55, 214, 255, 0.35));
+}
+@media (prefers-reduced-motion: no-preference) {
+  #entryExperience .entry-tile {
+    animation: tgsVitrina 6s ease-in-out infinite alternate;
+  }
+  #entryExperience .entry-tile:nth-child(2n) {
+    animation-delay: -2s;
+  }
+  #entryExperience .entry-tile:nth-child(3n) {
+    animation-delay: -4s;
+  }
+}
+@keyframes tgsVitrina {
+  from {
+    transform: translateZ(0) translateY(0);
+  }
+  to {
+    transform: translateZ(18px) translateY(-6px);
+  }
+}
+
+/* Estado del catálogo y garantías, abajo y centrados */
+#entryExperience .entry-bottom {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: 8px 16px 18px;
+}
+#entryExperience .entry-status,
+#entryExperience .entry-legal {
+  margin: 0;
+  font-size: var(--fs-2xs);
+}
+#entryExperience .entry-footer {
+  position: relative;
+  inset: auto;
+  padding: 0 16px 22px;
+  text-align: center;
+  font-size: var(--fs-label);
+}
+
+/* Tableta y celular: una columna; la vitrina va después de la acción principal */
+@media (max-width: 900px) {
+  #entryExperience .entry-shell {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    gap: 28px;
+  }
+  #entryExperience .entry-stage {
+    min-height: 0;
+    padding-bottom: 28px;
+  }
+  #entryExperience .entry-vitrina {
+    width: min(460px, 100%);
+    transform: rotateX(8deg) rotateZ(-2deg);
+  }
+}
+@media (max-width: 560px) {
+  #entryExperience .entry-brandbar {
+    margin-bottom: 22px;
+  }
+  #entryExperience .entry-shell h1.entry-seo {
+    max-width: none;
+  }
+  #entryExperience .entry-cta {
+    width: 100%;
+  }
+  #entryExperience .entry-offer b {
+    font-size: 0.9375rem;
+  }
+  #entryExperience .entry-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  #entryExperience .entry-steps li {
+    padding: 11px 11px 10px;
+    border-radius: 14px;
+  }
+  #entryExperience .entry-step-ico {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+  }
+  #entryExperience .entry-step-ico svg {
+    width: 17px;
+    height: 17px;
+  }
+  #entryExperience .entry-steps b {
+    font-size: 0.875rem;
+  }
+  #entryExperience .entry-steps small {
+    font-size: 0.8125rem;
+  }
+  #entryExperience .entry-vitrina {
+    gap: 8px;
+  }
+  #entryExperience .entry-tile {
+    border-radius: 14px;
+  }
+  #entryExperience .entry-tile:nth-child(3n + 2) {
+    translate: 0 -10px;
+  }
+  #entryExperience .entry-tile figcaption {
+    padding: 18px 8px 7px;
+  }
+  #entryExperience .entry-tile figcaption small {
+    display: none;
+  }
+  #entryExperience .entry-stage .entry-mascot {
+    left: -4px;
+    top: -14px;
+    width: 84px;
+  }
+}

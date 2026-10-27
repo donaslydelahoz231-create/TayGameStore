@@ -1836,3 +1836,30 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   TayGameStore»; su visualización dentro de claude.ai: NO VERIFICADO. Las páginas legales de la
   vista previa solo llevan marcadores `[COMPLETAR:…]`, ningún dato del dueño.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-27 · Marca propia: tipografía, logo, íconos, bienvenida y comprobante (pedido del dueño)
+
+- **Pedido:** tipografía, texto y tamaños unificados y no genéricos; logo de alta calidad; íconos;
+  una bienvenida innovadora y propia; mejor comprobante; botones que se adapten a cada pantalla;
+  que no se vea vacío ni deprimente.
+- **Medido antes:** unos 28 tamaños de letra distintos, 213 textos en 12 px y ~90 en 11–11,5 px;
+  13 alturas de botón (20 a 58 px); bienvenida casi toda en negro.
+- **Hecho:** capas `42-marca.css`, `43-bienvenida.css` y `44-comprobante.css`; fuentes Unbounded e
+  Instrument Sans (OFL, servidas por la tienda); Tay, símbolo, ícono de app y logotipo en SVG
+  (`src/web/public/brand`, `tools/marca/logotipo.py`); imagen social, ícono de app y favicon
+  regenerados; íconos de dos tonos; bienvenida con vitrina de paquetes (datos del catálogo);
+  comprobante en pantalla y JPG/PDF con el mismo diseño de recibo; páginas legales con la misma
+  letra.
+- **Acceso intacto:** el marcado de `#loginModal` y el símbolo `icon-shield` son idénticos al
+  commit anterior (comparado); la ventana conserva Oxanium y Plus Jakarta Sans. La captura 02
+  pasó sin cambios en los 3 tamaños.
+- **Fallo encontrado y corregido por las pruebas:** sin JavaScript (p. ej. Brave Shields) el
+  botón «Entrar» quedaba visible e inerte por especificidad CSS; el aviso `noscript` vuelve a
+  ocultarlo.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 78/78 con axe (nueva: la
+  vitrina de la bienvenida muestra cantidad y precio del catálogo y su botón abre el acceso);
+  visuales 3/3 (01 y 03 regeneradas tras revisarlas; 02 idéntica); sin desbordamiento horizontal
+  de 320 a 1920 px; escáner 0. Integración no se volvió a correr: el cambio no toca el servidor.
+- **Vista previa:** publicada en el mismo artefacto privado «Tienda TayGameStore» (nada se cobra);
+  comprobada en local sin errores de consola. Su visualización dentro de claude.ai: NO VERIFICADO.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

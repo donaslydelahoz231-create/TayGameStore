@@ -97,6 +97,11 @@ Este documento no contiene datos personales del propietario.
   genéricas, no el diamante de Free Fire. Se recortaron y pasaron a WebP sin metadatos.
   **NO VERIFICADO:** que los términos de Gamma permitan el uso comercial de las imágenes
   generadas en el plan de la cuenta; revísalo en sus condiciones antes de publicar.
+- **Marca y fuentes (2026-10-27):** el emblema de Tay, el símbolo, el ícono de app y los íconos
+  de la interfaz son dibujos SVG propios de la tienda. El logotipo «TayGameStore» son los trazos
+  de la fuente Unbounded 700; Unbounded e Instrument Sans tienen licencia SIL OFL 1.1 (leída en
+  los propios archivos), que permite usarlas en logotipos y servirlas con la web; su texto de
+  licencia va en `/fonts/LICENCIA-FUENTES-OFL.txt`.
 
 ## 5. Riesgos y acciones del dueño (por prioridad)
 

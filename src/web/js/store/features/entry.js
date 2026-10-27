@@ -23,6 +23,30 @@ export function renderEntryOffer() {
   setText('entryFrom', prices.length ? 'Desde ' + money(Math.min(...prices)) : '');
   setText('entryPay', names.length ? 'Paga con ' + names.join(' o ') : '');
   box.hidden = !prices.length && !names.length;
+  renderShowcase(products);
+}
+
+/**
+ * Vitrina de la entrada: cada arte lleva la cantidad y el precio de su paquete solo si el
+ * catálogo del servidor lo trae disponible; si no, se ve solo la imagen.
+ */
+function renderShowcase(products) {
+  document.querySelectorAll('#entryShowcase .entry-tile').forEach((tile) => {
+    const caption = tile.querySelector('figcaption');
+    if (!caption) return;
+    const p = products.find(
+      (item) => Number(item.diamonds) === Number(tile.dataset.units) && item.providerAvailable,
+    );
+    caption.replaceChildren();
+    if (!p) return;
+    const units = document.createElement('b');
+    units.textContent = Number(p.diamonds).toLocaleString('es-CO');
+    const label = document.createElement('small');
+    label.textContent = 'diamantes';
+    const price = document.createElement('em');
+    price.textContent = money(priceOf(p));
+    caption.append(units, label, price);
+  });
 }
 
 /** Abre la tienda tras la pantalla de entrada (invitado o sesión). */

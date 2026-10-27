@@ -1,4 +1,6 @@
-/* Páginas legales: misma paleta que la tienda, tipografía del sistema y texto legible. */
+/* Páginas legales: misma paleta y misma tipografía de marca que la tienda, con texto legible. */
+@import './fonts.css';
+
 :root {
   --bg: #070b1f;
   --panel: #0d1433;
@@ -19,11 +21,24 @@ body {
   background: var(--bg);
   color: var(--text);
   font:
-    16px/1.6 system-ui,
+    16px/1.6 'Instrument Sans',
+    system-ui,
     -apple-system,
     'Segoe UI',
     Roboto,
     sans-serif;
+}
+
+.legal-brand,
+.legal h1,
+.legal h2 {
+  font-family:
+    'Unbounded',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  letter-spacing: -0.01em;
 }
 
 a {
@@ -43,7 +58,7 @@ a {
 
 .legal-brand {
   color: var(--text);
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -76,9 +91,14 @@ a {
   line-height: 1.2;
 }
 
+.legal h1 {
+  font-weight: 700;
+}
+
 .legal h2 {
   margin: 28px 0 8px;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .legal-meta {
