@@ -1,8 +1,9 @@
 /*
  * Inicio animado (2026-10-27): presentación al abrir la tienda, bienvenida que entra por partes y
- * reacciona al puntero, y transición corta antes de la ventana de acceso (que no cambia).
- * La lógica está en js/store/features/intro.js y js/effects/bienvenida.js. Con movimiento
- * reducido no hay presentación ni animaciones de entrada.
+ * reacciona al puntero, y transición antes de la ventana de acceso (que no cambia).
+ * Coreografía por fases, sin cruces: cada una empieza cuando la anterior terminó. Las salidas y
+ * entradas usan un diamante (la forma de Tay) que se abre o cubre la pantalla; el recorte lo anima
+ * js/store/features/intro.js. Con movimiento reducido no hay presentación ni animaciones.
  */
 
 /* ── Presentación ── */
@@ -21,16 +22,9 @@
 #tgsIntro[hidden] {
   display: none;
 }
-#tgsIntro.out {
-  animation: tgsIntroOut 0.62s cubic-bezier(0.7, 0, 0.3, 1) forwards;
-  pointer-events: none;
-}
-@keyframes tgsIntroOut {
-  to {
-    opacity: 0;
-    transform: scale(1.06);
-    filter: blur(6px);
-  }
+/* Llega sobre el fondo de la bienvenida (que aún no muestra su contenido): sin destellos. */
+#tgsIntro:not(.is-transition) {
+  animation: tgsFade 0.24s both;
 }
 .intro-aurora i {
   position: absolute;
@@ -177,8 +171,6 @@
 }
 .intro-word span {
   display: inline-block;
-  animation: tgsLetter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(0.5s + var(--i) * 35ms);
 }
 .intro-word .s {
   background: linear-gradient(100deg, #37d6ff, #7d8bff 55%, #b06bff);
@@ -197,7 +189,18 @@
   margin: 0;
   color: #b9c2ee;
   font-size: var(--t-sm);
-  animation: tgsFade 0.6s 1.05s both;
+  animation: tgsFade 0.6s 1.5s both;
+}
+/* Con el logotipo completo, una luz de diamante recorre sus letras una vez (solo las letras). */
+#tgsIntro:not(.is-transition) .intro-word span {
+  animation:
+    tgsLetter 0.6s cubic-bezier(0.16, 1, 0.3, 1) calc(1s + var(--i) * 32ms) both,
+    tgsGlint 0.5s ease-in-out calc(1.8s + var(--i) * 40ms);
+}
+@keyframes tgsGlint {
+  50% {
+    filter: brightness(1.9) drop-shadow(0 0 8px rgba(55, 214, 255, 0.85));
+  }
 }
 
 /* Progreso real de la carga */
@@ -226,11 +229,17 @@
   font-size: var(--fs-2xs);
   letter-spacing: 0.02em;
 }
-.intro-skip {
+.intro-actions {
   position: absolute;
   top: max(16px, env(safe-area-inset-top));
   right: 16px;
   z-index: 3;
+  display: flex;
+  gap: 8px;
+  animation: tgsFade 0.4s 0.6s both;
+}
+.intro-skip,
+.sound-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -242,27 +251,114 @@
   color: #dfe3ff;
   font: 600 var(--fs-2xs) / 1 var(--font-ui);
   cursor: pointer;
-  animation: tgsFade 0.4s 0.6s both;
 }
-.intro-skip:hover {
+.intro-skip:hover,
+.sound-toggle:hover {
   border-color: rgba(55, 214, 255, 0.6);
   color: #fff;
 }
-.intro-skip svg {
+.intro-skip svg,
+.sound-toggle svg {
   width: 16px;
   height: 16px;
 }
+.sound-toggle.is-on {
+  border-color: rgba(55, 214, 255, 0.45);
+  color: #fff;
+}
+/* En la bienvenida, el botón de sonido arriba a la derecha (se va con ella). */
+.entry-sound {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  z-index: 4;
+}
+/* En pantallas angostas solo el ícono (el texto sigue para lectores): no toca el logotipo. */
+@media (max-width: 560px) {
+  .entry-sound {
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+  }
+  .entry-sound span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 
-/* Transición al pulsar «Entrar»: rápida, sobre la bienvenida, sin rearmar a Tay. */
+/* ── Salida de la presentación: Tay celebra, sale con el logotipo y luego se abre el diamante ── */
+#tgsIntro.is-leaving .intro-eyes {
+  animation: tgsSquint 0.26s ease-in-out both;
+}
+#tgsIntro.is-leaving .intro-star {
+  animation: tgsTwinkle 0.5s ease-out both;
+}
+#tgsIntro.is-leaving .intro-core {
+  animation: tgsCoreOut 0.28s 0.26s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+#tgsIntro.is-leaving :is(.intro-actions, .intro-floor) {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+@keyframes tgsSquint {
+  50% {
+    transform: scaleY(0.15);
+  }
+}
+@keyframes tgsTwinkle {
+  50% {
+    transform: rotate(90deg) scale(1.5);
+  }
+}
+@keyframes tgsCoreOut {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+    filter: blur(4px);
+  }
+}
+
+/*
+ * Transición al pulsar «Entrar»: el diamante cubre la pantalla con un fondo opaco (la bienvenida
+ * ya se fue y no se ve a través) y Tay, ya armado, late una vez.
+ */
 #tgsIntro.is-transition {
-  background: radial-gradient(60% 55% at 50% 45%, rgba(91, 45, 210, 0.55), rgba(4, 6, 15, 0.94));
-  animation: tgsFade 0.22s both;
+  background:
+    radial-gradient(60% 55% at 50% 45%, rgba(91, 45, 210, 0.5), transparent 75%),
+    radial-gradient(45% 40% at 80% 85%, rgba(55, 214, 255, 0.12), transparent 70%), #04060f;
 }
-#tgsIntro.is-transition.out {
-  animation: tgsIntroOut 0.62s cubic-bezier(0.7, 0, 0.3, 1) forwards;
-}
-#tgsIntro.is-transition :is(.intro-skip, .intro-floor, .intro-tagline) {
+#tgsIntro.is-transition :is(.intro-actions, .intro-floor, .intro-tagline) {
   display: none;
+}
+/* Borde de luz del diamante (lo mueve intro.js junto con el recorte). */
+.intro-rim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+}
+#tgsIntro.is-iris .intro-rim {
+  opacity: 1;
+}
+.intro-rim polygon {
+  fill: none;
+  stroke-linejoin: round;
+}
+.intro-rim .rim-glow {
+  stroke: rgba(55, 214, 255, 0.28);
+  stroke-width: 12;
+}
+.intro-rim .rim-line {
+  stroke: #c9f7ff;
+  stroke-width: 2.2;
 }
 #tgsIntro.is-transition
   :is(.f, .intro-detail, .intro-visor, .intro-eyes, .intro-smile, .intro-star),
@@ -288,6 +384,28 @@
 
 /* ── Bienvenida: entrada escalonada al terminar la presentación ── */
 @media (prefers-reduced-motion: no-preference) {
+  /*
+   * Hasta que el script decide, la bienvenida muestra solo su fondo (así la presentación llega sin
+   * que antes se vea la bienvenida). Si el script no llegara, el contenido aparece a los 2,5 s.
+   */
+  #entryExperience:not(.entry-ready) :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+    opacity: 0;
+    animation: tgsShow 0.3s 2.5s forwards;
+  }
+  #entryExperience.entry-hold :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+    animation: none;
+  }
+  #entryExperience.entry-ready :is(.entry-sound, .entry-bottom, .entry-footer) {
+    animation: tgsFade 0.5s 0.45s backwards;
+  }
+  /* Al pulsar «Entrar», el contenido se va antes de que llegue el diamante. */
+  #entryExperience.entry-leaving :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+    animation: tgsLeave 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+  #entryExperience.entry-leaving .entry-spark {
+    display: none;
+  }
   #entryExperience.entry-ready .entry-main > * {
     animation: tgsRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
@@ -341,6 +459,17 @@
   /* Las luces del fondo se mueven despacio. */
   #entryExperience .entry-orb {
     animation: tgsAurora 10s ease-in-out infinite alternate;
+  }
+}
+@keyframes tgsShow {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes tgsLeave {
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
   }
 }
 @keyframes tgsRise {

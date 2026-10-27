@@ -1,6 +1,7 @@
 // Bienvenida viva (2026-10-27): reacciona al puntero. La vitrina se inclina, Tay sigue el cursor
-// con la mirada, el botón «Entrar» se acerca al puntero y quedan destellos de diamante al
-// moverse. Solo con ratón o trackpad y sin movimiento reducido; se detiene al salir de la entrada.
+// con la mirada, el botón «Entrar» se acerca al puntero y la vitrina suelta destellos de diamante
+// (solo sobre ella: nunca cruzan el texto). Solo con ratón o trackpad y sin movimiento reducido;
+// se detiene al salir de la entrada o mientras se va.
 const MAX_SPARKS = 14;
 const SPARK_GAP_MS = 45;
 
@@ -47,11 +48,11 @@ export function animateWelcome() {
   entry.addEventListener(
     'pointermove',
     (event) => {
-      if (entry.classList.contains('out')) return;
+      if (entry.classList.contains('out') || entry.classList.contains('entry-leaving')) return;
       px = event.clientX / innerWidth - 0.5;
       py = event.clientY / innerHeight - 0.5;
       if (!raf) raf = requestAnimationFrame(paint);
-      sparkle(event);
+      if (event.target.closest?.('.entry-stage')) sparkle(event);
     },
     { passive: true },
   );

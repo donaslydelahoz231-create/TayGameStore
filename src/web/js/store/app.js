@@ -9,6 +9,7 @@ import { bootstrapSession, renderAccount, renderHeader } from './features/accoun
 import { renderDrawer, renderSmartCart } from './features/cart.js';
 import { loadCatalog, renderGames, renderProducts } from './features/catalog.js';
 import { renderEntryOffer, showEntryLanding, revealStore } from './features/entry.js';
+import { initSound } from '../effects/sonido.js';
 import { playIntro } from './features/intro.js';
 import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
@@ -107,7 +108,9 @@ async function init() {
   if (terms) terms.checked = false;
   showEntryLanding();
   bind();
-  // Presentación de la marca mientras llegan precios y catálogo (no bloquea la carga).
+  // Sonido de bienvenida (suena con el primer toque) y presentación de la marca mientras llegan
+  // precios y catálogo (no bloquea la carga).
+  initSound();
   playIntro();
   navObserver();
   watchOtherTabs(renderAll);

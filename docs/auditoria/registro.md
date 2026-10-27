@@ -1913,3 +1913,40 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   claude.ai: NO VERIFICADO. Burbujas y Nequi en producción: no se volvieron a comprobar en esta
   ronda (NO VERIFICADO).
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-27 · Transiciones sin cruces y sonido de bienvenida (pedido del dueño)
+
+- **Pedido:** «mejora la transición de las animaciones por favor que no se crucen y sea mejor
+  presentable y auténtico y original además puedes agregar un sonido de bienvenida en el landing
+  de presentación».
+- **Diagnóstico (video cuadro a cuadro, 1280 y 360 px):** (1) la bienvenida se veía ~0,3 s antes
+  de que llegara la presentación; (2) la salida de la presentación (0,62 s) y la entrada de la
+  bienvenida corrían a la vez y se veían superpuestas; (3) al pulsar «Entrar» la capa era
+  translúcida (la bienvenida se veía detrás) y el acceso, la salida de la bienvenida y la de la
+  presentación ocurrían al mismo tiempo.
+- **Hecho:** coreografía por fases en `intro.js` (Web Animations): la bienvenida espera oculta
+  (`entry-hold`, con respaldo a los 2,5 s si el script no llega y visible sin JavaScript), Tay
+  guiña y sale, un diamante con borde de luz (`clip-path` con regla par-impar) se abre y solo
+  entonces entra la bienvenida. «Entrar»: sale la bienvenida (`entry-leaving`), un diamante opaco
+  nace del botón y cubre, se abre el acceso cubierto y el diamante lo revela. Destellos solo
+  sobre la vitrina. `js/effects/sonido.js`: sonido sintetizado con Web Audio, limitador a -3 dB,
+  sin audio antes del primer toque, una vez por sesión, botón para silenciar (recordado en
+  `tgs_sonido`); el audio se suspende al terminar. Política de cookies actualizada.
+- **Línea de tiempo medida (escritorio):** presentación 0,22 → 2,71 s; Tay sale 2,71 → 3,26;
+  diamante 3,26 → 3,92; bienvenida desde 3,92. «Entrar»: sale 0 → 0,2 s; cubre → 0,6; acceso
+  abierto con la pantalla cubierta; revela → ~1,5 s. Sin fases simultáneas; consola sin errores ni
+  avisos.
+- **Sonido medido (render sin altavoces):** bienvenida pico 0,34 (≈ -9 dBFS), 1,65 s; «Entrar»
+  pico 0,25, 1,45 s; 0 contextos de audio antes de tocar.
+- **Acceso intacto:** las líneas de `#loginModal` e `icon-shield` no cambiaron (diff comparado);
+  capturas 02 y 03 idénticas.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 81/81 con axe (nueva: sonido
+  — nada antes del primer toque, una vez por sesión, silenciar y reactivar; ampliadas: la
+  presentación verifica el orden de las fases sin cruces, y sin JavaScript no hay presentación ni
+  botón de sonido y el contenido se ve); visuales 3/3 (solo 01 regenerada tras revisarla: botón de
+  sonido, que en celular es solo ícono para no tocar el logotipo); escáner 0. Firefox y WebKit:
+  NO VERIFICADO en local (solo Chromium instalado); los cubre la CI al publicar.
+- **Vista previa:** publicada en el mismo artefacto privado (versión 8). Su visualización y el
+  sonido dentro de claude.ai: NO VERIFICADO. En iPhone con el interruptor de silencio activado,
+  Safari no reproduce sonidos web (comportamiento del sistema).
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

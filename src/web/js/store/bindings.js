@@ -106,7 +106,8 @@ function bindEntryAndAccount() {
     const button = $('enterStoreBtn');
     if (button.dataset.opening) return;
     button.dataset.opening = '1';
-    // Transición corta «Abriendo TayGameStore…» y luego la ventana de acceso, que no cambia.
+    // Transición «Abriendo TayGameStore…» (el diamante nace del botón) y luego la ventana de
+    // acceso, que no cambia.
     playEnterTransition(() => {
       delete button.dataset.opening;
       modal('loginModal', true);
@@ -120,7 +121,7 @@ function bindEntryAndAccount() {
       }
       $('entryExperience').classList.add('out');
       $('bootScreen')?.classList.add('out');
-    });
+    }, button);
   };
   $('menuInvoice').onclick = () => {
     closeMenus();

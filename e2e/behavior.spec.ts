@@ -150,7 +150,69 @@ test.describe('entrada y acceso', () => {
       await expect(page.locator('.entry-noscript')).toBeVisible();
       await expect(page.locator('.entry-noscript')).toContainText('Shields');
       await expect(page.locator('#enterStoreBtn')).toBeHidden();
+      // Sin script no hay presentación ni sonido, y el contenido de la bienvenida se ve.
+      await expect(page.locator('#tgsIntro')).toBeHidden();
+      await expect(page.locator('.entry-sound')).toBeHidden();
+      await expect(page.locator('#entryExperience h1')).toBeVisible();
     });
+  });
+
+  test('sonido de bienvenida: nada antes del primer toque, una vez por sesión y se puede silenciar', async ({
+    page,
+  }) => {
+    // Audio de prueba: cuenta contextos y notas sin depender de altavoces del equipo.
+    await page.addInitScript({
+      content: `
+        window.tgsAudio = { contexts: 0, notes: 0 };
+        class AudioDePrueba extends OfflineAudioContext {
+          constructor() { super(2, 44100, 44100); window.tgsAudio.contexts++; }
+          get state() { return 'running'; }
+          resume() { return Promise.resolve(); }
+          suspend() { return Promise.resolve(); }
+          createOscillator() { window.tgsAudio.notes++; return super.createOscillator(); }
+        }
+        window.AudioContext = AudioDePrueba;
+      `,
+    });
+    const audio = () =>
+      page.evaluate(
+        () => (window as unknown as { tgsAudio: { contexts: number; notes: number } }).tgsAudio,
+      );
+    const toggle = page.locator('.entry-sound');
+
+    await page.goto('/');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText('Activar sonido');
+    await page.mouse.move(200, 200);
+    // El navegador no deja sonar sin un toque: la tienda ni siquiera crea el audio antes.
+    expect(await audio()).toEqual({ contexts: 0, notes: 0 });
+
+    // Primer toque en cualquier parte de la bienvenida: suena una vez.
+    await page.locator('.entry-copy').click();
+    await expect.poll(async () => (await audio()).notes).toBeGreaterThan(0);
+    await expect(toggle).toHaveText('Silenciar');
+    const played = (await audio()).notes;
+    await page.locator('#entryExperience h1').click();
+    expect((await audio()).notes).toBe(played);
+
+    // Silenciar: se recuerda y «Entrar» ya no suena.
+    await toggle.click();
+    await expect(toggle).toHaveText('Activar sonido');
+    expect(await page.evaluate(() => localStorage.getItem('tgs_sonido'))).toBe('off');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#loginModal')).toBeVisible();
+    expect((await audio()).notes).toBe(played);
+
+    // Al volver, sigue silenciado: tocar la página no crea audio.
+    await page.reload();
+    await expect(toggle).toHaveText('Activar sonido');
+    await page.locator('.entry-copy').click();
+    expect((await audio()).contexts).toBe(0);
+    // Activarlo de nuevo suena al momento.
+    await toggle.click();
+    await expect(toggle).toHaveText('Silenciar');
+    expect((await audio()).notes).toBeGreaterThan(0);
+    expect(await page.evaluate(() => localStorage.getItem('tgs_sonido'))).toBeNull();
   });
 
   test('mientras se comprueba el acceso, un clic en Google o Facebook no navega', async ({

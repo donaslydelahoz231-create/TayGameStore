@@ -110,6 +110,36 @@ test('la barra de avance sigue el scroll sin cambiar su ancho', async ({ page })
 test('al abrir la tienda hay una presentación; «Entrar» pasa por una transición antes del acceso', async ({
   page,
 }) => {
+  // Registro de fases (clases y apertura del acceso) para comprobar que no se cruzan.
+  await page.addInitScript(() => {
+    const log: string[] = [];
+    (window as unknown as { tgsPhases: string[] }).tgsPhases = log;
+    document.addEventListener('DOMContentLoaded', () => {
+      const intro = document.getElementById('tgsIntro');
+      const entry = document.getElementById('entryExperience');
+      const login = document.getElementById('loginModal');
+      if (!intro || !entry || !login) return;
+      const snap = () =>
+        [
+          intro.hidden ? 'intro:oculta' : 'intro:' + intro.className,
+          'bienvenida:' + entry.className,
+          login.hidden ? 'acceso:cerrado' : 'acceso:abierto',
+        ].join(' | ');
+      const record = () => {
+        const now = snap();
+        if (log[log.length - 1] !== now) log.push(now);
+      };
+      new MutationObserver(record).observe(document.body, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ['class', 'hidden'],
+      });
+      record();
+    });
+  });
+  const phases = () =>
+    page.evaluate(() => (window as unknown as { tgsPhases: string[] }).tgsPhases.slice());
+
   await page.goto('/');
   const intro = page.locator('#tgsIntro');
   await expect(intro).toBeVisible();
@@ -118,23 +148,44 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
     .poll(() => intro.locator('.intro-bar').getAttribute('aria-valuenow').then(Number))
     .toBeGreaterThan(0);
   await expect(intro.locator('.intro-status')).toHaveAttribute('role', 'status');
-  // Mientras se ve, la bienvenida de debajo no recibe el foco.
+  // Mientras se ve, la bienvenida de debajo no recibe el foco ni se ve su contenido.
   await expect(page.locator('#entryExperience')).toHaveAttribute('inert', '');
+  await expect(page.locator('#entryExperience .entry-shell')).toHaveCSS('opacity', '0');
   // Se puede saltar; la bienvenida queda lista y usable.
   await intro.locator('.intro-skip').click();
   await expect(intro).toBeHidden();
   await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
   await expect(page.locator('#entryExperience')).not.toHaveAttribute('inert', '');
+  // Sin cruces: la bienvenida entra solo cuando la presentación ya se fue (salida → diamante → oculta).
+  const opening = await phases();
+  const ready = opening.findIndex((line) => line.includes('entry-ready'));
+  expect(ready).toBeGreaterThan(0);
+  expect(opening[ready]).toContain('intro:oculta');
+  expect(opening.some((line) => line.includes('is-leaving') && line.includes('is-iris'))).toBe(
+    true,
+  );
 
   // Una vez por sesión: al recargar no se repite.
   await page.reload();
   await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
   await expect(intro).toBeHidden();
 
-  // «Entrar»: transición corta y luego la ventana de acceso de siempre.
+  // «Entrar»: la bienvenida sale, el diamante cubre, se abre el acceso y el diamante lo revela.
   await page.locator('#enterStoreBtn').click();
   await expect(intro).toHaveClass(/is-transition/);
   await expect(intro.locator('.intro-status')).toHaveText('Abriendo TayGameStore…');
   await expect(page.locator('#loginModal')).toBeVisible();
   await expect(intro).toBeHidden();
+  const entering = await phases();
+  const leaving = entering.findIndex((line) => line.includes('entry-leaving'));
+  const cover = entering.findIndex((line) => line.includes('is-transition'));
+  const opened = entering.findIndex((line) => line.includes('acceso:abierto'));
+  expect(leaving).toBeGreaterThanOrEqual(0);
+  // El diamante llega cuando la bienvenida ya se fue, y no antes.
+  expect(cover).toBeGreaterThan(leaving);
+  expect(entering[leaving]).toContain('intro:oculta');
+  // El acceso se abre con la pantalla cubierta (no durante el movimiento del diamante).
+  expect(entering[opened]).toContain('is-transition');
+  expect(entering[opened]).not.toContain('is-iris');
+  expect(entering[entering.length - 1]).toContain('intro:oculta');
 });

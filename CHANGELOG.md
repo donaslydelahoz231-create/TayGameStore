@@ -5,6 +5,27 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Transiciones sin cruces con forma de diamante y sonido de bienvenida (2026-10-27)
+
+- Las animaciones ya no se cruzan: cada fase empieza cuando termina la anterior (medido cuadro a
+  cuadro y con una prueba automática). Antes, al abrir se veía medio segundo la bienvenida antes
+  de la presentación, el logotipo se desvanecía encima del titular y, al pulsar «Entrar», la
+  bienvenida se veía a través de la capa y el acceso aparecía mientras Tay aún salía.
+- Presentación: Tay se arma, luego el logotipo letra a letra (con un brillo que recorre solo las
+  letras), Tay guiña, sale con el logotipo y un diamante con borde de luz se abre desde su centro
+  para dejar ver la bienvenida, que entra después.
+- «Entrar»: la bienvenida se va, un diamante nace del tamaño del botón y cubre la pantalla,
+  «Abriendo TayGameStore…» con su barra, y el diamante se abre sobre la ventana de acceso ya lista
+  (la ventana no cambia). Unos 1,5 s en total.
+- Los destellos del puntero salen solo sobre la vitrina (ya no cruzan el texto).
+- Sonido de bienvenida propio, sintetizado en el navegador (sin archivos ni licencias): un
+  destello de cristal de 1,6 s y un sonido corto al «Entrar». Los navegadores no dejan sonar una
+  página hasta que el visitante la toca, así que suena con el primer toque (durante la
+  presentación espera a que se abra el diamante), una vez por visita. Botón «Activar sonido» /
+  «Silenciar» en la presentación y la bienvenida; si se silencia, se recuerda.
+- Política de cookies: se informan las claves `tgs_sonido`, `tgs:presentacion` y
+  `tgs:bienvenida-sono`.
+
 ### Nequi en la vista previa, comprobante para compartir y burbujas de soporte (2026-10-27)
 
 - «Compartir» del comprobante ahora se ve siempre (antes solo aparecía en navegadores que

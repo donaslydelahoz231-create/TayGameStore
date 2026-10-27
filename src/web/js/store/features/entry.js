@@ -65,7 +65,7 @@ export function revealStore() {
 /** Vuelve a la pantalla de entrada cinematográfica. */
 export function showEntryLanding() {
   state.storeUnlocked = false;
-  $('entryExperience')?.classList.remove('out');
+  $('entryExperience')?.classList.remove('out', 'entry-leaving');
   $('app')?.classList.add('store-locked');
   $('app')?.classList.remove('store-ready');
   $('app')?.setAttribute('aria-hidden', 'true');
