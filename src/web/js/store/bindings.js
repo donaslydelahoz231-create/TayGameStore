@@ -19,6 +19,7 @@ import { clearCart, closeDrawer, openDrawer, watchBuyBar } from './features/cart
 import { loadCatalog, selectTariff } from './features/catalog.js';
 import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
+import { playEnterTransition } from './features/intro.js';
 import { renderFavorites } from './features/favorites.js';
 import { renderPromo, weekendPromo } from './features/promo.js';
 import { renderTariffBoard } from './features/tariffs.js';
@@ -102,17 +103,24 @@ async function refreshOrder() {
 function bindEntryAndAccount() {
   $('enterStoreBtn').onclick = () => {
     closeMenus();
-    modal('loginModal', true);
-    // Si el acceso no llega a verse (un bloqueador de contenido lo oculta, falla su hoja de
-    // estilos…), no se esconde la entrada dejando la pantalla vacía y sin salida: se abre la
-    // tienda como invitado. El acceso con cuenta sigue en el botón «Cuenta».
-    if (!$('guestBtn')?.getClientRects().length) {
-      modal('loginModal', false);
-      revealStore();
-      return;
-    }
-    $('entryExperience').classList.add('out');
-    $('bootScreen')?.classList.add('out');
+    const button = $('enterStoreBtn');
+    if (button.dataset.opening) return;
+    button.dataset.opening = '1';
+    // Transición corta «Abriendo TayGameStore…» y luego la ventana de acceso, que no cambia.
+    playEnterTransition(() => {
+      delete button.dataset.opening;
+      modal('loginModal', true);
+      // Si el acceso no llega a verse (un bloqueador de contenido lo oculta, falla su hoja de
+      // estilos…), no se esconde la entrada dejando la pantalla vacía y sin salida: se abre la
+      // tienda como invitado. El acceso con cuenta sigue en el botón «Cuenta».
+      if (!$('guestBtn')?.getClientRects().length) {
+        modal('loginModal', false);
+        revealStore();
+        return;
+      }
+      $('entryExperience').classList.add('out');
+      $('bootScreen')?.classList.add('out');
+    });
   };
   $('menuInvoice').onclick = () => {
     closeMenus();

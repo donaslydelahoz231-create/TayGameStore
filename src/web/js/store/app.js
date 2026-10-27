@@ -9,6 +9,7 @@ import { bootstrapSession, renderAccount, renderHeader } from './features/accoun
 import { renderDrawer, renderSmartCart } from './features/cart.js';
 import { loadCatalog, renderGames, renderProducts } from './features/catalog.js';
 import { renderEntryOffer, showEntryLanding, revealStore } from './features/entry.js';
+import { playIntro } from './features/intro.js';
 import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
 import { navObserver } from './features/nav.js';
@@ -106,6 +107,8 @@ async function init() {
   if (terms) terms.checked = false;
   showEntryLanding();
   bind();
+  // Presentación de la marca mientras llegan precios y catálogo (no bloquea la carga).
+  playIntro();
   navObserver();
   watchOtherTabs(renderAll);
   try {

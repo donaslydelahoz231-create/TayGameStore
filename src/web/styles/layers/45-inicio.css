@@ -1,0 +1,427 @@
+/*
+ * Inicio animado (2026-10-27): presentación al abrir la tienda, bienvenida que entra por partes y
+ * reacciona al puntero, y transición corta antes de la ventana de acceso (que no cambia).
+ * La lógica está en js/store/features/intro.js y js/effects/bienvenida.js. Con movimiento
+ * reducido no hay presentación ni animaciones de entrada.
+ */
+
+/* ── Presentación ── */
+#tgsIntro {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(91, 45, 210, 0.42), transparent 70%),
+    radial-gradient(45% 40% at 80% 85%, rgba(55, 214, 255, 0.14), transparent 70%), #04060f;
+  color: #eef2ff;
+}
+#tgsIntro[hidden] {
+  display: none;
+}
+#tgsIntro.out {
+  animation: tgsIntroOut 0.62s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+  pointer-events: none;
+}
+@keyframes tgsIntroOut {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(6px);
+  }
+}
+.intro-aurora i {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.55;
+  animation: tgsAurora 9s ease-in-out infinite alternate;
+}
+.intro-aurora i:nth-child(1) {
+  width: 46vmax;
+  height: 46vmax;
+  left: -12vmax;
+  top: -14vmax;
+  background: #6d28d9;
+}
+.intro-aurora i:nth-child(2) {
+  width: 38vmax;
+  height: 38vmax;
+  right: -10vmax;
+  bottom: -14vmax;
+  background: #1f8fff;
+  animation-delay: -3s;
+}
+.intro-aurora i:nth-child(3) {
+  width: 22vmax;
+  height: 22vmax;
+  left: 55%;
+  top: 8%;
+  background: #b23dff;
+  opacity: 0.3;
+  animation-delay: -6s;
+}
+@keyframes tgsAurora {
+  to {
+    transform: translate(4vmax, 3vmax) scale(1.12);
+  }
+}
+.intro-floor {
+  position: absolute;
+  inset: 55% -20% -10%;
+  background-image:
+    linear-gradient(rgba(55, 214, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 61, 255, 0.2) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(520px) rotateX(62deg);
+  mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+  animation: tgsFloor 2.6s linear infinite;
+}
+@keyframes tgsFloor {
+  to {
+    background-position: 0 64px;
+  }
+}
+
+.intro-core {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  transform: translate(calc(var(--px, 0) * -12px), calc(var(--py, 0) * -10px));
+  transition: transform 0.4s ease-out;
+}
+.intro-tay {
+  width: clamp(132px, 22vmin, 196px);
+  height: auto;
+  overflow: visible;
+  stroke: none;
+  filter: drop-shadow(0 18px 40px rgba(55, 214, 255, 0.35));
+  transform: perspective(600px) rotateY(calc(var(--px, 0) * 22deg))
+    rotateX(calc(var(--py, 0) * -16deg));
+  transition: transform 0.35s ease-out;
+}
+/* Tay se arma: cada faceta llega volando a su sitio. */
+.intro-tay .f {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsFacet 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--d);
+}
+@keyframes tgsFacet {
+  from {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(0.4);
+  }
+}
+.intro-tay .intro-halo {
+  animation: tgsFade 1.2s 0.2s both;
+}
+.intro-tay .intro-detail {
+  animation: tgsFade 0.45s 0.7s both;
+}
+.intro-tay .intro-visor {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsVisor 0.45s 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.intro-tay .intro-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    tgsPop 0.35s 0.95s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    tgsTayBlink 4s 1.6s ease-in-out infinite;
+}
+.intro-tay .intro-smile {
+  animation: tgsFade 0.3s 1.05s both;
+}
+.intro-tay .intro-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tgsStar 0.6s 1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes tgsFade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tgsVisor {
+  from {
+    opacity: 0;
+    transform: scaleX(0.1);
+  }
+}
+@keyframes tgsPop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+@keyframes tgsStar {
+  from {
+    opacity: 0;
+    transform: rotate(-180deg) scale(0.2);
+  }
+}
+
+/* Logotipo letra a letra */
+.intro-word {
+  margin: 4px 0 0;
+  font: 700 clamp(1.7rem, 1rem + 3.4vw, 3rem) / 1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.intro-word span {
+  display: inline-block;
+  animation: tgsLetter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(0.5s + var(--i) * 35ms);
+}
+.intro-word .s {
+  background: linear-gradient(100deg, #37d6ff, #7d8bff 55%, #b06bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@keyframes tgsLetter {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em) rotate(6deg);
+    filter: blur(4px);
+  }
+}
+.intro-tagline {
+  margin: 0;
+  color: #b9c2ee;
+  font-size: var(--t-sm);
+  animation: tgsFade 0.6s 1.05s both;
+}
+
+/* Progreso real de la carga */
+.intro-bar {
+  position: relative;
+  width: min(280px, 70vw);
+  height: 6px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.intro-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b3dff, #37d6ff);
+  box-shadow: 0 0 18px rgba(55, 214, 255, 0.6);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.intro-status {
+  margin: 0;
+  min-height: 1.4em;
+  color: #a9b1df;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+}
+.intro-skip {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(10, 14, 40, 0.6);
+  color: #dfe3ff;
+  font: 600 var(--fs-2xs) / 1 var(--font-ui);
+  cursor: pointer;
+  animation: tgsFade 0.4s 0.6s both;
+}
+.intro-skip:hover {
+  border-color: rgba(55, 214, 255, 0.6);
+  color: #fff;
+}
+.intro-skip svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Transición al pulsar «Entrar»: rápida, sobre la bienvenida, sin rearmar a Tay. */
+#tgsIntro.is-transition {
+  background: radial-gradient(60% 55% at 50% 45%, rgba(91, 45, 210, 0.55), rgba(4, 6, 15, 0.94));
+  animation: tgsFade 0.22s both;
+}
+#tgsIntro.is-transition.out {
+  animation: tgsIntroOut 0.62s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+#tgsIntro.is-transition :is(.intro-skip, .intro-floor, .intro-tagline) {
+  display: none;
+}
+#tgsIntro.is-transition
+  :is(.f, .intro-detail, .intro-visor, .intro-eyes, .intro-smile, .intro-star),
+#tgsIntro.is-transition .intro-word span {
+  animation: none;
+}
+#tgsIntro.is-transition .intro-tay {
+  animation: tgsPulse 0.68s ease-in-out both;
+}
+@keyframes tgsPulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ── Bienvenida: entrada escalonada al terminar la presentación ── */
+@media (prefers-reduced-motion: no-preference) {
+  #entryExperience.entry-ready .entry-main > * {
+    animation: tgsRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  #entryExperience.entry-ready .entry-main > :nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  #entryExperience.entry-ready .entry-main > :nth-child(3) {
+    animation-delay: 0.16s;
+  }
+  #entryExperience.entry-ready .entry-main > :nth-child(4) {
+    animation-delay: 0.22s;
+  }
+  #entryExperience.entry-ready .entry-main > :nth-child(5) {
+    animation-delay: 0.28s;
+  }
+  #entryExperience.entry-ready .entry-main > :nth-child(n + 6) {
+    animation-delay: 0.36s;
+  }
+  #entryExperience.entry-ready .entry-vitrina {
+    animation: tgsVitrinaIn 0.9s 0.15s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  #entryExperience.entry-ready .entry-stage .entry-mascot {
+    animation: tgsMascotIn 0.8s 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+
+  /* El titular respira: el degradado de «directo a tu ID» recorre las letras. */
+  #entryExperience .entry-shell h1.entry-seo span {
+    background-size: 200% 100%;
+    animation: tgsShimmer 6s ease-in-out infinite alternate;
+  }
+  /* Brillo que cruza el botón de entrada. */
+  #entryExperience .entry-cta {
+    position: relative;
+    overflow: hidden;
+    translate: var(--mx, 0) var(--my, 0);
+    transition: translate 0.25s ease-out;
+  }
+  #entryExperience .entry-cta::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.35) 45%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    animation: tgsSweep 3.6s 1.2s ease-in-out infinite;
+  }
+  /* Las luces del fondo se mueven despacio. */
+  #entryExperience .entry-orb {
+    animation: tgsAurora 10s ease-in-out infinite alternate;
+  }
+}
+@keyframes tgsRise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+}
+@keyframes tgsVitrinaIn {
+  from {
+    opacity: 0;
+    transform: rotateX(30deg) rotateY(-30deg) translateY(40px) scale(0.9);
+  }
+}
+@keyframes tgsMascotIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.6);
+  }
+}
+@keyframes tgsShimmer {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+@keyframes tgsSweep {
+  0%,
+  60% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* ── Bienvenida: reacciona al puntero (variables --px/--py de js/effects/bienvenida.js) ── */
+#entryExperience .entry-vitrina {
+  transform: rotateX(calc(12deg - var(--py, 0) * 12deg))
+    rotateY(calc(-14deg + var(--px, 0) * 18deg)) rotateZ(2deg);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#entryExperience .entry-stage .entry-mascot {
+  translate: calc(var(--px, 0) * -18px) calc(var(--py, 0) * -12px);
+  transition: translate 0.45s ease-out;
+}
+#entryExperience .ty-look {
+  transform: translate(calc(var(--px, 0) * 7px), calc(var(--py, 0) * 4px));
+  transition: transform 0.2s ease-out;
+}
+#entryExperience .entry-orb-a {
+  translate: calc(var(--px, 0) * 40px) calc(var(--py, 0) * 30px);
+}
+#entryExperience .entry-orb-b {
+  translate: calc(var(--px, 0) * -40px) calc(var(--py, 0) * -30px);
+}
+.entry-spark {
+  position: fixed;
+  z-index: 3;
+  width: var(--size, 9px);
+  height: var(--size, 9px);
+  margin: calc(var(--size, 9px) / -2) 0 0 calc(var(--size, 9px) / -2);
+  background: linear-gradient(135deg, #e9fdff, #37d6ff 55%, #8b3dff);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  pointer-events: none;
+  animation: tgsSpark 0.9s ease-out forwards;
+}
+@keyframes tgsSpark {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--drift, 0), 26px) scale(0.2) rotate(140deg);
+  }
+}
+@media (max-width: 900px) {
+  #entryExperience .entry-vitrina {
+    transform: rotateX(8deg) rotateZ(-2deg);
+  }
+}

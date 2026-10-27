@@ -106,3 +106,35 @@ test('la barra de avance sigue el scroll sin cambiar su ancho', async ({ page })
   );
   expect(width).toBeGreaterThan(0);
 });
+
+test('al abrir la tienda hay una presentación; «Entrar» pasa por una transición antes del acceso', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const intro = page.locator('#tgsIntro');
+  await expect(intro).toBeVisible();
+  // La barra sigue la carga real y anuncia su estado a los lectores de pantalla.
+  await expect
+    .poll(() => intro.locator('.intro-bar').getAttribute('aria-valuenow').then(Number))
+    .toBeGreaterThan(0);
+  await expect(intro.locator('.intro-status')).toHaveAttribute('role', 'status');
+  // Mientras se ve, la bienvenida de debajo no recibe el foco.
+  await expect(page.locator('#entryExperience')).toHaveAttribute('inert', '');
+  // Se puede saltar; la bienvenida queda lista y usable.
+  await intro.locator('.intro-skip').click();
+  await expect(intro).toBeHidden();
+  await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
+  await expect(page.locator('#entryExperience')).not.toHaveAttribute('inert', '');
+
+  // Una vez por sesión: al recargar no se repite.
+  await page.reload();
+  await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
+  await expect(intro).toBeHidden();
+
+  // «Entrar»: transición corta y luego la ventana de acceso de siempre.
+  await page.locator('#enterStoreBtn').click();
+  await expect(intro).toHaveClass(/is-transition/);
+  await expect(intro.locator('.intro-status')).toHaveText('Abriendo TayGameStore…');
+  await expect(page.locator('#loginModal')).toBeVisible();
+  await expect(intro).toBeHidden();
+});

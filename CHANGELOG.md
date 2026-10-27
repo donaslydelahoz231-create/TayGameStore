@@ -5,6 +5,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Inicio animado e interactivo (2026-10-27)
+
+- Mismo recorrido del sitio publicado (abrir → bienvenida → «Entrar» → acceso), ahora con
+  presentación: al abrir, Tay se arma faceta a faceta, el logotipo aparece letra a letra y la
+  barra avanza con la carga real del catálogo (1,9 a 3,6 s). Se puede saltar (botón, Escape,
+  Enter o espacio), sale una vez por sesión y no aparece al volver de pagar ni con un enlace de
+  seguimiento.
+- La bienvenida entra por partes y reacciona al puntero: la vitrina se inclina, Tay sigue el
+  cursor con la mirada, destellos de diamante y botón «Entrar» magnético con brillo.
+- Al pulsar «Entrar»: transición corta «Abriendo TayGameStore…» y luego la ventana de acceso,
+  que no cambia.
+- Con movimiento reducido no hay presentación ni animaciones de entrada; sin JavaScript tampoco.
+
 ### Marca propia: tipografía, logo, íconos, bienvenida y comprobante (2026-10-27)
 
 - Tipografía con identidad propia y un solo sistema: Unbounded (títulos, marca, precios y

@@ -1863,3 +1863,23 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Vista previa:** publicada en el mismo artefacto privado «Tienda TayGameStore» (nada se cobra);
   comprobada en local sin errores de consola. Su visualización dentro de claude.ai: NO VERIFICADO.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-27 · Inicio animado e interactivo (pedido del dueño)
+
+- **Pedido:** al entrar a la tienda, una carga o presentación y luego el acceso, «como está
+  publicada» pero con animación interactiva y un diseño más vivo y profesional.
+- **Situación publicada (código de la rama en GitHub):** la pantalla de carga existía pero quedaba
+  tapada por la bienvenida y se ocultaba sin verse; se entraba directo a la bienvenida.
+- **Hecho:** `#tgsIntro` (presentación y transición), `js/store/features/intro.js` (progreso
+  ligado a `state.catalogStatus`, una vez por sesión, saltable, se cierra si se abre la tienda),
+  `js/effects/bienvenida.js` (puntero: paralaje, mirada de Tay, destellos, botón magnético) y
+  `45-inicio.css`. La bienvenida queda `inert` mientras se ve la presentación.
+- **Acceso intacto:** el marcado de `#loginModal` es idéntico al commit anterior (comparado); solo
+  cambia cuándo se abre (tras la transición). Captura 02 sin cambios.
+- **Pruebas:** lint, formato y tipos OK; unitarias y API 385/385; e2e 79/79 (nueva, con
+  movimiento: presentación visible, progreso anunciado, saltar, no se repite en la sesión,
+  transición y acceso); visuales 3/3 sin regenerar (con movimiento reducido no hay presentación);
+  escáner 0. Integración no se volvió a correr: el cambio no toca el servidor.
+- **Vista previa:** publicada en el mismo artefacto privado; comprobada en local sin errores de
+  consola. Su visualización dentro de claude.ai: NO VERIFICADO.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
