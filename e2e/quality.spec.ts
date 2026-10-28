@@ -275,6 +275,62 @@ test('sin desbordes horizontales en 360–1920 px (sin ocultarlos con overflow-x
   expect(problems).toEqual([]);
 });
 
+test('íconos claros: carrito grande con su contador entero, logos de acceso e íconos de juegos', async ({
+  browser,
+}) => {
+  const problems: string[] = [];
+  for (const width of [360, 412, 1280]) {
+    const context = await browser.newContext({
+      viewport: { width, height: 900 },
+      reducedMotion: 'reduce',
+      locale: 'es-CO',
+    });
+    const page = await context.newPage();
+    const errors = await preparePage(page);
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#tgsIntro')).toBeHidden();
+    // Acceso: los logotipos oficiales de Google y Facebook cargan (antes eran las letras G y f).
+    const logos = await page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLImageElement>('#loginModal .oauth-brand img')).map(
+        (img) => ({ alt: img.alt, loaded: img.complete && img.naturalWidth > 0, w: img.width }),
+      ),
+    );
+    if (logos.length !== 2 || logos.some((logo) => !logo.loaded || logo.alt !== '' || logo.w < 24))
+      problems.push(`${width}px: logos de acceso ${JSON.stringify(logos)}`);
+    await page.locator('#guestBtn').click();
+    await expect(page.locator('#loginModal')).toBeHidden();
+    // Carrito: ícono de al menos 24 px, botón de al menos 44 px y el contador dentro del botón.
+    const cart = await page.evaluate(() => {
+      const button = document.getElementById('cartBtn')!.getBoundingClientRect();
+      const icon = document.querySelector('#cartBtn svg')!.getBoundingClientRect();
+      const badge = document.getElementById('cartBadge')!.getBoundingClientRect();
+      return {
+        icon: Math.round(icon.width),
+        button: Math.round(Math.min(button.width, button.height)),
+        badgeInside:
+          badge.left >= button.left - 0.5 &&
+          badge.right <= button.right + 0.5 &&
+          badge.top >= button.top - 0.5 &&
+          badge.bottom <= button.bottom + 0.5,
+      };
+    });
+    if (cart.icon < 24 || cart.button < 44 || !cart.badgeInside)
+      problems.push(`${width}px: carrito ${JSON.stringify(cart)}`);
+    // Juegos: un ícono dibujado por juego (no letras sueltas).
+    const games = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.game-logo')).map(
+        (logo) => !!logo.querySelector('svg use') && !logo.textContent?.trim(),
+      ),
+    );
+    if (games.length !== 4 || games.includes(false))
+      problems.push(`${width}px: íconos de juegos ${JSON.stringify(games)}`);
+    consoleErrors.push(...errors);
+    await context.close();
+  }
+  expect(problems).toEqual([]);
+});
+
 test('las tarjetas de producto muestran completos los botones de cantidad (táctil y ratón)', async ({
   browser,
   browserName,

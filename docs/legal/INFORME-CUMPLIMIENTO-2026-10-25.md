@@ -102,6 +102,20 @@ Este documento no contiene datos personales del propietario.
   de la fuente Unbounded 700; Unbounded e Instrument Sans tienen licencia SIL OFL 1.1 (leída en
   los propios archivos), que permite usarlas en logotipos y servirlas con la web; su texto de
   licencia va en `/fonts/LICENCIA-FUENTES-OFL.txt`.
+- **Íconos de acceso y de juegos (2026-10-28, pedido del dueño):**
+  - **Acceso:** los botones «Google» y «Facebook» usan los logotipos oficiales de cada marca, solo
+    para identificar el método de acceso, como piden sus guías de marca.
+    - Google: la «G» sale del paquete oficial `signin-assets.zip` de
+      [developers.google.com/identity/branding-guidelines](https://developers.google.com/identity/branding-guidelines),
+      recortada sin el marco.
+    - Facebook: el logotipo circular azul (#0866FF) de los recursos de marca de Meta
+      ([about.meta.com/brand/resources/facebook/logo](https://about.meta.com/brand/resources/facebook/logo)),
+      en el trazo que publica Simple Icons 16.36.0 con esa fuente.
+    - Son marcas de Google LLC y Meta Platforms, Inc.
+  - **Juegos:** el dueño decidió **no** usar logotipos oficiales. Los íconos de Free Fire,
+    Roblox, PUBG Mobile y Mobile Legends son dibujos propios de la tienda con los colores de cada
+    juego: llama, bloque, caja con paracaídas y escudo con espada. No copian sus logotipos, así
+    que sigue vigente «no usa sus logos ni sus imágenes» (términos §1).
 
 ## 5. Riesgos y acciones del dueño (por prioridad)
 

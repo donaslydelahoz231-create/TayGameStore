@@ -5,6 +5,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Carrito más grande, logotipos oficiales en el acceso e íconos de juegos (2026-10-28)
+
+- **Carrito:**
+  - El ícono y el botón son más grandes: 27 px y 48 px en el celular, 24 px y 44 px en el PC.
+  - El contador queda entero dentro del botón; antes el borde lo cortaba.
+  - La búsqueda y la cuenta crecen a la misma altura para que la cabecera quede pareja.
+  - En teléfonos de 380 px o menos, los botones miden 44 px para que la fila quepa.
+- **Acceso:** los botones de Google y Facebook muestran los logotipos oficiales de cada marca en
+  lugar de las letras «G» y «f». Solo cambia el ícono; el flujo de acceso es el mismo.
+- **Juegos:** cada juego tiene un ícono propio con sus colores en lugar de letras sueltas: llama
+  con diamante (Free Fire), bloque (Roblox), caja con paracaídas (PUBG Mobile) y escudo con espada
+  (Mobile Legends). No son sus logotipos; los términos siguen diciendo que la tienda no los usa.
+
 ### Presentación, bienvenida y transiciones también en celulares (2026-10-28)
 
 - **Con «reducir movimiento»** (en muchos celulares: «Quitar animaciones» o «Reducir

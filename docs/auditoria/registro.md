@@ -2191,3 +2191,37 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   integración, lint/tipos/unitarias/build y gitleaks. CodeQL y prueba de producción OK. La prueba
   táctil ya no rompe Firefox (se salta antes de crear el contexto).
 
+### 2026-10-28 · Publicación de dda83d3 y carrito, acceso e íconos de juegos
+
+- **Publicación de `dda83d3`** (autorizada: «Autorizo el push del commit dda83d3»):
+  - Push en avance rápido `c814ff3..dda83d3`.
+  - Render: despliegue `dep-dbh4njjbc2fs73a5kf2g` en `live` (19:23:58–19:25:06 UTC), sin errores
+    ni avisos en los registros.
+  - CI, CodeQL y prueba de producción OK.
+- **Pedido:** «el ícono del carrito está muy pequeño y el bloque; mejora los íconos de los
+  logins de Google y Facebook; y los íconos de los videojuegos sean oficiales».
+- **Decisión del dueño (pregunta en la conversación):** íconos propios mejorados para los
+  juegos, **sin** logotipos oficiales. Los términos §1 y el informe legal dicen que la tienda no
+  usa sus logos (Decisión Andina 486); el dueño eligió no asumir ese riesgo.
+- **Acceso:** el dueño pidió explícitamente cambiar estos íconos, que antes estaban protegidos
+  por «los logins no me los toques».
+  - Cambia solo el contenido de `.oauth-brand` en `#loginModal`: las letras «G» y «f» pasan a ser
+    los logotipos oficiales. Los estilos van en `47-iconos.css`.
+  - Sin cambios en `account.js`, `15-modals.css` ni `21-auth.css`, ni en el flujo de acceso.
+  - Origen de los logotipos: en el informe legal (§4, «Íconos de acceso y de juegos»).
+- **Carrito:**
+  - El ícono pasa de 18 a 24 px en PC y a 27 px en celular. El botón, de 38 a 44 px en PC y de
+    44 a 48 px en celular (44 px en 380 px o menos).
+  - El contador queda dentro del botón; antes `overflow: hidden` lo cortaba.
+- **Pruebas:**
+  - Lint, formato y tipos OK; unitarias 385/385; escáner 0.
+  - e2e 86/86 en Chromium. Una nueva: logos de acceso cargados, carrito de al menos 24/44 px
+    con el contador dentro, e íconos de juegos dibujados, a 360, 412 y 1280 px.
+  - Sin desbordes de 360 a 1920 px. Primero falló por 1 px a 360 px; se corrigió con botones de
+    44 px en 380 px o menos.
+  - Visuales: 02 (acceso) y 03 (tienda) regeneradas tras revisarlas. El modal de acceso queda unos
+    px más alto por el mosaico del logotipo (36 px) y la cabecera crece ~5 px. La 01 sigue
+    idéntica.
+  - Firefox y WebKit: NO VERIFICADO en local.
+- **Vista previa:** mismo artefacto privado (versión 15).
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

@@ -1,0 +1,159 @@
+/*
+ * Íconos más claros (2026-10-28, pedido del dueño):
+ * - Carrito con ícono y botón más grandes; su contador queda dentro del botón (antes el borde lo
+ *   cortaba). La búsqueda y la cuenta crecen a la misma altura para que la fila quede pareja.
+ * - Acceso: logotipos oficiales de Google y Facebook en lugar de las letras «G» y «f». Solo
+ *   cambia el ícono; los botones, los textos y el flujo de acceso son los mismos.
+ * - Juegos: íconos propios de la tienda con los colores de cada juego (no son sus logotipos:
+ *   términos §1, «no usa sus logos ni sus imágenes»).
+ */
+
+/* ── Cabecera ── */
+#app .header-icon,
+#app .account-btn,
+#app .cart-btn {
+  min-height: 44px;
+}
+#app .header-icon {
+  min-width: 44px;
+}
+#app .header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+#app .cart-btn {
+  gap: 9px;
+  padding: 0 14px;
+  border-radius: 12px;
+}
+#app .cart-btn svg {
+  width: 24px;
+  height: 24px;
+}
+#app .cart-btn span {
+  font-size: 0.875rem;
+}
+/* Con texto «Carrito», el contador va a su lado, dentro del botón. */
+#app .cart-btn em {
+  position: static;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-style: normal;
+}
+@media (max-width: 650px) {
+  #app .header-icon,
+  #app .account-btn,
+  #app .cart-btn {
+    min-width: 48px;
+    min-height: 48px;
+  }
+  #app .header-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+  #app .account-btn .avatar {
+    width: 36px;
+    height: 36px;
+  }
+  #app .account-btn .avatar svg {
+    width: 20px;
+    height: 20px;
+  }
+  /* Solo el ícono: grande y centrado; el contador en la esquina, dentro del botón. */
+  #app .cart-btn {
+    justify-content: center;
+    padding: 0;
+  }
+  #app .cart-btn svg {
+    width: 27px;
+    height: 27px;
+  }
+  #app .cart-btn em {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    font-size: 0.6875rem;
+  }
+}
+/* Teléfonos de 380 px o menos: los botones vuelven a 44 px (el mínimo táctil) para que la fila
+   quepa; el ícono del carrito sigue grande. */
+@media (max-width: 380px) {
+  #app .header-icon,
+  #app .account-btn,
+  #app .cart-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  #app .account-btn .avatar {
+    width: 34px;
+    height: 34px;
+  }
+  #app .cart-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* ── Acceso: logotipos oficiales de Google y Facebook ── */
+#loginModal .oauth-btn .oauth-brand {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+#loginModal .oauth-btn .oauth-brand img {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* ── Juegos: íconos propios con el color de cada uno ── */
+/* En escritorio, el mismo ancho de columna de antes: «Mobile Legends» sigue en una línea. */
+#app .game-logo {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+}
+#app .game-logo svg {
+  width: 27px;
+  height: 27px;
+}
+@media (max-width: 650px) {
+  #app .game-tab {
+    grid-template-columns: 42px 1fr;
+    gap: 10px;
+  }
+  #app .game-logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+  #app .game-logo svg {
+    width: 30px;
+    height: 30px;
+  }
+}
+#app .game-logo.ff {
+  border-color: rgba(255, 138, 61, 0.45);
+  background: radial-gradient(circle at 50% 35%, rgba(255, 122, 43, 0.3), rgba(20, 12, 30, 0.9));
+}
+#app .game-logo.roblox {
+  border-color: rgba(210, 218, 255, 0.3);
+  background: radial-gradient(circle at 50% 35%, rgba(200, 210, 255, 0.18), rgba(14, 18, 40, 0.9));
+}
+#app .game-logo.pubg {
+  border-color: rgba(244, 185, 66, 0.42);
+  background: radial-gradient(circle at 50% 35%, rgba(244, 185, 66, 0.24), rgba(24, 18, 12, 0.9));
+}
+#app .game-logo.ml {
+  border-color: rgba(127, 156, 255, 0.45);
+  background: radial-gradient(circle at 50% 35%, rgba(90, 120, 255, 0.3), rgba(12, 16, 44, 0.9));
+}
