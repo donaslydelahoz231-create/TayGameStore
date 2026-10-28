@@ -2181,3 +2181,13 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Sin publicar:** commit local que solo cambia una prueba y este registro. El push despliega en
   Render; espera la autorización del dueño.
 
+### 2026-10-28 · Publicación de c814ff3 y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit c814ff3».
+- **Push:** avance rápido `5bdbb81..c814ff3`; `git ls-remote` = `c814ff3`.
+- **Render:** despliegue `dep-dbh4fb15efls73aqnmr0` en `live` (19:06:20–19:07:31 UTC). Registros
+  de error o aviso desde las 19:06 UTC: ninguno (consulta de las 19:19 UTC).
+- **GitHub Actions sobre `c814ff3`:** CI (run 230) en verde: e2e en Chromium, Firefox y WebKit,
+  integración, lint/tipos/unitarias/build y gitleaks. CodeQL y prueba de producción OK. La prueba
+  táctil ya no rompe Firefox (se salta antes de crear el contexto).
+
