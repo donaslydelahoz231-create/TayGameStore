@@ -2158,3 +2158,26 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Acceso intacto:** sin cambios en `#loginModal`, `account.js`, `15-modals.css` ni `21-auth.css`.
 - **Vista previa:** mismo artefacto privado (versión 14).
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-28 · Publicación de 5bdbb81 y prueba táctil en Firefox
+
+- **Autorización del dueño:** «Autorizo el push del commit 5bdbb81».
+- **Push:** avance rápido `e180828..5bdbb81`; `git ls-remote` = `5bdbb81`.
+- **Render:** despliegue `dep-dbh45kjbc2fs738iel10` en `live` (18:45:38–18:46:45 UTC). Registros
+  de error o aviso desde las 18:45 UTC: ninguno (consulta de las 18:56 UTC).
+- **GitHub Actions sobre `5bdbb81`:**
+  - CodeQL y prueba de producción OK.
+  - CI (run 229) en rojo por un solo trabajo, e2e en Firefox: 82 pruebas OK, 2 saltadas y 1
+    fallida. La prueba de vitrina táctil falló con `options.isMobile is not supported in Firefox`.
+  - Chromium, WebKit, integración, lint/tipos/unitarias/build y gitleaks OK.
+- **Causa:** de la prueba, no de la tienda. `test.use({ isMobile: true })` hace que Firefox falle
+  al crear el contexto antes de entrar a la prueba, donde estaba el salto para navegadores que no
+  son Chromium.
+- **Corrección local:** el salto pasa al bloque (`test.skip(({ browserName }) => …)`) y se evalúa
+  antes de crear el contexto.
+  - Comprobado en Chromium: con la condición invertida a propósito, la prueba queda saltada sin
+    error. Con la condición real, las 5 pruebas de movimiento OK.
+  - Firefox en local: NO VERIFICADO (no está instalado); lo confirma la CI tras el push.
+- **Sin publicar:** commit local que solo cambia una prueba y este registro. El push despliega en
+  Render; espera la autorización del dueño.
+

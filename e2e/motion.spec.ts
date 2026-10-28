@@ -252,15 +252,15 @@ test.describe('con «reducir movimiento» (en muchos celulares, «Quitar animaci
 });
 
 test.describe('en pantallas táctiles', () => {
+  // Se comprueba con Chromium (emulación de Android). Firefox no admite `isMobile` (falla al crear
+  // el contexto, antes de entrar a la prueba: por eso el salto va aquí) y el toque emulado de
+  // WebKit en Linux no se ha verificado.
+  test.skip(({ browserName }) => browserName !== 'chromium', 'toque emulado: solo Chromium');
   test.use({ viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true });
 
   test('al tocar la vitrina, Tay mira hacia el dedo, la vitrina se inclina y salen destellos', async ({
     page,
-    browserName,
   }) => {
-    // Se comprueba con Chromium (emulación de Android). Firefox no emula pantallas táctiles y el
-    // toque emulado de WebKit en Linux no se ha verificado.
-    test.skip(browserName !== 'chromium', 'toque emulado: solo Chromium');
     await page.goto('/');
     await page.locator('.intro-skip').click();
     const entry = page.locator('#entryExperience');
