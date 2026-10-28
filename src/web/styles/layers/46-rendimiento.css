@@ -1,0 +1,35 @@
+/*
+ * Respuesta rápida al tocar y escribir (INP, 2026-10-28). Medido con la CPU de un celular de gama
+ * media: lo que retrasaba cada cuadro era decorativo y se dibujaba sin parar.
+ */
+
+/* Las tarjetas solo se inclinan con el cursor encima; quietas no necesitan capa 3D propia. */
+.product:not(:hover) {
+  transform: none;
+}
+
+/*
+ * Sin desenfoque del fondo dentro de la tienda: cada cambio de la página volvía a desenfocar lo
+ * que había debajo de la cabecera, los botones y las burbujas. Con fondos casi opacos se ve igual.
+ * (La ventana de acceso y la bienvenida no cambian.)
+ */
+.header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(5, 8, 21, 0.97);
+}
+.btn.glass {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(9, 14, 38, 0.92);
+}
+.support-float-btn,
+.toast-stack .toast,
+.drawer-overlay,
+.buy-bar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.drawer-overlay {
+  background: rgba(2, 4, 14, 0.8);
+}

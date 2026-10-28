@@ -161,23 +161,9 @@ body {
   font-size: var(--fs-label);
 }
 
-/* ── Portada: el panel muestra la bóveda de diamantes en vez de un ícono suelto ── */
+/* ── Portada: logotipo de la marca ── */
 #app .hero-left h1.hero-brand .hero-wordmark {
   font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem);
-}
-#app .hero-core .diamond-reactor {
-  width: 176px;
-  height: 176px;
-  overflow: hidden;
-  border-radius: 26px;
-  background: #0b1022 url('/art/paquete-6160.webp') center / cover no-repeat;
-  box-shadow:
-    0 22px 46px -18px rgba(0, 0, 0, 0.8),
-    0 0 0 1px rgba(167, 197, 255, 0.22),
-    0 0 40px rgba(55, 214, 255, 0.18);
-}
-#app .hero-core .diamond-reactor :is(svg, .reactor-ring) {
-  display: none;
 }
 
 /* ── Franja de garantías: texto legible ── */
@@ -213,19 +199,6 @@ body {
 @media (max-width: 340px) {
   #app .header .brand-text {
     display: none;
-  }
-}
-@media (max-width: 480px) {
-  /* En el celular, la bóveda va arriba a todo el ancho y el estado debajo. */
-  #app .hero-core {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 18px 0;
-  }
-  #app .hero-core .diamond-reactor {
-    width: 100%;
-    height: 150px;
-    background-position: center 55%;
   }
 }
 

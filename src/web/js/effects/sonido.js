@@ -10,6 +10,9 @@ const PLAYED_KEY = 'tgs:bienvenida-sono';
 const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'keydown'];
 // Dos sonidos nunca se pisan: el de «Entrar» espera a que termine el de bienvenida.
 const WELCOME_MS = 1500;
+// El audio se prepara después de responder al toque (no dentro del manejador): así la tecla o el
+// clic se ven al instante. Dentro de 1 s los navegadores siguen contando el toque del visitante.
+const AFTER_INPUT_MS = 40;
 
 let ctx = null;
 let out = null;
@@ -19,6 +22,8 @@ let deferred = false;
 let pending = false;
 let welcomeAt = -Infinity;
 let idleTimer = 0;
+let queued = null;
+let scheduled = false;
 
 function read(store, key) {
   try {
@@ -37,8 +42,11 @@ function write(store, key, value) {
   }
 }
 
+// La preferencia se lee una vez y se guarda en memoria: el oyente del primer toque corre con cada
+// tecla y clic, y no debe tocar el almacenamiento del navegador en cada uno.
+let wanted = null;
 /** El visitante quiere sonido (sí, salvo que lo haya silenciado). */
-export const soundWanted = () => read(localStorage, PREF_KEY) !== 'off';
+export const soundWanted = () => (wanted ??= read(localStorage, PREF_KEY) !== 'off');
 const welcomeDone = () => read(sessionStorage, PLAYED_KEY) === '1';
 const onEntry = () => document.body.classList.contains('entry-locked');
 
@@ -147,19 +155,31 @@ function chimeEnter() {
   tone(t + 0.38, 1318.51, { dur: 0.9, gain: 0.13 });
 }
 
-/** Activa el audio (dentro de un toque) y luego `play`, solo si el navegador lo dejó sonar. */
+/**
+ * Activa el audio y luego `play`, solo si el navegador lo dejó sonar. Se hace en una tarea aparte,
+ * justo después del toque: crear el audio y su eco cuesta y no debe frenar la respuesta (INP).
+ * Varios avisos del mismo toque (pulsar, soltar, clic) se juntan en uno.
+ */
 function unlockThen(play) {
-  const ac = setup();
-  if (!ac) return;
-  clearTimeout(idleTimer);
-  const go = () => {
-    if (ac.state !== 'running') return;
-    unlocked = true;
-    play();
-    renderToggles();
-  };
-  if (ac.state === 'running') go();
-  else ac.resume().then(go, () => {});
+  queued = play;
+  if (scheduled) return;
+  scheduled = true;
+  setTimeout(() => {
+    scheduled = false;
+    const next = queued;
+    queued = null;
+    const ac = setup();
+    if (!ac || !next) return;
+    clearTimeout(idleTimer);
+    const go = () => {
+      if (ac.state !== 'running') return;
+      unlocked = true;
+      next();
+      renderToggles();
+    };
+    if (ac.state === 'running') go();
+    else ac.resume().then(go, () => {});
+  }, AFTER_INPUT_MS);
 }
 
 function playWelcome(force = false) {
@@ -176,7 +196,9 @@ function sleepSoon() {
 }
 
 function onGesture(event) {
-  if (!soundWanted() || !onEntry() || event.target.closest?.('[data-sound-toggle]')) return;
+  // Primero lo más barato: dentro de la tienda (sin bienvenida) no hay nada que hacer.
+  if (unlocked || !onEntry() || !soundWanted()) return;
+  if (event.target.closest?.('[data-sound-toggle]')) return;
   unlockThen(() => {
     if (deferred) pending = true;
     else playWelcome();
@@ -185,11 +207,13 @@ function onGesture(event) {
 
 function onToggle() {
   if (soundWanted() && unlocked) {
+    wanted = false;
     write(localStorage, PREF_KEY, 'off');
     ctx?.suspend().catch(() => {});
     renderToggles();
     return;
   }
+  wanted = true;
   write(localStorage, PREF_KEY, null);
   unlockThen(() => playWelcome(true));
   renderToggles();

@@ -24,15 +24,6 @@ body:before {
   background-size: 56px 56px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 72%);
 }
-#tgsParticleCanvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -2;
-  pointer-events: none;
-  opacity: 0.55;
-}
 #tgsCursorGlow {
   position: fixed;
   width: 260px;
@@ -98,42 +89,6 @@ body:before {
 }
 .hero-left h1 {
   filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.18));
-}
-.hero-panel {
-  transform-style: preserve-3d;
-  will-change: transform;
-  transition:
-    transform 0.18s ease-out,
-    box-shadow 0.2s ease;
-}
-.hero-panel:hover {
-  box-shadow:
-    0 34px 86px rgba(0, 0, 0, 0.42),
-    inset 0 0 55px rgba(139, 61, 255, 0.08);
-}
-.hero-panel:before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.03) 45%,
-    transparent 58%
-  );
-  transform: translateX(-100%);
-  animation: tgsSheen 7s ease-in-out infinite;
-  pointer-events: none;
-}
-.hero-core {
-  transform-style: preserve-3d;
-}
-.diamond-reactor {
-  filter: drop-shadow(0 0 20px rgba(55, 214, 255, 0.2));
-  transition: transform 0.25s ease;
-}
-.hero-panel:hover .diamond-reactor {
-  transform: rotateX(6deg) rotateY(-8deg) translateZ(7px);
 }
 .hero-spark {
   transition: transform 0.2s ease;
@@ -281,15 +236,6 @@ body:before {
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
-.btn,
-.header-icon,
-.account-btn,
-.cart-btn,
-.filter-btn,
-.tariff-toggle button,
-.header-action {
-  will-change: transform;
-}
 .btn:active,
 .header-icon:active,
 .filter-btn:active,
@@ -320,26 +266,6 @@ body:before {
   background: linear-gradient(90deg, var(--violet), var(--cyan));
   box-shadow: 0 0 12px rgba(55, 214, 255, 0.42);
   pointer-events: none;
-}
-.tgs-reveal {
-  opacity: 0;
-  transform: translateY(12px);
-  transition:
-    opacity 0.55s ease,
-    transform 0.55s ease;
-}
-.tgs-reveal.in {
-  opacity: 1;
-  transform: none;
-}
-.tgs-reveal.delay-1 {
-  transition-delay: 0.05s;
-}
-.tgs-reveal.delay-2 {
-  transition-delay: 0.1s;
-}
-.tgs-reveal.delay-3 {
-  transition-delay: 0.15s;
 }
 .tgs-demo-badge {
   position: fixed;
@@ -412,15 +338,11 @@ body:before {
   .hero-inner {
     min-height: 520px;
   }
-  .hero-panel:hover .diamond-reactor {
-    transform: none;
-  }
   .product:hover {
     transform: none !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #tgsParticleCanvas,
   #tgsCursorGlow,
   .tgs-demo-badge {
     display: none;
@@ -430,10 +352,6 @@ body:before {
   .card,
   .btn {
     transition: none !important;
-  }
-  .tgs-reveal {
-    opacity: 1;
-    transform: none !important;
   }
 }
 .consent {

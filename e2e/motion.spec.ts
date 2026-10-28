@@ -47,10 +47,10 @@ test('las animaciones se conservan y solo se pausan donde no se ven', async ({ p
   // En la portada se ven y corren las animaciones de siempre.
   await expect.poll(async () => (await animationsIn(page, '.hero')).running).toBeGreaterThan(0);
   const hero = await animationsIn(page, '.hero');
+  // (Sin el aura de los botones ni el diamante del panel de estado desde el 2026-10-28: retrasaban
+  // la respuesta a cada toque y el panel ahora es solo información.)
   for (const name of [
     'tgsTitleGlow',
-    'tgsButtonAura',
-    'tgsReactorFloat',
     // Tay: flota, parpadea, saluda, brilla y su órbita gira.
     'tgsTayFloat',
     'tgsTayBlink',

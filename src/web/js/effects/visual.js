@@ -46,8 +46,8 @@ export function initVisualEffects() {
         my = e.clientY;
         if (raf) return;
         raf = requestAnimationFrame(() => {
-          glow.style.left = mx + 'px';
-          glow.style.top = my + 'px';
+          // Con transform lo mueve la GPU; con left/top se recalculaba la página en cada cuadro.
+          glow.style.transform = 'translate3d(' + mx + 'px,' + my + 'px,0) translate(-50%,-50%)';
           glow.style.opacity = '1';
           if (art) {
             const x = (mx / innerWidth - 0.5) * 5;
@@ -66,124 +66,11 @@ export function initVisualEffects() {
       },
       { passive: true },
     );
-
-    // Only the main hero panel gets tilt. Catalog cards use CSS hover instead of JS.
-    const hero = document.querySelector('.hero-panel');
-    if (hero) {
-      hero.addEventListener(
-        'pointermove',
-        (e) => {
-          const r = hero.getBoundingClientRect();
-          const x = (e.clientX - r.left) / r.width - 0.5;
-          const y = (e.clientY - r.top) / r.height - 0.5;
-          hero.style.transform =
-            'perspective(1000px) rotateX(' +
-            -y * 2.2 +
-            'deg) rotateY(' +
-            x * 2.2 +
-            'deg) translate3d(0,-2px,0)';
-        },
-        { passive: true },
-      );
-      hero.addEventListener('pointerleave', () => (hero.style.transform = ''), {
-        passive: true,
-      });
-    }
   }
 
-  // Ambient particles: 20–24 FPS instead of a permanent 60 FPS loop.
-  // They are decorative only, so visual continuity does not require a frame-perfect cadence.
-  if (!reduce && !touch && !lowPower) {
-    const canvas = document.createElement('canvas');
-    canvas.id = 'tgsParticleCanvas';
-    body.appendChild(canvas);
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (ctx) {
-      let particles = [];
-      let width = innerWidth,
-        height = innerHeight,
-        dpr = 1;
-      let last = 0,
-        animating = true;
-      function resize() {
-        width = innerWidth;
-        height = innerHeight;
-        dpr = Math.min(devicePixelRatio || 1, 1.25);
-        canvas.width = Math.max(1, Math.floor(width * dpr));
-        canvas.height = Math.max(1, Math.floor(height * dpr));
-        canvas.style.width = width + 'px';
-        canvas.style.height = height + 'px';
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const count = Math.min(22, Math.max(12, Math.floor(width / 80)));
-        particles = Array.from({ length: count }, () => ({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.1,
-          vy: (Math.random() - 0.5) * 0.09,
-          r: Math.random() * 1.05 + 0.35,
-          a: Math.random() * 0.22 + 0.08,
-        }));
-      }
-      function frame(ts) {
-        if (!animating) return;
-        if (ts - last >= 42) {
-          last = ts;
-          ctx.clearRect(0, 0, width, height);
-          ctx.fillStyle = 'rgba(92,152,255,.18)';
-          for (const p of particles) {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < -4) p.x = width + 4;
-            if (p.x > width + 4) p.x = -4;
-            if (p.y < -4) p.y = height + 4;
-            if (p.y > height + 4) p.y = -4;
-            ctx.globalAlpha = p.a;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          ctx.globalAlpha = 1;
-        }
-        requestAnimationFrame(frame);
-      }
-      addEventListener('resize', resize, { passive: true });
-      addEventListener('visibilitychange', () => {
-        animating = !document.hidden;
-        if (animating) {
-          last = performance.now();
-          requestAnimationFrame(frame);
-        }
-      });
-      resize();
-      requestAnimationFrame(frame);
-    }
-  }
-
-  // Lightweight section reveals. IntersectionObserver avoids scroll polling.
-  const reveal = [
-    ...document.querySelectorAll(
-      '.trust,.section,.smart-band,.tracking-card,.support-section,.faq',
-    ),
-  ];
-  reveal.forEach((el, i) => {
-    el.classList.add('tgs-reveal');
-    if (i % 4 === 1) el.classList.add('delay-1');
-    if (i % 4 === 2) el.classList.add('delay-2');
-    if (i % 4 === 3) el.classList.add('delay-3');
-  });
-  if (!reduce && 'IntersectionObserver' in window) {
-    const io = new IntersectionObserver(
-      (entries) =>
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('in');
-            io.unobserve(entry.target);
-          }
-        }),
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.06 },
-    );
-    reveal.forEach((el) => io.observe(el));
-  } else reveal.forEach((el) => el.classList.add('in'));
+  // Sin partículas de fondo ni secciones que aparecen al bajar (2026-10-28): el lienzo se
+  // redibujaba sin parar y las secciones entraban animadas; las dos cosas retrasaban la respuesta a
+  // cada tecla y toque (INP). Las secciones se ven directamente.
 
   // One delegated ripple handler; no listeners per button.
   if (!reduce) {
@@ -208,19 +95,6 @@ export function initVisualEffects() {
     );
   }
 
-  const badge = document.getElementById('cartBadge');
-  if (badge && 'MutationObserver' in window) {
-    // Cada render reescribe el contador: el rebote (que fuerza un reflujo) solo cuando cambia.
-    let lastCount = badge.textContent;
-    new MutationObserver(() => {
-      if (badge.textContent === lastCount) return;
-      lastCount = badge.textContent;
-      const cart = document.getElementById('cartBtn');
-      if (!cart) return;
-      cart.classList.remove('bump');
-      void cart.offsetWidth;
-      cart.classList.add('bump');
-      setTimeout(() => cart.classList.remove('bump'), 420);
-    }).observe(badge, { childList: true, characterData: true, subtree: true });
-  }
+  // (Sin «rebote» del carrito al cambiar el contador: su clase no tenía estilos y forzaba un
+  // cálculo de diseño de toda la página en cada cambio del carrito.)
 }

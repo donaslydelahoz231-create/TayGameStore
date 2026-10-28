@@ -1,20 +1,12 @@
-// Capa "Cinematic Motion V4": partículas, brillo, barra de movimiento, reveals,
-// inclinación de tarjetas, impactos y confeti.
-// Correcciones: no duplica #tgsParticleCanvas/#tgsCursorGlow si la capa visual ya los creó
-// (evita dos bucles de animación), la inclinación usa delegación (las tarjetas se re-renderizan),
+// Capa "Cinematic Motion V4": brillo, barra de movimiento, inclinación de tarjetas, impactos y
+// confeti. (Las partículas de fondo y la aparición animada de las secciones se quitaron el
+// 2026-10-28: retrasaban la respuesta a cada tecla y toque.)
+// Correcciones: no duplica #tgsCursorGlow si la capa visual ya lo creó, la inclinación usa
+// delegación (las tarjetas se re-renderizan),
 // la "energía" al agregar apunta a .add-btn y el confeti escucha la entrega real del pedido.
 export function initCinematicEffects() {
   const reduced = matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const $ = (s, r = document) => r.querySelector(s),
-    $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  // La capa visual (visual.js) ya pinta partículas y brillo en escritorio: se reutilizan sus
-  // elementos y no se arranca un segundo bucle de partículas.
-  const sharedCanvas = document.getElementById('tgsParticleCanvas');
-  const canvas = sharedCanvas ?? document.createElement('canvas');
-  if (!sharedCanvas) {
-    canvas.id = 'tgsParticleCanvas';
-    document.body.prepend(canvas);
-  }
+  const $ = (s, r = document) => r.querySelector(s);
   let glow = document.getElementById('tgsCursorGlow');
   if (!glow) {
     glow = document.createElement('div');
@@ -24,81 +16,16 @@ export function initCinematicEffects() {
   const bar = document.createElement('div');
   bar.id = 'tgsMotionBar';
   document.body.appendChild(bar);
-  if (!sharedCanvas) {
-    const resize = () => {
-      const d = Math.min(devicePixelRatio || 1, 1.5);
-      canvas.width = innerWidth * d;
-      canvas.height = innerHeight * d;
-      canvas.style.width = innerWidth + 'px';
-      canvas.style.height = innerHeight + 'px';
-    };
-    resize();
-    addEventListener('resize', resize, { passive: true });
-    if (!reduced) {
-      const c = canvas.getContext('2d');
-      const ps = Array.from({ length: Math.min(54, Math.max(28, (innerWidth / 25) | 0)) }, () => ({
-        x: Math.random() * innerWidth,
-        y: Math.random() * innerHeight,
-        r: 0.6 + Math.random() * 1.7,
-        vx: (Math.random() - 0.5) * 0.12,
-        vy: -0.08 - Math.random() * 0.16,
-        p: Math.random() * 6.28,
-      }));
-      // 30 FPS: las partículas se mueven despacio y en función del tiempo, así que se ven igual
-      // que a 60 FPS con la mitad de trabajo (este bucle es el de móvil y táctil).
-      const FRAME_MS = 1000 / 30;
-      let raf,
-        last = performance.now();
-      const draw = (t) => {
-        if (t - last < FRAME_MS - 1) {
-          if (!document.hidden) raf = requestAnimationFrame(draw);
-          return;
-        }
-        const dt = Math.min(48, t - last);
-        last = t;
-        const d = Math.min(devicePixelRatio || 1, 1.5);
-        c.setTransform(d, 0, 0, d, 0, 0);
-        c.clearRect(0, 0, innerWidth, innerHeight);
-        for (const p of ps) {
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
-          p.p += dt * 0.001;
-          if (p.y < -10) {
-            p.y = innerHeight + 10;
-            p.x = Math.random() * innerWidth;
-          }
-          if (p.x < -10) p.x = innerWidth;
-          if (p.x > innerWidth + 10) p.x = -10;
-          c.beginPath();
-          c.fillStyle = `rgba(130,190,255,${0.18 + 0.35 * (0.5 + 0.5 * Math.sin(p.p))})`;
-          c.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          c.fill();
-        }
-        if (!document.hidden) raf = requestAnimationFrame(draw);
-      };
-      raf = requestAnimationFrame(draw);
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) cancelAnimationFrame(raf);
-        else {
-          last = performance.now();
-          raf = requestAnimationFrame(draw);
-        }
-      });
-    } else canvas.remove();
-  }
-  // Brillo del cursor y paralaje del panel: como mucho una escritura por fotograma. Las
-  // variables van en el panel (lo único que las usa); en <html> recalculaban toda la página.
-  const heroPanel = $('.hero-panel');
+  // Brillo del cursor: como mucho una escritura por fotograma. (El panel del inicio ya no se
+  // mueve con el puntero: es información, no decoración.)
   let pointerRaf = 0,
     px = 0,
     py = 0;
   const paintPointer = () => {
     pointerRaf = 0;
-    glow.style.left = px + 'px';
-    glow.style.top = py + 'px';
+    // Con transform lo mueve la GPU; con left/top se recalculaba la página en cada cuadro.
+    glow.style.transform = 'translate3d(' + px + 'px,' + py + 'px,0) translate(-50%,-50%)';
     glow.style.opacity = '1';
-    heroPanel?.style.setProperty('--tgs-mx', (px / innerWidth - 0.5).toFixed(3));
-    heroPanel?.style.setProperty('--tgs-my', (py / innerHeight - 0.5).toFixed(3));
   };
   addEventListener(
     'pointermove',
@@ -125,26 +52,8 @@ export function initCinematicEffects() {
     { passive: true },
   );
   progressRaf = requestAnimationFrame(progress);
-  const targets = $$(
-    '.section,.trust,.smart-band,.support-panel,.faq-grid,.footer,.hero-left,.hero-panel,.product,.game-tab,.card,.lab-card,.tracking-card,.invoice',
-  );
-  targets.forEach((e, i) => {
-    e.classList.add('tgs-cinematic');
-    e.style.setProperty('--tgs-delay', Math.min((i % 8) * 45, 315) + 'ms');
-  });
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver(
-      (es) =>
-        es.forEach((x) => {
-          if (x.isIntersecting) {
-            x.target.classList.add('tgs-visible');
-            io.unobserve(x.target);
-          }
-        }),
-      { threshold: 0.12, rootMargin: '0px 0px -7%' },
-    );
-    targets.forEach((e) => io.observe(e));
-  } else targets.forEach((e) => e.classList.add('tgs-visible'));
+  // Sin aparición animada de las secciones (2026-10-28): cada sección entraba desenfocada y
+  // desplazada durante 1 s, y mientras tanto cada tecla o toque tardaba más en verse (INP).
   if (!reduced) {
     // Delegación: las tarjetas se vuelven a crear en cada render del catálogo. Una medición y
     // una escritura por fotograma (leer y escribir en cada evento forzaba reflujos en cadena).
@@ -190,12 +99,13 @@ export function initCinematicEffects() {
     (e) => {
       if (reduced) return;
       const b = e.target.closest('.btn,.header-icon,.cart-btn');
-      if (b) {
-        b.classList.remove('tgs-impact');
-        void b.offsetWidth;
-        b.classList.add('tgs-impact');
-        setTimeout(() => b.classList.remove('tgs-impact'), 700);
-      }
+      if (!b) return;
+      // Sin leer offsetWidth para reiniciarla (forzaba calcular toda la página justo después del
+      // clic): si ya estaba en marcha se rebobina; si no, basta con poner la clase.
+      if (b.classList.contains('tgs-impact')) b.getAnimations().forEach((a) => (a.currentTime = 0));
+      else b.classList.add('tgs-impact');
+      clearTimeout(b.tgsImpactTimer);
+      b.tgsImpactTimer = setTimeout(() => b.classList.remove('tgs-impact'), 700);
     },
     { passive: true },
   );

@@ -109,24 +109,3 @@
 .favorite-actions [data-fav-op='remove']:focus-visible {
   background: rgba(255, 107, 129, 0.1);
 }
-
-/* Panel "Estado de operación": barras de estado (activo / limitado / no disponible). */
-.meter-list > div {
-  grid-template-columns: 82px 1fr minmax(64px, auto);
-}
-.meter-list em {
-  width: 100%;
-  transition: background 0.3s ease;
-}
-.meter-list [data-state='partial'] em {
-  background: linear-gradient(90deg, #b8862f, var(--gold, #ffc857));
-}
-.meter-list [data-state='partial'] b {
-  color: var(--gold, #ffc857);
-}
-.meter-list [data-state='off'] em {
-  background: #2a3360;
-}
-.meter-list [data-state='off'] b {
-  color: var(--muted);
-}

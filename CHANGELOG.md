@@ -5,6 +5,29 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Respuesta más rápida al tocar y escribir y panel de estado funcional (2026-10-28)
+
+- Panel del inicio («LIVE STORE»): ahora es una lista de estado sin barras ni imagen, que ya no
+  monta el texto sobre la barra (pasaba con «VERIFICACIÓN»). Cinco filas con datos del servidor:
+  catálogo (cuántos paquetes hay), verificación del ID (al instante o por el equipo), pagos (con
+  qué medios), entrega (el plazo de los términos) y soporte (WhatsApp y/o correo), cada una con una
+  nota corta de qué significa para el cliente. Etiqueta de estado real («Tienda abierta», «Modo
+  prueba», «Compras pausadas»…) en lugar de «LIVE STORE» fijo, y dos accesos: «Consultar mi
+  pedido» y «Hablar con soporte». Sin reloj, sin inclinación con el puntero.
+- Teclas: el sonido de bienvenida se prepara justo después del toque, no dentro de él, y la
+  preferencia de sonido se lee una vez; el procesamiento de cada tecla bajó de ~290 ms a ~0.
+- Toques y escritura (medido con la CPU 4× más lenta, mediana de 4 corridas, antes → ahora):
+  escribir el ID 264 → 80 ms, el nombre 232 → 88 ms, una tecla en la presentación 216 → 124 ms,
+  entrar como invitado 388 → 296 ms, agregar al carrito 348 → 296 ms.
+- Quitado lo decorativo que se redibujaba sin parar o retrasaba cada cuadro: las partículas de
+  fondo, la aparición animada de las secciones al bajar (entraban desenfocadas durante 1 s), el
+  aura que palpitaba en los botones principales y el desenfoque del fondo dentro de la tienda
+  (cabecera, botones, burbujas, avisos; ahora con fondos casi opacos). La ventana de acceso y la
+  bienvenida no cambian.
+- El catálogo solo vuelve a dibujar la tarjeta que cambió (antes rehacía las seis con su arte en
+  cada toque) y ya no se fuerza un cálculo de diseño de toda la página al cambiar el carrito o al
+  pulsar un botón. Capas de composición: de 113 a 61.
+
 ### Transiciones sin cruces con forma de diamante y sonido de bienvenida (2026-10-27)
 
 - Las animaciones ya no se cruzan: cada fase empieza cuando termina la anterior (medido cuadro a

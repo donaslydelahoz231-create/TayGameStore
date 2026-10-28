@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { $, setText } from '../dom.js';
 import { state } from '../state.js';
 import { updateOAuthUI } from './account.js';
+import { supportChannels } from './support.js';
 
 /** Estado del servicio (cabecera, panel del hero y sección de jugador) según /api/config. */
 export function renderService() {
@@ -34,7 +35,50 @@ export function renderService() {
     'serviceText',
     sandbox ? 'Modo prueba: sin cobros reales' : live ? 'Sistemas listos para operar' : label,
   );
-  renderOperationMeters(cfg, live, sandbox);
+  renderOperationPanel(cfg, { live, sandbox, label, methodNames });
+}
+
+/** Fila del panel del inicio: `ok` activo, `partial` limitado o cargando, `off` no disponible. */
+function setMeter(id, stateName, text, detail = '') {
+  const row = $(id);
+  if (!row) return;
+  row.dataset.state = stateName;
+  const value = row.querySelector('b');
+  if (value) value.textContent = text;
+  const note = row.querySelector('small');
+  if (note) note.textContent = detail;
+}
+
+/**
+ * Panel «Estado de la tienda»: lo que el cliente necesita saber antes de comprar, según
+ * /api/config y el catálogo. Nunca cifras inventadas: lo que no se sabe se dice.
+ */
+function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
+  const tag = $('liveTag');
+  if (tag) {
+    tag.dataset.state = live ? (sandbox ? 'partial' : 'ok') : cfg ? 'off' : 'partial';
+    tag.querySelector('span').textContent = state.previewOnly
+      ? 'Vista previa'
+      : !cfg
+        ? state.serverReachable === false
+          ? 'Sin conexión'
+          : 'Conectando…'
+        : sandbox
+          ? 'Modo prueba'
+          : live
+            ? 'Tienda abierta'
+            : cfg.maintenanceMode
+              ? 'Mantenimiento'
+              : 'Compras pausadas';
+  }
+  setText(
+    'operationTitle',
+    live
+      ? 'Lista para tu próxima recarga'
+      : cfg
+        ? 'Compras pausadas por ahora'
+        : 'Estado de la tienda',
+  );
   setText(
     'operationText',
     state.previewOnly
@@ -42,41 +86,60 @@ export function renderService() {
       : sandbox
         ? 'Pagos de prueba: no se cobra dinero real'
         : live
-          ? 'Catálogo, verificación y pagos con ' + methodNames
+          ? 'Elige tu paquete, escribe tu ID y paga con ' + methodNames + '.'
           : label,
   );
-}
 
-/** Fila del panel del inicio: `ok` activo, `partial` limitado o cargando, `off` no disponible. */
-function setMeter(id, stateName, text) {
-  const row = $(id);
-  if (!row) return;
-  row.dataset.state = stateName;
-  const value = row.querySelector('b');
-  if (value) value.textContent = text;
-}
-
-/** Panel "Estado de operación": refleja /api/config y el catálogo, nunca cifras inventadas. */
-function renderOperationMeters(cfg, live, sandbox) {
+  const count = state.products[state.game]?.length || 0;
   const catalog = {
-    ready: ['ok', 'Activo'],
-    loading: ['partial', 'Cargando'],
-    empty: ['off', 'Sin paquetes'],
-    error: ['off', 'No disponible'],
-  }[state.catalogStatus] || ['off', 'No disponible'];
+    ready: ['ok', 'Activo', count === 1 ? '1 paquete disponible' : count + ' paquetes disponibles'],
+    loading: ['partial', 'Cargando', 'Consultando precios…'],
+    empty: ['off', 'Sin paquetes', 'No hay paquetes a la venta ahora'],
+    error: ['off', 'No disponible', 'No se pudieron cargar los precios'],
+  }[state.catalogStatus] || ['off', 'No disponible', ''];
   setMeter('meterCatalog', ...catalog);
+
+  const { whatsapp, email } = supportChannels();
+  const channels = [whatsapp && 'WhatsApp', email && 'correo'].filter(Boolean).join(' y ');
+  setMeter(
+    'meterSupport',
+    ...(channels
+      ? [
+          'ok',
+          channels.charAt(0).toUpperCase() + channels.slice(1),
+          'Escríbenos con tu ID o tu pedido',
+        ]
+      : ['off', 'No disponible', 'Aún sin canales oficiales']),
+  );
+
   if (!cfg) {
     const pending =
-      state.serverReachable === false ? ['off', 'Sin conexión'] : ['partial', 'Cargando'];
+      state.serverReachable === false ? ['off', 'Sin conexión', ''] : ['partial', 'Cargando', ''];
     setMeter('meterPlayer', ...pending);
     setMeter('meterPayment', ...pending);
+    setMeter('meterDelivery', ...pending);
     return;
   }
   // Sin proveedor de consulta, el equipo verifica el jugador a mano tras crear el pedido.
-  setMeter('meterPlayer', ...(cfg.playerLookup ? ['ok', 'Al instante'] : ['partial', 'Manual']));
+  setMeter(
+    'meterPlayer',
+    ...(cfg.playerLookup
+      ? ['ok', 'Al instante', 'Confirmas tu nick antes de pagar']
+      : ['partial', 'Manual', 'El equipo revisa tu ID antes del cobro']),
+  );
   setMeter(
     'meterPayment',
-    ...(sandbox ? ['partial', 'Prueba'] : live ? ['ok', 'Activo'] : ['off', 'Pausado']),
+    ...(sandbox
+      ? ['partial', 'Prueba', 'Sin cobros reales']
+      : live
+        ? ['ok', 'Activo', methodNames]
+        : ['off', 'Pausado', 'No se reciben pagos ahora']),
+  );
+  setMeter(
+    'meterDelivery',
+    ...(cfg.deliveryTime
+      ? ['ok', cfg.deliveryTime, 'Con el pago confirmado']
+      : ['partial', 'Ver términos', 'Plazo indicado en los términos']),
   );
 }
 

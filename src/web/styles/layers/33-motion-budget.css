@@ -30,16 +30,6 @@
 }
 
 /*
- * Aura de los botones principales: anima box-shadow, que no se puede componer en la GPU. Sin
- * capa propia, cada fotograma volvía a rasterizar las teselas del documento bajo cada botón;
- * con su capa solo se repinta el botón. (El título no se promueve: con capa propia cambia el
- * suavizado del texto, y su brillo solo invalida su propio rectángulo.)
- */
-.btn.primary {
-  will-change: transform;
-}
-
-/*
  * Brillo del título: text-shadow de 38px sobre un título con filter: drop-shadow; repintarlo
  * 60 veces por segundo era lo más caro de la página. Es un pulso lento (5 s, alfa 0 → 0,24),
  * así que 30 pasos por sentido se ven continuos y repintan unas 6 veces por segundo.

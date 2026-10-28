@@ -1,4 +1,4 @@
-import { $, setText } from './dom.js';
+import { $ } from './dom.js';
 import { scrollToSection } from './scroll.js';
 import { registerRenderers, renderAll } from './render.js';
 import { state } from './state.js';
@@ -27,8 +27,6 @@ import { renderPromo, watchPromoChanges } from './features/promo.js';
 import { renderPromoStrip } from './features/tariffs.js';
 import { renderChecks } from './features/tracking.js';
 
-const CLOCK_REFRESH_MS = 1000;
-
 // Orden de render del HTML original; saveLocal persiste las preferencias al final.
 registerRenderers([
   renderHeader,
@@ -53,9 +51,6 @@ registerRenderers([
   renderHistory,
   saveLocal,
 ]);
-
-const formatClock = (date) =>
-  date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
 /** Recupera el pedido: retorno desde Mercado Pago (?pedido=REF) o el último de este navegador. */
 async function resumeOrder() {
@@ -131,8 +126,6 @@ async function init() {
   ]);
   renderAll();
 
-  setText('heroTime', formatClock(new Date()));
-  setInterval(() => setText('heroTime', formatClock(new Date())), CLOCK_REFRESH_MS);
   // TAY RADAR empieza o termina con la tienda abierta: precios y avisos del servidor al día.
   watchPromoChanges(async () => {
     await bootstrapConfig();

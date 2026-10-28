@@ -532,7 +532,49 @@ test.describe('estado de la tienda y soporte', () => {
     await expect(page.locator('#meterPlayer b')).toHaveText('Al instante');
     await expect(page.locator('#meterPayment')).toHaveAttribute('data-state', 'partial');
     await expect(page.locator('#meterPayment b')).toHaveText('Prueba');
+    await expect(page.locator('#meterPayment small')).toHaveText('Sin cobros reales');
+    // Sin LEGAL_DELIVERY_TIME el plazo remite a los términos; solo hay correo de soporte.
+    await expect(page.locator('#meterDelivery b')).toHaveText('Ver términos');
+    await expect(page.locator('#meterSupport')).toHaveAttribute('data-state', 'ok');
+    await expect(page.locator('#meterSupport b')).toHaveText('Correo');
+    await expect(page.locator('#liveTag')).toHaveText('Modo prueba');
     await expect(page.locator('.meter-list')).not.toContainText('%');
+  });
+
+  test('el panel del inicio se lee sin textos montados, también en el celular', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto('/');
+    await enterAsGuest(page);
+    await expect(page.locator('#meterCatalog b')).toHaveText('Activo');
+    const problems = await page.locator('.meter-list > div').evaluateAll((rows) =>
+      rows.flatMap((row) => {
+        const box = row.getBoundingClientRect();
+        const parts = [...row.querySelectorAll('dt, b, small')].filter((el) =>
+          el.textContent?.trim(),
+        );
+        const found: string[] = [];
+        for (const el of parts) {
+          const r = el.getBoundingClientRect();
+          if (r.left < box.left - 0.5 || r.right > box.right + 0.5) found.push(`${row.id}: sale`);
+        }
+        parts.forEach((a, i) =>
+          parts.slice(i + 1).forEach((b) => {
+            const p = a.getBoundingClientRect();
+            const q = b.getBoundingClientRect();
+            const cross =
+              p.left < q.right - 0.5 &&
+              q.left < p.right - 0.5 &&
+              p.top < q.bottom - 0.5 &&
+              q.top < p.bottom - 0.5;
+            if (cross) found.push(`${row.id}: ${a.tagName} sobre ${b.tagName}`);
+          }),
+        );
+        return found;
+      }),
+    );
+    expect(problems).toEqual([]);
   });
 
   test('las burbujas de soporte solo muestran los canales configurados', async ({ page }) => {

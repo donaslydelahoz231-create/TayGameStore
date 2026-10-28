@@ -103,17 +103,6 @@
   .hero-panel {
     border-radius: 17px;
   }
-  .hero-core {
-    padding: 22px 4px;
-  }
-  .diamond-reactor {
-    width: 120px;
-    height: 120px;
-  }
-  .diamond-reactor svg {
-    width: 53px;
-    height: 53px;
-  }
   .game-switcher {
     grid-template-columns: 1fr 1fr;
   }

@@ -1976,3 +1976,43 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   (sin ese navegador aquí), lo verificará la CI al publicar.
 - **NO VERIFICADO:** la tienda publicada desde este entorno (el navegador local recibe
   `ERR_CERT_AUTHORITY_INVALID` por el proxy del entorno; no se desactivó la verificación TLS).
+
+### 2026-10-28 · Publicación de eb6c9e1 y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit eb6c9e1».
+- **Push:** avance rápido `bd8aa53..eb6c9e1`; `git ls-remote` = `eb6c9e1`.
+- **Render:** despliegue `dep-dbgvk9142hec739dtoh0` en `live` (13:35:32–13:36:28 UTC). Registros
+  de error o aviso desde las 13:35 UTC: ninguno (consulta de las 14:44 UTC).
+- **GitHub Actions sobre `eb6c9e1`:** CI OK (incluye e2e Firefox, que antes fallaba por las dos
+  pruebas corregidas), CodeQL OK, prueba de producción OK.
+
+### 2026-10-28 · Respuesta al tocar y escribir (INP) y panel de estado funcional (pedido del dueño)
+
+- **Pedido:** «quiero que soluciones el tema de keyboard […] pointer […] Presentation delay 413» y
+  «el texto se cruza con la barra y quiero que sea funcional y no sea de lujo» (panel LIVE STORE).
+- **Causa del teclado (procesamiento 291 ms):** el oyente del primer toque creaba el audio y su eco
+  dentro de la tecla y leía el almacenamiento en cada tecla. Ahora prepara el audio 40 ms después
+  (los navegadores siguen contando el toque) y lee la preferencia una vez.
+- **Causa del puntero (presentación 413 ms):** dibujar cada cuadro costaba demasiado: partículas a
+  pantalla completa, secciones que entraban desenfocadas 1 s, aura animada en los botones,
+  desenfoque del fondo en 26 elementos, `will-change` en ~30 botones, el catálogo rehecho entero
+  en cada render y dos lecturas de `offsetWidth` que forzaban el diseño de toda la página (una de
+  ellas para una clase `bump` sin estilos). Todo quitado o corregido; la ventana de acceso
+  (`#loginModal`, `account.js`, `15-modals.css`, `21-auth.css`) y la bienvenida no se tocaron.
+- **Panel:** lista de cinco filas (catálogo, verificación del ID, pagos, entrega, soporte) con el
+  estado del servidor y una nota; etiqueta de estado real; accesos a «Seguimiento» y «Soporte».
+  Sin barras, imagen, reloj ni inclinación. Nada inventado: sin `LEGAL_DELIVERY_TIME` dice «Ver
+  términos»; sin canales de soporte, «No disponible».
+- **Medición** (vista previa, Chromium, CPU 4× más lenta, mediana de 4 corridas alternadas de la
+  versión publicada y la nueva): escribir el ID 264 → 80 ms; nombre 232 → 88; tecla en la
+  presentación 216 → 124; buscador 348 → 264; invitado 388 → 296; agregar al carrito 348 → 296.
+  Capas de composición 113 → 61; desenfoques activos 26 → 8 (los de la ventana de acceso y la
+  bienvenida). Se probó `content-visibility` en las secciones: sin mejora estable, no se aplicó.
+- **Pruebas:** lint, formato y tipos OK; unitarias 385/385; e2e 82/82 (nueva: el panel no monta
+  textos a 360 px; ampliada: filas de entrega y soporte y la etiqueta; la de movimiento ya no
+  espera el aura ni el diamante del panel); visuales 3/3 (solo 03 regenerada tras revisarla; 01 y
+  02 idénticas); escáner 0. Firefox y WebKit: NO VERIFICADO en local; los cubre la CI al publicar.
+- **NO VERIFICADO:** el INP en el celular del dueño y en la tienda publicada (aquí solo emulación
+  de CPU en Chromium). Vista previa publicada en el mismo artefacto privado (versión 9); su
+  visualización dentro de claude.ai: NO VERIFICADO.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

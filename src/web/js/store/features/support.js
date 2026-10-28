@@ -33,10 +33,17 @@ const ALWAYS_HIDDEN_WHEN_OFF = new Set([
 ]);
 
 /** Canales oficiales de soporte (definidos por el backend; vacíos hasta configurarlos). */
-export function renderSupport() {
+export function supportChannels() {
   const s = state.serverConfig?.support || {};
-  const wa = String(s.whatsapp || TGS_PUBLIC_SUPPORT.whatsapp || '').replace(/\D/g, '');
-  const mail = String(s.email || TGS_PUBLIC_SUPPORT.email || '').trim();
+  return {
+    whatsapp: String(s.whatsapp || TGS_PUBLIC_SUPPORT.whatsapp || '').replace(/\D/g, ''),
+    email: String(s.email || TGS_PUBLIC_SUPPORT.email || '').trim(),
+  };
+}
+
+/** Enlaces y burbujas de soporte: solo los canales configurados. */
+export function renderSupport() {
+  const { whatsapp: wa, email: mail } = supportChannels();
   const message = supportMessage();
   const subject = state.currentOrder?.reference
     ? 'Soporte TayGameStore ' + state.currentOrder.reference

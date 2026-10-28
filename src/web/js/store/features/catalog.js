@@ -103,12 +103,76 @@ export function renderGames() {
   if (verifyBtn) verifyBtn.disabled = state.game !== 'freefire' || runtime.playerBusy;
 }
 
+/** Tarjeta de un paquete (con sus botones). */
+function productCard(p, q, fav) {
+  const saving = Math.max(0, Number(p.normal || 0) - Number(p.promo || 0));
+  const el = document.createElement('article');
+  el.className = 'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
+  el.dataset.sku = p.id;
+  const art = PACK_ART[Number(p.diamonds)];
+  const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
+  const visual = art
+    ? `<img src="${art}" alt="" width="480" height="480" loading="lazy" decoding="async">`
+    : `${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span>`;
+  const soldOut = !p.providerAvailable;
+  const addLabel = soldOut ? 'Agotado' : q ? 'Añadido' : 'Agregar';
+  const providerNote = soldOut ? 'Agotado por ahora' : 'Disponible';
+  const perHundred = Math.round((priceOf(p) / Number(p.diamonds || 1)) * 100);
+  el.innerHTML = `<div class="product-visual${art ? ' has-art' : ''}">${visual}<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button"${soldOut ? ' disabled' : ''}>${addLabel}</button><div class="qty"><button type="button" data-op="minus" aria-label="Disminuir cantidad de ${esc(p.name)}" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus" aria-label="Aumentar cantidad de ${esc(p.name)}"${soldOut ? ' disabled' : ''}>+</button></div></div>`;
+  const favBtn = el.querySelector('.fav-btn');
+  favBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite(p.id);
+  });
+  favBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  el.querySelector('.add-btn').onclick = (e) => {
+    e.stopPropagation();
+    setQty(p.id, q || 1);
+    renderAll();
+    toast('Paquete añadido. Continúa con jugador → pedido → pago.', 'good');
+  };
+  el.querySelector('[data-op="plus"]').onclick = (e) => {
+    e.stopPropagation();
+    setQty(p.id, q + 1);
+    renderAll();
+  };
+  el.querySelector('[data-op="minus"]').onclick = (e) => {
+    e.stopPropagation();
+    setQty(p.id, q - 1);
+    renderAll();
+  };
+  return el;
+}
+
+/** Todo lo que cambia el aspecto de una tarjeta: si nada de esto cambió, se reutiliza. */
+const cardKey = (p, q, fav) =>
+  [
+    p.id,
+    p.name,
+    p.desc,
+    p.tag,
+    p.diamonds,
+    p.normal,
+    p.promo,
+    priceOf(p),
+    p.providerAvailable,
+    state.tariff,
+    q,
+    fav,
+  ].join('|');
+
+// Tarjetas ya dibujadas, por paquete. Antes cada render (agregar, escribir el ID, cada consulta
+// del pedido) rehacía las seis con su arte; ahora solo se cambia la que cambió (INP).
+const cards = new Map();
+
 export function renderProducts() {
   const box = $('products');
   if (!box) return;
-  box.replaceChildren();
   const list = currentProducts();
   if (!list.length) {
+    cards.clear();
+    box.replaceChildren();
     const empty = document.createElement('div');
     empty.className = 'catalog-empty';
     empty.innerHTML =
@@ -123,48 +187,23 @@ export function renderProducts() {
   }
   state.favorites = state.favorites.filter((id) => !!productById(id));
   setText('favCount', state.favorites.length);
-  list.forEach((p) => {
-    const q = Number(state.qty[p.id] || 0),
-      fav = state.favorites.includes(p.id),
-      saving = Math.max(0, Number(p.normal || 0) - Number(p.promo || 0));
-    const el = document.createElement('article');
-    el.className =
-      'product' + (q ? ' selected' : '') + (!p.providerAvailable ? ' unavailable' : '');
-    const art = PACK_ART[Number(p.diamonds)];
-    const visualCount = Math.min(4, Math.max(1, Math.ceil(Number(p.diamonds || 1) / 350)));
-    const visual = art
-      ? `<img src="${art}" alt="" width="480" height="480" loading="lazy" decoding="async">`
-      : `${Array.from({ length: visualCount }, () => '<svg><use href="#icon-diamond"></use></svg>').join('')}<span class="visual-ring"></span>`;
-    const soldOut = !p.providerAvailable;
-    const addLabel = soldOut ? 'Agotado' : q ? 'Añadido' : 'Agregar';
-    const providerNote = soldOut ? 'Agotado por ahora' : 'Disponible';
-    const perHundred = Math.round((priceOf(p) / Number(p.diamonds || 1)) * 100);
-    el.innerHTML = `<div class="product-visual${art ? ' has-art' : ''}">${visual}<div class="product-top"><span class="product-tag">${esc(p.tag || 'Recarga')}</span><button class="fav-btn${fav ? ' on' : ''}" type="button" aria-pressed="${fav}" aria-label="${fav ? 'Quitar' : 'Añadir'} ${esc(p.name)} ${fav ? 'de favoritos' : 'a favoritos'}">★</button></div></div><div class="product-name">${esc(p.name)}</div><div class="product-desc">${esc(p.desc || 'Recarga gamer')}</div><div class="product-meta"><span>Directo a tu ID</span><span title="Precio aproximado por cada 100 diamantes">≈ ${money(perHundred).replace(' COP', '')} c/100</span></div><div class="product-price"><div><strong>${money(priceOf(p))}</strong>${state.tariff === 'promo' && saving ? `<s>${money(p.normal)}</s>` : ''}</div><small>${state.tariff === 'promo' && saving ? 'Ahorra ' + money(saving) : providerNote}</small></div><div class="product-actions"><button class="add-btn" type="button"${soldOut ? ' disabled' : ''}>${addLabel}</button><div class="qty"><button type="button" data-op="minus" aria-label="Disminuir cantidad de ${esc(p.name)}" ${q ? '' : 'disabled'}>−</button><span>${q}</span><button type="button" data-op="plus" aria-label="Aumentar cantidad de ${esc(p.name)}"${soldOut ? ' disabled' : ''}>+</button></div></div>`;
-    const favBtn = el.querySelector('.fav-btn');
-    favBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleFavorite(p.id);
-    });
-    favBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    el.querySelector('.add-btn').onclick = (e) => {
-      e.stopPropagation();
-      setQty(p.id, q || 1);
-      renderAll();
-      toast('Paquete añadido. Continúa con jugador → pedido → pago.', 'good');
-    };
-    el.querySelector('[data-op="plus"]').onclick = (e) => {
-      e.stopPropagation();
-      setQty(p.id, q + 1);
-      renderAll();
-    };
-    el.querySelector('[data-op="minus"]').onclick = (e) => {
-      e.stopPropagation();
-      setQty(p.id, q - 1);
-      renderAll();
-    };
-    box.appendChild(el);
+  const next = list.map((p) => {
+    const q = Number(state.qty[p.id] || 0);
+    const fav = state.favorites.includes(p.id);
+    const key = cardKey(p, q, fav);
+    const known = cards.get(p.id);
+    if (known?.key === key) return known.el;
+    const el = productCard(p, q, fav);
+    cards.set(p.id, { key, el });
+    return el;
   });
+  const shown = [...box.children];
+  if (shown.length === list.length && shown.every((el, i) => el.dataset.sku === list[i].id)) {
+    // Mismos paquetes en el mismo orden: solo se reemplazan las tarjetas que cambiaron.
+    next.forEach((el, i) => {
+      if (shown[i] !== el) shown[i].replaceWith(el);
+    });
+  } else box.replaceChildren(...next);
 }
 
 export function toggleFavorite(id) {
