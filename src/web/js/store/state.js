@@ -33,6 +33,8 @@ export const state = {
   purchaseHistory: [],
   serverConfig: null,
   serverReachable: null,
+  /** Última comprobación del estado con el servidor (la muestra el panel del inicio). */
+  configCheckedAt: null,
   previewOnly: PREVIEW_ONLY,
   storeUnlocked: false,
 };

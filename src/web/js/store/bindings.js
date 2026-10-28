@@ -278,6 +278,7 @@ function bindInvoiceAndCheckout() {
   $('shareCopy').onclick = copyShareText;
   $('howBtn').onclick = () => modal('howModal', true);
   $('securityBtn').onclick = () => modal('securityModal', true);
+  $('heroSecurityBtn').onclick = () => modal('securityModal', true);
 }
 
 function bindGlobal() {

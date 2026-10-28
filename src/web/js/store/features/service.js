@@ -1,8 +1,9 @@
 import { api } from '../api.js';
+import { priceOf } from '../cart-model.js';
 import { $, setText } from '../dom.js';
+import { money } from '../format.js';
 import { state } from '../state.js';
 import { updateOAuthUI } from './account.js';
-import { supportChannels } from './support.js';
 
 /** Estado del servicio (cabecera, panel del hero y sección de jugador) según /api/config. */
 export function renderService() {
@@ -49,14 +50,21 @@ function setMeter(id, stateName, text, detail = '') {
   if (note) note.textContent = detail;
 }
 
+// Un plazo corto («24 horas») cabe como valor de la fila; uno largo va completo en la nota.
+const SHORT_DELIVERY = 16;
+const clock = (date) => date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
 /**
- * Panel «Estado de la tienda»: lo que el cliente necesita saber antes de comprar, según
+ * Panel «Estado de operación»: lo que el cliente necesita saber antes de comprar, según
  * /api/config y el catálogo. Nunca cifras inventadas: lo que no se sabe se dice.
  */
 function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
+  const panelState = live ? (sandbox ? 'partial' : 'ok') : cfg ? 'off' : 'partial';
+  const panel = document.querySelector('.hero-panel');
+  if (panel) panel.dataset.state = panelState;
   const tag = $('liveTag');
   if (tag) {
-    tag.dataset.state = live ? (sandbox ? 'partial' : 'ok') : cfg ? 'off' : 'partial';
+    tag.dataset.state = panelState;
     tag.querySelector('span').textContent = state.previewOnly
       ? 'Vista previa'
       : !cfg
@@ -66,51 +74,53 @@ function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
         : sandbox
           ? 'Modo prueba'
           : live
-            ? 'Tienda abierta'
+            ? 'Live store'
             : cfg.maintenanceMode
               ? 'Mantenimiento'
-              : 'Compras pausadas';
+              : 'Pausada';
   }
+  // Cuándo se comprobó por última vez el estado con el servidor (no un reloj decorativo).
+  setText(
+    'heroChecked',
+    state.configCheckedAt ? 'Actualizado ' + clock(state.configCheckedAt) : 'Comprobando…',
+  );
   setText(
     'operationTitle',
     live
-      ? 'Lista para tu próxima recarga'
+      ? 'Listo para tu próxima recarga'
       : cfg
-        ? 'Compras pausadas por ahora'
-        : 'Estado de la tienda',
+        ? cfg.maintenanceMode
+          ? 'Tienda en mantenimiento'
+          : 'Compras pausadas por ahora'
+        : state.serverReachable === false
+          ? 'Sin conexión con la tienda'
+          : 'Comprobando la tienda…',
   );
   setText(
     'operationText',
     state.previewOnly
       ? 'Modo visual · las acciones reales requieren servidor'
       : sandbox
-        ? 'Pagos de prueba: no se cobra dinero real'
+        ? 'Pagos de prueba: no se cobra dinero real.'
         : live
-          ? 'Elige tu paquete, escribe tu ID y paga con ' + methodNames + '.'
+          ? 'Elige tu paquete, confirma tu ID y paga con ' + methodNames + '.'
           : label,
   );
 
-  const count = state.products[state.game]?.length || 0;
+  const list = state.products[state.game] || [];
+  const prices = list.filter((p) => p.providerAvailable !== false).map(priceOf);
+  const count = list.length === 1 ? '1 paquete' : list.length + ' paquetes';
   const catalog = {
-    ready: ['ok', 'Activo', count === 1 ? '1 paquete disponible' : count + ' paquetes disponibles'],
+    ready: [
+      'ok',
+      'Activo',
+      prices.length ? count + ' · desde ' + money(Math.min(...prices)).replace(' COP', '') : count,
+    ],
     loading: ['partial', 'Cargando', 'Consultando precios…'],
     empty: ['off', 'Sin paquetes', 'No hay paquetes a la venta ahora'],
     error: ['off', 'No disponible', 'No se pudieron cargar los precios'],
   }[state.catalogStatus] || ['off', 'No disponible', ''];
   setMeter('meterCatalog', ...catalog);
-
-  const { whatsapp, email } = supportChannels();
-  const channels = [whatsapp && 'WhatsApp', email && 'correo'].filter(Boolean).join(' y ');
-  setMeter(
-    'meterSupport',
-    ...(channels
-      ? [
-          'ok',
-          channels.charAt(0).toUpperCase() + channels.slice(1),
-          'Escríbenos con tu ID o tu pedido',
-        ]
-      : ['off', 'No disponible', 'Aún sin canales oficiales']),
-  );
 
   if (!cfg) {
     const pending =
@@ -135,11 +145,14 @@ function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
         ? ['ok', 'Activo', methodNames]
         : ['off', 'Pausado', 'No se reciben pagos ahora']),
   );
+  const delivery = cfg.deliveryTime;
   setMeter(
     'meterDelivery',
-    ...(cfg.deliveryTime
-      ? ['ok', cfg.deliveryTime, 'Con el pago confirmado']
-      : ['partial', 'Ver términos', 'Plazo indicado en los términos']),
+    ...(!delivery
+      ? ['partial', 'Ver términos', 'Plazo indicado en los términos']
+      : delivery.length <= SHORT_DELIVERY
+        ? ['ok', delivery, 'Con el pago confirmado']
+        : ['ok', 'Ver plazo', delivery]),
   );
 }
 
@@ -156,6 +169,7 @@ export async function bootstrapConfig() {
     state.serverConfig = null;
     state.serverReachable = false;
   }
+  state.configCheckedAt = new Date();
   renderService();
   updateOAuthUI();
   // Solo se promete el correo si el servidor de verdad lo envía.

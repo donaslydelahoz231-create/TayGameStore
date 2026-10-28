@@ -200,159 +200,273 @@
   font-size: var(--fs-2xs);
 }
 /*
- * Panel «Estado de la tienda» (2026-10-28): una lista de lo que el cliente necesita saber antes
- * de comprar. Sin barras ni imagen: cada fila es texto (nombre a la izquierda, estado a la
- * derecha y una nota debajo); si no cabe en una línea, el estado baja, nunca se monta.
+ * Panel «Estado de operación» (2026-10-28, diseño elegido por el dueño): la bóveda, el estado de
+ * la tienda y una barra por servicio, todo con datos reales del servidor. Las filas comparten
+ * tres columnas (etiqueta, barra, valor) y la de la etiqueta mide lo que la más larga, así que
+ * ningún texto se monta sobre una barra. Sin animaciones continuas: la barra solo se mueve cuando
+ * cambia su estado. El color del panel sigue al estado: verde abierta, ámbar prueba o cargando,
+ * rosa pausada o sin conexión.
  */
 .hero-panel {
+  --accent: var(--gold);
+  --accent-rgb: 255, 181, 46;
   position: relative;
   z-index: 4;
   justify-self: end;
-  width: min(440px, 100%);
+  width: min(470px, 100%);
   padding: 18px;
-  border: 1px solid #2c386c;
-  border-radius: 18px;
-  background: rgba(10, 16, 44, 0.94);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+  border: 1px solid #35437e;
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(17, 26, 66, 0.95), rgba(7, 12, 34, 0.95));
+  box-shadow:
+    0 30px 75px rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.hero-panel[data-state='ok'] {
+  --accent: var(--green);
+  --accent-rgb: 57, 224, 138;
+}
+.hero-panel[data-state='off'] {
+  --accent: #ff8fa3;
+  --accent-rgb: 255, 143, 163;
+}
+.hero-panel::after {
+  content: '';
+  position: absolute;
+  inset: auto -80px -110px auto;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(55, 214, 255, 0.11), transparent 68%);
+  pointer-events: none;
 }
 .hero-panel-top {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
+  gap: 6px 12px;
 }
 .live-tag {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 10px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  color: var(--gold, #ffc857);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-}
-.live-tag[data-state='ok'] {
-  color: var(--green);
-}
-.live-tag[data-state='off'] {
-  color: #ff9fb0;
+  gap: 8px;
+  color: var(--accent);
+  font-family: var(--display);
+  font-size: var(--fs-label);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .live-tag i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: currentColor;
+  box-shadow:
+    0 0 0 3px rgba(var(--accent-rgb), 0.18),
+    0 0 10px currentColor;
 }
-.hero-panel-copy {
-  margin: 12px 0 14px;
+.hero-checked {
+  color: var(--muted);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+}
+.hero-core {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 0 18px;
+}
+.hero-vault {
+  position: relative;
+  flex: none;
+  width: 156px;
+  aspect-ratio: 1;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #0b1022;
+  box-shadow:
+    0 22px 46px -18px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(167, 197, 255, 0.22),
+    0 0 38px rgba(var(--accent-rgb), 0.18);
+  transition: box-shadow 0.4s ease;
+}
+.hero-vault img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+/* Reflejo fijo sobre la bóveda (no se anima). */
+.hero-vault::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.14), transparent 38%),
+    linear-gradient(0deg, rgba(7, 12, 34, 0.38), transparent 46%);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .hero-panel:hover .hero-vault img {
+    transform: scale(1.04);
+  }
+}
+.hero-panel-copy small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
 }
 .hero-panel-copy h2 {
-  margin: 0 0 4px;
+  margin: 6px 0;
   font-family: var(--display);
-  font-size: 1.15rem;
-  line-height: 1.2;
+  font-size: var(--t-lg);
+  line-height: 1.12;
 }
 .hero-panel-copy p {
   margin: 0;
   color: #aab6e5;
-  font-size: var(--t-sm);
+  font-size: var(--fs-2xs);
   line-height: 1.45;
 }
+/* Filas: etiqueta | barra | valor, con la nota debajo de la barra. */
 .meter-list {
+  display: grid;
+  grid-template-columns: max-content minmax(48px, 1fr) max-content;
+  column-gap: 12px;
+  align-items: center;
   margin: 0;
-  border-top: 1px solid var(--line);
 }
-.meter-list > div {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-.meter-list dt {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 auto;
-  min-width: 0;
-  color: #d9e1ff;
-  font-size: var(--t-sm);
-  font-weight: 600;
-}
-/* Punto de estado: verde activo, ámbar limitado o cargando, gris no disponible. */
-.meter-list dt::before {
-  content: '';
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--gold, #ffc857);
-}
-.meter-list [data-state='ok'] dt::before {
-  background: var(--green);
-}
-.meter-list [data-state='off'] dt::before {
-  background: #5d6890;
-}
+.meter-list > div,
 .meter-list dd {
   display: contents;
 }
+.meter-list dt,
+.meter-list i,
 .meter-list b {
-  flex: 0 1 auto;
-  margin-left: auto;
-  max-width: 100%;
-  overflow-wrap: anywhere;
+  margin-top: 11px;
+}
+.meter-list dt {
+  grid-column: 1;
+  color: #c3cbef;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.meter-list i {
+  grid-column: 2;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #182247;
+}
+.meter-list em {
+  display: block;
+  width: 60%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b8862f, var(--gold));
+  transition:
+    width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.3s ease;
+}
+.meter-list [data-state='ok'] em {
+  width: 100%;
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  box-shadow: 0 0 10px rgba(55, 214, 255, 0.35);
+}
+.meter-list [data-state='off'] em {
+  width: 18%;
+  background: #3a4470;
+}
+.meter-list b {
+  grid-column: 3;
+  color: var(--gold);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
   text-align: right;
-  color: var(--gold, #ffc857);
-  font-size: var(--t-sm);
 }
 .meter-list [data-state='ok'] b {
-  color: var(--green);
+  color: var(--cyan);
 }
 .meter-list [data-state='off'] b {
   color: var(--muted);
 }
 .meter-list small {
-  flex: 1 0 100%;
-  padding-left: 16px;
+  grid-column: 2 / -1;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: var(--fs-2xs);
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 .meter-list small:empty {
   display: none;
 }
-/* Accesos directos: uno al lado del otro si caben; si no, uno debajo del otro. */
+/* Pie: dos accesos reales (cómo se protege la compra y verificar un comprobante). */
 .hero-panel-foot {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
-.hero-panel-foot a {
+.hero-panel-foot :is(a, button) {
   flex: 1 1 auto;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   min-height: 40px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid #2c386c;
   border-radius: 12px;
-  color: #d9e1ff;
-  font-size: var(--t-sm);
-  font-weight: 600;
-  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  color: #c9d3f5;
+  font: 600 var(--fs-2xs) var(--body);
   text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
-.hero-panel-foot a:hover,
-.hero-panel-foot a:focus-visible {
-  border-color: var(--cyan);
+.hero-panel-foot :is(a, button):hover,
+.hero-panel-foot :is(a, button):focus-visible {
+  border-color: rgba(55, 214, 255, 0.6);
+  background: rgba(55, 214, 255, 0.06);
   color: #fff;
 }
 .hero-panel-foot svg {
   flex: none;
   width: 15px;
   height: 15px;
-  color: var(--cyan);
+  color: var(--violet2);
+}
+@media (max-width: 480px) {
+  /* En el celular, la bóveda va arriba a todo el ancho y el estado debajo. */
+  .hero-core {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px 0 12px;
+  }
+  .hero-vault {
+    width: 100%;
+    height: 150px;
+    aspect-ratio: auto;
+  }
+  .hero-vault img {
+    object-position: center 55%;
+  }
 }

@@ -2029,3 +2029,33 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   e2e en Chromium, Firefox y WebKit), CodeQL OK, prueba de producción OK (15:22–15:23 UTC).
 - **NO VERIFICADO:** el INP medido en el celular del dueño en la tienda publicada; la tienda
   publicada desde este entorno (el proxy del entorno impide abrirla con TLS válido).
+
+### 2026-10-28 · Publicación de b5d2f87 y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit b5d2f87».
+- **Push:** avance rápido `391c545..b5d2f87` (solo el registro); `git ls-remote` = `b5d2f87`.
+- **Render:** despliegue `dep-dbh1gbdg1s2s73ejhku0` en `live` (15:43:41–15:44:37 UTC). Registros
+  de error o aviso desde las 15:43 UTC: ninguno (consulta de las 15:57 UTC).
+- **GitHub Actions sobre `b5d2f87`:** CI, CodeQL y prueba de producción OK.
+
+### 2026-10-28 · Panel «LIVE STORE» con el diseño elegido por el dueño (pedido del dueño)
+
+- **Pedido:** «su propuesta no me gustó, escojo la que te compartí en la imagen y vuélvalo más
+  atractivo […] funcional y no un simple decoración […] sin detalle mal ejecutado».
+- **Cambio:** vuelve el diseño original (bóveda, «LIVE STORE», estado de operación, barras) con:
+  filas en una cuadrícula de tres columnas compartidas (la etiqueta más larga fija su ancho, así
+  que ningún texto pisa una barra); barra según el estado (llena, a medias, casi vacía); nota con
+  el dato útil (paquetes y precio desde, modo de verificación, medios de pago, plazo de entrega);
+  etiqueta y color del panel según el estado real; hora de la última comprobación con el
+  servidor; pie con accesos a «Protección del flujo» (ventana existente) y al verificador de
+  comprobantes. Nada inventado: sin `LEGAL_DELIVERY_TIME` la entrega dice «Ver términos».
+- **Rendimiento:** sin animaciones continuas ni inclinación; capas de composición 61 (igual que
+  antes del cambio) y tiempos de respuesta dentro del margen de ruido de la medición anterior.
+- **Pruebas:** lint, formato y tipos OK; unitarias 385/385; e2e 82/82 (actualizadas: filas,
+  etiqueta, hora, accesos del pie y la prueba de textos montados a 360 px, ahora sobre la
+  cuadrícula); visuales 3/3 (solo 03 regenerada tras revisarla; 01 y 02 idénticas); escáner 0.
+  Firefox y WebKit: NO VERIFICADO en local; los cubre la CI al publicar.
+- **Acceso intacto:** sin cambios en `#loginModal`, `account.js`, `15-modals.css` ni `21-auth.css`.
+- **Vista previa:** publicada en el mismo artefacto privado (versión 10); su visualización dentro
+  de claude.ai: NO VERIFICADO.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

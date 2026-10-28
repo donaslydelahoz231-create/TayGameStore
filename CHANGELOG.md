@@ -5,6 +5,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Panel «LIVE STORE» con el diseño elegido por el dueño, más claro y funcional (2026-10-28)
+
+- Vuelve el diseño que el dueño prefirió (bóveda, «LIVE STORE», estado de operación y una barra
+  por servicio), corregido y con función en cada parte:
+  - Ningún texto se monta sobre una barra: las filas comparten tres columnas (etiqueta, barra,
+    valor) y la de la etiqueta mide lo que la más larga («VERIFICACIÓN»).
+  - Cada barra dice algo: llena si el servicio está activo, a medias si es limitado o cargando,
+    casi vacía si no está disponible. Debajo, una nota con el dato útil: cuántos paquetes hay y
+    desde qué precio, cómo se verifica el ID, con qué se paga y el plazo de entrega.
+  - La etiqueta y el color del panel siguen el estado real («LIVE STORE» en verde, «MODO
+    PRUEBA» en ámbar, «PAUSADA» o «SIN CONEXIÓN» en rosa).
+  - La hora de arriba es la de la última comprobación con el servidor («Actualizado 08:32
+    a. m.»), no un reloj decorativo.
+  - «Protección de flujo» abre la explicación de seguridad y «Comprobante digital» lleva al
+    verificador de comprobantes.
+- Sin animaciones continuas ni inclinación con el puntero: la respuesta al tocar y escribir se
+  mantiene (mismas capas de composición y mismos tiempos medidos).
+
 ### Respuesta más rápida al tocar y escribir y panel de estado funcional (2026-10-28)
 
 - Panel del inicio («LIVE STORE»): ahora es una lista de estado sin barras ni imagen, que ya no

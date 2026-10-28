@@ -533,12 +533,21 @@ test.describe('estado de la tienda y soporte', () => {
     await expect(page.locator('#meterPayment')).toHaveAttribute('data-state', 'partial');
     await expect(page.locator('#meterPayment b')).toHaveText('Prueba');
     await expect(page.locator('#meterPayment small')).toHaveText('Sin cobros reales');
-    // Sin LEGAL_DELIVERY_TIME el plazo remite a los términos; solo hay correo de soporte.
+    await expect(page.locator('#meterCatalog small')).toContainText('desde $');
+    // Sin LEGAL_DELIVERY_TIME el plazo remite a los términos.
     await expect(page.locator('#meterDelivery b')).toHaveText('Ver términos');
-    await expect(page.locator('#meterSupport')).toHaveAttribute('data-state', 'ok');
-    await expect(page.locator('#meterSupport b')).toHaveText('Correo');
     await expect(page.locator('#liveTag')).toHaveText('Modo prueba');
+    await expect(page.locator('#heroChecked')).toHaveText(/^Actualizado \d/);
     await expect(page.locator('.meter-list')).not.toContainText('%');
+    // Los accesos del pie llevan a la protección del flujo y al verificador de comprobantes.
+    await page.locator('#heroSecurityBtn').click();
+    await expect(page.locator('#securityModal')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#securityModal')).toBeHidden();
+    await expect(page.locator('.hero-panel-foot a')).toHaveAttribute(
+      'href',
+      '#verificar-comprobante',
+    );
   });
 
   test('el panel del inicio se lee sin textos montados, también en el celular', async ({
@@ -548,13 +557,14 @@ test.describe('estado de la tienda y soporte', () => {
     await page.goto('/');
     await enterAsGuest(page);
     await expect(page.locator('#meterCatalog b')).toHaveText('Activo');
-    const problems = await page.locator('.meter-list > div').evaluateAll((rows) =>
-      rows.flatMap((row) => {
-        const box = row.getBoundingClientRect();
-        const parts = [...row.querySelectorAll('dt, b, small')].filter((el) =>
-          el.textContent?.trim(),
+    const problems = await page.locator('.hero-panel').evaluate((panel) => {
+      const box = panel.getBoundingClientRect();
+      const found: string[] = [];
+      for (const row of panel.querySelectorAll('.meter-list > div')) {
+        // Etiqueta, barra, valor y nota de cada fila: dentro del panel y sin pisarse.
+        const parts = [...row.querySelectorAll('dt, i, b, small')].filter(
+          (el) => el.tagName === 'I' || el.textContent?.trim(),
         );
-        const found: string[] = [];
         for (const el of parts) {
           const r = el.getBoundingClientRect();
           if (r.left < box.left - 0.5 || r.right > box.right + 0.5) found.push(`${row.id}: sale`);
@@ -571,9 +581,9 @@ test.describe('estado de la tienda y soporte', () => {
             if (cross) found.push(`${row.id}: ${a.tagName} sobre ${b.tagName}`);
           }),
         );
-        return found;
-      }),
-    );
+      }
+      return found;
+    });
     expect(problems).toEqual([]);
   });
 
