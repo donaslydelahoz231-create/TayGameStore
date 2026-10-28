@@ -2072,3 +2072,31 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   de producción OK (16:02:48 UTC).
 - **NO VERIFICADO:** la tienda publicada vista desde este entorno (el proxy impide TLS válido) y
   el valor de `LEGAL_DELIVERY_TIME` en producción (no se leyeron variables de Render).
+
+### 2026-10-28 · Publicación de f21308f y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit f21308f».
+- **Push:** avance rápido `8390a6b..f21308f` (solo el registro); `git ls-remote` = `f21308f`.
+- **Render:** despliegue `dep-dbh1v3ivcj2c73e27cmg` en `live` (16:15:10–16:16:27 UTC). Registros
+  de error o aviso desde las 16:10 UTC: ninguno (consulta de las 16:38 UTC).
+- **GitHub Actions sobre `f21308f`:** CI, CodeQL y prueba de producción OK.
+
+### 2026-10-28 · Panel compacto y cómodo en el celular (pedido del dueño)
+
+- **Pedido:** «en PC y portátiles están bien, solo que en celulares se visualiza muy incómodo»;
+  «hay mucha información innecesaria […] resumir o compactar […] profesional, atractivo y
+  limpio»; «no quites lo esencial, solo que hay mucho texto».
+- **Celular:** la bóveda vuelve a la izquierda del texto, cuadrada y completa (96 px; 76 px en
+  pantallas de 340 px o menos); antes ocupaba todo el ancho recortada en una franja.
+- **Menos texto, lo esencial intacto:** fuera las notas bajo cada barra; queda una línea con el
+  precio «desde» resaltado y los medios de pago (o el aviso de modo prueba); barras de catálogo,
+  verificación y pagos con valor corto; la fila de entrega solo si el plazo es corto y está
+  configurado; accesos del pie como enlaces discretos. Panel a 360 px: ~700 → ~360 px de alto.
+- **Pruebas:** lint, formato y tipos OK; unitarias 385/385; e2e 83/83 (nueva: con plazo
+  configurado, la fila de entrega lo muestra; actualizadas: precio «desde», sin notas, fila de
+  entrega oculta sin plazo y textos sin montarse a 360 px); visuales 3/3 (solo 03 regenerada
+  tras revisarla; 01 y 02 idénticas); escáner 0. Firefox y WebKit: NO VERIFICADO en local.
+- **Acceso intacto:** sin cambios en `#loginModal`, `account.js`, `15-modals.css` ni `21-auth.css`.
+- **Vista previa:** mismo artefacto privado (versión 11); su visualización dentro de claude.ai: NO
+  VERIFICADO.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

@@ -532,10 +532,12 @@ test.describe('estado de la tienda y soporte', () => {
     await expect(page.locator('#meterPlayer b')).toHaveText('Al instante');
     await expect(page.locator('#meterPayment')).toHaveAttribute('data-state', 'partial');
     await expect(page.locator('#meterPayment b')).toHaveText('Prueba');
-    await expect(page.locator('#meterPayment small')).toHaveText('Sin cobros reales');
-    await expect(page.locator('#meterCatalog small')).toContainText('desde $');
-    // Sin LEGAL_DELIVERY_TIME el plazo remite a los términos.
-    await expect(page.locator('#meterDelivery b')).toHaveText('Ver términos');
+    // Precio «desde» y el aviso de modo prueba en una línea; sin notas largas por fila.
+    await expect(page.locator('#operationText strong')).toContainText('Desde $');
+    await expect(page.locator('#operationText')).toContainText('sin cobros reales');
+    await expect(page.locator('.meter-list small')).toHaveCount(0);
+    // Sin LEGAL_DELIVERY_TIME no se muestra la fila de entrega (nada inventado).
+    await expect(page.locator('#meterDelivery')).toBeHidden();
     await expect(page.locator('#liveTag')).toHaveText('Modo prueba');
     await expect(page.locator('#heroChecked')).toHaveText(/^Actualizado \d/);
     await expect(page.locator('.meter-list')).not.toContainText('%');
@@ -550,6 +552,19 @@ test.describe('estado de la tienda y soporte', () => {
     );
   });
 
+  test('con plazo de entrega configurado, el panel lo muestra en su fila', async ({ page }) => {
+    // Solo la respuesta de /api/config cambia: el resto viene del servidor de pruebas.
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const json = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({ response, json: { ...json, deliveryTime: '24 horas' } });
+    });
+    await page.goto('/');
+    await enterAsGuest(page);
+    await expect(page.locator('#meterDelivery')).toBeVisible();
+    await expect(page.locator('#meterDelivery b')).toHaveText('24 horas');
+  });
+
   test('el panel del inicio se lee sin textos montados, también en el celular', async ({
     page,
   }) => {
@@ -560,9 +575,9 @@ test.describe('estado de la tienda y soporte', () => {
     const problems = await page.locator('.hero-panel').evaluate((panel) => {
       const box = panel.getBoundingClientRect();
       const found: string[] = [];
-      for (const row of panel.querySelectorAll('.meter-list > div')) {
-        // Etiqueta, barra, valor y nota de cada fila: dentro del panel y sin pisarse.
-        const parts = [...row.querySelectorAll('dt, i, b, small')].filter(
+      for (const row of panel.querySelectorAll<HTMLElement>('.meter-list > div:not([hidden])')) {
+        // Etiqueta, barra y valor de cada fila: dentro del panel y sin pisarse.
+        const parts = [...row.querySelectorAll('dt, i, b')].filter(
           (el) => el.tagName === 'I' || el.textContent?.trim(),
         );
         for (const el of parts) {

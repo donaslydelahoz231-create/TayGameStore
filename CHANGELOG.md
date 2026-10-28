@@ -5,6 +5,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Panel «LIVE STORE» compacto y cómodo en el celular (2026-10-28)
+
+- Menos texto, lo esencial intacto: estado y hora de la última comprobación, título, **«Desde
+  $ 3.800»** resaltado junto a los medios de pago (o al aviso de modo prueba), y las barras de
+  catálogo, verificación y pagos con un valor corto. Sin notas debajo de cada barra. La fila de
+  entrega aparece solo cuando el plazo está configurado (`LEGAL_DELIVERY_TIME` corto).
+- En el celular la bóveda vuelve a la izquierda del texto, cuadrada y completa (antes se estiraba
+  en una franja recortada); el panel pasa de ~700 a ~360 px de alto a 360 px de ancho.
+- «Protección de flujo» y «Comprobante digital» como enlaces discretos en una línea, igual que
+  en el diseño original.
+
 ### Panel «LIVE STORE» con el diseño elegido por el dueño, más claro y funcional (2026-10-28)
 
 - Vuelve el diseño que el dueño prefirió (bóveda, «LIVE STORE», estado de operación y una barra

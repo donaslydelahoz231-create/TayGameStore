@@ -40,23 +40,46 @@ export function renderService() {
 }
 
 /** Fila del panel del inicio: `ok` activo, `partial` limitado o cargando, `off` no disponible. */
-function setMeter(id, stateName, text, detail = '') {
+function setMeter(id, stateName, text) {
   const row = $(id);
   if (!row) return;
+  row.hidden = false;
   row.dataset.state = stateName;
   const value = row.querySelector('b');
   if (value) value.textContent = text;
-  const note = row.querySelector('small');
-  if (note) note.textContent = detail;
 }
 
-// Un plazo corto («24 horas») cabe como valor de la fila; uno largo va completo en la nota.
+// Un plazo corto («24 horas») cabe como valor de la fila; uno largo se lee en «Entrega» y en los
+// términos, y la fila no se muestra.
 const SHORT_DELIVERY = 16;
 const clock = (date) => date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
+/** Precio más bajo a la venta («$ 3.800»), sin «COP» y sin partirse en dos líneas. */
+function lowestPrice() {
+  const list = state.products[state.game] || [];
+  const prices = list.filter((p) => p.providerAvailable !== false).map(priceOf);
+  if (!prices.length) return '';
+  return money(Math.min(...prices))
+    .replace(' COP', '')
+    .replace('$ ', '$\u00a0');
+}
+
+/** Línea bajo el título: el precio «desde» resaltado y lo que más importa después. */
+function setOperationText(from, rest) {
+  const text = $('operationText');
+  if (!text) return;
+  if (!from) {
+    text.textContent = rest;
+    return;
+  }
+  const price = document.createElement('strong');
+  price.textContent = 'Desde ' + from;
+  text.replaceChildren(price, ' · ' + rest);
+}
+
 /**
- * Panel «Estado de operación»: lo que el cliente necesita saber antes de comprar, según
- * /api/config y el catálogo. Nunca cifras inventadas: lo que no se sabe se dice.
+ * Panel «Estado de operación»: lo justo para decidir la compra, según /api/config y el catálogo.
+ * Nunca cifras inventadas: lo que no se sabe no se muestra.
  */
 function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
   const panelState = live ? (sandbox ? 'partial' : 'ok') : cfg ? 'off' : 'partial';
@@ -96,64 +119,40 @@ function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
           ? 'Sin conexión con la tienda'
           : 'Comprobando la tienda…',
   );
-  setText(
-    'operationText',
-    state.previewOnly
-      ? 'Modo visual · las acciones reales requieren servidor'
-      : sandbox
-        ? 'Pagos de prueba: no se cobra dinero real.'
-        : live
-          ? 'Elige tu paquete, confirma tu ID y paga con ' + methodNames + '.'
-          : label,
+  const from = live && state.catalogStatus === 'ready' ? lowestPrice() : '';
+  if (state.previewOnly)
+    setOperationText('', 'Modo visual · las acciones reales requieren servidor');
+  else if (sandbox) setOperationText(from, 'pagos de prueba, sin cobros reales');
+  else if (live) setOperationText(from, methodNames);
+  else setOperationText('', label);
+
+  setMeter(
+    'meterCatalog',
+    ...({
+      ready: ['ok', 'Activo'],
+      loading: ['partial', 'Cargando'],
+      empty: ['off', 'Sin paquetes'],
+      error: ['off', 'No disponible'],
+    }[state.catalogStatus] || ['off', 'No disponible']),
   );
-
-  const list = state.products[state.game] || [];
-  const prices = list.filter((p) => p.providerAvailable !== false).map(priceOf);
-  const count = list.length === 1 ? '1 paquete' : list.length + ' paquetes';
-  const catalog = {
-    ready: [
-      'ok',
-      'Activo',
-      prices.length ? count + ' · desde ' + money(Math.min(...prices)).replace(' COP', '') : count,
-    ],
-    loading: ['partial', 'Cargando', 'Consultando precios…'],
-    empty: ['off', 'Sin paquetes', 'No hay paquetes a la venta ahora'],
-    error: ['off', 'No disponible', 'No se pudieron cargar los precios'],
-  }[state.catalogStatus] || ['off', 'No disponible', ''];
-  setMeter('meterCatalog', ...catalog);
-
+  const delivery = $('meterDelivery');
   if (!cfg) {
     const pending =
-      state.serverReachable === false ? ['off', 'Sin conexión', ''] : ['partial', 'Cargando', ''];
+      state.serverReachable === false ? ['off', 'Sin conexión'] : ['partial', 'Cargando'];
     setMeter('meterPlayer', ...pending);
     setMeter('meterPayment', ...pending);
-    setMeter('meterDelivery', ...pending);
+    if (delivery) delivery.hidden = true;
     return;
   }
   // Sin proveedor de consulta, el equipo verifica el jugador a mano tras crear el pedido.
-  setMeter(
-    'meterPlayer',
-    ...(cfg.playerLookup
-      ? ['ok', 'Al instante', 'Confirmas tu nick antes de pagar']
-      : ['partial', 'Manual', 'El equipo revisa tu ID antes del cobro']),
-  );
+  setMeter('meterPlayer', ...(cfg.playerLookup ? ['ok', 'Al instante'] : ['partial', 'Manual']));
   setMeter(
     'meterPayment',
-    ...(sandbox
-      ? ['partial', 'Prueba', 'Sin cobros reales']
-      : live
-        ? ['ok', 'Activo', methodNames]
-        : ['off', 'Pausado', 'No se reciben pagos ahora']),
+    ...(sandbox ? ['partial', 'Prueba'] : live ? ['ok', 'Activo'] : ['off', 'Pausado']),
   );
-  const delivery = cfg.deliveryTime;
-  setMeter(
-    'meterDelivery',
-    ...(!delivery
-      ? ['partial', 'Ver términos', 'Plazo indicado en los términos']
-      : delivery.length <= SHORT_DELIVERY
-        ? ['ok', delivery, 'Con el pago confirmado']
-        : ['ok', 'Ver plazo', delivery]),
-  );
+  const plazo = cfg.deliveryTime;
+  if (plazo && plazo.length <= SHORT_DELIVERY) setMeter('meterDelivery', 'ok', plazo);
+  else if (delivery) delivery.hidden = true;
 }
 
 export async function bootstrapConfig() {

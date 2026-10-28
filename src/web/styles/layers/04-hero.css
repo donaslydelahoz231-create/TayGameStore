@@ -334,7 +334,12 @@
   font-size: var(--fs-2xs);
   line-height: 1.45;
 }
-/* Filas: etiqueta | barra | valor, con la nota debajo de la barra. */
+/* El precio «desde» es lo primero que se lee. */
+.hero-panel-copy p strong {
+  color: var(--cyan);
+  font-weight: 800;
+}
+/* Filas: etiqueta | barra | valor. */
 .meter-list {
   display: grid;
   grid-template-columns: max-content minmax(48px, 1fr) max-content;
@@ -346,10 +351,16 @@
 .meter-list dd {
   display: contents;
 }
+.meter-list > div[hidden] {
+  display: none;
+}
 .meter-list dt,
 .meter-list i,
 .meter-list b {
-  margin-top: 11px;
+  margin-top: 12px;
+}
+.meter-list > div:first-child :is(dt, i, b) {
+  margin-top: 0;
 }
 .meter-list dt {
   grid-column: 1;
@@ -398,75 +409,70 @@
 .meter-list [data-state='off'] b {
   color: var(--muted);
 }
-.meter-list small {
-  grid-column: 2 / -1;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.meter-list small:empty {
-  display: none;
-}
-/* Pie: dos accesos reales (cómo se protege la compra y verificar un comprobante). */
+/* Pie: dos accesos discretos (cómo se protege la compra y verificar un comprobante). */
 .hero-panel-foot {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 4px 12px;
   margin-top: 16px;
-  padding-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 .hero-panel-foot :is(a, button) {
-  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid #2c386c;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  color: #c9d3f5;
-  font: 600 var(--fs-2xs) var(--body);
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 600 var(--fs-label) var(--body);
   text-decoration: none;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    color 0.2s ease;
+  transition: color 0.2s ease;
 }
 .hero-panel-foot :is(a, button):hover,
 .hero-panel-foot :is(a, button):focus-visible {
-  border-color: rgba(55, 214, 255, 0.6);
-  background: rgba(55, 214, 255, 0.06);
   color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .hero-panel-foot svg {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   color: var(--violet2);
 }
 @media (max-width: 480px) {
-  /* En el celular, la bóveda va arriba a todo el ancho y el estado debajo. */
+  /*
+   * En el celular la bóveda sigue a la izquierda del texto, cuadrada y completa, como en
+   * computador; solo se achica. (A todo el ancho se recortaba en una franja y empujaba el estado
+   * hacia abajo.)
+   */
   .hero-core {
-    flex-direction: column;
-    align-items: stretch;
     gap: 14px;
     padding: 16px 0 12px;
   }
   .hero-vault {
-    width: 100%;
-    height: 150px;
-    aspect-ratio: auto;
+    width: 96px;
+    border-radius: 18px;
   }
-  .hero-vault img {
-    object-position: center 55%;
+  .hero-panel-copy small {
+    letter-spacing: 0.04em;
+  }
+  .hero-panel-copy h2 {
+    font-size: 1.1rem;
+  }
+  .hero-panel-copy p {
+    font-size: 0.8125rem;
+  }
+}
+@media (max-width: 340px) {
+  /* Teléfonos muy angostos: la bóveda cede espacio al texto. */
+  .hero-vault {
+    width: 76px;
+    border-radius: 16px;
   }
 }
