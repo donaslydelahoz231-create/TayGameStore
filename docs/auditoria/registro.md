@@ -2059,3 +2059,16 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Vista previa:** publicada en el mismo artefacto privado (versión 10); su visualización dentro
   de claude.ai: NO VERIFICADO.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-28 · Publicación de 8390a6b y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit 8390a6b».
+- **Antes del push:** árbol limpio; solo `8390a6b` pendiente; sin cambios de servidor ni
+  migraciones (frontend, pruebas y documentación).
+- **Push:** avance rápido `b5d2f87..8390a6b`; `git ls-remote` = `8390a6b`.
+- **Render:** despliegue `dep-dbh1ohh42hec739hl50g` en `live` (16:01:10–16:02:26 UTC). Registros
+  de error o aviso desde las 16:00 UTC: ninguno (consulta de las 16:10 UTC).
+- **GitHub Actions sobre `8390a6b`:** CI OK (e2e en Chromium, Firefox y WebKit), CodeQL OK, prueba
+  de producción OK (16:02:48 UTC).
+- **NO VERIFICADO:** la tienda publicada vista desde este entorno (el proxy impide TLS válido) y
+  el valor de `LEGAL_DELIVERY_TIME` en producción (no se leyeron variables de Render).
