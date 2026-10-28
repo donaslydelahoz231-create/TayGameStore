@@ -2016,3 +2016,16 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   de CPU en Chromium). Vista previa publicada en el mismo artefacto privado (versión 9); su
   visualización dentro de claude.ai: NO VERIFICADO.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-28 · Publicación de 391c545 y verificación
+
+- **Autorización del dueño:** «Autorizo el push del commit 391c545».
+- **Antes del push:** árbol limpio; solo `391c545` pendiente; sin cambios de servidor ni
+  migraciones (solo frontend, pruebas y documentación), por eso no se tomó respaldo de la base.
+- **Push:** avance rápido `eb6c9e1..391c545`; `git ls-remote` = `391c545`.
+- **Render:** despliegue `dep-dbh168fb9u1s739g9irg` en `live` (15:22:09–15:23:06 UTC). Registros
+  de error o aviso desde las 15:22 UTC: ninguno (consulta de las 15:33 UTC).
+- **GitHub Actions sobre `391c545`:** CI OK (gitleaks, lint/tipos/unitarias/build, integración y
+  e2e en Chromium, Firefox y WebKit), CodeQL OK, prueba de producción OK (15:22–15:23 UTC).
+- **NO VERIFICADO:** el INP medido en el celular del dueño en la tienda publicada; la tienda
+  publicada desde este entorno (el proxy del entorno impide abrirla con TLS válido).
