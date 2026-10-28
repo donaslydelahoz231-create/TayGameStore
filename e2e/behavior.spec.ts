@@ -536,8 +536,8 @@ test.describe('estado de la tienda y soporte', () => {
     await expect(page.locator('#operationText strong')).toContainText('Desde $');
     await expect(page.locator('#operationText')).toContainText('sin cobros reales');
     await expect(page.locator('.meter-list small')).toHaveCount(0);
-    // Sin LEGAL_DELIVERY_TIME no se muestra la fila de entrega (nada inventado).
-    await expect(page.locator('#meterDelivery')).toBeHidden();
+    // Sin LEGAL_DELIVERY_TIME la entrega dice cómo llega la recarga (nunca un plazo inventado).
+    await expect(page.locator('#meterDelivery b')).toHaveText('A tu ID');
     await expect(page.locator('#liveTag')).toHaveText('Modo prueba');
     await expect(page.locator('#heroChecked')).toHaveText(/^Actualizado \d/);
     await expect(page.locator('.meter-list')).not.toContainText('%');
@@ -561,7 +561,6 @@ test.describe('estado de la tienda y soporte', () => {
     });
     await page.goto('/');
     await enterAsGuest(page);
-    await expect(page.locator('#meterDelivery')).toBeVisible();
     await expect(page.locator('#meterDelivery b')).toHaveText('24 horas');
   });
 
@@ -575,7 +574,7 @@ test.describe('estado de la tienda y soporte', () => {
     const problems = await page.locator('.hero-panel').evaluate((panel) => {
       const box = panel.getBoundingClientRect();
       const found: string[] = [];
-      for (const row of panel.querySelectorAll<HTMLElement>('.meter-list > div:not([hidden])')) {
+      for (const row of panel.querySelectorAll('.meter-list > div')) {
         // Etiqueta, barra y valor de cada fila: dentro del panel y sin pisarse.
         const parts = [...row.querySelectorAll('dt, i, b')].filter(
           (el) => el.tagName === 'I' || el.textContent?.trim(),

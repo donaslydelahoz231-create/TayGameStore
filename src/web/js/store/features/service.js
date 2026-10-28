@@ -43,14 +43,13 @@ export function renderService() {
 function setMeter(id, stateName, text) {
   const row = $(id);
   if (!row) return;
-  row.hidden = false;
   row.dataset.state = stateName;
   const value = row.querySelector('b');
   if (value) value.textContent = text;
 }
 
-// Un plazo corto («24 horas») cabe como valor de la fila; uno largo se lee en «Entrega» y en los
-// términos, y la fila no se muestra.
+// Un plazo corto («24 horas») cabe como valor de la fila; uno largo se lee en la sección «Entrega»
+// y en los términos, y la fila dice cómo llega la recarga.
 const SHORT_DELIVERY = 16;
 const clock = (date) => date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
@@ -135,13 +134,12 @@ function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
       error: ['off', 'No disponible'],
     }[state.catalogStatus] || ['off', 'No disponible']),
   );
-  const delivery = $('meterDelivery');
   if (!cfg) {
     const pending =
       state.serverReachable === false ? ['off', 'Sin conexión'] : ['partial', 'Cargando'];
     setMeter('meterPlayer', ...pending);
     setMeter('meterPayment', ...pending);
-    if (delivery) delivery.hidden = true;
+    setMeter('meterDelivery', ...pending);
     return;
   }
   // Sin proveedor de consulta, el equipo verifica el jugador a mano tras crear el pedido.
@@ -150,9 +148,13 @@ function renderOperationPanel(cfg, { live, sandbox, label, methodNames }) {
     'meterPayment',
     ...(sandbox ? ['partial', 'Prueba'] : live ? ['ok', 'Activo'] : ['off', 'Pausado']),
   );
+  // Entrega: el plazo publicado si es corto; si no, cómo llega la recarga (a tu ID de jugador).
   const plazo = cfg.deliveryTime;
-  if (plazo && plazo.length <= SHORT_DELIVERY) setMeter('meterDelivery', 'ok', plazo);
-  else if (delivery) delivery.hidden = true;
+  const arrives = plazo && plazo.length <= SHORT_DELIVERY ? plazo : 'A tu ID';
+  setMeter(
+    'meterDelivery',
+    ...(sandbox ? ['partial', arrives] : live ? ['ok', arrives] : ['off', 'Pausada']),
+  );
 }
 
 export async function bootstrapConfig() {

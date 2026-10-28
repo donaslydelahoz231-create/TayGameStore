@@ -2100,3 +2100,22 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Vista previa:** mismo artefacto privado (versión 11); su visualización dentro de claude.ai: NO
   VERIFICADO.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-28 · Publicación de abab64c y fila «Entrega» siempre visible
+
+- **Autorización del dueño:** «Autorizo el push del commit abab64c».
+- **Push:** avance rápido `f21308f..abab64c`; `git ls-remote` = `abab64c`.
+- **Render:** despliegue `dep-dbh2bv29lscs73fvlnag` en `live` (16:42:36–16:43:37 UTC). Registros
+  de error o aviso desde las 16:42 UTC: ninguno (consulta de las 16:50 UTC).
+- **GitHub Actions sobre `abab64c`:** CI, CodeQL y prueba de producción OK.
+- **Pedido:** «te faltó también la entrega» (la fila se ocultaba sin plazo configurado).
+- **Cambio local:** la fila «Entrega» se ve siempre: el plazo configurado si es corto (p. ej.
+  «24 horas») o «A tu ID» (la recarga llega a la cuenta del jugador por su ID); en pausa,
+  «Pausada». Nunca un plazo inventado.
+- **NO VERIFICADO:** el valor de `LEGAL_DELIVERY_TIME` en producción (la consulta pública a
+  `/api/config` desde este entorno no respondió en 20 s; no se leyeron variables de Render).
+- **Pruebas:** lint, formato y tipos OK; unitarias 385/385; e2e 83/83 (actualizada: sin plazo, la
+  fila dice «A tu ID»; con «24 horas», lo muestra); visuales 3/3 (solo 03 regenerada tras
+  revisarla; 01 y 02 idénticas); escáner 0.
+- **Vista previa:** mismo artefacto privado (versión 12).
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

@@ -351,9 +351,6 @@
 .meter-list dd {
   display: contents;
 }
-.meter-list > div[hidden] {
-  display: none;
-}
 .meter-list dt,
 .meter-list i,
 .meter-list b {

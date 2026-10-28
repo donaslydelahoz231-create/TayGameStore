@@ -9,8 +9,9 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 - Menos texto, lo esencial intacto: estado y hora de la última comprobación, título, **«Desde
   $ 3.800»** resaltado junto a los medios de pago (o al aviso de modo prueba), y las barras de
-  catálogo, verificación y pagos con un valor corto. Sin notas debajo de cada barra. La fila de
-  entrega aparece solo cuando el plazo está configurado (`LEGAL_DELIVERY_TIME` corto).
+  catálogo, verificación, pagos y entrega con un valor corto. Sin notas debajo de cada barra. La
+  entrega muestra el plazo configurado (`LEGAL_DELIVERY_TIME`, si es corto, p. ej. «24 horas») o,
+  si no lo hay, cómo llega la recarga: «A tu ID».
 - En el celular la bóveda vuelve a la izquierda del texto, cuadrada y completa (antes se estiraba
   en una franja recortada); el panel pasa de ~700 a ~360 px de alto a 360 px de ancho.
 - «Protección de flujo» y «Comprobante digital» como enlaces discretos en una línea, igual que
