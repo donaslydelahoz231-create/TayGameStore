@@ -5,6 +5,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Presentación, bienvenida y transiciones también en celulares (2026-10-28)
+
+- **Con «reducir movimiento»** (en muchos celulares: «Quitar animaciones» o «Reducir
+  movimiento»), la tienda ya no apaga todo el inicio: muestra una **versión suave** con la misma
+  presentación (Tay, el logotipo, el lema y la barra con la carga real), la bienvenida y la
+  transición «Abriendo TayGameStore…» al pulsar «Entrar», solo con fundidos (sin piezas que
+  vuelan, sin diamante que crece y sin zoom). Antes, en esos teléfonos no se veía nada.
+- **Con el dedo:** al tocar o arrastrar sobre la vitrina de paquetes, Tay mira hacia el dedo, la
+  vitrina se inclina y salen destellos de diamante; al soltar, todo vuelve al centro. En la
+  presentación, Tay también se inclina hacia el dedo. Antes estos efectos solo respondían al
+  ratón. El botón «Entrar» ya no se mueve bajo el dedo (el efecto magnético queda para ratón).
+- Respuesta al toque en un celular simulado con la CPU 4 veces más lenta: 80–96 ms (bueno: menos
+  de 200 ms). Las variables de inclinación se aplican solo a lo que se inclina, no a toda la
+  bienvenida.
+- La presentación sigue saliendo una vez por pestaña; en una pestaña nueva se ve otra vez.
+
 ### Panel «LIVE STORE» compacto y cómodo en el celular (2026-10-28)
 
 - Menos texto, lo esencial intacto: estado y hora de la última comprobación, título, **«Desde

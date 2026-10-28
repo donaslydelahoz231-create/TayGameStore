@@ -3,7 +3,7 @@
  * reacciona al puntero, y transición antes de la ventana de acceso (que no cambia).
  * Coreografía por fases, sin cruces: cada una empieza cuando la anterior terminó. Las salidas y
  * entradas usan un diamante (la forma de Tay) que se abre o cubre la pantalla; el recorte lo anima
- * js/store/features/intro.js. Con movimiento reducido no hay presentación ni animaciones.
+ * js/store/features/intro.js. Con movimiento reducido, versión suave: solo fundidos (al final).
  */
 
 /* ── Presentación ── */
@@ -383,18 +383,19 @@
 }
 
 /* ── Bienvenida: entrada escalonada al terminar la presentación ── */
+/*
+ * Hasta que el script decide, la bienvenida muestra solo su fondo (así la presentación llega sin
+ * que antes se vea la bienvenida). Si el script no llegara, el contenido aparece a los 2,5 s.
+ * (También con movimiento reducido: allí la presentación es la versión suave.)
+ */
+#entryExperience:not(.entry-ready) :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+  opacity: 0;
+  animation: tgsShow 0.3s 2.5s forwards;
+}
+#entryExperience.entry-hold :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+  animation: none;
+}
 @media (prefers-reduced-motion: no-preference) {
-  /*
-   * Hasta que el script decide, la bienvenida muestra solo su fondo (así la presentación llega sin
-   * que antes se vea la bienvenida). Si el script no llegara, el contenido aparece a los 2,5 s.
-   */
-  #entryExperience:not(.entry-ready) :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
-    opacity: 0;
-    animation: tgsShow 0.3s 2.5s forwards;
-  }
-  #entryExperience.entry-hold :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
-    animation: none;
-  }
   #entryExperience.entry-ready :is(.entry-sound, .entry-bottom, .entry-footer) {
     animation: tgsFade 0.5s 0.45s backwards;
   }
@@ -460,6 +461,46 @@
   #entryExperience .entry-orb {
     animation: tgsAurora 10s ease-in-out infinite alternate;
   }
+}
+
+/*
+ * Versión suave con «reducir movimiento» (en muchos celulares, «Quitar animaciones»): la misma
+ * presentación, bienvenida y transición, solo con fundidos; nada vuela, gira ni hace zoom.
+ * 20-reduced-motion.css deja todas las animaciones en 0,01 ms con !important: estas reglas, más
+ * específicas, devuelven la duración solo a los fundidos (la opacidad no es movimiento).
+ */
+@media (prefers-reduced-motion: reduce) {
+  #tgsIntro.is-soft:not(.is-transition) {
+    animation: tgsFade 0.3s ease-out both !important;
+  }
+  /* Tay, el logotipo y el lema aparecen uno tras otro, ya armados y en su sitio. */
+  #tgsIntro.is-soft
+    :is(.f, .intro-halo, .intro-detail, .intro-visor, .intro-eyes, .intro-smile, .intro-star),
+  #tgsIntro.is-soft .intro-word span {
+    animation: none !important;
+  }
+  #tgsIntro.is-soft:not(.is-transition) .intro-tay {
+    animation: tgsFade 0.6s 0.1s ease-out both !important;
+  }
+  #tgsIntro.is-soft:not(.is-transition) .intro-word {
+    animation: tgsFade 0.5s 0.35s ease-out both !important;
+  }
+  #tgsIntro.is-soft:not(.is-transition) .intro-tagline {
+    animation: tgsFade 0.5s 0.55s ease-out both !important;
+  }
+  #tgsIntro.is-soft:not(.is-transition) .intro-actions {
+    animation: tgsFade 0.4s 0.3s ease-out both !important;
+  }
+  #entryExperience.entry-ready :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+    animation: tgsFade 0.45s ease-out backwards !important;
+  }
+  #entryExperience.entry-leaving :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
+    pointer-events: none;
+  }
+}
+/* Mientras se desvanece, la presentación ya no intercepta toques: lo de debajo responde. */
+#tgsIntro.is-revealing {
+  pointer-events: none;
 }
 @keyframes tgsShow {
   to {
@@ -549,8 +590,10 @@
     transform: translate(var(--drift, 0), 26px) scale(0.2) rotate(140deg);
   }
 }
+/* Celular y tableta: la vitrina parte de su inclinación de siempre y se inclina hacia el dedo. */
 @media (max-width: 900px) {
   #entryExperience .entry-vitrina {
-    transform: rotateX(8deg) rotateZ(-2deg);
+    transform: rotateX(calc(8deg - var(--py, 0) * 10deg)) rotateY(calc(var(--px, 0) * 14deg))
+      rotateZ(-2deg);
   }
 }

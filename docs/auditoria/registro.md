@@ -2119,3 +2119,42 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   revisarla; 01 y 02 idénticas); escáner 0.
 - **Vista previa:** mismo artefacto privado (versión 12).
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-28 · Publicación de e180828 e inicio animado también en celulares
+
+- **Autorización del dueño:** «Autorizo el push del commit e180828».
+- **Push:** avance rápido `abab64c..e180828`; `git ls-remote` = `e180828`.
+- **Render:** despliegue `dep-dbh3eq15efls73ap1g3g` en `live` (17:56:56–17:57:57 UTC). Registros
+  de error o aviso desde las 17:56 UTC: ninguno (consulta de las 18:26 UTC).
+- **GitHub Actions sobre `e180828`:** CI (run 228), CodeQL y prueba de producción OK.
+- **Pedido:** «quiero que todo el inicio y el proceso landing page, transiciones, animaciones
+  estén en los dispositivos móviles, porque no se ejecuta en los móviles; solo se ejecuta completo
+  en el PC y el portátil».
+- **Diagnóstico (Chromium, emulación Pixel 7):** sin «reducir movimiento», el celular corre la
+  presentación, la bienvenida y la transición igual que el PC (45 vs. 46 animaciones). Con
+  «reducir movimiento» (en Android, «Quitar animaciones»), la tienda las apagaba todas (0
+  animaciones, sin presentación ni transición). Además, los efectos de la bienvenida (vitrina, ojos
+  de Tay, destellos) solo respondían al ratón. NO VERIFICADO: qué ajuste tiene el teléfono del
+  dueño.
+- **Cambio local:**
+  - Versión suave con «reducir movimiento»: la presentación, la bienvenida y «Entrar» se ven solo
+    con fundidos (sin piezas que vuelan, diamante ni zoom; la regla general de movimiento reducido
+    sigue para todo lo demás).
+  - En pantallas táctiles, al tocar la vitrina Tay mira hacia el dedo, la vitrina se inclina y
+    salen destellos. Al soltar, todo vuelve al centro. El botón magnético queda solo para ratón.
+  - Las variables de inclinación se aplican solo a los elementos que se inclinan.
+- **Medición (Pixel 7, CPU 4× más lenta), respuesta al toque sobre la vitrina:**
+  - Antes: 64–80 ms, sin efecto.
+  - Ahora: 80–96 ms, con efecto.
+  - Tocar «Entrar»: 104–200 ms en ambas versiones (varía entre corridas).
+- **Pruebas:**
+  - Lint, formato y tipos OK; unitarias 385/385; escáner 0.
+  - e2e 85/85 en Chromium. Dos nuevas: versión suave (solo fundidos, sin diamante) y toque en la
+    vitrina. Dos ajustadas: los clics forzados en el acceso esperan a que termine la transición.
+  - `preparePage` marca la presentación como vista salvo `{ intro: true }`, así las pruebas llegan
+    directo a la bienvenida, como antes.
+  - Visuales 3/3 idénticas, sin regenerar.
+  - Firefox y WebKit: NO VERIFICADO en local. La prueba de toque corre solo en Chromium.
+- **Acceso intacto:** sin cambios en `#loginModal`, `account.js`, `15-modals.css` ni `21-auth.css`.
+- **Vista previa:** mismo artefacto privado (versión 14).
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

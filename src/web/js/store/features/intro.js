@@ -12,12 +12,20 @@ import { state } from '../state.js';
  *   bienvenida; «Entrar» → la bienvenida sale → el diamante cubre → «Abriendo…» → el diamante se
  *   abre con el acceso ya listo debajo.
  *
- * Una vez por sesión. Sin ella con movimiento reducido (y sin JavaScript el elemento sigue
- * `hidden`). Se puede saltar con el botón, Escape, Enter o espacio.
+ * Una vez por sesión (sin JavaScript el elemento sigue `hidden`). Se puede saltar con el botón,
+ * Escape, Enter o espacio.
+ *
+ * Con «reducir movimiento» (en muchos celulares: «Quitar animaciones») hay versión suave: la
+ * misma presentación y la misma transición, pero solo con fundidos, sin piezas que vuelan ni
+ * diamante que crece.
  */
 const SEEN_KEY = 'tgs:presentacion';
 const MIN_MS = 2300;
+const SOFT_MIN_MS = 1500;
 const MAX_MS = 4200;
+const FADE_MS = 360;
+const SOFT_COVER_MS = 220;
+const SOFT_REVEAL_MS = 300;
 const CHEER_MS = 260;
 const CORE_OUT_MS = 280;
 const IRIS_MS = 640;
@@ -118,15 +126,29 @@ async function openIris(intro, cx, cy, duration) {
 
 function hideIntro(intro) {
   intro.hidden = true;
-  intro.classList.remove('is-leaving', 'is-transition', 'is-iris');
+  intro.classList.remove('is-leaving', 'is-transition', 'is-iris', 'is-soft', 'is-revealing');
   (intro.tgsClips ?? []).forEach((anim) => anim.cancel());
   intro.tgsClips = [];
   intro.style.removeProperty('clip-path');
 }
 
-/** La presentación reacciona al puntero: Tay y la aurora se inclinan hacia él. */
+/** Versión suave: la capa entera aparece o se desvanece (`from` → `to` de opacidad). */
+async function fade(intro, from, to, duration) {
+  if (typeof intro.animate !== 'function') return;
+  const anim = intro.animate([{ opacity: from }, { opacity: to }], {
+    duration,
+    easing: 'ease',
+    fill: 'forwards',
+  });
+  intro.tgsClips = [...(intro.tgsClips ?? []), anim];
+  await Promise.race([anim.finished.catch(() => {}), wait(duration + 400)]);
+}
+
+/**
+ * La presentación reacciona al puntero: Tay y la aurora se inclinan hacia él. En pantallas
+ * táctiles, hacia el dedo mientras toca, y vuelven al centro al soltar.
+ */
 function followPointer(intro) {
-  if (!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return () => {};
   let raf = 0;
   let x = 0;
   let y = 0;
@@ -140,8 +162,22 @@ function followPointer(intro) {
     y = event.clientY / innerHeight - 0.5;
     if (!raf) raf = requestAnimationFrame(paint);
   };
+  const onRelease = (event) => {
+    if (event.pointerType === 'mouse') return;
+    x = 0;
+    y = 0;
+    if (!raf) raf = requestAnimationFrame(paint);
+  };
+  intro.addEventListener('pointerdown', onMove, { passive: true });
   intro.addEventListener('pointermove', onMove, { passive: true });
-  return () => intro.removeEventListener('pointermove', onMove);
+  intro.addEventListener('pointerup', onRelease, { passive: true });
+  intro.addEventListener('pointercancel', onRelease, { passive: true });
+  return () => {
+    intro.removeEventListener('pointerdown', onMove);
+    intro.removeEventListener('pointermove', onMove);
+    intro.removeEventListener('pointerup', onRelease);
+    intro.removeEventListener('pointercancel', onRelease);
+  };
 }
 
 /** Muestra la bienvenida con su entrada escalonada (solo cuando ya no hay nada encima). */
@@ -155,19 +191,22 @@ function showWelcome() {
 /** Presentación al abrir la tienda. No bloquea la carga: corre en paralelo. */
 export function playIntro() {
   const intro = $('tgsIntro');
-  if (!intro || reducedMotion() || seenThisSession() || returningToOrder()) {
+  if (!intro || seenThisSession() || returningToOrder()) {
     showWelcome();
     return;
   }
   markSeen();
+  const soft = reducedMotion();
+  const minMs = soft ? SOFT_MIN_MS : MIN_MS;
   const entry = $('entryExperience');
   // La bienvenida espera, sin verse, a que la presentación termine de salir.
   entry?.classList.add('entry-hold');
   entry?.setAttribute('inert', '');
   intro.classList.remove('is-leaving', 'is-transition');
+  intro.classList.toggle('is-soft', soft);
   intro.hidden = false;
   deferWelcome();
-  const stopFollowing = followPointer(intro);
+  const stopFollowing = soft ? () => {} : followPointer(intro);
   const start = performance.now();
   let shown = 0;
   let done = false;
@@ -179,6 +218,15 @@ export function playIntro() {
     removeEventListener('keydown', onKey);
     setProgress(intro, 1);
     setStatus(intro, '¡Listo!');
+    if (soft) {
+      // Fundido cruzado: la presentación se desvanece mientras la bienvenida aparece debajo
+      // (sigue tapando los toques hasta ocultarse: «Entrar» no puede cruzarse con su salida).
+      welcomeCue();
+      showWelcome();
+      await fade(intro, 1, 0, FADE_MS);
+      hideIntro(intro);
+      return;
+    }
     // Tay celebra y sale con el logotipo; después, y no antes, se abre el diamante.
     intro.classList.add('is-leaving');
     await wait(CHEER_MS + CORE_OUT_MS);
@@ -199,7 +247,7 @@ export function playIntro() {
     const loaded = state.catalogStatus !== 'loading' || state.previewOnly;
     // Hasta que el catálogo responde, la barra se acerca al 85 %; luego completa el recorrido.
     const target = loaded
-      ? Math.min(1, Math.max(shown, elapsed / MIN_MS))
+      ? Math.min(1, Math.max(shown, elapsed / minMs))
       : 0.85 * (1 - Math.exp(-elapsed / 900));
     shown += (target - shown) * 0.18;
     setProgress(intro, shown);
@@ -211,7 +259,7 @@ export function playIntro() {
           : 'Casi listo…'
         : 'Cargando la tienda…',
     );
-    if (state.storeUnlocked || (loaded && elapsed >= MIN_MS && shown > 0.985) || elapsed >= MAX_MS)
+    if (state.storeUnlocked || (loaded && elapsed >= minMs && shown > 0.985) || elapsed >= MAX_MS)
       finish();
     else requestAnimationFrame(tick);
   };
@@ -233,15 +281,40 @@ function fillBar(intro, duration) {
 }
 
 /**
+ * «Entrar» con movimiento reducido: la marca aparece con un fundido sobre la bienvenida, debajo se
+ * abre el acceso mientras avanza la barra y la marca se desvanece (sin diamante ni zoom). Mientras
+ * se desvanece ya no intercepta toques: el acceso responde enseguida.
+ */
+async function softEnter(intro, entry, next) {
+  entry?.classList.add('entry-leaving');
+  intro.classList.remove('is-leaving');
+  intro.classList.add('is-transition', 'is-soft');
+  setProgress(intro, 0);
+  setStatus(intro, 'Abriendo TayGameStore…');
+  intro.hidden = false;
+  await fade(intro, 0, 1, SOFT_COVER_MS);
+  next();
+  entry?.classList.remove('entry-leaving');
+  await fillBar(intro, HOLD_MS);
+  intro.classList.add('is-revealing');
+  await fade(intro, 1, 0, SOFT_REVEAL_MS);
+  hideIntro(intro);
+}
+
+/**
  * Transición al pulsar «Entrar» y luego `next` (abre la ventana de acceso, que no cambia).
- * `origin` es el botón: el diamante nace de él. Con movimiento reducido, `next` va al instante.
+ * `origin` es el botón: el diamante nace de él. Con movimiento reducido, la versión suave.
  */
 export async function playEnterTransition(next, origin) {
   enterCue();
   const intro = $('tgsIntro');
   const entry = $('entryExperience');
-  if (!intro || reducedMotion() || typeof intro.animate !== 'function') {
+  if (!intro || typeof intro.animate !== 'function') {
     next();
+    return;
+  }
+  if (reducedMotion()) {
+    await softEnter(intro, entry, next);
     return;
   }
   // 1. La bienvenida se va.

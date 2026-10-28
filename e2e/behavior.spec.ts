@@ -92,6 +92,9 @@ test.describe('entrada y acceso', () => {
   }) => {
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
+    // La transición «Abriendo TayGameStore…» tapa el acceso hasta que se desvanece: los clics
+    // forzados de abajo deben llegar al acceso, como los de una persona que ya lo ve.
+    await expect(page.locator('#tgsIntro')).toBeHidden();
     await expect(page.locator('#loginModal input[type="password"]')).toHaveCount(0);
     await expect(page.locator('#loginModal .oauth-btn')).toHaveCount(2);
     await expect(page.locator('[data-provider="vk"]')).toHaveCount(0);
@@ -231,6 +234,7 @@ test.describe('entrada y acceso', () => {
     });
     await page.goto('/');
     await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#tgsIntro')).toBeHidden();
     await expect(page.locator('#facebookState')).toHaveText('Comprobando…');
     for (const proveedor of ['google', 'facebook']) {
       await expect(page.locator(`[data-provider="${proveedor}"]`)).toHaveAttribute(

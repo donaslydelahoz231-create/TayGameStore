@@ -11,7 +11,7 @@ test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 let consoleErrors: string[] = [];
 test.beforeEach(async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280', 'movimiento: un solo viewport');
-  consoleErrors = await preparePage(page);
+  consoleErrors = await preparePage(page, { intro: true });
 });
 test.afterEach(() => {
   expect(unexpectedErrors(consoleErrors)).toEqual([]);
@@ -188,4 +188,112 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
   expect(entering[opened]).toContain('is-transition');
   expect(entering[opened]).not.toContain('is-iris');
   expect(entering[entering.length - 1]).toContain('intro:oculta');
+});
+
+test.describe('con «reducir movimiento» (en muchos celulares, «Quitar animaciones»)', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+
+  test('la presentación, la bienvenida y «Entrar» se ven con fundidos, sin diamante ni piezas que vuelan', async ({
+    page,
+  }) => {
+    // Si en algún momento aparece el diamante (recorte) o la salida con movimiento, se registra.
+    await page.addInitScript(() => {
+      const seen: string[] = [];
+      (window as unknown as { tgsSoftLog: string[] }).tgsSoftLog = seen;
+      document.addEventListener('DOMContentLoaded', () => {
+        const intro = document.getElementById('tgsIntro');
+        if (!intro) return;
+        new MutationObserver(() => {
+          for (const name of ['is-iris', 'is-leaving']) {
+            if (intro.classList.contains(name) && !seen.includes(name)) seen.push(name);
+          }
+        }).observe(intro, { attributes: true, attributeFilter: ['class'] });
+      });
+    });
+    await page.goto('/');
+    const intro = page.locator('#tgsIntro');
+    const entry = page.locator('#entryExperience');
+    // Antes no había presentación con movimiento reducido: ahora sale la versión suave.
+    await expect(intro).toBeVisible();
+    await expect(intro).toHaveClass(/is-soft/);
+    await expect(entry).toHaveAttribute('inert', '');
+    // Lo que dura y se ve dentro de la presentación son solo fundidos de opacidad (el resto queda
+    // en 0,01 ms, como siempre con movimiento reducido).
+    const names = await page.evaluate(() =>
+      document
+        .getAnimations()
+        .filter((a) => a.playState === 'running')
+        .filter((a) => Number(a.effect?.getComputedTiming().duration) > 1)
+        .filter((a) => {
+          const target = (a.effect as KeyframeEffect | null)?.target;
+          return target instanceof Element && document.getElementById('tgsIntro')?.contains(target);
+        })
+        .map((a) => (a as CSSAnimation).animationName ?? 'script'),
+    );
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.filter((name) => name !== 'tgsFade')).toEqual([]);
+    // Termina sola con la carga real y deja la bienvenida lista y usable.
+    await expect(intro).toBeHidden({ timeout: 8_000 });
+    await expect(entry).toHaveClass(/entry-ready/);
+    await expect(entry).not.toHaveAttribute('inert', '');
+
+    // «Entrar»: la marca aparece con un fundido, el acceso se abre debajo y la marca se va.
+    await page.locator('#enterStoreBtn').click();
+    await expect(intro).toHaveClass(/is-transition/);
+    await expect(intro).toHaveClass(/is-soft/);
+    await expect(page.locator('#loginModal')).toBeVisible();
+    await expect(intro).toBeHidden();
+    expect(
+      await page.evaluate(() => (window as unknown as { tgsSoftLog: string[] }).tgsSoftLog),
+    ).toEqual([]);
+    // El recorte en diamante nunca se aplicó.
+    await expect(intro).toHaveCSS('clip-path', 'none');
+  });
+});
+
+test.describe('en pantallas táctiles', () => {
+  test.use({ viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true });
+
+  test('al tocar la vitrina, Tay mira hacia el dedo, la vitrina se inclina y salen destellos', async ({
+    page,
+    browserName,
+  }) => {
+    // Se comprueba con Chromium (emulación de Android). Firefox no emula pantallas táctiles y el
+    // toque emulado de WebKit en Linux no se ha verificado.
+    test.skip(browserName !== 'chromium', 'toque emulado: solo Chromium');
+    await page.goto('/');
+    await page.locator('.intro-skip').click();
+    const entry = page.locator('#entryExperience');
+    await expect(entry).toHaveClass(/entry-ready/);
+    const stage = page.locator('.entry-stage');
+    const vitrina = page.locator('.entry-vitrina');
+    await stage.scrollIntoViewIfNeeded();
+    const box = await stage.boundingBox();
+    if (!box) throw new Error('la vitrina no se ve');
+    const before = await page
+      .locator('.entry-vitrina')
+      .evaluate((el) => getComputedStyle(el).transform);
+    await page.touchscreen.tap(box.x + box.width * 0.85, box.y + box.height * 0.5);
+    // Un toque suelta destellos alrededor del dedo y Tay mira hacia allá (a la derecha).
+    await expect.poll(() => page.locator('.entry-spark').count()).toBeGreaterThan(0);
+    await expect
+      .poll(() => vitrina.evaluate((el) => Number(el.style.getPropertyValue('--px'))))
+      .toBeGreaterThan(0.1);
+    await expect
+      .poll(() => page.locator('.entry-vitrina').evaluate((el) => getComputedStyle(el).transform))
+      .not.toBe(before);
+    // Al soltar, todo vuelve al centro y los destellos se van solos.
+    await expect
+      .poll(() => vitrina.evaluate((el) => Number(el.style.getPropertyValue('--px'))), {
+        timeout: 4_000,
+      })
+      .toBe(0);
+    await expect(page.locator('.entry-spark')).toHaveCount(0);
+    // El botón «Entrar» no se mueve bajo el dedo (el efecto magnético es solo para ratón).
+    await page.locator('#enterStoreBtn').scrollIntoViewIfNeeded();
+    const cta = await page.locator('#enterStoreBtn').boundingBox();
+    if (!cta) throw new Error('sin botón «Entrar»');
+    await page.touchscreen.tap(cta.x + 4, cta.y + 4);
+    await expect(page.locator('#enterStoreBtn')).toHaveCSS('translate', /^(none|0px)$/);
+  });
 });

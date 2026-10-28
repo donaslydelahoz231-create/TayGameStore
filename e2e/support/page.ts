@@ -20,6 +20,12 @@ export interface PrepareOptions {
   deterministic?: boolean;
   /** Primeros dos octetos de la IP del cliente simulado (por defecto 198.18, rango de pruebas). */
   ipPrefix?: string;
+  /**
+   * Deja que se vea la presentación de la marca al abrir la tienda. Por defecto la pestaña ya la
+   * vio (como al recargar): las pruebas llegan directo a la bienvenida. Desde el 2026-10-28 la
+   * presentación también sale con movimiento reducido (versión suave), el modo de casi toda la suite.
+   */
+  intro?: boolean;
 }
 
 /**
@@ -75,6 +81,15 @@ export async function preparePage(page: Page, options: PrepareOptions = {}): Pro
     }
   });
 
+  if (!options.intro) {
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.setItem('tgs:presentacion', '1');
+      } catch {
+        // Páginas sin almacenamiento (about:blank): no hay presentación que saltar.
+      }
+    });
+  }
   if (options.deterministic) {
     await page.clock.setFixedTime(new Date('2026-01-15T10:30:00-05:00'));
     await page.addInitScript(() => {
