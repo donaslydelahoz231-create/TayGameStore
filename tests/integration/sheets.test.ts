@@ -3,10 +3,11 @@ import { and, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { notifications, orders } from '../../src/server/db/schema.js';
+import { auditEvents, fulfillments, notifications, orders } from '../../src/server/db/schema.js';
 import {
   SheetsError,
   type OrderSheetLog,
+  type SheetCommand,
   type SheetTab,
 } from '../../src/server/integrations/sheets/google-sheets.js';
 import { expireOrders } from '../../src/server/services/jobs.js';
@@ -16,6 +17,10 @@ import {
   enqueueSheetSync,
   PENDING_PAYMENT_COLUMNS,
 } from '../../src/server/services/notifications.js';
+import {
+  applySheetCommand,
+  processSheetCommands,
+} from '../../src/server/services/sheet-commands.js';
 import {
   ADMIN_EMAIL,
   createHarness,
@@ -50,6 +55,16 @@ class RecordingSheet implements OrderSheetLog {
   gate: Promise<void> | undefined;
   /** Se llama cuando una escritura en «Entregas» llegó a la hoja (antes de esperar `gate`). */
   onUpsert: (() => void) | undefined;
+  /** Órdenes del dueño en «Entregas» (columna T) y las respuestas de la tienda (columna V). */
+  commands: SheetCommand[] = [];
+  responses: { reference: string; response: string }[] = [];
+  async readCommands(): Promise<SheetCommand[]> {
+    return [...this.commands];
+  }
+  async finishCommand(command: SheetCommand, response: string): Promise<void> {
+    this.responses.push({ reference: command.reference, response });
+    this.commands = this.commands.filter((c) => c !== command);
+  }
   async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     this.calls += 1;
     if (this.rateLimited) throw new SheetsError('Google Sheets no aceptó la fila', 429);
@@ -105,6 +120,8 @@ beforeEach(() => {
   sheet.statuses = [];
   sheet.gate = undefined;
   sheet.onUpsert = undefined;
+  sheet.commands = [];
+  sheet.responses = [];
 });
 
 const randomIp = () =>
@@ -491,6 +508,150 @@ describe('registro auxiliar en Google Sheets', () => {
  * «Pagos pendientes» (pedido del dueño, 2026-10-20): una fila por pedido Nequi con lo que el
  * cliente le debe y lo que avisó al transferir, para buscarlo en su app Nequi. Datos ficticios.
  */
+describe('cambios de estado desde la hoja («Entregas», columna «Cambiar estado (tú)»)', () => {
+  const orderState = async (id: string) => {
+    const [order] = await h.database.db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, id));
+    const [delivery] = await h.database.db
+      .select()
+      .from(fulfillments)
+      .where(eq(fulfillments.orderId, id));
+    return { order: order?.status, delivery };
+  };
+  const ask = async (reference: string, command: string, note = '') => {
+    sheet.commands = [{ reference, command, note }];
+    sheet.responses = [];
+    expect(await processSheetCommands(h.deps)).toBe(1);
+    expect(sheet.commands).toEqual([]);
+    return sheet.responses[0]?.response ?? '';
+  };
+
+  it('«✅ Entregado» entrega el pedido como el panel: estado, historial, fila y vista del cliente', async () => {
+    const paid = await paidOrder();
+    const response = await ask(paid.reference, '✅ Entregado', 'Pedido LootBar 98765 (prueba)');
+    expect(response).toMatch(/^✔️ Aplicado: Entregado · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+
+    const { order, delivery } = await orderState(paid.id);
+    expect(order).toBe('DELIVERED');
+    expect(delivery).toMatchObject({
+      status: 'DELIVERED',
+      evidence: 'Pedido LootBar 98765 (prueba)',
+    });
+    expect(delivery?.deliveredAt).toBeInstanceOf(Date);
+
+    // El historial dice quién (la cuenta del dueño) y por dónde (la hoja).
+    const events = await h.database.db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.entityId, delivery?.id ?? ''));
+    expect(events.map((e) => e.action)).toEqual(
+      expect.arrayContaining(['fulfillment.claim', 'fulfillment.start', 'fulfillment.deliver']),
+    );
+    for (const event of events.filter((e) => e.action.startsWith('fulfillment.'))) {
+      expect(event.actorType).toBe('admin');
+      expect(event.data).toMatchObject({ via: 'google_sheet' });
+    }
+
+    // La fila de «Entregas» y el pedido del cliente muestran la entrega enseguida.
+    expect(sheet.deliveries.find((row) => row[0] === paid.reference)?.[1]).toBe(
+      '✅ Entregado con éxito',
+    );
+    const view = await inject({
+      method: 'GET',
+      url: `/api/orders/${paid.reference}`,
+      cookies: paid.cookies,
+    });
+    expect(view.json<{ order: { status: string } }>().order.status).toBe('DELIVERED');
+
+    // Repetir la orden no hace nada más.
+    expect(await ask(paid.reference, 'Entregado')).toMatch(/^✔️ Ya estaba: Entregado/);
+    expect((await orderState(paid.id)).order).toBe('DELIVERED');
+  });
+
+  it('«🔄 En proceso» deja la entrega en curso y luego «Entregado» la termina', async () => {
+    const paid = await paidOrder();
+    expect(await ask(paid.reference, '🔄 En proceso')).toMatch(/^✔️ Aplicado: En proceso/);
+    expect(await orderState(paid.id)).toMatchObject({
+      order: 'DELIVERING',
+      delivery: { status: 'DELIVERING' },
+    });
+    expect(sheet.deliveries.find((row) => row[0] === paid.reference)?.[1]).toBe('🔄 En proceso');
+    expect(await ask(paid.reference, '✅ Entregado')).toMatch(/^✔️ Aplicado: Entregado/);
+    expect(await orderState(paid.id)).toMatchObject({
+      order: 'DELIVERED',
+      delivery: { evidence: 'Entregado (marcado por el dueño en la hoja de Google)' },
+    });
+  });
+
+  it('«⚠️ No se pudo entregar» deja el pedido en revisión con el motivo', async () => {
+    const paid = await paidOrder();
+    expect(await ask(paid.reference, '⚠️ No se pudo entregar', 'ID bloqueado (prueba)')).toMatch(
+      /^✔️ Aplicado: No se pudo entregar/,
+    );
+    expect(await orderState(paid.id)).toMatchObject({
+      order: 'NEEDS_REVIEW',
+      delivery: { status: 'FAILED', failureReason: 'ID bloqueado (prueba)' },
+    });
+    expect(sheet.deliveries.find((row) => row[0] === paid.reference)?.[1]).toBe(
+      '⚠️ Requiere revisión',
+    );
+    // Desde la hoja no se salta la revisión: eso se resuelve en el panel.
+    expect(await ask(paid.reference, '✅ Entregado')).toMatch(/^✖️ No se aplicó: está en revisión/);
+    expect((await orderState(paid.id)).order).toBe('NEEDS_REVIEW');
+  });
+
+  it('un pedido sin pago confirmado nunca se entrega desde la hoja', async () => {
+    uid += 1;
+    const created = await inject({
+      method: 'POST',
+      url: '/api/checkout',
+      headers: CSRF,
+      payload: {
+        checkoutKey: randomUUID(),
+        game: 'freefire',
+        playerUid: String(uid),
+        playerServer: 'latam',
+        customerName: 'Nombre Privado',
+        customerEmail: `sin-pago-${uid}@example.com`,
+        acceptTerms: true,
+        termsVersion: '2026-10-05',
+        items: [{ sku: 'ff-110', quantity: 1 }],
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    const { order } = created.json<{ order: { reference: string; status: string } }>();
+    expect(await ask(order.reference, '✅ Entregado')).toMatch(
+      /^✖️ No se aplicó: el pedido todavía no tiene un pago confirmado/,
+    );
+    const [row] = await h.database.db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.publicRef, order.reference));
+    expect(row?.status).toBe(order.status);
+  });
+
+  it('opciones desconocidas, referencias que no existen o sin cuenta de dueño: responde y no toca nada', async () => {
+    const paid = await paidOrder();
+    expect(await ask(paid.reference, 'Pago confirmado')).toMatch(/^✖️ No entendí la opción/);
+    expect(await ask('TGS-NOEXISTE00', '✅ Entregado')).toMatch(/no hay un pedido/);
+    expect(
+      await applySheetCommand(
+        h.deps,
+        { reference: paid.reference, command: '✅ Entregado', note: '' },
+        undefined,
+      ),
+    ).toMatch(/entra una vez al panel con tu cuenta de dueño/);
+    expect((await orderState(paid.id)).order).toBe('PAID');
+  });
+
+  it('con la columna vacía no hace nada (ni toca la base de datos)', async () => {
+    expect(await processSheetCommands(h.deps)).toBe(0);
+    expect(sheet.responses).toEqual([]);
+  });
+});
+
 describe('pestaña «Pagos pendientes» (Nequi)', () => {
   const NEQUI_ENV = {
     PLAYER_VERIFICATION: 'customer',
@@ -630,11 +791,16 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     // Ya pagado: el pedido pasa a «Entregas» como cualquier otro.
     expect(sheet.deliveries.some((r) => r[0] === o.ref)).toBe(true);
 
-    // Nada que identifique al cliente: ni correo, ni nombre, ni ID del jugador.
+    // A quién se recarga, como en «Entregas» (lo pidió el dueño): ID, cómo se confirmó y
+    // servidor. Nunca el correo ni el nombre del cliente.
+    expect(row?.[column('ID del jugador')]).toBe(o.uid);
+    expect(row?.[column('Confirmación del jugador')]).toBe(
+      'Confirmado por el cliente (escribió su ID dos veces)',
+    );
+    expect(row?.[column('Servidor elegido')]).not.toBe('');
     const text = JSON.stringify(row);
     expect(text).not.toContain(o.email);
     expect(text).not.toContain('Nombre Privado');
-    expect(text).not.toContain(o.uid);
   });
 
   it('un pedido Nequi que vence sin pago queda «Venció sin pago»', async () => {

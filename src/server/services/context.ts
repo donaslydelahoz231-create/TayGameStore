@@ -37,6 +37,8 @@ export interface Actor {
   userId?: string | undefined;
   ipHash?: string | undefined;
   requestId?: string | undefined;
+  /** Canal por el que actuó (p. ej. el dueño desde la hoja de Google): queda en el historial. */
+  via?: 'google_sheet' | undefined;
 }
 
 export const SYSTEM_ACTOR: Actor = { type: 'system' };
@@ -68,6 +70,7 @@ export async function audit(db: DbOrTx, actor: Actor, input: AuditInput): Promis
     if (value !== undefined) data[key] = value;
   }
   if (actor.requestId) data.requestId = actor.requestId;
+  if (actor.via) data.via = actor.via;
   await db.insert(auditEvents).values({
     entityType: input.entityType,
     entityId: input.entityId,

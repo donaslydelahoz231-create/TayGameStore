@@ -2386,3 +2386,45 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:**
   - Filas de «Entregas»: todavía no hay pedidos pagados.
   - Que el dueño borró el archivo `.json` descargado: solo puede comprobarlo él.
+
+### 2026-10-29 · Estado de la entrega desde la hoja y datos del jugador en «Pagos pendientes»
+
+- **Autorizó:** el dueño. Pidió dos cosas:
+  - «te faltó la información del jugador: ID confirmada, región»;
+  - «haz un apartado en el excel… para cambiar el estado de completado el pedido y en mi tienda
+    el estado del pedido esté conectado; no quiero que sea de decoración».
+  - Ya había dado permiso total para publicar.
+  - Añadir el ID del jugador a «Pagos pendientes» aumenta los datos personales de la hoja. Lo
+    pidió el dueño de forma explícita.
+- **Código:**
+  - `sheet-commands.ts` lee la columna T de «Entregas» cada 30 s y aplica el estado con
+    `fulfillmentAction`, las mismas reglas del panel.
+  - El cliente de Google lee T:U y responde en V.
+  - `pendingPaymentRow` suma 5 columnas del jugador.
+  - El historial guarda `via: google_sheet`.
+  - Nada de pagos: confirmar o rechazar Nequi sigue siendo solo del panel.
+- **Pruebas locales:**
+  - Unitarias: 397 de 397.
+  - Integración: 311 de 311, con el rol restringido. Las 6 nuevas cubren entregado, en proceso,
+    no se pudo entregar, sin pago, opción desconocida y columna vacía.
+  - Lint, tipos y formato en verde.
+- **Hoja (primero la copia de prueba, con datos ficticios):**
+  - Columnas añadidas: «Pagos pendientes» +5, «Entregas» +3 y «Por verificar» +5.
+  - Encabezados con el mismo estilo.
+  - Lista desplegable en T2:T1000.
+  - T2:U1000 libres de la protección con aviso.
+  - La fórmula de «Por verificar» lee A2:R y muestra los datos del jugador.
+  - Comprobado: Google devuelve `[]` en las filas vacías intermedias de T2:U, como espera el
+    código.
+- **Hoja real:**
+  - Copia de seguridad previa en el Drive del dueño.
+  - El mismo lote, atado a la revisión leída.
+  - Lectura de vuelta: encabezados correctos y «Por verificar» sin errores.
+  - «Léeme» con la sección nueva. Se quitaron los pasos de conexión, ya hechos.
+- **Base (solo conteos):** 1 cuenta de administrador, 0 entregas (todavía ningún pedido pagado) y
+  9 pedidos Nequi.
+- **NO VERIFICADO:**
+  - Un cambio de estado real desde la hoja, porque todavía no hay pedidos pagados. Se verificará
+    con el primero.
+  - Que la cuenta de administrador sea el primer correo de `ADMIN_EMAILS`. No se leen las
+    variables de Render; si no lo es, la columna V lo dirá.

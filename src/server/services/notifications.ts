@@ -655,7 +655,8 @@ const SHEET_EVENT_LABELS: Record<EventKind, string> = {
   order_refunded_event: 'Reembolso',
 };
 
-const bogotaTime = new Intl.DateTimeFormat('sv-SE', {
+/** Fecha y hora de Colombia como las escribe la hoja («2026-10-29 10:15»). */
+export const bogotaTime = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'America/Bogota',
   dateStyle: 'short',
   timeStyle: 'short',
@@ -720,7 +721,8 @@ export function sheetRow(
 /**
  * Encabezados de la pestaña «Pagos pendientes» (misma hoja; ver docs/google-sheets.md): una fila
  * por pedido Nequi, desde que el cliente elige Nequi hasta que el dueño confirma o rechaza el pago
- * o el pedido vence. La columna A (referencia) es la clave de la fila.
+ * o el pedido vence. La columna A (referencia) es la clave de la fila. Los datos del jugador van
+ * al final (pedido del dueño, 2026-10-29) para no mover las columnas que leen sus fórmulas.
  */
 export const PENDING_PAYMENT_COLUMNS = [
   'Referencia',
@@ -736,9 +738,27 @@ export const PENDING_PAYMENT_COLUMNS = [
   'Referencia Nequi confirmada',
   'Motivo del rechazo',
   'Actualizado (Colombia)',
+  'ID del jugador',
+  'Nickname confirmado',
+  'Confirmación del jugador',
+  'Servidor elegido',
+  'Región detectada',
 ] as const;
 
-type PendingOrder = Pick<OrderSnapshot, 'reference' | 'status' | 'totalCop' | 'items'> & {
+type PendingOrder = Pick<
+  OrderSnapshot,
+  | 'reference'
+  | 'status'
+  | 'totalCop'
+  | 'items'
+  | 'playerUid'
+  | 'nickname'
+  | 'region'
+  | 'server'
+  | 'verificationStatus'
+  | 'verificationNote'
+  | 'verifiedByOwner'
+> & {
   expiresAt: Date | null;
   createdAt: Date;
 };
@@ -778,9 +798,10 @@ export function pendingPaymentStatus(
 }
 
 /**
- * Fila de «Pagos pendientes»: lo que el cliente debe (total y paquete), hasta cuándo, y lo que
+ * Fila de «Pagos pendientes»: lo que el cliente debe (total y paquete), hasta cuándo, lo que
  * avisó al transferir (4 últimos dígitos de su cuenta y referencia de su comprobante), para
- * buscarlo en la app Nequi. Nunca correo, nombre, celular completo ni datos del jugador.
+ * buscarlo en la app Nequi, y a quién se recarga (ID, nickname, cómo se confirmó, servidor y
+ * región, como en «Entregas»). Nunca correo, nombre, celular completo ni PIN.
  */
 export function pendingPaymentRow(
   order: PendingOrder,
@@ -804,6 +825,11 @@ export function pendingPaymentRow(
     confirmed ? sheetText(latest.nequiReference ?? '') : '',
     latest?.status === 'REJECTED' ? sheetText(latest.rejectionReason ?? '') : '',
     bogotaTime.format(updatedAt),
+    order.playerUid,
+    sheetText(order.nickname ?? ''),
+    playerConfirmationLabel(order),
+    order.server ?? '',
+    sheetText(order.region ?? ''),
   ];
 }
 

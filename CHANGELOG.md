@@ -5,6 +5,29 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Cambiar el estado de un pedido desde la hoja, conectado de verdad con la tienda (2026-10-29)
+
+- **«Entregas» tiene tres columnas tuyas**:
+  - T «Cambiar estado (tú)», una lista con «🔄 En proceso», «✅ Entregado» y «⚠️ No se pudo
+    entregar»;
+  - U «Nota del cambio (tú)»;
+  - V «Respuesta de la tienda».
+- **Cada 30 segundos la tienda lee la columna T** y aplica el estado con las mismas reglas y el
+  mismo historial que el panel:
+  - el pedido cambia de estado y el cliente ve «¡Envío exitoso!»;
+  - la columna B se actualiza;
+  - en V responde «✔️ Aplicado…» o «✖️ No se aplicó: motivo»;
+  - T y U se vacían solas.
+- **Lo que no hace**:
+  - nunca entrega un pedido sin pago confirmado;
+  - no deshace una entrega ni salta una revisión;
+  - no toca pagos: confirmar o rechazar Nequi sigue siendo solo del panel.
+- El historial lo firma la cuenta del dueño, marcado `via: google_sheet`.
+- **Datos del jugador en «Pagos pendientes» y «Por verificar»**: ID, nickname, cómo se confirmó,
+  servidor y región (columnas N a R, al final para no mover las fórmulas). Lo pidió el dueño.
+- Hoja real ampliada con copia de seguridad previa. Probada antes en la copia con datos
+  ficticios. «Léeme» explica cómo usar las columnas nuevas.
+
 ### La hoja de Google ya recibe los pedidos reales (2026-10-29)
 
 - El dueño cargó la llave de `tienda-hoja` en Render: desde las 14:39 UTC la tienda escribe en la

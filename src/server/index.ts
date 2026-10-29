@@ -1,6 +1,7 @@
 import { buildServer } from './bootstrap.js';
 import { ConfigError, loadConfig, type AppConfig } from './config/env.js';
 import { isActivityRequest, startScheduler, type Scheduler } from './services/jobs.js';
+import { startSheetCommandPoller, type SheetCommandPoller } from './services/sheet-commands.js';
 
 let config: AppConfig;
 try {
@@ -13,6 +14,7 @@ try {
 const { app, deps, database } = await buildServer(config);
 
 let scheduler: Scheduler | undefined;
+let sheetCommands: SheetCommandPoller | undefined;
 if (deps && config.jobsEnabled) {
   const jobs = startScheduler(deps, { idleMs: config.jobsIdleMinutes * 60_000 });
   scheduler = jobs;
@@ -20,6 +22,11 @@ if (deps && config.jobsEnabled) {
   app.server.on('request', (request: { url?: string }) => {
     if (isActivityRequest(request.url)) jobs.markActivity();
   });
+  // Cambios de estado que el dueño elige en la hoja («Entregas», columna T): una entrega
+  // aplicada es actividad, así los avisos y la hoja salen a su ritmo normal.
+  if (deps.sheets) {
+    sheetCommands = startSheetCommandPoller(deps, { onWork: () => jobs.markActivity() });
+  }
 }
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -33,6 +40,7 @@ async function shutdown(signal: NodeJS.Signals, exitCode = 0): Promise<void> {
   forceExit.unref();
   try {
     scheduler?.stop();
+    sheetCommands?.stop();
     await app.close();
     await database?.close();
     process.exit(exitCode);

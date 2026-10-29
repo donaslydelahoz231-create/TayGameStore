@@ -4,8 +4,10 @@ import { createSign } from 'node:crypto';
  * Registro auxiliar de pedidos en una hoja de Google Sheets (opcional).
  *
  * - NO es la base de datos ni la autoridad de nada: el estado oficial vive en PostgreSQL y el
- *   pago lo confirma Mercado Pago. Editar una celda no cambia ningún pedido: la tienda solo lee
- *   la columna A de «Entregas» para encontrar la fila de cada referencia.
+ *   pago lo confirma Mercado Pago (o el dueño en el panel, con Nequi). Editar una celda de los
+ *   datos no cambia ningún pedido. La única entrada son las columnas del dueño en «Entregas»
+ *   (`COMMAND_COLUMNS`): ahí elige el estado de la entrega y la tienda lo aplica con las mismas
+ *   reglas del panel (ver services/sheet-commands.ts). Nunca un pago.
  * - Escribe con `valueInputOption=RAW`: nada se interpreta como fórmula.
  * - Cuatro pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
  *   operación), «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
@@ -17,8 +19,8 @@ import { createSign } from 'node:crypto';
  * - Se usa desde la cola de avisos: si Google falla, el pedido sigue igual y la fila se reintenta.
  *
  * APIs oficiales: OAuth 2.0 para cuentas de servicio (JWT con RS256 hacia
- * https://oauth2.googleapis.com/token) y Sheets API v4 `spreadsheets.values` (`get`, `update`
- * y `append`).
+ * https://oauth2.googleapis.com/token) y Sheets API v4 `spreadsheets.values` (`get`,
+ * `batchGet`, `update` y `append`).
  */
 
 /**
@@ -28,6 +30,23 @@ import { createSign } from 'node:crypto';
  */
 export type SheetTab = 'orders' | 'deliveries' | 'pending' | 'users';
 
+/**
+ * Columnas del dueño en «Entregas», justo después de las 19 que escribe la tienda (A–S, ver
+ * `DELIVERY_COLUMNS`): T «Cambiar estado (tú)» (lista), U «Nota del cambio (tú)» y V «Respuesta
+ * de la tienda». Al reescribir la fila de un pedido la tienda solo toca A–S.
+ */
+export const COMMAND_COLUMNS = { command: 'T', note: 'U', response: 'V' } as const;
+
+/** Un cambio de estado que el dueño dejó escrito en «Entregas». */
+export interface SheetCommand {
+  /** Referencia del pedido (columna A de la misma fila). */
+  reference: string;
+  /** Lo que eligió en la columna T, tal cual. */
+  command: string;
+  /** Nota opcional de la columna U (evidencia de la entrega o motivo). */
+  note: string;
+}
+
 export interface OrderSheetLog {
   /** Agrega una fila al final de la pestaña. */
   appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void>;
@@ -36,6 +55,13 @@ export interface OrderSheetLog {
    * o, si no existe, la agrega al final.
    */
   upsertRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void>;
+  /** Cambios de estado que el dueño dejó en «Entregas» (filas con la columna T escrita). */
+  readCommands?(): Promise<SheetCommand[]>;
+  /**
+   * Escribe la respuesta (columna V) en la fila del pedido y vacía T y U, salvo que el dueño ya
+   * haya escrito otra cosa en T: esa queda para la próxima pasada.
+   */
+  finishCommand?(command: SheetCommand, response: string): Promise<void>;
 }
 
 export interface GoogleSheetsOptions {
@@ -134,6 +160,25 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values/${range}`;
   }
 
+  /** Lee varios rangos de una pestaña en una sola llamada (filas como listas de celdas). */
+  private async readRanges(tab: SheetTab, ranges: string[]): Promise<string[][][]> {
+    const query = ranges
+      .map((cells) => `ranges=${encodeURIComponent(a1(this.options.tabs[tab], cells))}`)
+      .join('&');
+    const response = await this.request(
+      `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values:batchGet?${query}&majorDimension=ROWS`,
+      { method: 'GET' },
+      'Google Sheets no dejó leer los cambios del dueño',
+    );
+    const body = (await response.json()) as { valueRanges?: { values?: unknown }[] };
+    return ranges.map((_, i) => {
+      const values = body.valueRanges?.[i]?.values;
+      return Array.isArray(values)
+        ? values.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []))
+        : [];
+    });
+  }
+
   /** Llamada a la API con el token; un 401 lo descarta para pedir otro en el próximo intento. */
   private async request(url: string, init: RequestInit, failure: string): Promise<Response> {
     const token = await this.accessToken();
@@ -180,6 +225,45 @@ export class GoogleSheetsLog implements OrderSheetLog {
       `${this.valuesUrl(tab, `A${index + 1}`)}?valueInputOption=RAW`,
       { method: 'PUT', body: JSON.stringify({ values: [values] }) },
       'Google Sheets no aceptó la actualización de la fila',
+    );
+  }
+
+  /**
+   * Casi siempre la columna T está vacía: se lee solo T:U (Google no devuelve las filas vacías
+   * del final) y la columna de referencias únicamente si hay algo que aplicar.
+   */
+  async readCommands(): Promise<SheetCommand[]> {
+    const { command: t, note: u } = COMMAND_COLUMNS;
+    const [orders = []] = await this.readRanges('deliveries', [`${t}2:${u}`]);
+    if (!orders.some((row) => row[0]?.trim())) return [];
+    const [references = []] = await this.readRanges('deliveries', ['A2:A']);
+    const commands: SheetCommand[] = [];
+    orders.forEach((row, i) => {
+      const command = row[0]?.trim() ?? '';
+      const reference = references[i]?.[0]?.trim() ?? '';
+      if (command && reference) commands.push({ reference, command, note: row[1]?.trim() ?? '' });
+    });
+    return commands;
+  }
+
+  /** Busca la fila por la referencia al escribir: el dueño pudo ordenar la pestaña mientras tanto. */
+  async finishCommand(command: SheetCommand, response: string): Promise<void> {
+    const { command: t, note: u, response: v } = COMMAND_COLUMNS;
+    const [references = [], orders = []] = await this.readRanges('deliveries', [
+      'A2:A',
+      `${t}2:${u}`,
+    ]);
+    const index = references.findIndex((row) => row[0]?.trim() === command.reference);
+    if (index < 0) return;
+    const row = index + 2;
+    const unchanged = (orders[index]?.[0]?.trim() ?? '') === command.command;
+    await this.request(
+      `${this.valuesUrl('deliveries', unchanged ? `${t}${row}:${v}${row}` : `${v}${row}`)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ values: [unchanged ? ['', '', response] : [response]] }),
+      },
+      'Google Sheets no aceptó la respuesta al dueño',
     );
   }
 }

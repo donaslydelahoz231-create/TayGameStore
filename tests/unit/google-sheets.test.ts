@@ -2,6 +2,7 @@ import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from '../../src/server/config/env.js';
 import {
+  COMMAND_COLUMNS,
   GOOGLE_TOKEN_URL,
   GoogleSheetsLog,
   SHEETS_SCOPE,
@@ -394,6 +395,13 @@ describe('Google Sheets: fila de «Pagos pendientes» (Nequi)', () => {
     items: [{ name: '310 diamantes', quantity: 1, unitPriceCop: 18000, lineTotalCop: 18000 }],
     expiresAt: new Date('2026-10-20T20:00:00Z'),
     createdAt: new Date('2026-10-20T19:00:00Z'),
+    playerUid: '123456789',
+    nickname: '=NickFicticio',
+    region: 'Colombia',
+    server: 'Latinoamérica',
+    verificationStatus: 'CONFIRMED' as const,
+    verificationNote: 'cliente',
+    verifiedByOwner: false,
   };
   const reported = {
     status: 'REPORTED' as const,
@@ -440,6 +448,11 @@ describe('Google Sheets: fila de «Pagos pendientes» (Nequi)', () => {
       '',
       '',
       '2026-10-20 14:11',
+      '123456789',
+      "'=NickFicticio",
+      'Confirmado por el cliente (escribió su ID dos veces)',
+      'Latinoamérica',
+      'Colombia',
     ]);
   });
 });
@@ -642,5 +655,103 @@ describe('Google Sheets: fila de «Entregas»', () => {
       'Verificado por el dueño y aceptado por el cliente',
     );
     expect(label({ verificationStatus: 'NOT_FOUND' })).toBe('ID no encontrado');
+  });
+});
+
+describe('Google Sheets: cambios de estado que el dueño escribe en «Entregas»', () => {
+  const newLog = (responses: (() => Response)[]) => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token-de-prueba', expires_in: 3600 }),
+      ...responses,
+    ]);
+    const log = new GoogleSheetsLog({
+      spreadsheetId: SPREADSHEET_ID,
+      clientEmail: CLIENT_EMAIL,
+      privateKey,
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+      },
+      fetch: fetcher.impl,
+    });
+    return { log, calls: fetcher.calls };
+  };
+  const ranges = (url: string | undefined) =>
+    new URL(url ?? '').searchParams.getAll('ranges').map((range) => decodeURIComponent(range));
+
+  it('las columnas del dueño van justo después de las que escribe la tienda (A–S)', () => {
+    expect(DELIVERY_COLUMNS).toHaveLength(19);
+    expect(COMMAND_COLUMNS).toEqual({ command: 'T', note: 'U', response: 'V' });
+  });
+
+  it('con la columna T vacía hace una sola lectura y no pide las referencias', async () => {
+    const { log, calls } = newLog([json({ valueRanges: [{ range: 'Entregas!T2:U' }] })]);
+    expect(await log.readCommands()).toEqual([]);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.url).toContain('/values:batchGet?');
+    expect(ranges(calls[1]?.url)).toEqual(['Entregas!T2:U']);
+  });
+
+  it('une cada orden con la referencia de su fila e ignora filas sin orden o sin referencia', async () => {
+    const { log, calls } = newLog([
+      json({
+        valueRanges: [{ values: [[], ['✅ Entregado', 'Pedido LootBar 123'], [' En proceso ']] }],
+      }),
+      json({ valueRanges: [{ values: [['TGS-AAAAAAAAAA'], ['TGS-BBBBBBBBBB']] }] }),
+    ]);
+    expect(await log.readCommands()).toEqual([
+      { reference: 'TGS-BBBBBBBBBB', command: '✅ Entregado', note: 'Pedido LootBar 123' },
+    ]);
+    expect(ranges(calls[2]?.url)).toEqual(['Entregas!A2:A']);
+  });
+
+  it('responde en V y vacía T y U de la fila del pedido aunque la pestaña se haya ordenado', async () => {
+    const { log, calls } = newLog([
+      json({
+        valueRanges: [
+          { values: [['TGS-BBBBBBBBBB'], ['TGS-AAAAAAAAAA']] },
+          { values: [['✅ Entregado'], []] },
+        ],
+      }),
+      json({}),
+    ]);
+    await log.finishCommand(
+      { reference: 'TGS-BBBBBBBBBB', command: '✅ Entregado', note: '' },
+      '✔️ Aplicado: Entregado · 2026-10-29 10:15',
+    );
+    const put = calls[2];
+    expect(put?.init.method).toBe('PUT');
+    expect(decodeURIComponent(put?.url ?? '')).toContain('Entregas!T2:V2?valueInputOption=RAW');
+    expect(JSON.parse(put?.init.body as string)).toEqual({
+      values: [['', '', '✔️ Aplicado: Entregado · 2026-10-29 10:15']],
+    });
+  });
+
+  it('si el dueño ya escribió otra orden en T, solo responde y la deja para la próxima pasada', async () => {
+    const { log, calls } = newLog([
+      json({
+        valueRanges: [{ values: [['TGS-AAAAAAAAAA']] }, { values: [['⚠️ No se pudo entregar']] }],
+      }),
+      json({}),
+    ]);
+    await log.finishCommand(
+      { reference: 'TGS-AAAAAAAAAA', command: '✅ Entregado', note: '' },
+      '✔️ Aplicado: Entregado',
+    );
+    expect(decodeURIComponent(calls[2]?.url ?? '')).toContain('Entregas!V2?valueInputOption=RAW');
+    expect(JSON.parse(calls[2]?.init.body as string)).toEqual({
+      values: [['✔️ Aplicado: Entregado']],
+    });
+  });
+
+  it('si la fila ya no existe, no escribe nada', async () => {
+    const { log, calls } = newLog([json({ valueRanges: [{ values: [['TGS-OTRAOTRA00']] }, {}] })]);
+    await log.finishCommand(
+      { reference: 'TGS-AAAAAAAAAA', command: '✅ Entregado', note: '' },
+      '✔️ Aplicado: Entregado',
+    );
+    expect(calls).toHaveLength(2);
   });
 });

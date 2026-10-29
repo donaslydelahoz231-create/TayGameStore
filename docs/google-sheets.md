@@ -128,6 +128,8 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
         (transferencia) · referencia del movimiento»
     18. Evidencia o motivo (de la entrega, el fallo o la revisión)
     19. Actualizado (Colombia)
+  - **columnas del dueño T, U y V** (ver «Cambiar el estado de un pedido desde la hoja»): la tienda
+    nunca las reescribe al actualizar la fila (solo escribe A–S).
 - **«Pagos pendientes»** (`GOOGLE_SHEETS_PENDING_TAB`). Pedido del dueño (2026-10-20): ver en la
   hoja el pago pendiente del cliente hacia el dueño. Solo pedidos **Nequi**: a los de Mercado
   Pago los confirma Mercado Pago, no el dueño.
@@ -139,7 +141,7 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
     confirmado», «↩️ Devuelto al cliente», «⌛ Venció sin pago» o «⚠️ Venció con un aviso sin
     verificar: revisa tu Nequi». **El aviso del cliente nunca es un pago**: solo la confirmación
     del dueño en el panel, después de ver el dinero en su app Nequi;
-  - 13 columnas, en este orden:
+  - 18 columnas, en este orden:
     1. Referencia
     2. Estado del pago
     3. Total a recibir
@@ -153,8 +155,15 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
     11. Referencia Nequi confirmada (la que escribió el dueño al confirmar)
     12. Motivo del rechazo (el que escribió el dueño)
     13. Actualizado (Colombia)
+    14. ID del jugador
+    15. Nickname confirmado
+    16. Confirmación del jugador (mismas frases que en «Entregas»)
+    17. Servidor elegido
+    18. Región detectada
+  - las columnas 14–18 (a quién se recarga) las pidió el dueño el 2026-10-29: van al final para
+    no mover las columnas que leen «Hoy» y «Por verificar»;
   - lleva los 4 últimos dígitos y la referencia que dio el cliente (datos de pago de tus
-    clientes): nunca su correo, nombre, celular completo ni el ID del jugador.
+    clientes) y los datos del jugador: nunca su correo, nombre, celular completo ni PIN.
 - **«Usuarios»** (`GOOGLE_SHEETS_USERS_TAB`). Pedido del dueño (2026-10-21): cada cliente de la
   tienda, invitado o con cuenta (Google o Facebook), recibe un **nombre de usuario al azar**
   (p. ej. «HalconFugaz482») que puede cambiar en «Cuenta → Cambiar nombre de usuario».
@@ -357,13 +366,54 @@ Una variable de la hoja incompleta o mal escrita **nunca impide arrancar la tien
 
 Cambiar variables de Render es un cambio en producción: requiere la autorización del dueño.
 
+## Cambiar el estado de un pedido desde la hoja (2026-10-29)
+
+Pedido del dueño: «un apartado para cambiar el estado de completado el pedido y que en mi tienda
+el estado esté conectado; no de decoración». Lo hacen tres columnas de «Entregas»:
+
+- **T «Cambiar estado (tú)»**: lista con «🔄 En proceso», «✅ Entregado» y «⚠️ No se pudo
+  entregar» (también entiende «Completado», sin importar emojis, tildes ni mayúsculas).
+- **U «Nota del cambio (tú)»** (opcional): evidencia de la entrega (p. ej. el número de la
+  compra en LootBar) o motivo del fallo. Vacía, la tienda pone «Entregado (marcado por el dueño en
+  la hoja de Google)» o su equivalente.
+- **V «Respuesta de la tienda»**: «✔️ Aplicado: Entregado · 2026-10-29 10:15», «✔️ Ya
+  estaba: …» o «✖️ No se aplicó: motivo · hora». Al responder, la tienda vacía T y U (si el
+  dueño ya escribió otra cosa en T, la deja para la próxima pasada).
+
+Cómo funciona (`src/server/services/sheet-commands.ts`):
+
+- Cada **30 segundos** la tienda lee T2:U de «Entregas» (una lectura de Google; Google omite las
+  filas vacías del final). Solo si hay algo escrito lee las referencias y usa la base de datos:
+  el modo reposo de Neon no cambia.
+- Aplica el estado con **las mismas reglas y el mismo historial que el panel**
+  (`fulfillmentAction`): tomar → iniciar → entregar o marcar fallida, recalculando el siguiente
+  paso con el estado real (repetir la orden no hace nada más). Con «✅ Entregado» el pedido pasa a
+  ENTREGADO, el cliente ve «¡Envío exitoso!» en su pedido, sale el aviso de entrega (si hay
+  correo) y la columna B se actualiza en 1–2 s. «⚠️ No se pudo entregar» deja el pedido en
+  revisión con el motivo.
+- **Nunca**: entrega un pedido sin pago confirmado, deshace una entrega, salta una revisión ni
+  toca una recarga automática (UniPin). **Nada de pagos**: confirmar o rechazar un pago Nequi
+  sigue siendo solo del panel, con inicio de sesión y segundo paso.
+- Quien actúa es la cuenta de administrador del dueño (primer correo de `ADMIN_EMAILS`); cada
+  evento del historial lleva `via: google_sheet`. Si esa cuenta no existe en la base, responde
+  «entra una vez al panel con tu cuenta de dueño».
+- La protección con aviso de «Entregas» deja libres T2:U1000 (sin el aviso al editar); el resto
+  de la pestaña sigue protegida con aviso.
+- Si Google falla, avisa en el registro (`sheet_commands_failed`, como mucho cada 10 minutos) y lo
+  intenta de nuevo en la siguiente pasada. Si falla la base de datos, la orden queda escrita y se
+  reintenta.
+- Con Render dormido (plan gratuito) no corre: se aplica cuando la tienda despierta.
+
 ## Riesgos
 
-- Quien tenga acceso a la hoja ve referencias, paquetes y totales; en «Entregas», el ID,
-  nickname, servidor y región de cada jugador, y en «Pagos pendientes», los 4 últimos dígitos y
-  la referencia de pago que avisó cada cliente Nequi (datos personales de tus clientes). Compártela
-  solo con la cuenta de servicio y contigo; nunca con enlace. La política de privacidad
-  (`privacidad.html`, punto 4) lo informa.
+- Quien tenga acceso a la hoja ve referencias, paquetes y totales; en «Entregas» y «Pagos
+  pendientes», el ID, nickname, servidor y región de cada jugador, y en «Pagos pendientes», los 4
+  últimos dígitos y la referencia de pago que avisó cada cliente Nequi (datos personales de tus
+  clientes). Compártela solo con la cuenta de servicio y contigo; nunca con enlace. La política de
+  privacidad (`privacidad.html`, punto 4) lo informa.
+- **Quien pueda editar la hoja puede marcar entregas a nombre del dueño** (columnas T y U de
+  «Entregas»). No puede confirmar pagos ni entregar pedidos sin pagar, pero el cliente vería su
+  pedido como entregado. Por eso la hoja es solo del dueño y de `tienda-hoja`.
 - La llave de la cuenta de servicio solo puede editar las hojas compartidas con su correo.
   Si se filtra, bórrala en Google Cloud y crea otra.
 - Apagarlo: borra las variables en Render. Los pedidos no se ven afectados.
