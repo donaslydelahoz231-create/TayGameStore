@@ -1,20 +1,21 @@
 # Registro auxiliar en Google Sheets (opcional)
 
-**Estado (2026-10-29):** implementado y probado; en producción **apagado** hasta que el dueño
-cargue la llave.
+**Estado (2026-10-29): conectada y recibiendo pedidos reales en producción** desde las 14:39 UTC
+(09:39 en Colombia).
 
-- El arranque de producción dice «Hoja de Google apagada: falta la llave de la cuenta de
-  servicio (`GOOGLE_SHEETS_CREDENTIALS_JSON`)». El id de la hoja ya está en Render.
-- La hoja real («TayGameStore · Registro de pedidos», en el Drive del dueño) está lista
-  (revisado en solo lectura):
-  - tiene las pestañas «Pedidos», «Entregas», «Pagos pendientes» y «Usuarios», con encabezados
-    idénticos a las columnas que escribe la tienda;
-  - está compartida solo con el dueño y con la cuenta de servicio `tienda-hoja` (Editor), sin
-    enlace público.
-- Al cargar la llave, el arranque dice `hojaGoogle: true` y la hoja se pone al día sola (ver
-  «Puesta al día al conectar»).
-- Desde el 2026-10-29 la hoja también calcula sola lo que el dueño debe hacer y sus reportes:
-  pestañas «Hoy», «Por verificar» y «Reporte mensual» (ver «Pestañas calculadas para el dueño»).
+- El dueño cargó la llave de `tienda-hoja` en Render (`GOOGLE_SHEETS_CREDENTIALS_JSON`) y desplegó
+  (`dep-dbhlkp6c6qcc73foejm0`, commit `52978e4`). El arranque dice `hojaGoogle: true` y «hoja de
+  Google conectada» con la cuenta `tienda-hoja@…`.
+- La puesta al día escribió las 6 filas que faltaban en «Pagos pendientes» (`filasNuevas: 6`,
+  `filasReintentadas: 0`) y la pestaña «Usuarios» quedó con los 64 perfiles, todos sin error.
+- Prueba con un pedido real: un pedido Nequi creado a las 14:51:03 UTC tuvo su fila en «Pagos
+  pendientes» a las 14:51:04 UTC (1,5 s). «Hoy» lo contó al momento (última fila: 0 minutos).
+- La hoja real («TayGameStore · Registro de pedidos», en el Drive del dueño) sigue compartida solo
+  con el dueño y con la cuenta de servicio `tienda-hoja` (Editor), sin enlace público.
+- La hoja también calcula sola lo que el dueño debe hacer y sus reportes: pestañas «Hoy», «Por
+  verificar» y «Reporte mensual» (ver «Pestañas calculadas para el dueño»).
+- Si un día el arranque dice «Hoja de Google apagada», la llave se borró o cambió: repetir «Cómo
+  activarlo». La tienda y los pagos siguen funcionando igual sin la hoja.
 
 ## Cada cuánto se actualiza
 
@@ -327,8 +328,9 @@ Cómo se hizo y cómo se comprobó:
 ## Cómo activarlo (dueño)
 
 Lo único que solo puede hacer el dueño es crear la llave (nunca pasa por el chat ni por el
-repositorio). El id de la hoja ya está cargado en Render (`GOOGLE_SHEETS_SPREADSHEET_ID`) y la hoja
-ya está compartida con la cuenta de servicio `tienda-hoja` como Editor.
+repositorio). Hecho el 2026-10-29; estos pasos sirven si algún día hay que cambiarla. El id de la
+hoja ya está cargado en Render (`GOOGLE_SHEETS_SPREADSHEET_ID`) y la hoja ya está compartida con la
+cuenta de servicio `tienda-hoja` como Editor.
 
 1. En [Google Cloud → IAM y administración → Cuentas de servicio](https://console.cloud.google.com/iam-admin/serviceaccounts)
    (proyecto **taygamestores**), abre **tienda-hoja** → pestaña **Claves**:

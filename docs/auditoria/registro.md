@@ -2353,3 +2353,36 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Sigue pendiente del dueño:** la llave JSON de `tienda-hoja` en Render
   (`GOOGLE_SHEETS_CREDENTIALS_JSON`). Hasta entonces las fórmulas no tienen filas reales que
   calcular (NO VERIFICADO con datos de producción).
+
+### 2026-10-29 · Publicación de 52978e4 y hoja de Google conectada en producción
+
+- **Autorizó:** el dueño («hazlo todo por tu cuenta… tienes el permiso total», «quiero que mi
+  hoja reciba pedidos reales en producción»). El dueño cargó la llave él mismo en Render; nunca
+  pasó por el chat, el repositorio ni las herramientas.
+- **Publicación de `52978e4`:** Render `dep-dbhktp0473hc73cnoi90` en `live` (13:49–13:50); CI #235,
+  CodeQL #179 y smoke #93 en `success`.
+- **Llave cargada:** el dueño agregó `GOOGLE_SHEETS_CREDENTIALS_JSON` y desplegó a mano
+  (`dep-dbhlkp6c6qcc73foejm0`, mismo commit, `live` a las 14:39:39). No se leyó el valor.
+- **Arranque (14:39:28):** `hojaGoogle: true` y «hoja de Google conectada» con la cuenta
+  `tienda-hoja@…`. A las 14:39:35, puesta al día con `filasNuevas: 6` y `filasReintentadas: 0`.
+  Sin registros de nivel 40 o 50 desde entonces.
+- **Neon:**
+  - `sheets_pending`: 7 filas `SENT`, ninguna con error.
+  - Perfiles: 64 de 64 sincronizados con la pestaña «Usuarios», ninguno con error.
+  - Ninguna fila de `sheets` o `sheets_delivery`: todavía no hay pedidos pagados que entregar.
+- **Prueba con un pedido real:** un pedido Nequi de $18.000 se creó a las 14:51:03.353 y su fila se
+  envió a las 14:51:04.842 (1,5 s). La hoja lo muestra como «⏳ Esperando la transferencia».
+- **Hoja real, leída de vuelta:**
+  - «Pagos pendientes»: 7 filas.
+  - «Usuarios»: 64 filas.
+  - «Hoy»: última fila a las 09:51 (Colombia), 0 minutos desde la última fila y 0 filas
+    repetidas. Dice «⚠️ Tienes 1 cosa por atender».
+- **Lo que toca al dueño:** un pedido Nequi de $11.000 del 2026-10-20 venció con un aviso de pago
+  sin verificar. Debe buscarlo en la app Nequi y luego confirmar o rechazar el aviso en el panel.
+  La referencia está en «Por verificar».
+- **«Léeme» de la hoja real:** el estado dice que ya está conectada y qué hacer si deja de
+  actualizarse.
+- **Exposición:** sin cambios. La hoja sigue compartida solo con el dueño y `tienda-hoja`.
+- **NO VERIFICADO:**
+  - Filas de «Entregas»: todavía no hay pedidos pagados.
+  - Que el dueño borró el archivo `.json` descargado: solo puede comprobarlo él.

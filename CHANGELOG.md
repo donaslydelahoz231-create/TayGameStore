@@ -5,6 +5,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### La hoja de Google ya recibe los pedidos reales (2026-10-29)
+
+- El dueño cargó la llave de `tienda-hoja` en Render: desde las 14:39 UTC la tienda escribe en la
+  hoja real.
+- Puesta al día al conectar: 6 pagos Nequi que faltaban en «Pagos pendientes» y los 64 usuarios,
+  todos sin error.
+- Probado con un pedido real: su fila apareció 1,5 s después de crearse y «Hoy» lo contó al
+  momento.
+- «Léeme» de la hoja: el estado dice que ya está conectada y qué hacer si un día deja de
+  actualizarse.
+- Sin cambios en el código de la tienda.
+
 ### La hoja calcula sola qué hacer y los reportes: «Hoy», «Por verificar» y «Reporte mensual» (2026-10-29)
 
 - **«Hoy»** (primera pestaña): dice si estás al día o cuántas cosas tienes por atender.
