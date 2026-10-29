@@ -17,6 +17,7 @@ import {
   pendingPaymentRow,
   pendingPaymentStatus,
   playerConfirmationLabel,
+  receiptCheckStatus,
   SHEET_COLUMNS,
   sheetRow,
   sheetText,
@@ -431,12 +432,21 @@ describe('Google Sheets: fila de «Pagos pendientes» (Nequi)', () => {
     expect(pendingPaymentStatus({ status: 'PAID' }, reported)).not.toMatch(/✅/);
   });
 
+  it('el estado del comprobante sale solo: por verificar al avisar, luego verificado o rechazado', () => {
+    expect(receiptCheckStatus(undefined)).toBe('Sin enviar');
+    expect(receiptCheckStatus(reported)).toBe('🔎 Por verificar');
+    expect(receiptCheckStatus({ status: 'CONFIRMED' })).toBe('✅ Verificado');
+    expect(receiptCheckStatus({ status: 'REJECTED' })).toBe('✖️ Rechazado');
+  });
+
   it('lleva lo que el cliente avisó y lo protege de fórmulas al exportar', () => {
     const row = pendingPaymentRow(order, reported, new Date('2026-10-20T19:11:00Z'));
     expect(row).toHaveLength(PENDING_PAYMENT_COLUMNS.length);
     expect(row).toEqual([
       'TGS-PENDIENTE1',
       '💰 El cliente avisó que pagó: verifícalo en tu Nequi',
+      'Nequi (transferencia)',
+      '🔎 Por verificar',
       18000,
       '1× 310 diamantes',
       '2026-10-20 14:00',

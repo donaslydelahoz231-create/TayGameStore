@@ -742,6 +742,8 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     let row = pendingRow(o.ref);
     expect(row).toHaveLength(PENDING_PAYMENT_COLUMNS.length);
     expect(row?.[column('Estado del pago')]).toBe('⏳ Esperando la transferencia');
+    expect(row?.[column('Método de pago')]).toBe('Nequi (transferencia)');
+    expect(row?.[column('Estado del comprobante')]).toBe('Sin enviar');
     expect(row?.[column('Total a recibir')]).toBe(o.total);
     expect(row?.[column('Paquete')]).toMatch(/^1× /);
     expect(row?.[column('Vence (Colombia)')]).not.toBe('');
@@ -757,6 +759,8 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
       '💰 El cliente avisó que pagó: verifícalo en tu Nequi',
     );
     expect(row?.[column('Cliente avisó el pago (Colombia)')]).not.toBe('');
+    // Sale solo en cuanto el cliente pulsa «Ya transferí».
+    expect(row?.[column('Estado del comprobante')]).toBe('🔎 Por verificar');
     // Como texto: conserva el cero de la izquierda.
     expect(row?.[column('4 últimos dígitos de la cuenta que pagó')]).toBe('0421');
     expect(row?.[column('Referencia del comprobante (cliente)')]).toBe('M00012345');
@@ -767,6 +771,7 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
       '✖️ Aviso rechazado: esperando otra transferencia',
     );
     expect(row?.[column('Motivo del rechazo')]).toBe('No llegó (prueba)');
+    expect(row?.[column('Estado del comprobante')]).toBe('✖️ Rechazado');
 
     // El cliente vuelve a avisar (referencia que empieza por «-»: nunca se toma como fórmula).
     expect(
@@ -785,6 +790,7 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     expect(confirmed.statusCode, confirmed.body).toBe(200);
     row = pendingRow(o.ref);
     expect(row?.[column('Estado del pago')]).toBe('✅ Pago confirmado');
+    expect(row?.[column('Estado del comprobante')]).toBe('✅ Verificado');
     expect(row?.[column('Confirmado (Colombia)')]).not.toBe('');
     expect(row?.[column('Referencia Nequi confirmada')]).toBe('NQ-PRUEBA-0001');
     expect(row?.[column('Vence (Colombia)')]).toBe('');

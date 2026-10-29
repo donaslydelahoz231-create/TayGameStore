@@ -384,8 +384,10 @@ const bogota = new Intl.DateTimeFormat('es-CO', {
 const isNequi = (order: Pick<OrderSnapshot, 'payment'>) =>
   order.payment?.provider === 'nequi_manual';
 /** Medio con el que se pagó, según el proveedor del pago (nunca se mezclan). */
+/** Nombre del medio de pago Nequi en el comprobante y en la hoja. */
+const NEQUI_LABEL = 'Nequi (transferencia)';
 const paymentLabel = (order: Pick<OrderSnapshot, 'payment'>) =>
-  isNequi(order) ? 'Nequi (transferencia)' : 'Mercado Pago';
+  isNequi(order) ? NEQUI_LABEL : 'Mercado Pago';
 const operationLabel = (order: Pick<OrderSnapshot, 'payment'>) =>
   isNequi(order) ? 'Referencia de Nequi' : 'Operación de Mercado Pago';
 
@@ -721,12 +723,15 @@ export function sheetRow(
 /**
  * Encabezados de la pestaña «Pagos pendientes» (misma hoja; ver docs/google-sheets.md): una fila
  * por pedido Nequi, desde que el cliente elige Nequi hasta que el dueño confirma o rechaza el pago
- * o el pedido vence. La columna A (referencia) es la clave de la fila. Los datos del jugador van
- * al final (pedido del dueño, 2026-10-29) para no mover las columnas que leen sus fórmulas.
+ * o el pedido vence. La columna A (referencia) es la clave de la fila. Pedidos del dueño
+ * (2026-10-29): el método de pago y el estado del comprobante van junto al estado del pago; los
+ * datos del jugador, al final.
  */
 export const PENDING_PAYMENT_COLUMNS = [
   'Referencia',
   'Estado del pago',
+  'Método de pago',
+  'Estado del comprobante',
   'Total a recibir',
   'Paquete',
   'Pedido creado (Colombia)',
@@ -798,6 +803,17 @@ export function pendingPaymentStatus(
 }
 
 /**
+ * Estado del comprobante que avisó el cliente, en dos palabras: sale solo «Por verificar» en
+ * cuanto pulsa «Ya transferí», y cambia cuando el dueño lo confirma o lo rechaza en el panel.
+ */
+export function receiptCheckStatus(latest: { status: NequiTransferStatus } | undefined): string {
+  if (!latest) return 'Sin enviar';
+  if (latest.status === 'REPORTED') return '🔎 Por verificar';
+  if (latest.status === 'CONFIRMED') return '✅ Verificado';
+  return '✖️ Rechazado';
+}
+
+/**
  * Fila de «Pagos pendientes»: lo que el cliente debe (total y paquete), hasta cuándo, lo que
  * avisó al transferir (4 últimos dígitos de su cuenta y referencia de su comprobante), para
  * buscarlo en la app Nequi, y a quién se recarga (ID, nickname, cómo se confirmó, servidor y
@@ -812,6 +828,9 @@ export function pendingPaymentRow(
   return [
     order.reference,
     pendingPaymentStatus(order, latest),
+    // Solo pedidos Nequi llegan aquí: un pedido Nequi nunca pasa a Mercado Pago.
+    NEQUI_LABEL,
+    receiptCheckStatus(latest),
     order.totalCop,
     sheetItems(order),
     bogotaTime.format(order.createdAt),
@@ -854,7 +873,7 @@ export const DELIVERY_COLUMNS = [
   'Estado de la recarga',
   'Comprobante',
   'Código de verificación',
-  'Operación de pago',
+  'Método y operación de pago',
   'Evidencia o motivo',
   'Actualizado (Colombia)',
 ] as const;

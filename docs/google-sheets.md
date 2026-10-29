@@ -124,7 +124,7 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
     14. Estado de la recarga
     15. Comprobante
     16. Código de verificación (del comprobante)
-    17. Operación de pago: proveedor y número, p. ej. «Mercado Pago · 123…» o «Nequi
+    17. Método y operación de pago: proveedor y número, p. ej. «Mercado Pago · 123…» o «Nequi
         (transferencia) · referencia del movimiento»
     18. Evidencia o motivo (de la entrega, el fallo o la revisión)
     19. Actualizado (Colombia)
@@ -141,27 +141,33 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
     confirmado», «↩️ Devuelto al cliente», «⌛ Venció sin pago» o «⚠️ Venció con un aviso sin
     verificar: revisa tu Nequi». **El aviso del cliente nunca es un pago**: solo la confirmación
     del dueño en el panel, después de ver el dinero en su app Nequi;
-  - 18 columnas, en este orden:
+  - 20 columnas, en este orden:
     1. Referencia
     2. Estado del pago
-    3. Total a recibir
-    4. Paquete
-    5. Pedido creado (Colombia)
-    6. Vence (Colombia) (vacía cuando ya no espera pago)
-    7. Cliente avisó el pago (Colombia)
-    8. 4 últimos dígitos de la cuenta que pagó (lo que escribió el cliente; como texto)
-    9. Referencia del comprobante (cliente) (la que escribió el cliente, si la dio)
-    10. Confirmado (Colombia)
-    11. Referencia Nequi confirmada (la que escribió el dueño al confirmar)
-    12. Motivo del rechazo (el que escribió el dueño)
-    13. Actualizado (Colombia)
-    14. ID del jugador
-    15. Nickname confirmado
-    16. Confirmación del jugador (mismas frases que en «Entregas»)
-    17. Servidor elegido
-    18. Región detectada
-  - las columnas 14–18 (a quién se recarga) las pidió el dueño el 2026-10-29: van al final para
-    no mover las columnas que leen «Hoy» y «Por verificar»;
+    3. Método de pago: «Nequi (transferencia)» (un pedido Nequi nunca pasa a Mercado Pago; los de
+       Mercado Pago van a «Entregas» al pagarse, con su método en «Método y operación de pago»)
+    4. Estado del comprobante: «Sin enviar», «🔎 Por verificar» (sale solo cuando el cliente
+       pulsa «Ya transferí»), «✅ Verificado» o «✖️ Rechazado» (según lo que hace el dueño en el
+       panel)
+    5. Total a recibir
+    6. Paquete
+    7. Pedido creado (Colombia)
+    8. Vence (Colombia) (vacía cuando ya no espera pago)
+    9. Cliente avisó el pago (Colombia)
+    10. 4 últimos dígitos de la cuenta que pagó (lo que escribió el cliente; como texto)
+    11. Referencia del comprobante (cliente) (la que escribió el cliente, si la dio)
+    12. Confirmado (Colombia)
+    13. Referencia Nequi confirmada (la que escribió el dueño al confirmar)
+    14. Motivo del rechazo (el que escribió el dueño)
+    15. Actualizado (Colombia)
+    16. ID del jugador
+    17. Nickname confirmado
+    18. Confirmación del jugador (mismas frases que en «Entregas»)
+    19. Servidor elegido
+    20. Región detectada
+  - pedidos del dueño del 2026-10-29: las columnas 16–20 (a quién se recarga) y las 3–4 (método
+    y estado del comprobante). Las 3–4 se insertaron en la hoja con «Insertar columnas», así
+    Google movió solo las referencias de «Hoy»; la fórmula de «Por verificar» se reescribió;
   - lleva los 4 últimos dígitos y la referencia que dio el cliente (datos de pago de tus
     clientes) y los datos del jugador: nunca su correo, nombre, celular completo ni PIN.
 - **«Usuarios»** (`GOOGLE_SHEETS_USERS_TAB`). Pedido del dueño (2026-10-21): cada cliente de la

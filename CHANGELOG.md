@@ -5,6 +5,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Método de pago y estado del comprobante en la hoja (2026-10-29)
+
+- **«Pagos pendientes»** tiene dos columnas nuevas, junto al estado del pago:
+  - «Método de pago»: «Nequi (transferencia)»;
+  - «Estado del comprobante»: sale solo «🔎 Por verificar» en cuanto el cliente pulsa «Ya
+    transferí». Pasa a «✅ Verificado» o «✖️ Rechazado» cuando lo confirmas o rechazas en el
+    panel, y dice «Sin enviar» mientras no avise.
+- **«Por verificar»** también las muestra.
+- **«Entregas»**: la columna «Operación de pago» se llama ahora «Método y operación de pago».
+- El comprobante del cliente en la tienda ya mostraba «Nequi · Transferencia Nequi por
+  verificar»: no cambia.
+
 ### Cambiar el estado de un pedido desde la hoja, conectado de verdad con la tienda (2026-10-29)
 
 - **«Entregas» tiene tres columnas tuyas**:

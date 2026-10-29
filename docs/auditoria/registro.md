@@ -2449,3 +2449,31 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     verificará con el primero; el mismo camino está probado en integración con base real.
   - Que la cuenta de administrador sea el primer correo de `ADMIN_EMAILS`. No se leen las
     variables de Render; si no lo es, la columna V lo dirá.
+
+### 2026-10-29 · Método de pago y estado del comprobante en «Pagos pendientes»
+
+- **Autorizó:** el dueño: «una columna del método de pago que seleccionaron o se realizó el pago
+  en el Excel correspondiente y además el comprobante, el estado que salga solo por verificar y
+  el método de pago en Nequi».
+- **Interpretación:**
+  - El comprobante del cliente en la tienda ya decía «Nequi · Transferencia Nequi por verificar»;
+    se comprobó en `invoice.js` y `order-status.js`.
+  - Lo que faltaba era la hoja. En «Pagos pendientes» van ahora «Método de pago» y «Estado del
+    comprobante» (C y D).
+  - Un pedido Nequi nunca pasa a Mercado Pago (decisión del dueño del 2026-10-19). Los de Mercado
+    Pago llegan a «Entregas» al pagarse, con su método en «Método y operación de pago».
+- **Código:**
+  - `receiptCheckStatus`: «Sin enviar», «🔎 Por verificar», «✅ Verificado» o «✖️ Rechazado»,
+    según la última transferencia.
+  - `PENDING_PAYMENT_COLUMNS` pasa a 20 columnas.
+  - Encabezado de «Entregas»: «Método y operación de pago».
+- **Pruebas:**
+  - Unitarias de la hoja: 41 de 41.
+  - Integración de la hoja: 22 de 22, con el rol restringido. Recorren Sin enviar → Por verificar
+    → Rechazado → Verificado.
+- **Copia de prueba:**
+  - Se insertaron las columnas C y D con «Insertar columnas»: Google movió solo las referencias de
+    «Hoy» (G→I, M→O).
+  - Se reescribió «Por verificar» (A2:T, 16 columnas).
+  - Lectura de vuelta con datos ficticios: «Nequi (transferencia)» y «🔎 Por verificar» en
+    «Por verificar». «Hoy» sigue en 2 por verificar, con los minutos del más antiguo.
