@@ -2423,8 +2423,29 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - «Léeme» con la sección nueva. Se quitaron los pasos de conexión, ya hechos.
 - **Base (solo conteos):** 1 cuenta de administrador, 0 entregas (todavía ningún pedido pagado) y
   9 pedidos Nequi.
+- **Publicación de `351fa35`:**
+  - Render `dep-dbhospo473hc73cun9mg` en `live` a las 18:22. El arranque dice `hojaGoogle: true`
+    y «hoja de Google conectada», sin avisos ni errores después.
+  - CI #237 en `success`: los 6 trabajos, incluidos integración y e2e en Chromium, Firefox y
+    WebKit.
+  - Smoke #95 y CodeQL #181 en `success`.
+- **Filas Nequi existentes rellenadas:**
+  - Las 9 filas `sheets_pending` se volvieron a encolar en Neon. Es idempotente: reescribe la
+    misma fila por referencia.
+  - Una petición pública al catálogo (200) sacó la tienda del reposo.
+  - En 90 s quedaron 9 de 9 `SENT`, ninguna con error.
+  - La hoja muestra ID, confirmación y servidor en las 9, y «Por verificar» los muestra.
+  - Nickname y «Región detectada» quedan vacíos: esos clientes confirmaron su ID escribiéndolo
+    dos veces, sin búsqueda de ID.
+- **Prueba real del circuito hoja → tienda, sin tocar pedidos:**
+  - Se escribió en «Entregas» una referencia ficticia (`TGS-PRUEBAHOJA`) con «✅ Entregado».
+  - A las 18:26:52 la tienda la leyó de la hoja real y la buscó en la base.
+  - Respondió en V «✖️ No se aplicó: no hay un pedido con esa referencia. · 2026-10-29 13:26» y
+    vació T.
+  - Registro: «hoja de Google: cambio de estado del dueño», `aplicado: false`.
+  - Después se vació la fila de prueba.
 - **NO VERIFICADO:**
-  - Un cambio de estado real desde la hoja, porque todavía no hay pedidos pagados. Se verificará
-    con el primero.
+  - Un cambio de estado real que entregue un pedido, porque todavía no hay pedidos pagados. Se
+    verificará con el primero; el mismo camino está probado en integración con base real.
   - Que la cuenta de administrador sea el primer correo de `ADMIN_EMAILS`. No se leen las
     variables de Render; si no lo es, la columna V lo dirá.
