@@ -3,7 +3,7 @@ import { fulfillments, oauthStates, orders, payments, sessions } from '../db/sch
 import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
-import { deliverNotifications, enqueuePendingPaymentSync } from './notifications.js';
+import { catchUpSheet, deliverNotifications, enqueuePendingPaymentSync } from './notifications.js';
 import { syncProfilesToSheet } from './profiles.js';
 import { purgeExpiredLookups } from './player.js';
 import { purgeExpiredBlocks } from './shield.js';
@@ -167,6 +167,9 @@ export async function cleanup(deps: ServiceDeps): Promise<number> {
   return removedSessions.length + removedStates.length + removedLookups + removedBlocks;
 }
 
+/** Procesos (o instancias de la tienda) cuya hoja ya se puso al día desde que arrancaron. */
+const sheetCaughtUp = new WeakSet<ServiceDeps>();
+
 const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   expireOrders,
   reconcilePayments,
@@ -174,9 +177,15 @@ const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   releaseClaims: releaseStaleClaims,
   cleanup,
   // Reintenta avisos (correo, webhook de eventos, hoja) que fallaron o no se enviaron al momento,
-  // y escribe en la pestaña «Usuarios» los clientes nuevos o que cambiaron de nombre.
-  sendNotifications: async (deps) =>
-    (await deliverNotifications(deps, { limit: 50 })) + (await syncProfilesToSheet(deps)),
+  // y escribe en la pestaña «Usuarios» los clientes nuevos o que cambiaron de nombre. La primera
+  // vez en cada proceso, la hoja se pone al día con lo que cambió mientras estuvo apagada.
+  sendNotifications: async (deps) => {
+    if (!sheetCaughtUp.has(deps)) {
+      await catchUpSheet(deps);
+      sheetCaughtUp.add(deps);
+    }
+    return (await deliverNotifications(deps, { limit: 50 })) + (await syncProfilesToSheet(deps));
+  },
   // Recarga directa: empieza entregas pendientes y consulta recargas dudosas a UniPin.
   topups: (deps) => processTopups(deps),
   // Sella el historial (cadena de hashes): borrar o cambiar un evento antiguo se detecta.

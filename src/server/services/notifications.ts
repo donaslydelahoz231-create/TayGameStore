@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '../db/client.js';
 import {
   FREE_FIRE_SERVER_LABELS,
@@ -87,8 +87,8 @@ const RATE_LIMIT_JITTER_MS = 120_000;
  */
 const SHEET_PASS_BUDGET_MS = 40_000;
 
-const isSheetChannel = (channel: NotificationChannel) =>
-  channel === 'sheets' || channel === 'sheets_delivery' || channel === 'sheets_pending';
+const SHEET_CHANNELS: NotificationChannel[] = ['sheets', 'sheets_delivery', 'sheets_pending'];
+const isSheetChannel = (channel: NotificationChannel) => SHEET_CHANNELS.includes(channel);
 const isRateLimited = (reason: unknown) => reason instanceof SheetsError && reason.status === 429;
 
 function plannedFor(deps: ServiceDeps, event: OrderEvent) {
@@ -165,6 +165,42 @@ async function enqueueSheetRow(
         nextAttemptAt: sql`case when ${notifications.status} = 'PENDING' and ${notifications.nextAttemptAt} > ${now} then ${notifications.nextAttemptAt} else ${now} end`,
       },
     });
+}
+
+/**
+ * Pone al día la hoja al conectarla (o al reiniciar con la llave corregida), para que refleje
+ * todos los pedidos y no solo los que cambiaron con la hoja encendida:
+ * - encola la fila de «Entregas» de cada pedido que llegó a pagado (tiene comprobante) y la de
+ *   «Pagos pendientes» de cada pedido Nequi que nunca tuvieron la suya (la hoja estaba apagada);
+ * - vuelve a intentar las filas de la hoja que quedaron fallidas (p. ej. la llave no servía).
+ * «Pedidos» es un historial de eventos: empieza desde que la hoja está conectada. Idempotente:
+ * las filas que ya existen (enviadas, pendientes o en curso) no se tocan. Devuelve cuántas encoló.
+ */
+export async function catchUpSheet(deps: ServiceDeps): Promise<number> {
+  if (!deps.sheets) return 0;
+  const now = deps.now();
+  const missing = await deps.db.execute<{ id: string }>(sql`
+    insert into notifications (order_id, kind, channel, next_attempt_at)
+    select id, 'order_sheet_sync', 'sheets_delivery', ${now}::timestamptz
+      from orders where receipt_number is not null
+    union all
+    select id, 'order_sheet_sync', 'sheets_pending', ${now}::timestamptz
+      from orders where payment_method = 'nequi_manual'
+    on conflict (order_id, kind, channel) do nothing
+    returning id`);
+  const retried = await deps.db
+    .update(notifications)
+    .set({ status: 'PENDING', attempts: 0, lastError: null, nextAttemptAt: now })
+    .where(and(inArray(notifications.channel, SHEET_CHANNELS), eq(notifications.status, 'FAILED')))
+    .returning({ id: notifications.id });
+  const queued = missing.rows.length + retried.length;
+  if (queued) {
+    deps.log.info(
+      { filasNuevas: missing.rows.length, filasReintentadas: retried.length },
+      'hoja de Google: poniéndose al día con los pedidos',
+    );
+  }
+  return queued;
 }
 
 /**

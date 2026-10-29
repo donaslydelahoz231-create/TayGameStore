@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifications, orders } from '../../src/server/db/schema.js';
@@ -10,6 +10,7 @@ import {
 } from '../../src/server/integrations/sheets/google-sheets.js';
 import { expireOrders } from '../../src/server/services/jobs.js';
 import {
+  catchUpSheet,
   deliverNotifications,
   enqueueSheetSync,
   PENDING_PAYMENT_COLUMNS,
@@ -674,5 +675,52 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
       .where(eq(notifications.id, queued?.id ?? ''));
     await deliverNotifications(hn.deps, { orderId: o.id });
     expect(pendingRow(o.ref)?.[column('Estado del pago')]).toBe('⏳ Esperando la transferencia');
+  });
+
+  it('al conectar la hoja se pone al día: pedidos de cuando estaba apagada y filas fallidas', async () => {
+    const nequi = await readyOrder();
+    expect((await customer(nequi, '/nequi')).statusCode).toBe(200);
+    const paid = await paidOrder();
+    // Hoja apagada mientras pasaban estos pedidos: ninguna fila suya en la cola ni en la hoja.
+    await hn.database.db
+      .delete(notifications)
+      .where(inArray(notifications.orderId, [nequi.id, paid.id]));
+    sheet.deliveries = [];
+    sheet.pending = [];
+    sheet.rows = [];
+
+    // Sin hoja configurada no hace nada.
+    expect(await catchUpSheet({ ...hn.deps, sheets: undefined })).toBe(0);
+
+    expect(await catchUpSheet(hn.deps)).toBeGreaterThanOrEqual(2);
+    await deliverNotifications(hn.deps);
+    await deliverNotifications(hn.deps);
+    // «Entregas»: el pedido pagado, con su estado actual; «Pagos pendientes»: el pedido Nequi.
+    const delivered = sheet.deliveries.filter((row) => row[0] === paid.reference);
+    expect(delivered).toHaveLength(1);
+    expect(delivered[0]?.[1]).toBe('⏳ Por entregar');
+    expect(pendingRow(nequi.ref)?.[column('Estado del pago')]).toBe(
+      '⏳ Esperando la transferencia',
+    );
+    // El pedido de Mercado Pago no va a «Pagos pendientes» ni el Nequi sin pagar a «Entregas».
+    expect(sheet.pending.some((row) => row[0] === paid.reference)).toBe(false);
+    expect(sheet.deliveries.some((row) => row[0] === nequi.ref)).toBe(false);
+    // «Pedidos» es un historial de eventos: no se inventan eventos pasados.
+    expect(sheet.rows.some((row) => row[1] === paid.reference)).toBe(false);
+
+    // Idempotente: lo que ya tiene su fila no se vuelve a encolar.
+    expect(await catchUpSheet(hn.deps)).toBe(0);
+
+    // Una fila que quedó fallida (p. ej. la llave no servía) se vuelve a intentar.
+    await hn.database.db
+      .update(notifications)
+      .set({ status: 'FAILED', attempts: 5, lastError: 'Google rechazó la llave' })
+      .where(and(eq(notifications.orderId, paid.id), eq(notifications.channel, 'sheets_delivery')));
+    expect(await catchUpSheet(hn.deps)).toBe(1);
+    const [retried] = await hn.database.db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.orderId, paid.id), eq(notifications.channel, 'sheets_delivery')));
+    expect(retried).toMatchObject({ status: 'PENDING', attempts: 0, lastError: null });
   });
 });

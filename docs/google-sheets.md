@@ -1,9 +1,69 @@
 # Registro auxiliar en Google Sheets (opcional)
 
-**Estado:** implementado y probado con una hoja simulada. La hoja del dueño («TayGameStore ·
-Registro de pedidos», en su Drive) ya existe con las pestañas preparadas y compartida solo con la
-cuenta de servicio. Se activa cuando las tres variables están en Render (el arranque dice
-`hojaGoogle: true`).
+**Estado (2026-10-29):** implementado y probado; en producción **apagado** hasta que el dueño
+cargue la llave.
+
+- El arranque de producción dice «Hoja de Google apagada: falta la llave de la cuenta de
+  servicio (`GOOGLE_SHEETS_CREDENTIALS_JSON`)». El id de la hoja ya está en Render.
+- La hoja real («TayGameStore · Registro de pedidos», en el Drive del dueño) está lista
+  (revisado en solo lectura):
+  - tiene las pestañas «Pedidos», «Entregas», «Pagos pendientes» y «Usuarios», con encabezados
+    idénticos a las columnas que escribe la tienda;
+  - está compartida solo con el dueño y con la cuenta de servicio `tienda-hoja` (Editor), sin
+    enlace público.
+- Al cargar la llave, el arranque dice `hojaGoogle: true` y la hoja se pone al día sola (ver
+  «Puesta al día al conectar»).
+
+## Cada cuánto se actualiza
+
+- **Al momento.** Cada cambio de un pedido se guarda en la base y, justo después, la tienda
+  escribe su fila en la hoja (en la misma petición espera hasta 300 ms; si Google tarda más,
+  termina en segundo plano). En la práctica la fila aparece en uno o dos segundos.
+- No hay una tarea que «revise cada X minutos» para escribir: la tarea programada solo reintenta
+  lo que Google no aceptó (1, 5, 15 y 60 min) y, si Google limita la cuota (429), espera de 1 a
+  3 min sin perder la fila.
+- Límite real: Google acepta unas 60 escrituras por minuto por cuenta de servicio (unos 12
+  pedidos por minuto, ver «Capacidad»). Por encima, la hoja se atrasa unos minutos y se pone al
+  día sola.
+- Las columnas calculadas («Esperando (min)» en «Por entregar») dependen del recálculo de Google
+  Sheets. Con «Al cambiar» (ajuste actual de la hoja) avanzan cuando entra una fila nueva; con
+  «Al cambiar y cada minuto» avanzan solas. Ese ajuste es del archivo del dueño (ver
+  «Prueba con una copia de la hoja»: se cambia solo con su autorización).
+
+## Puesta al día al conectar
+
+Pedido del dueño (2026-10-29): «que se sincronice totalmente». Antes, los pedidos que pasaban
+con la hoja apagada nunca llegaban a ella. Ahora, la primera vez que corre la tarea de avisos en
+cada arranque (a los pocos segundos), la tienda:
+
+- encola la fila de «Entregas» de cada pedido que llegó a pagado (tiene comprobante) y la de
+  «Pagos pendientes» de cada pedido Nequi que nunca tuvieron la suya; se escriben con su estado
+  actual;
+- vuelve a intentar las filas de la hoja que quedaron fallidas (por ejemplo, si la llave no
+  servía): basta corregir la llave y reiniciar;
+- no repite lo que ya tiene su fila (enviada, pendiente o en curso);
+- «Usuarios» ya se ponía al día sola (`customer_profiles.sheet_version`);
+- «Pedidos» es un historial de eventos y empieza desde que la hoja está conectada: la tienda no
+  inventa eventos pasados con fechas que no conoce.
+
+En producción (2026-10-29) hay 24 pedidos, todos vencidos sin pago (18 de Mercado Pago y 6 de
+Nequi), y 58 clientes. Al conectar, «Pagos pendientes» recibirá los 6 pedidos Nequi como
+«⌛ Venció sin pago» y «Usuarios» los 58 clientes; «Entregas» queda vacía hasta el primer pago.
+
+## ¿Hace falta Make (o n8n)?
+
+No para esto. La conexión directa ya está programada, probada y es más rápida:
+
+| | Directa (tienda → Google) | Con Make |
+| --- | --- | --- |
+| Retraso | 1–2 s después de cada cambio | Webhook de Make + sus pasos: segundos, más la cola de Make |
+| Costo | Gratis (cuota de Google) | Plan de Make: cada fila usa varias operaciones (buscar + actualizar) |
+| Orden y duplicados | Una sola fila por pedido, en orden, con reintentos y sin perder filas | Hay que construirlo en Make |
+| Datos de clientes | Solo Google | Pasan también por Make (otro tercero: requiere autorización y aviso en la política de privacidad) |
+| Lo que falta | Cargar la llave en Render | Crear la cuenta y el escenario, y cargar `EVENTS_WEBHOOK_URL` y `EVENTS_WEBHOOK_SECRET` en Render |
+
+Make sigue siendo útil para otras automatizaciones (avisos, reportes): la tienda ya envía eventos
+firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhook.
 
 ## Qué hace y qué no
 

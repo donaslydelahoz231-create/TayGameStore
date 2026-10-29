@@ -2225,3 +2225,41 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - Firefox y WebKit: NO VERIFICADO en local.
 - **Vista previa:** mismo artefacto privado (versión 15).
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-29 · Publicación de 92f671a y hoja de Google lista para producción
+
+- **Publicación de `92f671a`** (autorizada: «Autorizo el push del commit 92f671a»):
+  - Push en avance rápido `dda83d3..92f671a`.
+  - Render: despliegue `dep-dbh62rfavr4c73f1cheg` en `live` (20:56:13–20:57:28 UTC), sin errores
+    ni avisos en los registros (consulta de las 21:06 UTC).
+  - CI con Chromium, Firefox y WebKit, CodeQL y prueba de producción OK.
+- **Pedido:** «conectar directamente mi sitio web con Google Sheets, que no esté en fase de prueba,
+  o con Make; que se sincronice totalmente, sin retraso».
+- **Diagnóstico (solo lectura):**
+  - Arranque de producción del 2026-10-28 20:57 UTC: `hojaGoogle: false`, «falta la llave de la
+    cuenta de servicio (`GOOGLE_SHEETS_CREDENTIALS_JSON`)». No se leyeron valores de Render.
+  - La hoja real tiene las pestañas «Pedidos», «Entregas», «Pagos pendientes» y «Usuarios», con
+    encabezados idénticos a las columnas del código. Está compartida solo con el dueño y con la
+    cuenta de servicio `tienda-hoja` (Editor). El recálculo del archivo está en «Al cambiar».
+  - Producción (conteos, sin datos personales): 24 pedidos, todos vencidos sin pago (18 de
+    Mercado Pago y 6 de Nequi); 58 clientes; 0 filas de la hoja en cola.
+  - Hueco encontrado: los pedidos de cuando la hoja estaba apagada nunca llegaban a ella.
+- **Cambio local:** `catchUpSheet` se ejecuta una vez por proceso, en la primera pasada de la
+  tarea de avisos.
+  - Encola la fila de «Entregas» de los pedidos con comprobante y la de «Pagos pendientes» de los
+    pedidos Nequi que no la tenían.
+  - Reintenta las filas de la hoja que quedaron fallidas.
+  - Es idempotente. «Pedidos» (historial de eventos) empieza desde la conexión.
+- **Make:** evaluado y no recomendado para esto. La conexión directa escribe en 1–2 s, es gratis
+  y ya trae orden, reintentos y protección contra duplicados. Make agregaría otro tercero con
+  datos de clientes (requiere autorización) y costo por operación. Detalle en
+  `docs/google-sheets.md`.
+- **Pendiente del dueño:** crear la llave JSON de `tienda-hoja` en Google Cloud y pegarla en
+  Render (`GOOGLE_SHEETS_CREDENTIALS_JSON`). La llave nunca pasa por el chat ni por el
+  repositorio.
+- **Pruebas:**
+  - Lint, formato y tipos OK; unitarias 385/385.
+  - Integración 303 OK y 2 saltadas. Una nueva: puesta al día con hoja apagada → conectada, filas
+    fallidas reintentadas, sin duplicados y sin eventos inventados en «Pedidos».
+  - e2e 86/86 en Chromium; escáner 0. Firefox y WebKit: NO VERIFICADO en local.
+- **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.

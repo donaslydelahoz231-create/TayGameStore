@@ -5,6 +5,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### La hoja de Google se pone al día sola al conectarla (2026-10-29)
+
+- **Antes:** los pedidos que pasaban con la hoja apagada nunca llegaban a ella.
+- **Ahora:** al arrancar con la hoja conectada, la tienda escribe la fila de «Entregas» de cada
+  pedido pagado y la de «Pagos pendientes» de cada pedido Nequi que no la tenían, con su estado
+  actual.
+- **Filas fallidas:** también reintenta las filas que quedaron fallidas (por ejemplo, con una
+  llave que no servía), así que basta corregir la llave y reiniciar.
+- **Sin repetidos:** no duplica las filas que ya existen.
+- Guía de la hoja: estado real en producción, cada cuánto se actualiza (al momento, 1–2 s) y por
+  qué no hace falta Make para esto.
+
 ### Carrito más grande, logotipos oficiales en el acceso e íconos de juegos (2026-10-28)
 
 - **Carrito:**
