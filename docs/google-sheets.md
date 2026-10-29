@@ -13,6 +13,8 @@ cargue la llave.
     enlace público.
 - Al cargar la llave, el arranque dice `hojaGoogle: true` y la hoja se pone al día sola (ver
   «Puesta al día al conectar»).
+- Desde el 2026-10-29 la hoja también calcula sola lo que el dueño debe hacer y sus reportes:
+  pestañas «Hoy», «Por verificar» y «Reporte mensual» (ver «Pestañas calculadas para el dueño»).
 
 ## Cada cuánto se actualiza
 
@@ -63,6 +65,18 @@ No para esto. La conexión directa ya está programada, probada y es más rápid
 
 Make sigue siendo útil para otras automatizaciones (avisos, reportes): la tienda ya envía eventos
 firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhook.
+
+**Estado comprobado (2026-10-29): Make no está conectado ni automatiza nada con la tienda.**
+
+- El arranque de producción de las 13:26:53 UTC dice `eventosExternos: false`: la tienda no envía
+  pedidos a ningún servicio externo (ni Make, ni n8n, ni Zapier). Esos eventos se apagaron con
+  `EVENTS_WEBHOOK_ENABLED=false` (ver `docs/automatizacion.md`).
+- El código no tiene integración propia con Make; solo el webhook genérico de eventos.
+- La hoja está compartida solo con el dueño y con `tienda-hoja`.
+- En esta sesión no hay conector de Make, así que lo que haya en una cuenta de Make del dueño
+  queda NO VERIFICADO. Aunque existiera un escenario, la tienda no le envía nada.
+- Los reportes y alertas que se pedían a Make los hacen ahora las fórmulas de la hoja (ver
+  «Pestañas calculadas para el dueño»).
 
 ## Qué hace y qué no
 
@@ -257,6 +271,58 @@ automatiza LootBar (está descartado en `proveedor-recargas/PROVEEDORES.md`).
 - Copias: antes de crear la pestaña se hizo una copia completa del archivo en el mismo Drive
   (solo con acceso del dueño). Además, Google guarda el historial de versiones del archivo
   (Archivo → Historial de versiones).
+
+## Pestañas calculadas para el dueño: «Hoy», «Por verificar» y «Reporte mensual» (2026-10-29)
+
+Pedido del dueño: «implementa fórmulas para que yo solo analice, verifique y confirme; que todos
+los informes y pedidos se automaticen al instante». Son fórmulas puras de Google Sheets que leen
+lo que escribe la tienda; la tienda no las lee ni las escribe, y no cambian ningún pedido.
+
+Orden de las pestañas (el de uso): «Hoy», «Por verificar», «Por entregar», «Resumen», «Pagos
+pendientes», «Usuarios», «Entregas», «Reporte diario», «Reporte mensual», «Pedidos», «Léeme» y
+«Compras_LootBar». La tienda encuentra sus pestañas por el nombre, así que el orden no la afecta.
+
+- **«Hoy»** (centro de control):
+  - Estado en una línea: «✅ Todo al día» o «⚠️ Tienes N cosas por atender», con la hora del
+    cálculo.
+  - «Qué hacer ahora»: pagos Nequi por verificar, recargas por entregar, pedidos en revisión y
+    compras de LootBar con aviso. Cada uno con cuántos son, los minutos del más antiguo (en rojo
+    a partir de 15) y dónde se resuelve. «Entregas sin compra de LootBar anotada» es
+    informativo y no suma a los pendientes.
+  - «Ventas y entregas» para hoy, los últimos 7 días, el mes y desde el inicio: pagos, ventas,
+    reembolsado, neto, compras en LootBar, ganancia de caja (neto menos compras del periodo),
+    margen, ticket promedio, Nequi frente a Mercado Pago, entregas con éxito, entrega promedio y
+    porcentaje entregado en 15 minutos o menos. Pagos y ventas por día del pago; entregas, por
+    día de entrega; compras, por fecha de compra.
+  - «Conexión con la tienda»: última fila que escribió la tienda (en cualquier pestaña), minutos
+    desde entonces, filas por pestaña y filas repetidas. Mientras falte la llave dice «Todavía
+    ninguna».
+- **«Por verificar»**: los pagos Nequi en «El cliente avisó que pagó» o «Venció con un aviso sin
+  verificar», el más antiguo primero. Muestra los minutos de espera, el total, el paquete, los 4
+  últimos dígitos, la referencia del comprobante y el vencimiento. El aviso nunca es un pago: se
+  confirma en el panel después de verlo en la app Nequi.
+- **«Reporte mensual»**: un mes por fila, el más reciente arriba, con las mismas cifras que «Hoy»
+  más la ganancia y el margen del mes (rojo si la ganancia es negativa).
+
+Cómo se hizo y cómo se comprobó:
+
+1. **Copia de prueba** («PRUEBA (copia, datos ficticios)»): se añadieron filas ficticias de hoy y
+   se compararon todas las cifras con el cálculo a mano.
+   - Hoy: 2 pagos, $13.300, $7.000 de compras, $6.300 de ganancia (47 %).
+   - Mes: 7 pagos, $32.300 de ventas, $3.800 reembolsado, $28.500 neto, $12.900 de compras y
+     $15.600 de ganancia (55 %). 3 pagos con Nequi y 4 con Mercado Pago.
+   - Pendientes: 2 por verificar, 2 por entregar y 1 aviso de LootBar, en el orden correcto.
+2. **Hoja real**:
+   - copia de seguridad completa en el mismo Drive, solo con acceso del dueño;
+   - el mismo lote atado a la revisión leída;
+   - lectura de vuelta.
+   Sin filas todavía, todo sale en 0 o «—», «✅ Todo al día», «Nada por verificar», «Sin datos aún»
+   y «Todavía ninguna», sin errores.
+3. Las pestañas nuevas tienen protección con aviso (como las demás calculadas). La hoja sigue
+   compartida solo con el dueño y con `tienda-hoja`, sin enlace público. «Por verificar» muestra
+   los mismos 4 últimos dígitos que ya había en «Pagos pendientes»: no agrega datos nuevos.
+4. «Léeme» explica las pestañas nuevas, agrega que «Por verificar» tiene los 4 últimos dígitos y
+   pide no renombrar ninguna de las cuatro pestañas que escribe la tienda.
 
 ## Cómo activarlo (dueño)
 

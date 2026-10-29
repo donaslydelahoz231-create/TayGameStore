@@ -2301,3 +2301,55 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Sigue pendiente del dueño:** crear la llave JSON de `tienda-hoja` y pegarla en Render
   (`GOOGLE_SHEETS_CREDENTIALS_JSON`). Hasta entonces la hoja no recibe filas (NO VERIFICADO el
   paso hoja conectada en producción).
+
+### 2026-10-29 · Publicación de 8515606, Make comprobado y fórmulas automáticas en la hoja
+
+- **Publicación de `8515606`** (prueba corregida y documentación; mismo permiso):
+  - Push en avance rápido `bb0b112..8515606`.
+  - Render: despliegue `dep-dbhkipc9v7es73bekbh0` en `live` (13:25:57–13:26:56 UTC).
+  - CI en verde (lint, tipos, unitarias, build, integración con el rol mínimo, e2e en Chromium,
+    Firefox y WebKit, gitleaks), CodeQL y prueba de producción OK.
+  - Registros: sin errores. Único aviso, el esperado: «Hoja de Google apagada».
+- **Pedido:** «implementa fórmulas para que yo solo analice, verifique y confirme; que los
+  informes y pedidos se automaticen al instante; confírmame si Make está automatizando sin
+  errores; sin exponer ni filtrar datos sensibles».
+- **Make (con evidencia):** no está conectado ni automatiza nada con la tienda.
+  - El arranque de las 13:26:53 UTC dice `eventosExternos: false`.
+  - El código no tiene integración propia con Make.
+  - La hoja está compartida solo con el dueño y `tienda-hoja`.
+  - En la sesión no hay conector de Make: lo que haya en una cuenta de Make del dueño queda NO
+    VERIFICADO (la tienda no le envía nada).
+- **Fórmulas nuevas:** pestañas «Hoy», «Por verificar» y «Reporte mensual». Solo leen las
+  pestañas que escribe la tienda y «Compras_LootBar»; no tocan esas pestañas ni el código.
+  Detalle en `docs/google-sheets.md`.
+- **Prueba en la copia** («PRUEBA (copia, datos ficticios)»):
+  - Se añadieron 2 entregas, 1 aviso Nequi y 1 compra de LootBar, todos ficticios y con fecha de
+    hoy.
+  - Todas las cifras coinciden con el cálculo a mano. Hoy: 2 pagos, $13.300, $7.000 de compras,
+    $6.300 de ganancia (47 %).
+  - Mes: 7 pagos, $32.300 de ventas, $3.800 reembolsado, $28.500 neto, $12.900 de compras,
+    $15.600 de ganancia (55 %); Nequi 3 y Mercado Pago 4.
+  - Pendientes: 2 por verificar, 2 por entregar y 1 aviso, ordenados del más antiguo al más
+    nuevo.
+  - Formatos de dinero, porcentaje y fecha comprobados leyendo el texto mostrado.
+  - Primer intento de formato rechazado entero por la API (no acepta máscaras de campos con
+    paréntesis); corregido y reenviado.
+- **Hoja real:**
+  - Copia de seguridad completa en el mismo Drive (solo con acceso del dueño; sin filas de
+    clientes que duplicar).
+  - El mismo lote, atado a la revisión leída.
+  - Lectura de vuelta: «✅ Todo al día», 0 o «—» en todo, «Nada por verificar», «Sin datos aún»
+    y «Todavía ninguna» en la conexión, sin errores.
+- **«Léeme» de la hoja real:**
+  - Explica las 3 pestañas nuevas y «Compras_LootBar».
+  - Avisa que «Por verificar» tiene los 4 últimos dígitos.
+  - Pide no renombrar las 4 pestañas que escribe la tienda.
+  - El paso 6 menciona «Hoy».
+- **Exposición:** sin cambios. Permisos releídos: dueño y `tienda-hoja` (Editor), sin enlace.
+  «Por verificar» repite datos que ya estaban en «Pagos pendientes». Las pestañas nuevas tienen
+  protección con aviso.
+- **Tienda:** escribe sus pestañas por nombre (`'Entregas'!A1`), no por posición. El nuevo orden
+  y las pestañas nuevas no la afectan.
+- **Sigue pendiente del dueño:** la llave JSON de `tienda-hoja` en Render
+  (`GOOGLE_SHEETS_CREDENTIALS_JSON`). Hasta entonces las fórmulas no tienen filas reales que
+  calcular (NO VERIFICADO con datos de producción).

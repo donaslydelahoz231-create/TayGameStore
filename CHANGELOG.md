@@ -5,6 +5,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### La hoja calcula sola qué hacer y los reportes: «Hoy», «Por verificar» y «Reporte mensual» (2026-10-29)
+
+- **«Hoy»** (primera pestaña): dice si estás al día o cuántas cosas tienes por atender.
+  - Qué toca: pagos Nequi por verificar, recargas por entregar, pedidos en revisión y avisos de
+    LootBar, con los minutos del más antiguo.
+  - Cifras de hoy, 7 días, el mes y desde el inicio: ventas, reembolsos, neto, compras de
+    LootBar, ganancia, margen, Nequi frente a Mercado Pago y tiempos de entrega.
+  - Si la tienda está escribiendo en la hoja.
+- **«Por verificar»**: los pagos Nequi que el cliente avisó, el más antiguo primero, con lo
+  necesario para buscarlos en la app Nequi.
+- **«Reporte mensual»**: un mes por fila con ganancia y margen.
+- Son fórmulas: se recalculan cada minuto y con cada fila nueva. No cambian ningún pedido, no
+  agregan datos personales y la hoja sigue privada.
+- **Make:** comprobado que no está conectado ni automatiza nada con la tienda
+  (`eventosExternos: false`). La hoja hace los reportes sin Make.
+
 ### La hoja de Google se pone al día sola al conectarla (2026-10-29)
 
 - **Antes:** los pedidos que pasaban con la hoja apagada nunca llegaban a ella.
