@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
+import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifications, orders } from '../../src/server/db/schema.js';
 import {
@@ -682,9 +683,16 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     expect((await customer(nequi, '/nequi')).statusCode).toBe(200);
     const paid = await paidOrder();
     // Hoja apagada mientras pasaban estos pedidos: ninguna fila suya en la cola ni en la hoja.
-    await hn.database.db
-      .delete(notifications)
-      .where(inArray(notifications.orderId, [nequi.id, paid.id]));
+    // La tienda no puede borrar de la cola (su rol no tiene DELETE): lo prepara el dueño.
+    const owner = new pg.Client({ connectionString: testDatabaseUrl() });
+    await owner.connect();
+    try {
+      await owner.query('delete from notifications where order_id = any($1::uuid[])', [
+        [nequi.id, paid.id],
+      ]);
+    } finally {
+      await owner.end();
+    }
     sheet.deliveries = [];
     sheet.pending = [];
     sheet.rows = [];

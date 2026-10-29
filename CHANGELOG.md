@@ -16,6 +16,10 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 - **Sin repetidos:** no duplica las filas que ya existen.
 - Guía de la hoja: estado real en producción, cada cuánto se actualiza (al momento, 1–2 s) y por
   qué no hace falta Make para esto.
+- **Hoja real:** el recálculo pasa a «Al cambiar y cada minuto» («Esperando (min)» avanza sola) y
+  los textos de «Por entregar» y «Léeme» mencionan Nequi y «ENVIADO».
+- **Prueba corregida:** la prueba nueva borraba filas de la cola con el rol de la tienda, que no
+  tiene permiso para borrar (así debe ser); ahora esa preparación la hace el dueño de la base.
 
 ### Carrito más grande, logotipos oficiales en el acceso e íconos de juegos (2026-10-28)
 

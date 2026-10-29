@@ -26,9 +26,8 @@ cargue la llave.
   pedidos por minuto, ver «Capacidad»). Por encima, la hoja se atrasa unos minutos y se pone al
   día sola.
 - Las columnas calculadas («Esperando (min)» en «Por entregar») dependen del recálculo de Google
-  Sheets. Con «Al cambiar» (ajuste actual de la hoja) avanzan cuando entra una fila nueva; con
-  «Al cambiar y cada minuto» avanzan solas. Ese ajuste es del archivo del dueño (ver
-  «Prueba con una copia de la hoja»: se cambia solo con su autorización).
+  Sheets. La hoja real está en «Al cambiar y cada minuto» desde el 2026-10-29 (autorizado por el
+  dueño), así que avanzan solas aunque nadie la edite.
 
 ## Puesta al día al conectar
 
@@ -223,12 +222,15 @@ original. Se hizo así:
    reintento: es el comportamiento esperado.
 4. Fallo encontrado y corregido: `INSERT_ROWS` desplazaba las fórmulas (ver arriba).
 
-Mejoras probadas en la copia que conviene pasar a la hoja original (**requieren tu
-autorización**; no se tocó el original):
+Mejoras probadas en la copia y pasadas a la hoja original el 2026-10-29, con autorización del
+dueño («tienes el permiso total»):
 
 - Archivo → Configuración → Cálculo → «Al cambiar y cada minuto»: «Esperando (min)» de «Por
-  entregar» avanza aunque nadie edite (ahora solo se recalcula con cada cambio).
-- Textos de «Por entregar» (A2) y «Léeme» (A6 y A14) con Nequi y «ENVIADO».
+  entregar» avanza aunque nadie edite.
+- Textos de «Por entregar» (A2) y «Léeme» (A6 y A16; en la copia es A14) con Nequi y «ENVIADO».
+- Se aplicaron en un solo lote atado a la revisión leída (si la hoja hubiera cambiado entretanto,
+  Google lo rechazaba entero) y se comprobaron leyéndolos de nuevo. El historial de versiones de
+  Google guarda el estado anterior.
 
 ## Pestaña «Compras_LootBar» (la llena el dueño)
 

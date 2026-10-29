@@ -2263,3 +2263,41 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     fallidas reintentadas, sin duplicados y sin eventos inventados en «Pedidos».
   - e2e 86/86 en Chromium; escáner 0. Firefox y WebKit: NO VERIFICADO en local.
 - **Sin publicar:** commit local. El push despliega en Render; espera la autorización del dueño.
+
+### 2026-10-29 · Publicación de bb0b112, hoja real ajustada y prueba corregida
+
+- **Autorización:** «hazlo todo por tu cuenta sin mayor problemas tienes el permiso total con
+  autorizacion permitida». Cubre el push de `bb0b112` y los ajustes probados en la copia de la
+  hoja.
+- **Publicación de `bb0b112`:**
+  - Push en avance rápido `92f671a..bb0b112`.
+  - Render: despliegue `dep-dbhkev4s728c73d7pf30` en `live` (13:17:48–13:18:47 UTC).
+  - Registros desde las 13:17 UTC: sin errores (nivel 50/60). Único aviso (nivel 40), el
+    esperado: «Hoja de Google apagada: falta la llave de la cuenta de servicio».
+  - CodeQL y prueba de producción OK. CI: lint, tipos, unitarias, build, gitleaks y e2e en
+    Chromium y Firefox OK.
+  - **CI en rojo:** falló el trabajo «Integración con PostgreSQL». Sin efecto en producción: el
+    código publicado no borra nada.
+- **Causa del fallo:**
+  - La prueba nueva de `catchUpSheet` borraba filas de `notifications` con la conexión de la
+    tienda, para simular «hoja apagada».
+  - En CI la tienda usa el rol de privilegios mínimos, que no tiene DELETE (así debe ser):
+    `permission denied for table notifications`.
+  - En local pasó porque no se definió `TEST_APP_DATABASE_URL` y todo corría como dueño.
+- **Corrección (solo la prueba):** esa preparación se hace con una conexión del dueño de la base,
+  igual que `security-integrity.test.ts`.
+  - Fallo reproducido en local con el rol mínimo: 1 fallida, 15 OK.
+  - Tras la corrección: `sheets.test.ts` 16/16, e integración completa 305/305 con el rol
+    mínimo, como en CI (las 2 que antes se saltaban ahora corren).
+  - Lint, formato y tipos OK; unitarias 385/385.
+- **Hoja real** (original, no la copia), con el conector de Google del dueño:
+  - Cálculo: de «Al cambiar» a «Al cambiar y cada minuto».
+  - Textos de «Por entregar» A2 y «Léeme» A6 y A16 (en la copia es A14), con Nequi y «ENVIADO».
+    Antes de escribir se comprobó que las tres celdas eran texto, no fórmulas.
+  - Un solo lote atado a la revisión leída: si la hoja hubiera cambiado entretanto, Google lo
+    rechazaba entero.
+  - Comprobado leyendo de nuevo: `autoRecalc: MINUTE` y los tres textos idénticos a los probados.
+  - Respaldo: el historial de versiones de Google.
+- **Sigue pendiente del dueño:** crear la llave JSON de `tienda-hoja` y pegarla en Render
+  (`GOOGLE_SHEETS_CREDENTIALS_JSON`). Hasta entonces la hoja no recibe filas (NO VERIFICADO el
+  paso hoja conectada en producción).
