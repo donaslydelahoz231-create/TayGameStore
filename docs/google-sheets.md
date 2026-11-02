@@ -386,6 +386,12 @@ arroje la información del pedido o el estado» (2026-10-29). Elección del due�
 referencia** para el pago y **casilla ✓ Enviado** para la entrega. Desde el 2026-11-02 las
 columnas del dueño son casillas (validación «casilla» estricta: no aceptan texto).
 
+> **Casilla «de un solo valor» (obligatorio):** la validación es `BOOLEAN` con un único valor
+> `TRUE` (marcada = TRUE, desmarcada = **vacía**). Con la casilla normal (sin valores) cada celda
+> vacía vale FALSE, Google toma esas columnas como parte de la tabla y `appendRow` (rango `A1`)
+> escribe los pedidos nuevos debajo de la fila 1000. Pasó el 2026-11-02 con un pedido real; ver el
+> registro de auditoría.
+
 **«Pagos pendientes» (pago Nequi), columnas U, V y W:**
 
 - **U «✓ Pago verificado (tú)»**: casilla. El dueño la marca solo después de ver en su app Nequi

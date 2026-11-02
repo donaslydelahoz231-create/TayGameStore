@@ -2530,3 +2530,47 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     visto en su app. El camino está probado en integración con base real.
   - Que la cuenta de administrador sea el primer correo de `ADMIN_EMAILS` (no se leen variables
     de Render; si no lo es, la respuesta de la tienda lo dirá).
+- **Publicación de 508effa (2026-11-02):**
+  - Autorización: el dueño eligió «Publicar ahora (Recomendado)» en la pregunta de opciones, con
+    el resumen del diff (9 archivos, +438/−102) y las cifras de las pruebas. El primer intento de
+    push había sido rechazado y no se repitió sin esa respuesta. Blobs comprobados antes del
+    commit: iguales a los mostrados.
+  - GitHub: `508effa` en la rama (`git ls-remote`).
+  - Render: despliegue `dep-dbkh9s6q1p3s73am7890` en `live` a las 22:57:23 UTC. Arranque con
+    «hoja de Google conectada»; la instancia nueva no registró avisos ni errores.
+  - A las 22:56:28 UTC la instancia que despertaba (otro conjunto de réplicas) registró 8 tareas
+    con «Connection terminated due to connection timeout» contra la base; 10 s después
+    `/api/ready` respondió 200. Coincide con respuestas 502 de la API de Neon en esa hora. No
+    depende de este cambio.
+  - **Prueba en producción con referencia ficticia** (`TGS-PRUEBAHOJA`, sin tocar pedidos):
+    - «Pagos pendientes»: casilla U marcada y `PRUEBA-0001` en V. A las 22:58:50 UTC la tienda
+      respondió en W «✖️ No se confirmó: no hay un pedido con esa referencia. · 2026-11-02
+      17:58» y vació U y V. Registro: `pestaña: pending`, `aplicado: false`.
+    - «Entregas»: casilla T marcada. A las 22:58:49 UTC respondió en V «✖️ No se aplicó: no hay
+      un pedido con esa referencia. · 2026-11-02 17:58» y vació T. Registro:
+      `pestaña: deliveries`, `aplicado: false`.
+    - Después se vaciaron las filas de prueba; leído de vuelta: solo quedan los 3 pedidos Nequi
+      reales y «Entregas» sin filas.
+  - GitHub Actions sobre 508effa: CI #244 en verde (lint, tipos, unitarias y build; integración
+    con PostgreSQL; gitleaks; e2e Chromium, Firefox y WebKit), CodeQL #187 y Production smoke
+    #100 en verde.
+  - **Incidente encontrado y corregido en la hoja (23:10 UTC):** un pedido Nequi real nuevo
+    (`TGS-C82F1KTNQ9`, creado a las 17:04 hora de Colombia) apareció en la **fila 1001** de
+    «Pagos pendientes» en vez de la 5.
+    - Causa: la casilla «normal» de Google (validación BOOLEAN sin valores) hace que cada celda
+      vacía valga FALSE. `appendRow` añade con el rango `A1` y Google tomó como tabla A1:W1000
+      (las casillas de U2:U1000 contaban como datos). En «Entregas» habría pasado lo mismo con el
+      primer pedido pagado (T2:T1000).
+    - Nada se perdió ni se sobrescribió: «Por verificar» y «Hoy» ya lo contaban (sus fórmulas usan
+      rangos abiertos) y la tienda busca la fila por la referencia en toda la columna A. La fila 5
+      que usó la prueba ficticia estaba vacía (comprobado: A5:I7 y O5:O7 sin datos).
+    - Arreglo, solo en la hoja: casilla «de un solo valor» (`BOOLEAN` con `["TRUE"]`: marcada =
+      TRUE, desmarcada = vacía) en «Pagos pendientes» U2:U1000 y «Entregas» T2:T1000. Probado
+      antes en la copia: las celdas vacías leen vacío, un `append` en `A1` cae en la primera fila
+      libre y marcar la casilla escribe `TRUE` (booleano), que la tienda ya entiende.
+    - En el original, en una sola operación con bloqueo de revisión: valores de A1001:T1001
+      copiados a A5:T5, fila 1001 eliminada y las dos validaciones cambiadas. Leído de vuelta: los
+      4 pedidos en las filas 2–5, 1000 filas, U y T vacías.
+    - Sin cambio de código ni despliegue.
+  - **NO VERIFICADO:** un pago o una entrega reales por casilla (no se tocan pedidos reales en
+    pruebas) y el primer correo de `ADMIN_EMAILS` (siguen igual que arriba).
