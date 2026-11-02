@@ -668,7 +668,7 @@ describe('Google Sheets: fila de «Entregas»', () => {
   });
 });
 
-describe('Google Sheets: cambios de estado que el dueño escribe en «Entregas»', () => {
+describe('Google Sheets: casillas del dueño en «Entregas» y «Pagos pendientes»', () => {
   const newLog = (responses: (() => Response)[]) => {
     const fetcher = fakeFetch([
       json({ access_token: 'token-de-prueba', expires_in: 3600 }),
@@ -690,45 +690,65 @@ describe('Google Sheets: cambios de estado que el dueño escribe en «Entregas»
   };
   const ranges = (url: string | undefined) =>
     new URL(url ?? '').searchParams.getAll('ranges').map((range) => decodeURIComponent(range));
+  const empty = () => json({ valueRanges: [{}] });
 
-  it('las columnas del dueño van justo después de las que escribe la tienda (A–S)', () => {
-    expect(DELIVERY_COLUMNS).toHaveLength(19);
-    expect(COMMAND_COLUMNS).toEqual({ command: 'T', note: 'U', response: 'V' });
+  it('las columnas del dueño van justo después de las que escribe la tienda', () => {
+    expect(DELIVERY_COLUMNS).toHaveLength(19); // A–S → T, U, V
+    expect(PENDING_PAYMENT_COLUMNS).toHaveLength(20); // A–T → U, V, W
+    expect(COMMAND_COLUMNS).toEqual({
+      deliveries: { command: 'T', note: 'U', response: 'V' },
+      pending: { command: 'U', note: 'V', response: 'W' },
+    });
   });
 
-  it('con la columna T vacía hace una sola lectura y no pide las referencias', async () => {
-    const { log, calls } = newLog([json({ valueRanges: [{ range: 'Entregas!T2:U' }] })]);
-    expect(await log.readCommands()).toEqual([]);
-    expect(calls).toHaveLength(2);
-    expect(calls[1]?.url).toContain('/values:batchGet?');
-    expect(ranges(calls[1]?.url)).toEqual(['Entregas!T2:U']);
-  });
-
-  it('une cada orden con la referencia de su fila e ignora filas sin orden o sin referencia', async () => {
+  it('con las casillas sin marcar hace una lectura por pestaña, sin formato, y no pide referencias', async () => {
     const { log, calls } = newLog([
+      json({ valueRanges: [{ values: [[false], [false, '']] }] }),
+      empty(),
+    ]);
+    expect(await log.readCommands()).toEqual([]);
+    expect(calls).toHaveLength(3);
+    expect(calls[1]?.url).toContain('/values:batchGet?');
+    expect(calls[1]?.url).toContain('valueRenderOption=UNFORMATTED_VALUE');
+    expect(ranges(calls[1]?.url)).toEqual(['Entregas!T2:U']);
+    expect(ranges(calls[2]?.url)).toEqual(["'Pagos pendientes'!U2:V"]);
+  });
+
+  it('une cada casilla marcada con la referencia de su fila, en las dos pestañas', async () => {
+    const { log, calls } = newLog([
+      json({ valueRanges: [{ values: [[], [true, 'Pedido LootBar 123'], [false]] }] }),
       json({
-        valueRanges: [{ values: [[], ['✅ Entregado', 'Pedido LootBar 123'], [' En proceso ']] }],
+        valueRanges: [{ values: [['TGS-AAAAAAAAAA'], ['TGS-BBBBBBBBBB'], ['TGS-CCCCCCCCCC']] }],
       }),
-      json({ valueRanges: [{ values: [['TGS-AAAAAAAAAA'], ['TGS-BBBBBBBBBB']] }] }),
+      json({ valueRanges: [{ values: [[true, 12345678], [' En proceso ']] }] }),
+      json({ valueRanges: [{ values: [['TGS-DDDDDDDDDD']] }] }),
     ]);
     expect(await log.readCommands()).toEqual([
-      { reference: 'TGS-BBBBBBBBBB', command: '✅ Entregado', note: 'Pedido LootBar 123' },
+      {
+        tab: 'deliveries',
+        reference: 'TGS-BBBBBBBBBB',
+        command: 'true',
+        note: 'Pedido LootBar 123',
+      },
+      // Una referencia escrita como número llega como texto.
+      { tab: 'pending', reference: 'TGS-DDDDDDDDDD', command: 'true', note: '12345678' },
     ]);
     expect(ranges(calls[2]?.url)).toEqual(['Entregas!A2:A']);
+    expect(ranges(calls[4]?.url)).toEqual(["'Pagos pendientes'!A2:A"]);
   });
 
-  it('responde en V y vacía T y U de la fila del pedido aunque la pestaña se haya ordenado', async () => {
+  it('responde en V y desmarca T y U en la fila del pedido aunque la pestaña se haya ordenado', async () => {
     const { log, calls } = newLog([
       json({
         valueRanges: [
           { values: [['TGS-BBBBBBBBBB'], ['TGS-AAAAAAAAAA']] },
-          { values: [['✅ Entregado'], []] },
+          { values: [[true], []] },
         ],
       }),
       json({}),
     ]);
     await log.finishCommand(
-      { reference: 'TGS-BBBBBBBBBB', command: '✅ Entregado', note: '' },
+      { tab: 'deliveries', reference: 'TGS-BBBBBBBBBB', command: 'true', note: '' },
       '✔️ Aplicado: Entregado · 2026-10-29 10:15',
     );
     const put = calls[2];
@@ -739,15 +759,31 @@ describe('Google Sheets: cambios de estado que el dueño escribe en «Entregas»
     });
   });
 
-  it('si el dueño ya escribió otra orden en T, solo responde y la deja para la próxima pasada', async () => {
+  it('en «Pagos pendientes» responde en W y vacía la casilla y la referencia (U y V)', async () => {
     const { log, calls } = newLog([
-      json({
-        valueRanges: [{ values: [['TGS-AAAAAAAAAA']] }, { values: [['⚠️ No se pudo entregar']] }],
-      }),
+      json({ valueRanges: [{ values: [['TGS-AAAAAAAAAA']] }, { values: [[true, 'NQ1234']] }] }),
       json({}),
     ]);
     await log.finishCommand(
-      { reference: 'TGS-AAAAAAAAAA', command: '✅ Entregado', note: '' },
+      { tab: 'pending', reference: 'TGS-AAAAAAAAAA', command: 'true', note: 'NQ1234' },
+      '✔️ Pago confirmado',
+    );
+    expect(ranges(calls[1]?.url)).toEqual(["'Pagos pendientes'!A2:A", "'Pagos pendientes'!U2:V"]);
+    expect(decodeURIComponent(calls[2]?.url ?? '')).toContain(
+      "'Pagos pendientes'!U2:W2?valueInputOption=RAW",
+    );
+    expect(JSON.parse(calls[2]?.init.body as string)).toEqual({
+      values: [['', '', '✔️ Pago confirmado']],
+    });
+  });
+
+  it('si el dueño desmarcó o cambió la casilla mientras tanto, solo responde', async () => {
+    const { log, calls } = newLog([
+      json({ valueRanges: [{ values: [['TGS-AAAAAAAAAA']] }, { values: [[false]] }] }),
+      json({}),
+    ]);
+    await log.finishCommand(
+      { tab: 'deliveries', reference: 'TGS-AAAAAAAAAA', command: 'true', note: '' },
       '✔️ Aplicado: Entregado',
     );
     expect(decodeURIComponent(calls[2]?.url ?? '')).toContain('Entregas!V2?valueInputOption=RAW');
@@ -759,7 +795,7 @@ describe('Google Sheets: cambios de estado que el dueño escribe en «Entregas»
   it('si la fila ya no existe, no escribe nada', async () => {
     const { log, calls } = newLog([json({ valueRanges: [{ values: [['TGS-OTRAOTRA00']] }, {}] })]);
     await log.finishCommand(
-      { reference: 'TGS-AAAAAAAAAA', command: '✅ Entregado', note: '' },
+      { tab: 'deliveries', reference: 'TGS-AAAAAAAAAA', command: 'true', note: '' },
       '✔️ Aplicado: Entregado',
     );
     expect(calls).toHaveLength(2);

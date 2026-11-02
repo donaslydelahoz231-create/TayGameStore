@@ -4,10 +4,11 @@ import { createSign } from 'node:crypto';
  * Registro auxiliar de pedidos en una hoja de Google Sheets (opcional).
  *
  * - NO es la base de datos ni la autoridad de nada: el estado oficial vive en PostgreSQL y el
- *   pago lo confirma Mercado Pago (o el dueño en el panel, con Nequi). Editar una celda de los
- *   datos no cambia ningún pedido. La única entrada son las columnas del dueño en «Entregas»
- *   (`COMMAND_COLUMNS`): ahí elige el estado de la entrega y la tienda lo aplica con las mismas
- *   reglas del panel (ver services/sheet-commands.ts). Nunca un pago.
+ *   pago lo confirma Mercado Pago (o el dueño, con Nequi). Editar una celda de los datos no cambia
+ *   ningún pedido. La única entrada son las columnas del dueño (`COMMAND_COLUMNS`): la casilla
+ *   «✓ Enviado» de «Entregas» y la casilla «✓ Pago verificado» con la referencia del movimiento
+ *   Nequi de «Pagos pendientes». La tienda las aplica con las mismas reglas del panel (ver
+ *   services/sheet-commands.ts).
  * - Escribe con `valueInputOption=RAW`: nada se interpreta como fórmula.
  * - Cuatro pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
  *   operación), «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
@@ -31,21 +32,39 @@ import { createSign } from 'node:crypto';
 export type SheetTab = 'orders' | 'deliveries' | 'pending' | 'users';
 
 /**
- * Columnas del dueño en «Entregas», justo después de las 19 que escribe la tienda (A–S, ver
- * `DELIVERY_COLUMNS`): T «Cambiar estado (tú)» (lista), U «Nota del cambio (tú)» y V «Respuesta
- * de la tienda». Al reescribir la fila de un pedido la tienda solo toca A–S.
+ * Columnas del dueño, justo después de las que escribe la tienda (al reescribir la fila de un
+ * pedido, la tienda solo toca las suyas):
+ * - «Entregas» (la tienda escribe A–S, ver `DELIVERY_COLUMNS`): T casilla «✓ Enviado (tú)»,
+ *   U «Nota del cambio (tú)» y V «Respuesta de la tienda»;
+ * - «Pagos pendientes» (A–T, ver `PENDING_PAYMENT_COLUMNS`): U casilla «✓ Pago verificado (tú)»,
+ *   V «Referencia Nequi (tú)» (la del movimiento en su app Nequi) y W «Respuesta de la tienda».
  */
-export const COMMAND_COLUMNS = { command: 'T', note: 'U', response: 'V' } as const;
+export const COMMAND_COLUMNS = {
+  deliveries: { command: 'T', note: 'U', response: 'V' },
+  pending: { command: 'U', note: 'V', response: 'W' },
+} as const;
+export type CommandTab = keyof typeof COMMAND_COLUMNS;
 
-/** Un cambio de estado que el dueño dejó escrito en «Entregas». */
+/** Lo que el dueño marcó o escribió en sus columnas de una fila. */
 export interface SheetCommand {
+  /** «Entregas» (envío) o «Pagos pendientes» (pago Nequi). */
+  tab: CommandTab;
   /** Referencia del pedido (columna A de la misma fila). */
   reference: string;
-  /** Lo que eligió en la columna T, tal cual. */
+  /** «true» si marcó la casilla; si no, el texto de la celda tal cual. */
   command: string;
-  /** Nota opcional de la columna U (evidencia de la entrega o motivo). */
+  /** Nota (evidencia o motivo) o, en «Pagos pendientes», la referencia del movimiento Nequi. */
   note: string;
 }
+
+/** Texto de una celda leída sin formato: casilla marcada = «true»; desmarcada o vacía = «». */
+const cellText = (cell: unknown): string => {
+  if (cell === true) return 'true';
+  if (typeof cell === 'number') return String(cell);
+  if (typeof cell !== 'string') return '';
+  const text = cell.trim();
+  return /^false$/i.test(text) ? '' : text;
+};
 
 export interface OrderSheetLog {
   /** Agrega una fila al final de la pestaña. */
@@ -160,13 +179,16 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values/${range}`;
   }
 
-  /** Lee varios rangos de una pestaña en una sola llamada (filas como listas de celdas). */
+  /**
+   * Lee varios rangos de una pestaña en una sola llamada, sin formato (una casilla llega como
+   * true/false, no como «VERDADERO» según el idioma de la hoja), como texto por celda.
+   */
   private async readRanges(tab: SheetTab, ranges: string[]): Promise<string[][][]> {
     const query = ranges
       .map((cells) => `ranges=${encodeURIComponent(a1(this.options.tabs[tab], cells))}`)
       .join('&');
     const response = await this.request(
-      `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values:batchGet?${query}&majorDimension=ROWS`,
+      `${SHEETS_API}/${encodeURIComponent(this.options.spreadsheetId)}/values:batchGet?${query}&majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`,
       { method: 'GET' },
       'Google Sheets no dejó leer los cambios del dueño',
     );
@@ -174,7 +196,7 @@ export class GoogleSheetsLog implements OrderSheetLog {
     return ranges.map((_, i) => {
       const values = body.valueRanges?.[i]?.values;
       return Array.isArray(values)
-        ? values.map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []))
+        ? values.map((row) => (Array.isArray(row) ? row.map(cellText) : []))
         : [];
     });
   }
@@ -229,36 +251,40 @@ export class GoogleSheetsLog implements OrderSheetLog {
   }
 
   /**
-   * Casi siempre la columna T está vacía: se lee solo T:U (Google no devuelve las filas vacías
-   * del final) y la columna de referencias únicamente si hay algo que aplicar.
+   * Casi siempre las casillas están sin marcar: por pestaña se leen solo las dos columnas del
+   * dueño (Google no devuelve las filas vacías del final) y la de referencias únicamente si hay
+   * algo que aplicar.
    */
   async readCommands(): Promise<SheetCommand[]> {
-    const { command: t, note: u } = COMMAND_COLUMNS;
-    const [orders = []] = await this.readRanges('deliveries', [`${t}2:${u}`]);
-    if (!orders.some((row) => row[0]?.trim())) return [];
-    const [references = []] = await this.readRanges('deliveries', ['A2:A']);
     const commands: SheetCommand[] = [];
-    orders.forEach((row, i) => {
-      const command = row[0]?.trim() ?? '';
-      const reference = references[i]?.[0]?.trim() ?? '';
-      if (command && reference) commands.push({ reference, command, note: row[1]?.trim() ?? '' });
-    });
+    for (const tab of Object.keys(COMMAND_COLUMNS) as CommandTab[]) {
+      const { command: c, note: n } = COMMAND_COLUMNS[tab];
+      const [rows = []] = await this.readRanges(tab, [`${c}2:${n}`]);
+      if (!rows.some((row) => row[0])) continue;
+      const [references = []] = await this.readRanges(tab, ['A2:A']);
+      rows.forEach((row, i) => {
+        const command = row[0] ?? '';
+        const reference = references[i]?.[0] ?? '';
+        if (command && reference) commands.push({ tab, reference, command, note: row[1] ?? '' });
+      });
+    }
     return commands;
   }
 
-  /** Busca la fila por la referencia al escribir: el dueño pudo ordenar la pestaña mientras tanto. */
+  /**
+   * Responde en la fila del pedido y desmarca la casilla (vacía también la nota o la referencia),
+   * salvo que el dueño haya cambiado la casilla mientras tanto: entonces solo responde. Busca la
+   * fila por la referencia al escribir: el dueño pudo ordenar la pestaña.
+   */
   async finishCommand(command: SheetCommand, response: string): Promise<void> {
-    const { command: t, note: u, response: v } = COMMAND_COLUMNS;
-    const [references = [], orders = []] = await this.readRanges('deliveries', [
-      'A2:A',
-      `${t}2:${u}`,
-    ]);
-    const index = references.findIndex((row) => row[0]?.trim() === command.reference);
+    const { command: c, note: n, response: r } = COMMAND_COLUMNS[command.tab];
+    const [references = [], rows = []] = await this.readRanges(command.tab, ['A2:A', `${c}2:${n}`]);
+    const index = references.findIndex((row) => row[0] === command.reference);
     if (index < 0) return;
     const row = index + 2;
-    const unchanged = (orders[index]?.[0]?.trim() ?? '') === command.command;
+    const unchanged = (rows[index]?.[0] ?? '') === command.command;
     await this.request(
-      `${this.valuesUrl('deliveries', unchanged ? `${t}${row}:${v}${row}` : `${v}${row}`)}?valueInputOption=RAW`,
+      `${this.valuesUrl(command.tab, unchanged ? `${c}${row}:${r}${row}` : `${r}${row}`)}?valueInputOption=RAW`,
       {
         method: 'PUT',
         body: JSON.stringify({ values: [unchanged ? ['', '', response] : [response]] }),

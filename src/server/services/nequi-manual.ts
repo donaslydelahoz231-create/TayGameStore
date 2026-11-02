@@ -37,7 +37,8 @@ import { kickTopups } from './topups.js';
  * - Del cliente solo se guardan los 4 últimos dígitos de su Nequi, nunca el número completo.
  */
 
-const nequiReference = z
+/** Referencia de un movimiento Nequi (la del cliente o la que confirma el dueño). */
+export const nequiReference = z
   .string()
   .trim()
   .regex(/^[A-Za-z0-9-]{4,40}$/, 'Referencia de Nequi: 4 a 40 letras, números o guiones.');

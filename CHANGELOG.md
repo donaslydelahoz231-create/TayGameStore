@@ -5,6 +5,25 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Casillas en la hoja: «✓ Pago verificado» con referencia y «✓ Enviado» (2026-11-02)
+
+- **«Pagos pendientes»** tiene tres columnas tuyas al final:
+  - U «✓ Pago verificado (tú)», una casilla;
+  - V «Referencia Nequi (tú)», la referencia del movimiento que ves en tu app Nequi;
+  - W «Respuesta de la tienda».
+- **Marcas U con la referencia en V y la tienda confirma el pago** con las mismas reglas que el
+  botón Confirmar del panel: total exacto del pedido, referencia única, solo pedidos Nequi, pedido
+  vencido → revisión. Sale el comprobante numerado, el cliente ve su pedido pagado y el pedido
+  pasa a «Entregas». **Sin referencia no confirma.** Rechazar sigue siendo del panel.
+- **«Entregas»**: la columna T es ahora la casilla «✓ Enviado (tú)». Marcada, el pedido queda
+  entregado y el cliente ve «¡Envío exitoso!». «En proceso» y «No se pudo entregar» se marcan en
+  el panel.
+- La confirmación desde la hoja no pide el segundo paso del panel: la protege que solo tú y la
+  cuenta de servicio pueden editar la hoja (riesgo aceptado por el dueño; ver
+  `docs/google-sheets.md`, «Riesgos»).
+- La tienda lee las casillas sin formato (`UNFORMATTED_VALUE`), así funciona igual con la hoja en
+  español o en inglés. «Léeme», «Hoy» y «Por verificar» explican el flujo nuevo.
+
 ### Método de pago y estado del comprobante en la hoja (2026-10-29)
 
 - **«Pagos pendientes»** tiene dos columnas nuevas, junto al estado del pago:

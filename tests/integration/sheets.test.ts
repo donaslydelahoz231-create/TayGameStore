@@ -3,7 +3,13 @@ import { and, eq } from 'drizzle-orm';
 import type { InjectOptions, LightMyRequestResponse } from 'fastify';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { auditEvents, fulfillments, notifications, orders } from '../../src/server/db/schema.js';
+import {
+  auditEvents,
+  fulfillments,
+  notifications,
+  orders,
+  payments,
+} from '../../src/server/db/schema.js';
 import {
   SheetsError,
   type OrderSheetLog,
@@ -521,7 +527,7 @@ describe('cambios de estado desde la hoja («Entregas», columna «Cambiar estad
     return { order: order?.status, delivery };
   };
   const ask = async (reference: string, command: string, note = '') => {
-    sheet.commands = [{ reference, command, note }];
+    sheet.commands = [{ tab: 'deliveries', reference, command, note }];
     sheet.responses = [];
     expect(await processSheetCommands(h.deps)).toBe(1);
     expect(sheet.commands).toEqual([]);
@@ -568,6 +574,15 @@ describe('cambios de estado desde la hoja («Entregas», columna «Cambiar estad
     // Repetir la orden no hace nada más.
     expect(await ask(paid.reference, 'Entregado')).toMatch(/^✔️ Ya estaba: Entregado/);
     expect((await orderState(paid.id)).order).toBe('DELIVERED');
+  });
+
+  it('la casilla «✓ Enviado» marcada entrega el pedido', async () => {
+    const paid = await paidOrder();
+    expect(await ask(paid.reference, 'true')).toMatch(/^✔️ Aplicado: Entregado/);
+    expect(await orderState(paid.id)).toMatchObject({
+      order: 'DELIVERED',
+      delivery: { evidence: 'Entregado (marcado por el dueño en la hoja de Google)' },
+    });
   });
 
   it('«🔄 En proceso» deja la entrega en curso y luego «Entregado» la termina', async () => {
@@ -639,7 +654,7 @@ describe('cambios de estado desde la hoja («Entregas», columna «Cambiar estad
     expect(
       await applySheetCommand(
         h.deps,
-        { reference: paid.reference, command: '✅ Entregado', note: '' },
+        { tab: 'deliveries', reference: paid.reference, command: '✅ Entregado', note: '' },
         undefined,
       ),
     ).toMatch(/entra una vez al panel con tu cuenta de dueño/);
@@ -822,6 +837,83 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     }
     expect(pendingRow(o.ref)?.[column('Estado del pago')]).toBe('⌛ Venció sin pago');
     expect(pendingRow(o.ref)?.[column('Vence (Colombia)')]).toBe('');
+  });
+
+  /** Marca la casilla «✓ Pago verificado» (columna U) con la referencia de Nequi (columna V). */
+  const pay = async (ref: string, nequiRef: string, command = 'true') => {
+    sheet.commands = [{ tab: 'pending', reference: ref, command, note: nequiRef }];
+    sheet.responses = [];
+    expect(await processSheetCommands(hn.deps)).toBe(1);
+    expect(sheet.commands).toEqual([]);
+    return sheet.responses[0]?.response ?? '';
+  };
+  const statusOf = async (id: string) =>
+    (
+      await hn.database.db.select({ status: orders.status }).from(orders).where(eq(orders.id, id))
+    )[0]?.status;
+
+  it('casilla «✓ Pago verificado» + referencia de Nequi: confirma por el total, con comprobante', async () => {
+    const o = await readyOrder();
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    expect(
+      (await customer(o, '/nequi/report', { senderLast4: '0421', reference: 'M00055555' }))
+        .statusCode,
+    ).toBe(200);
+
+    // Sin la referencia que el dueño ve en su app Nequi no confirma nada.
+    expect(await pay(o.ref, '')).toMatch(/^✖️ No se confirmó: escribe en la columna V/);
+    expect(await pay(o.ref, 'NQ-HOJA-0001', 'algo')).toMatch(/marca la casilla/);
+    expect(await statusOf(o.id)).toBe('AWAITING_PAYMENT');
+
+    const response = await pay(o.ref, 'NQ-HOJA-0001');
+    expect(response).toMatch(
+      /^✔️ Pago confirmado · Comprobante N\.º \d{6} · ya está en «Entregas» · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
+    expect(await statusOf(o.id)).toBe('PAID');
+    const row = pendingRow(o.ref);
+    expect(row?.[column('Estado del pago')]).toBe('✅ Pago confirmado');
+    expect(row?.[column('Estado del comprobante')]).toBe('✅ Verificado');
+    expect(row?.[column('Referencia Nequi confirmada')]).toBe('NQ-HOJA-0001');
+    expect(sheet.deliveries.some((r) => r[0] === o.ref)).toBe(true);
+
+    // El pago es el del total exacto y el historial dice que lo confirmó el dueño desde la hoja.
+    const [payment] = await hn.database.db
+      .select()
+      .from(payments)
+      .where(eq(payments.orderId, o.id));
+    expect(payment).toMatchObject({ amountCop: o.total, status: 'APPROVED', isOrderPayment: true });
+    const [event] = await hn.database.db
+      .select()
+      .from(auditEvents)
+      .where(
+        and(
+          eq(auditEvents.entityId, payment?.id ?? ''),
+          eq(auditEvents.action, 'nequi_transfer.confirmed'),
+        ),
+      );
+    expect(event).toMatchObject({ actorType: 'admin', data: { via: 'google_sheet' } });
+
+    // El comprobante del cliente lo muestra pagado; marcar otra vez no hace nada más.
+    const view = await call({
+      method: 'GET',
+      url: `/api/orders/${o.ref}`,
+      cookies: o.cookies,
+    });
+    expect(view.json<{ order: { status: string } }>().order.status).toBe('PAID');
+    expect(await pay(o.ref, 'NQ-HOJA-0001')).toMatch(/^✔️ Ya estaba pagado · Comprobante N\.º/);
+  });
+
+  it('una referencia de Nequi ya usada no confirma otro pedido', async () => {
+    const o = await readyOrder();
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    expect(await pay(o.ref, 'NQ-HOJA-0001')).toMatch(/ya confirmó otro pago/);
+    expect(await statusOf(o.id)).toBe('AWAITING_PAYMENT');
+  });
+
+  it('un pedido que no es de Nequi no se confirma desde la hoja', async () => {
+    const o = await readyOrder();
+    expect(await pay(o.ref, 'NQ-HOJA-0002')).toMatch(/no se paga por transferencia Nequi/);
+    expect(await statusOf(o.id)).not.toBe('PAID');
   });
 
   it('los pedidos de Mercado Pago nunca aparecen en «Pagos pendientes»', async () => {

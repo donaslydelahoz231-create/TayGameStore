@@ -2477,3 +2477,56 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - Se reescribió «Por verificar» (A2:T, 16 columnas).
   - Lectura de vuelta con datos ficticios: «Nequi (transferencia)» y «🔎 Por verificar» en
     «Por verificar». «Hoy» sigue en 2 por verificar, con los minutos del más antiguo.
+- **Producción (845dab0):**
+  - Render: despliegue `dep-dbhpa4cs728c73dg9eb0` en `live`.
+  - Hoja real: copia de seguridad previa en Drive; columnas C y D insertadas y «Por verificar»
+    reescrita igual que en la copia. «Hoy» sigue contando los pagos por verificar.
+  - Las filas Nequi existentes se rellenaron reencolando sus avisos de la hoja: todos quedaron
+    `SENT`. Son 3 pedidos Nequi (una fila por referencia); los avisos reencolados eran más porque
+    cada pedido tiene varios.
+  - GitHub: CI #239, CodeQL #183 y Production smoke #97 en verde sobre 845dab0 (verificado el
+    2026-11-02).
+
+### 2026-11-02 · Casillas en la hoja: «✓ Pago verificado» con referencia y «✓ Enviado»
+
+- **Autorizó:** el dueño: «puedes implementar fórmula para que… solo yo seleccione una palomita o
+  una burbuja dependiendo de la hoja del Excel se pase para verificar el pago y el envío del
+  pedido… y luego que la factura o el comprobante arroje la información del pedido o el estado».
+  Elecciones en la pregunta de opciones: pago «Casilla + referencia (Recomendado)» y entrega
+  «Casilla ✓ Enviado (Recomendado)». Después: «Siga la ejecución pendientes».
+- **Riesgo aceptado por el dueño:** confirmar un pago desde la hoja no pasa por el segundo paso
+  del panel; lo protege solo el acceso de edición a la hoja (dueño y `tienda-hoja`). Límites en el
+  código: referencia de movimiento válida y única, total exacto del pedido, solo pedidos Nequi,
+  pedido vencido → revisión, historial con `via: google_sheet`. Documentado en
+  `docs/google-sheets.md` («Riesgos»).
+- **Código:**
+  - `google-sheets.ts`: `COMMAND_COLUMNS` por pestaña (Entregas T/U/V, Pagos pendientes U/V/W);
+    `readCommands` lee las dos pestañas con `UNFORMATTED_VALUE` (una casilla llega como `true`);
+    `finishCommand` responde en la pestaña de la orden.
+  - `sheet-commands.ts`: la casilla marcada en «Entregas» = «Entregado»; en «Pagos pendientes»,
+    `applyPaymentCommand` → `confirmNequiTransfer` con el total del pedido y la referencia de V
+    (validada con `nequiReference`, ahora exportado de `nequi-manual.ts`).
+- **Pruebas (local):**
+  - Unitarias: 400 de 400 (40 archivos).
+  - Integración con el rol restringido: 315 de 315 (29 archivos). Incluye: la casilla «✓ Enviado»
+    entrega el pedido; la casilla de pago con referencia confirma (comprobante, fila «✅
+    Verificado», auditoría `via: google_sheet`, vista del cliente «PAID», repetir → «Ya estaba
+    pagado»); referencia reutilizada y pedido que no es Nequi se rechazan.
+  - Lint, tipos y formato: limpios. Escáner de datos sensibles: 0 coincidencias.
+- **Hoja (antes de publicar el código, para que la tienda no lea columnas inexistentes):**
+  - Copia de prueba: casillas en «Entregas» T y «Pagos pendientes» U, columnas U–W nuevas,
+    protecciones y textos de «Hoy» y «Por verificar»; leído de vuelta.
+  - Original: copia de seguridad previa en Drive («Respaldo 2026-11-02 … (antes de casillas)») y
+    el mismo lote aplicado con bloqueo de revisión; leído de vuelta: casillas con validación
+    estricta, V en formato texto, protecciones con T–U y U–V libres.
+  - En «Entregas» T2 había «🔄 En proceso» en una fila sin pedido (la pestaña no tiene pedidos
+    pagados todavía): no tenía efecto y se vació al convertir la columna en casilla.
+  - «Léeme»: filas de «Por verificar», «Por entregar», «Pagos pendientes» (columnas P a T y U–W),
+    «Entregas», significados de estado, reglas y la sección «Confirmar un pago y marcar un envío
+    desde la hoja».
+- **NO VERIFICADO (al hacer el commit):**
+  - El despliegue en Render y el CI de este commit: se registran en el siguiente.
+  - Un pago o una entrega reales por casilla: no hay pedidos Nequi esperando que el dueño haya
+    visto en su app. El camino está probado en integración con base real.
+  - Que la cuenta de administrador sea el primer correo de `ADMIN_EMAILS` (no se leen variables
+    de Render; si no lo es, la respuesta de la tienda lo dirá).

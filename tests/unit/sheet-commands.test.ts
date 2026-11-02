@@ -15,6 +15,12 @@ describe('cambios de estado desde la hoja: qué entiende la tienda', () => {
     expect(parseSheetCommand('No se pudo entregar')).toBe('fail');
   });
 
+  it('la casilla «✓ Enviado» marcada es «Entregado» (true, o VERDADERO en español)', () => {
+    expect(parseSheetCommand('true')).toBe('deliver');
+    expect(parseSheetCommand('VERDADERO')).toBe('deliver');
+    expect(parseSheetCommand('')).toBeUndefined();
+  });
+
   it('nada de pagos ni texto libre: lo demás no se entiende', () => {
     for (const text of ['Pago confirmado', 'Pagado', 'Reembolsar', 'entregado ya', '', '=1+1']) {
       expect(parseSheetCommand(text)).toBeUndefined();

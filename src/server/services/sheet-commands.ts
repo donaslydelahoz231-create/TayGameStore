@@ -4,19 +4,24 @@ import type { SheetCommand } from '../integrations/sheets/google-sheets.js';
 import { AppError } from '../plugins/errors.js';
 import { fulfillmentAction, type FulfillmentAction } from './admin.js';
 import type { Actor, ServiceDeps } from './context.js';
+import { confirmNequiTransfer, nequiReference } from './nequi-manual.js';
 import { bogotaTime } from './notifications.js';
 
 /**
- * Cambios de estado de la entrega que el dueño elige en la hoja de Google («Entregas», columna
- * «Cambiar estado (tú)»). La tienda los aplica con las mismas reglas y el mismo historial que el
- * panel (`fulfillmentAction`): nunca entrega sin un pago confirmado, el cliente ve el estado nuevo
- * en su pedido y el aviso de entrega sale igual. Nada de pagos: confirmar o rechazar un pago Nequi
- * sigue siendo solo del panel, con su inicio de sesión y su segundo paso.
+ * Lo que el dueño marca en la hoja de Google, aplicado con las mismas reglas y el mismo historial
+ * que el panel:
+ * - «Entregas», casilla «✓ Enviado» (o el texto «En proceso», «Entregado», «No se pudo
+ *   entregar»): `fulfillmentAction`. Nunca entrega sin un pago confirmado; el cliente ve el estado
+ *   nuevo en su pedido y el aviso de entrega sale igual.
+ * - «Pagos pendientes», casilla «✓ Pago verificado» con la referencia del movimiento en su app
+ *   Nequi al lado (decisión del dueño, 2026-10-29): `confirmNequiTransfer`, por el total exacto
+ *   del pedido. Sin referencia no confirma; una referencia confirma un solo pedido. Rechazar un
+ *   aviso sigue siendo del panel.
  */
 
 export type SheetTarget = 'start' | 'deliver' | 'fail';
 
-/** Opciones de la lista de la columna T, tal como se ven en la hoja. */
+/** Textos que la tienda aún entiende en la columna T (era una lista; desde 2026-11-02 es casilla). */
 export const SHEET_COMMAND_OPTIONS = [
   '🔄 En proceso',
   '✅ Entregado',
@@ -39,11 +44,17 @@ const normalize = (text: string) =>
     .toLowerCase();
 
 const TARGETS: Record<string, SheetTarget> = {
+  // Casilla «✓ Enviado» marcada (la hoja la entrega como true; en español, «VERDADERO»).
+  true: 'deliver',
+  verdadero: 'deliver',
   'en proceso': 'start',
   entregado: 'deliver',
   completado: 'deliver',
   'no se pudo entregar': 'fail',
 };
+
+/** Casilla marcada (o «sí» escrito a mano). */
+const isChecked = (text: string) => ['true', 'verdadero', 'si'].includes(normalize(text));
 
 export function parseSheetCommand(text: string): SheetTarget | undefined {
   return TARGETS[normalize(text)];
@@ -97,12 +108,70 @@ async function ownerActor(deps: ServiceDeps): Promise<Actor | undefined> {
   return owner ? { type: 'admin', userId: owner.id, via: 'google_sheet' } : undefined;
 }
 
-/** Aplica una orden de la hoja y devuelve la respuesta para el dueño (columna V). */
+const receiptLabel = (receiptNumber: number | null) =>
+  receiptNumber === null ? '' : ` · Comprobante N.º ${String(receiptNumber).padStart(6, '0')}`;
+
+/**
+ * Casilla «✓ Pago verificado» de «Pagos pendientes»: confirma el pago Nequi del pedido por su total
+ * exacto con la referencia que el dueño vio en su app Nequi (columna V).
+ */
+export async function applyPaymentCommand(
+  deps: ServiceDeps,
+  command: SheetCommand,
+  actor: Actor | undefined,
+): Promise<string> {
+  if (!isChecked(command.command)) return '✖️ No se confirmó: marca la casilla de la columna U.';
+  if (!actor) {
+    return '✖️ No se confirmó: entra una vez al panel con tu cuenta de dueño y vuelve a marcar.';
+  }
+  const reference = nequiReference.safeParse(command.note);
+  if (!reference.success) {
+    return '✖️ No se confirmó: escribe en la columna V la referencia del movimiento que ves en tu app Nequi (4 a 40 letras, números o guiones) y vuelve a marcar.';
+  }
+  const loadOrder = async () =>
+    (
+      await deps.db
+        .select({
+          id: orders.id,
+          status: orders.status,
+          totalCop: orders.totalCop,
+          receiptNumber: orders.receiptNumber,
+        })
+        .from(orders)
+        .where(eq(orders.publicRef, command.reference))
+        .limit(1)
+    )[0];
+  const order = await loadOrder();
+  if (!order) return '✖️ No se confirmó: no hay un pedido con esa referencia.';
+  if (['PAID', 'DELIVERING', 'DELIVERED'].includes(order.status)) {
+    return `✔️ Ya estaba pagado${receiptLabel(order.receiptNumber)}`;
+  }
+  try {
+    await confirmNequiTransfer(
+      deps,
+      order.id,
+      { nequiReference: reference.data, amountCop: order.totalCop },
+      actor,
+    );
+  } catch (error) {
+    // Mismos mensajes que ve el dueño en el panel (pedido de Mercado Pago, referencia usada…).
+    if (error instanceof AppError) return `✖️ No se confirmó: ${error.message}`;
+    throw error;
+  }
+  const after = await loadOrder();
+  if (after?.status === 'NEEDS_REVIEW') {
+    return '✔️ Pago registrado, pero el pedido ya había vencido: quedó en revisión. Resuélvelo en el panel antes de entregar.';
+  }
+  return `✔️ Pago confirmado${receiptLabel(after?.receiptNumber ?? null)} · ya está en «Entregas»`;
+}
+
+/** Aplica lo que el dueño marcó en la hoja y devuelve la respuesta para él (última columna). */
 export async function applySheetCommand(
   deps: ServiceDeps,
   command: SheetCommand,
   actor: Actor | undefined,
 ): Promise<string> {
+  if (command.tab === 'pending') return applyPaymentCommand(deps, command, actor);
   const target = parseSheetCommand(command.command);
   if (!target) return '✖️ No entendí la opción: elige una de la lista.';
   if (!actor) {
@@ -149,8 +218,8 @@ export async function applySheetCommand(
 }
 
 /**
- * Una pasada: lee la columna T de «Entregas» (sin tocar la base de datos si está vacía), aplica
- * cada orden y deja la respuesta en la fila. Si falla la base de datos, la orden sigue escrita y
+ * Una pasada: lee las casillas de «Entregas» y «Pagos pendientes» (sin tocar la base de datos si
+ * están sin marcar), aplica cada una y deja la respuesta en la fila. Si falla la base de datos, la orden sigue escrita y
  * se reintenta en la próxima pasada. Devuelve cuántas órdenes respondió.
  */
 export async function processSheetCommands(deps: ServiceDeps): Promise<number> {
@@ -163,7 +232,7 @@ export async function processSheetCommands(deps: ServiceDeps): Promise<number> {
     const response = await applySheetCommand(deps, command, actor);
     await sheets.finishCommand(command, `${response} · ${bogotaTime.format(deps.now())}`);
     deps.log.info(
-      { ref: command.reference, aplicado: response.startsWith('✔️') },
+      { ref: command.reference, pestaña: command.tab, aplicado: response.startsWith('✔️') },
       'hoja de Google: cambio de estado del dueño',
     );
   }

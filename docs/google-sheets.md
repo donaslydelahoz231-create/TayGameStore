@@ -128,8 +128,9 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
         (transferencia) · referencia del movimiento»
     18. Evidencia o motivo (de la entrega, el fallo o la revisión)
     19. Actualizado (Colombia)
-  - **columnas del dueño T, U y V** (ver «Cambiar el estado de un pedido desde la hoja»): la tienda
-    nunca las reescribe al actualizar la fila (solo escribe A–S).
+  - **columnas del dueño T (casilla «✓ Enviado»), U (nota) y V (respuesta)** (ver «Confirmar un
+    pago y marcar un envío desde la hoja»): la tienda nunca las reescribe al actualizar la fila
+    (solo escribe A–S).
 - **«Pagos pendientes»** (`GOOGLE_SHEETS_PENDING_TAB`). Pedido del dueño (2026-10-20): ver en la
   hoja el pago pendiente del cliente hacia el dueño. Solo pedidos **Nequi**: a los de Mercado
   Pago los confirma Mercado Pago, no el dueño.
@@ -140,7 +141,8 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
     verifícalo en tu Nequi», «✖️ Aviso rechazado: esperando otra transferencia», «✅ Pago
     confirmado», «↩️ Devuelto al cliente», «⌛ Venció sin pago» o «⚠️ Venció con un aviso sin
     verificar: revisa tu Nequi». **El aviso del cliente nunca es un pago**: solo la confirmación
-    del dueño en el panel, después de ver el dinero en su app Nequi;
+    del dueño (en el panel o con su casilla de esta pestaña), después de ver el dinero en su app
+    Nequi;
   - 20 columnas, en este orden:
     1. Referencia
     2. Estado del pago
@@ -168,6 +170,9 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
   - pedidos del dueño del 2026-10-29: las columnas 16–20 (a quién se recarga) y las 3–4 (método
     y estado del comprobante). Las 3–4 se insertaron en la hoja con «Insertar columnas», así
     Google movió solo las referencias de «Hoy»; la fórmula de «Por verificar» se reescribió;
+  - **columnas del dueño U (casilla «✓ Pago verificado»), V (referencia Nequi del movimiento) y W
+    (respuesta)** (2026-11-02, ver «Confirmar un pago y marcar un envío desde la hoja»): la tienda
+    nunca las reescribe al actualizar la fila (solo escribe A–T);
   - lleva los 4 últimos dígitos y la referencia que dio el cliente (datos de pago de tus
     clientes) y los datos del jugador: nunca su correo, nombre, celular completo ni PIN.
 - **«Usuarios»** (`GOOGLE_SHEETS_USERS_TAB`). Pedido del dueño (2026-10-21): cada cliente de la
@@ -372,39 +377,62 @@ Una variable de la hoja incompleta o mal escrita **nunca impide arrancar la tien
 
 Cambiar variables de Render es un cambio en producción: requiere la autorización del dueño.
 
-## Cambiar el estado de un pedido desde la hoja (2026-10-29)
+## Confirmar un pago y marcar un envío desde la hoja (casillas)
 
-Pedido del dueño: «un apartado para cambiar el estado de completado el pedido y que en mi tienda
-el estado esté conectado; no de decoración». Lo hacen tres columnas de «Entregas»:
+Pedidos del dueño: «un apartado para cambiar el estado de completado el pedido y que en mi tienda
+el estado esté conectado; no de decoración» (2026-10-29) y «que solo yo seleccione una palomita…
+se pase para verificar el pago y el envío del pedido, y luego que la factura o el comprobante
+arroje la información del pedido o el estado» (2026-10-29). Elección del dueño: **casilla +
+referencia** para el pago y **casilla ✓ Enviado** para la entrega. Desde el 2026-11-02 las
+columnas del dueño son casillas (validación «casilla» estricta: no aceptan texto).
 
-- **T «Cambiar estado (tú)»**: lista con «🔄 En proceso», «✅ Entregado» y «⚠️ No se pudo
-  entregar» (también entiende «Completado», sin importar emojis, tildes ni mayúsculas).
+**«Pagos pendientes» (pago Nequi), columnas U, V y W:**
+
+- **U «✓ Pago verificado (tú)»**: casilla. El dueño la marca solo después de ver en su app Nequi
+  el total exacto del pedido.
+- **V «Referencia Nequi (tú)»** (formato texto): la referencia del movimiento que ve en Nequi,
+  4 a 40 letras, números o guiones (la misma regla del panel). **Sin referencia no confirma.**
+- **W «Respuesta de la tienda»**: «✔️ Pago confirmado · Comprobante N.º 000012 · ya está en
+  «Entregas»», «✔️ Ya estaba pagado…», «✔️ Pago registrado, pero el pedido ya había vencido:
+  quedó en revisión…» o «✖️ No se confirmó: motivo» (sin casilla, sin referencia válida, sin
+  pedido, referencia ya usada, pedido que no es Nequi…). Al responder la tienda vacía U y V.
+- La tienda llama a `confirmNequiTransfer` con el **total exacto del pedido** (el dueño no escribe
+  montos), la referencia de V y la cuenta de administrador del dueño: las mismas reglas que el
+  botón Confirmar del panel (referencia única, pedido Nequi, pedido vencido → revisión, emisión
+  del comprobante numerado, aviso al cliente, fila nueva en «Entregas»). El comprobante y el
+  seguimiento del cliente muestran «Pagado» solos. **Rechazar** un aviso sigue siendo solo del
+  panel.
+
+**«Entregas» (envío), columnas T, U y V:**
+
+- **T «✓ Enviado (tú)»**: casilla. Marcada = «Entregado». «En proceso» y «No se pudo entregar»
+  se marcan en el panel (el servidor aún entiende esos textos, pero la casilla no los admite).
 - **U «Nota del cambio (tú)»** (opcional): evidencia de la entrega (p. ej. el número de la
-  compra en LootBar) o motivo del fallo. Vacía, la tienda pone «Entregado (marcado por el dueño en
-  la hoja de Google)» o su equivalente.
+  compra en LootBar). Vacía, la tienda pone «Entregado (marcado por el dueño en la hoja de
+  Google)».
 - **V «Respuesta de la tienda»**: «✔️ Aplicado: Entregado · 2026-10-29 10:15», «✔️ Ya
   estaba: …» o «✖️ No se aplicó: motivo · hora». Al responder, la tienda vacía T y U (si el
-  dueño ya escribió otra cosa en T, la deja para la próxima pasada).
+  dueño ya cambió T, la deja para la próxima pasada).
 
-Cómo funciona (`src/server/services/sheet-commands.ts`):
+Cómo funciona (`src/server/services/sheet-commands.ts`, `readCommands`/`finishCommand` en
+`src/server/integrations/sheets/google-sheets.ts`):
 
-- Cada **30 segundos** la tienda lee T2:U de «Entregas» (una lectura de Google; Google omite las
-  filas vacías del final). Solo si hay algo escrito lee las referencias y usa la base de datos:
-  el modo reposo de Neon no cambia.
-- Aplica el estado con **las mismas reglas y el mismo historial que el panel**
-  (`fulfillmentAction`): tomar → iniciar → entregar o marcar fallida, recalculando el siguiente
-  paso con el estado real (repetir la orden no hace nada más). Con «✅ Entregado» el pedido pasa a
-  ENTREGADO, el cliente ve «¡Envío exitoso!» en su pedido, sale el aviso de entrega (si hay
-  correo) y la columna B se actualiza en 1–2 s. «⚠️ No se pudo entregar» deja el pedido en
-  revisión con el motivo.
-- **Nunca**: entrega un pedido sin pago confirmado, deshace una entrega, salta una revisión ni
-  toca una recarga automática (UniPin). **Nada de pagos**: confirmar o rechazar un pago Nequi
-  sigue siendo solo del panel, con inicio de sesión y segundo paso.
+- Cada **30 segundos** la tienda lee T2:U de «Entregas» y U2:V de «Pagos pendientes» con
+  `valueRenderOption=UNFORMATTED_VALUE` (una casilla marcada llega como `true`, sin depender del
+  idioma de la hoja). Solo si hay algo marcado o escrito lee las referencias de la columna A y usa
+  la base de datos: el modo reposo de Neon no cambia.
+- La entrega se aplica con **las mismas reglas y el mismo historial que el panel**
+  (`fulfillmentAction`): tomar → iniciar → entregar, recalculando el siguiente paso con el estado
+  real (repetir la orden no hace nada más). El pedido pasa a ENTREGADO, el cliente ve «¡Envío
+  exitoso!», sale el aviso de entrega (si hay correo) y la columna B se actualiza en 1–2 s.
+- **Nunca**: entrega un pedido sin pago confirmado, deshace una entrega, salta una revisión, toca
+  una recarga automática (UniPin), confirma un pago sin referencia ni con un monto distinto del
+  total, ni confirma pagos de Mercado Pago (los confirma solo Mercado Pago).
 - Quien actúa es la cuenta de administrador del dueño (primer correo de `ADMIN_EMAILS`); cada
   evento del historial lleva `via: google_sheet`. Si esa cuenta no existe en la base, responde
   «entra una vez al panel con tu cuenta de dueño».
-- La protección con aviso de «Entregas» deja libres T2:U1000 (sin el aviso al editar); el resto
-  de la pestaña sigue protegida con aviso.
+- Las protecciones con aviso dejan libres T2:U1000 de «Entregas» y U2:V1000 de «Pagos
+  pendientes»; el resto de cada pestaña sigue protegido con aviso.
 - Si Google falla, avisa en el registro (`sheet_commands_failed`, como mucho cada 10 minutos) y lo
   intenta de nuevo en la siguiente pasada. Si falla la base de datos, la orden queda escrita y se
   reintenta.
@@ -417,9 +445,15 @@ Cómo funciona (`src/server/services/sheet-commands.ts`):
   últimos dígitos y la referencia de pago que avisó cada cliente Nequi (datos personales de tus
   clientes). Compártela solo con la cuenta de servicio y contigo; nunca con enlace. La política de
   privacidad (`privacidad.html`, punto 4) lo informa.
-- **Quien pueda editar la hoja puede marcar entregas a nombre del dueño** (columnas T y U de
-  «Entregas»). No puede confirmar pagos ni entregar pedidos sin pagar, pero el cliente vería su
-  pedido como entregado. Por eso la hoja es solo del dueño y de `tienda-hoja`.
+- **Quien pueda editar la hoja puede marcar entregas y confirmar pagos Nequi a nombre del
+  dueño** (columnas T–U de «Entregas» y U–V de «Pagos pendientes»). La confirmación desde la hoja
+  **no pasa por el segundo paso del panel** (TOTP/llave): la protege solo el acceso de edición a
+  la hoja. El dueño lo eligió así el 2026-10-29 («Casilla + referencia»). Límites: exige una
+  referencia de movimiento válida y única, confirma siempre el total exacto del pedido, solo
+  pedidos Nequi, nunca entrega sin pago ni deshace nada, y todo queda en el historial con
+  `via: google_sheet`. Por eso la hoja es solo del dueño y de `tienda-hoja`, nunca con enlace.
+  Para volver a exigir el panel basta con borrar la variable de la hoja en Render o quitar las
+  casillas.
 - La llave de la cuenta de servicio solo puede editar las hojas compartidas con su correo.
   Si se filtra, bórrala en Google Cloud y crea otra.
 - Apagarlo: borra las variables en Render. Los pedidos no se ven afectados.
