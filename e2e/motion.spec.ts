@@ -87,6 +87,53 @@ test('las animaciones se conservan y solo se pausan donde no se ven', async ({ p
   await expect.poll(async () => (await animationsIn(page, '.hero')).running).toBeGreaterThan(0);
 });
 
+test('el inicio se anima sin filtros que se recalculen en cada cuadro (fluido y nítido)', async ({
+  page,
+}) => {
+  // Medido el 2026-11-03: los desenfoques y sombras sobre luces y personajes que se mueven
+  // bajaban la presentación a ~38 fps y la bienvenida a ~50 fps (48-inicio-fluido.css).
+  const filtersInMotion = (selector: string) =>
+    page.evaluate((sel) => {
+      const root = document.querySelector(sel);
+      const found: string[] = [];
+      for (const animation of document.getAnimations()) {
+        const effect = animation.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        if (!(target instanceof Element) || !root?.contains(target)) continue;
+        for (const frame of effect?.getKeyframes() ?? []) {
+          if ('filter' in frame) found.push((animation as CSSAnimation).animationName || 'js');
+        }
+      }
+      return [...new Set(found)];
+    }, selector);
+  const filterOf = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((el) => getComputedStyle(el).filter);
+
+  await page.goto('/');
+  await expect(page.locator('#tgsIntro')).toBeVisible();
+  await expect.poll(() => filtersInMotion('#tgsIntro')).toEqual([]);
+  for (const selector of ['.intro-aurora i', '.intro-tay']) {
+    expect(await filterOf(selector), selector).toBe('none');
+  }
+  // Las animaciones siguen ahí: solo cambió cómo se dibujan.
+  expect((await animationsIn(page, '#tgsIntro')).names).toEqual(
+    expect.arrayContaining(['tgsAurora', 'tgsFloor', 'tgsFacet']),
+  );
+
+  await page.locator('#tgsIntro .intro-skip').click();
+  await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
+  expect(await filtersInMotion('#entryExperience')).toEqual([]);
+  for (const selector of ['.entry-orb', '#entryExperience .entry-mascot']) {
+    expect(await filterOf(selector), selector).toBe('none');
+  }
+  expect((await animationsIn(page, '#entryExperience')).names).toEqual(
+    expect.arrayContaining(['tgsAurora', 'tgsTayBlink', 'tgsShimmer']),
+  );
+});
+
 test('la barra de avance sigue el scroll sin cambiar su ancho', async ({ page }) => {
   await page.goto('/');
   await enterAsGuest(page);

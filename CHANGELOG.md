@@ -5,6 +5,39 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Inicio fluido y nítido (2026-11-03)
+
+- **La presentación, la bienvenida y «Entrar» ya no se entrecortan en computador**, sin quitar
+  ninguna animación. Medido en Chromium de escritorio (4 pasadas): la presentación pasó de ~38 a
+  ~53 cuadros por segundo (de ~41 a ~5 cuadros largos) y la bienvenida de ~50 a ~56. En celular
+  (CPU 4× más lenta) sigue en ~60.
+- Causa: filtros que el navegador recalculaba en cada cuadro (luces de fondo desenfocadas, sombra
+  de Tay mientras parpadea y flota, letras con desenfoque). Ahora:
+  - las luces son degradados ya difuminados;
+  - el resplandor de Tay es parte de su dibujo;
+  - las letras del logotipo entran nítidas;
+  - el destello del logotipo es una luz de texto.
+- Una prueba automática (e2e/motion) avisa si vuelve un filtro animado al inicio.
+- «Entrar» mejora poco (~25 → ~29): lo que más pesa ahí es el desenfoque de fondo de la ventana
+  de acceso, que no se tocó (regla del dueño).
+
+### Hoja en tiempo real: pestaña «Pedidos en vivo» (2026-11-03)
+
+- **Cada pedido aparece en la hoja apenas el cliente lo crea**, con cualquier método de pago
+  (Mercado Pago o Nequi), en una pestaña nueva «Pedidos en vivo». Antes, un pedido de Mercado
+  Pago solo llegaba a la hoja al pagarse.
+- La misma fila se reescribe con cada cambio: ID verificado, método elegido, pago iniciado,
+  aviso de transferencia, pago confirmado, entrega, revisión, reembolso o vencimiento.
+- Sin datos personales: referencia, hora, estado, método, paquete, total, estado del pago y de la
+  recarga, comprobante y plazo.
+- Al publicar, la pestaña se llena sola con todos los pedidos que ya existen. En cada pasada de
+  la tarea de avisos, una consulta recoge los pedidos que cambiaron sin pasar por la cola (por
+  ejemplo, un pago rechazado por Mercado Pago).
+- Crear un pedido no espera a Google: la fila sale en segundo plano.
+- La tienda ya no puede volver a escribir una fila al final de la pestaña (fila 1001) aunque el
+  dueño tenga casillas u otras columnas propias: busca la tabla solo en sus columnas
+  (incidente del 2026-11-02).
+
 ### Casillas en la hoja: «✓ Pago verificado» con referencia y «✓ Enviado» (2026-11-02)
 
 - **«Pagos pendientes»** tiene tres columnas tuyas al final:

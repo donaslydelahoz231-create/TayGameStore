@@ -2574,3 +2574,92 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
     - Sin cambio de código ni despliegue.
   - **NO VERIFICADO:** un pago o una entrega reales por casilla (no se tocan pedidos reales en
     pruebas) y el primer correo de `ADMIN_EMAILS` (siguen igual que arriba).
+
+### 2026-11-03 · Hoja en tiempo real: pestaña «Pedidos en vivo»
+
+- **Pedido del dueño:** «que en el Excel se actualicen los datos en tiempo real de inmediato que
+  un cliente o usuario realice un pedido». Eligió «Pestaña nueva «Pedidos en vivo»
+  (Recomendado)» en la pregunta de opciones. Sobre las 8 filas Nequi vencidas que borró a mano de
+  «Pagos pendientes» respondió sin preferencia: se dejan como están (se pueden restaurar si lo
+  pide).
+- **Diagnóstico (solo lectura):**
+  - Los pedidos Nequi ya llegaban en ~1 s a «Pagos pendientes».
+  - Los de Mercado Pago no llegaban a la hoja hasta pagarse: 18 pedidos de Mercado Pago vencidos
+    nunca se vieron.
+  - El pedido que el dueño no encontraba estaba en la fila 1001 (incidente del 2026-11-02, ya
+    corregido en la hoja).
+- **Cambio de código:**
+  - Canal nuevo `sheets_live` en la cola (migración 0025: solo amplía la lista permitida del
+    CHECK) y pestaña configurable `GOOGLE_SHEETS_LIVE_TAB` (por defecto «Pedidos en vivo»,
+    distinta de las demás).
+  - Fila de 11 columnas sin datos personales (`liveOrderRow`), con el estado del pedido de
+    principio a fin (`liveStatusLabel`).
+  - Se encola en la transacción de cada cambio: crear el pedido, verificar el ID en el panel,
+    confirmar o rechazar el jugador, fijar o cambiar el método de pago, iniciar el pago en
+    Mercado Pago, vencer; y, a través de `enqueueSheetSync` y `enqueuePendingPaymentSync`, en
+    cada paso de pago, entrega, revisión y reembolso.
+  - `deliverSoon(…, { wait: false })`: crear un pedido, confirmar el jugador o elegir el método
+    no esperan a Google; la fila sale en segundo plano.
+  - Red de seguridad `refreshLiveSheet` en cada pasada de la tarea de avisos (una consulta): crea
+    la fila que falte y vuelve a encolar la de pedidos cuyo pedido, pagos, entrega o
+    transferencias Nequi cambiaron después del último envío. La hora de envío de esta fila es la
+    de la reserva, para no perder un cambio que llegue mientras se escribe.
+  - `appendRow` busca la tabla solo en `A:<última columna>` (refuerzo del incidente de la fila
+    1001).
+- **Pruebas (local, base PostgreSQL real):** lint y tipos sin errores, Prettier sin cambios,
+  unitarias 406/406 (40 archivos), integración 319/319 (29 archivos; 4 pruebas nuevas en
+  `sheets.test.ts`: el pedido aparece al crearse y la misma fila sigue cada paso hasta la entrega
+  sin datos personales; un pedido sin pagar que vence; Nequi sin datos del pago ni del jugador; y
+  la red de seguridad). Dos pruebas antiguas se ajustaron: la hoja lenta simulada frenaba todas
+  las pestañas aunque su comentario decía «solo Entregas», y la del 429 contaba llamadas exactas
+  con una fila más en la cola.
+- **Hoja (Google Sheets):**
+  - Copia de prueba: pestaña «Pedidos en vivo» (encabezados A1:K1, fila y columna A fijas,
+    franjas, total en pesos, comprobante como texto, 16 reglas de color por estado y protección
+    «solo aviso»), con 4 filas ficticias para ver el resultado.
+  - Original: respaldo previo en Drive («Respaldo 2026-11-03 · … (antes de «Pedidos en vivo»)»,
+    12 pestañas comprobadas) y el mismo lote, en una sola operación. La pestaña queda vacía
+    (solo encabezados) hasta que la tienda publicada la llene.
+  - «Léeme» se actualiza después de verificar la publicación, para no describir algo que aún no
+    funciona.
+- **NO VERIFICADO (al hacer el commit):** el despliegue en Render, el CI, que la pestaña real se
+  llene con los pedidos existentes y la demora real pedido→hoja en producción. Se registran
+  después de publicar, con autorización del dueño.
+
+### 2026-11-03 · Inicio fluido y nítido (animaciones de la presentación y la bienvenida)
+
+- **Pedido del dueño:** «que mi tienda no se entrecorte en las animaciones del inicio, que todo
+  siga fluido y nítido».
+- **Medición (solo lectura en producción; A/B local con la base `_test`):**
+  - Chromium sin GPU, 1366×860, cuadros con `requestAnimationFrame` y trazas de Chrome.
+  - Producción: la presentación iba a ~25–39 fps y la bienvenida a ~28–50.
+  - El hilo principal estaba libre (357 ms de trabajo en 1,8 s). El compositor de pantalla
+    (`VizCompositorThread`) estaba ocupado el 100 % del tiempo.
+  - Quitando solo los filtros (prueba A/B, 3 pasadas): presentación ~38 → ~52 fps, bienvenida
+    ~50 → ~55, «Entrar» ~25 → ~37.
+  - En celular (390×844, táctil, CPU 4×) ya iba a ~58–60 fps.
+- **Cambio:**
+  - Capa nueva `48-inicio-fluido.css`: luces de la presentación, de la bienvenida y de la tienda
+    con degradado radial en lugar de `filter: blur()`; sin `drop-shadow` en Tay; el degradado del
+    titular a 10 repintados por segundo (`steps(60)`).
+  - `45-inicio.css`: los fotogramas `tgsLetter`, `tgsGlint` y `tgsCoreOut` sin filtros.
+  - `index.html`: resplandor `.ty-glow` (círculo con degradado `#tyGlow`) dentro del dibujo de
+    Tay en la bienvenida y la portada.
+  - Probado y descartado: mover el piso de la presentación con `transform` bajo su máscara 3D
+    costaba más (~33 frente a ~46 fps); se dejó `background-position`.
+- **Resultado (4 pasadas, versión final):**
+  - Presentación ~53 fps con ~5 cuadros largos (antes ~38 y ~41).
+  - Bienvenida ~56 (antes ~50).
+  - «Entrar» ~29 (antes ~25).
+  - Celular con CPU 4×: ~60.
+- **Capturas antes/después** con las animaciones congeladas en el mismo instante: mismo aspecto.
+  Las 5 capturas de referencia de `e2e/visual` que cambiaron solo difieren en el resplandor de
+  Tay; se regeneraron.
+- **Prueba nueva:** `e2e/motion.spec.ts` («el inicio se anima sin filtros que se recalculen en
+  cada cuadro»). Comprueba que ninguna animación de la presentación ni de la bienvenida anima
+  `filter`, que las luces y Tay no llevan filtro y que las animaciones siguen existiendo.
+- **No se tocó:** la ventana de acceso (`15-modals.css`, `21-auth.css`, `account.js`). Su
+  `backdrop-filter: blur(9px)` es lo que más pesa al pulsar «Entrar»: sin él, ~36 fps. Queda como
+  propuesta para el dueño.
+- **NO VERIFICADO:** la fluidez en celulares y computadores reales con GPU (la medición es en
+  Chromium sin GPU; con GPU los filtros cuestan menos, así que la mejora real puede ser menor).

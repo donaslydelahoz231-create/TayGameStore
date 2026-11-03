@@ -178,11 +178,12 @@
   background-clip: text;
   color: transparent;
 }
+/* Sin desenfoque (2026-11-03): cada letra llega nítida; el desenfoque se recalculaba en cada
+   cuadro (ver 48-inicio-fluido.css). */
 @keyframes tgsLetter {
   from {
     opacity: 0;
     transform: translateY(0.6em) rotate(6deg);
-    filter: blur(4px);
   }
 }
 .intro-tagline {
@@ -199,7 +200,9 @@
 }
 @keyframes tgsGlint {
   50% {
-    filter: brightness(1.9) drop-shadow(0 0 8px rgba(55, 214, 255, 0.85));
+    text-shadow:
+      0 0 6px rgba(233, 253, 255, 0.95),
+      0 0 14px rgba(55, 214, 255, 0.85);
   }
 }
 
@@ -318,7 +321,6 @@
   to {
     opacity: 0;
     transform: scale(0.9);
-    filter: blur(4px);
   }
 }
 

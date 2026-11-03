@@ -1,0 +1,131 @@
+/*
+ * Inicio fluido y nítido (2026-11-03). Pedido del dueño: «que no se entrecorten las animaciones
+ * del inicio, que todo siga fluido y nítido». Medido en escritorio (Chromium, 3 pasadas): con los
+ * filtros, la presentación iba a ~38 fps con ~41 cuadros largos, la bienvenida a ~50 fps y
+ * «Entrar» a ~25 fps (cuadros de hasta 183 ms). Quitando solo los filtros: ~52, ~55 y ~37 fps.
+ * El hilo principal estaba libre: el cuello era el compositor, que volvía a desenfocar o sombrear
+ * en cada cuadro las luces grandes, las sombras de Tay (que se mueve por dentro) y las letras.
+ *
+ * Aquí no se quita ninguna animación: cada efecto se dibuja de una forma que la tarjeta de video
+ * compone sin recalcularlo:
+ *   - luces del fondo: degradado radial en lugar de `filter: blur()` (mismo halo, ya difuminado);
+ *   - piso de la presentación: se queda como estaba (`background-position`). Probado moverlo con
+ *     `transform` bajo su máscara 3D: costaba más (~33 fps frente a ~46 en la presentación);
+ *   - Tay: el resplandor es un degradado (detrás en la presentación; dentro de su dibujo en la
+ *     bienvenida y la portada), no un `drop-shadow` sobre un dibujo que cambia en cada cuadro
+ *     (parpadea, flota, saluda);
+ *   - letras del logotipo: entran sin desenfoque (más nítidas) y el destello es una luz de texto;
+ *   - el degradado del titular avanza a saltos imperceptibles (como el brillo del título de la
+ *     portada, ver 33-motion-budget.css).
+ * El efecto visible es el mismo; lo comprueban las capturas de antes y después y e2e/motion.
+ */
+
+/* ── Presentación ── */
+.intro-aurora i {
+  filter: none;
+  /* El desenfoque de 70 px se extendía más allá del círculo: el degradado ocupa ese espacio. */
+  scale: 1.45;
+}
+.intro-aurora i:nth-child(1) {
+  background: radial-gradient(
+    closest-side,
+    #6d28d9 0%,
+    #6d28d9 38%,
+    rgba(109, 40, 217, 0.5) 69%,
+    rgba(109, 40, 217, 0) 100%
+  );
+}
+.intro-aurora i:nth-child(2) {
+  background: radial-gradient(
+    closest-side,
+    #1f8fff 0%,
+    #1f8fff 38%,
+    rgba(31, 143, 255, 0.5) 69%,
+    rgba(31, 143, 255, 0) 100%
+  );
+}
+.intro-aurora i:nth-child(3) {
+  scale: 1.9;
+  background: radial-gradient(
+    closest-side,
+    #b23dff 0%,
+    rgba(178, 61, 255, 0.5) 52%,
+    rgba(178, 61, 255, 0) 100%
+  );
+}
+
+/* Tay en la presentación: el resplandor queda detrás, quieto. */
+.intro-tay {
+  filter: none;
+  background: radial-gradient(
+    46% 40% at 50% 66%,
+    rgba(55, 214, 255, 0.3),
+    rgba(55, 214, 255, 0.12) 55%,
+    transparent 72%
+  );
+}
+
+/* Letras nítidas: los fotogramas tgsLetter, tgsGlint y tgsCoreOut ya no usan filtros
+   (45-inicio.css): llegan sin desenfoque y el destello es una luz de texto. */
+
+/* ── Bienvenida ── */
+.entry-orb {
+  filter: none;
+  scale: 1.6;
+}
+.entry-orb-a {
+  background: radial-gradient(
+    closest-side,
+    rgba(139, 61, 255, 0.16) 0%,
+    rgba(139, 61, 255, 0.16) 25%,
+    rgba(139, 61, 255, 0.08) 62%,
+    rgba(139, 61, 255, 0) 100%
+  );
+}
+.entry-orb-b {
+  background: radial-gradient(
+    closest-side,
+    rgba(55, 214, 255, 0.09) 0%,
+    rgba(55, 214, 255, 0.09) 25%,
+    rgba(55, 214, 255, 0.045) 62%,
+    rgba(55, 214, 255, 0) 100%
+  );
+}
+
+/* Tay de la bienvenida y de la portada: el resplandor es un círculo con degradado dentro de su
+   propio dibujo (.ty-glow, index.html), así sigue a Tay sin filtro. */
+.entry-mascot,
+#entryExperience .entry-stage .entry-mascot,
+.hero-logo {
+  filter: none;
+}
+
+/* El degradado de «directo a tu ID» recorre las letras igual de lento, con 10 repintados por
+   segundo en lugar de 60 (6 s por sentido, 60 pasos). */
+#entryExperience .entry-shell h1.entry-seo span {
+  animation-timing-function: steps(60, jump-none);
+}
+
+/* ── Luces fijas detrás de la tienda (se ven tras «Entrar») ── */
+.ambient {
+  filter: none;
+  scale: 1.7;
+}
+.ambient-1 {
+  background: radial-gradient(
+    closest-side,
+    #7a2dff 0%,
+    #7a2dff 22%,
+    rgba(122, 45, 255, 0.5) 58%,
+    rgba(122, 45, 255, 0) 100%
+  );
+}
+.ambient-2 {
+  background: radial-gradient(
+    closest-side,
+    #1e9fff 0%,
+    #1e9fff 22%,
+    rgba(30, 159, 255, 0.5) 58%,
+    rgba(30, 159, 255, 0) 100%
+  );
+}
