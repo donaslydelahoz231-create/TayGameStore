@@ -5,6 +5,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Portada: «mapa de la zona» en lugar del fondo giratorio (2026-11-03)
+
+- **El fondo de la portada ya no es un barrido que gira sin parar**, sino un mapa táctico propio de
+  la tienda (pedido del dueño: más profesional, creativo y de su temática):
+  - curvas de nivel, cuadrícula con coordenadas y cotas que son las cantidades de los paquetes de
+    diamantes (572, 1166, 2398, 6160);
+  - la zona segura rodea el panel de estado y se cierra despacio, con la «tormenta» violeta por
+    fuera y el aviso «ZONA 2»;
+  - una ruta de salto con un marcador que la recorre;
+  - drops de diamantes (el ícono de la tienda) que emiten un pulso, con su cantidad;
+  - un escaneo de luz que baja por el mapa.
+- Más fluido que antes: en escritorio sin tarjeta gráfica la portada pasó de ~35 a ~49 cuadros por
+  segundo (de ~119 a ~50 cuadros largos en 5 s); en celular con CPU 4× más lenta sigue en ~60. Todo
+  se mueve con transform y opacity, se pausa fuera de pantalla y queda quieto con «reducir
+  movimiento».
+- En celular y tableta la zona rodea el panel, que va abajo, sin cruzar el texto.
+- Una prueba (e2e/motion) comprueba que nada del fondo gira y que solo anima transform y opacity.
+
 ### Cabecera sin la píldora «TAYPULSE» (2026-11-03)
 
 - **Se quitó de la cabecera la píldora «TAYPULSE · Sistemas listos para operar»** (pedido del

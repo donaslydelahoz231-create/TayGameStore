@@ -2719,3 +2719,43 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   visuales 3/3. Solo cambió la captura `desktop-1280/03-tienda-pagina-completa.png` (2.457
   píxeles, el 1 %, todos en x 300–401 · y 16–47: la zona de la píldora). Móvil y tableta no
   cambian (allí la píldora ya estaba oculta).
+- **Publicación de 966de38 (2026-11-03):** autorizada por el dueño («Publicar ahora (Recomendado)»).
+  Los 11 blobs coincidían con los aprobados; `git ls-remote` confirma `966de38`. Render
+  `dep-dbkveac9v7es73d5iud0` en `live` a las 15:02:34 UTC; la tienda en vivo ya no contiene
+  «TAYPULSE» ni `#serviceText`. Un error al arrancar (15:01:39 UTC, «Connection terminated due to
+  connection timeout» al recargar los bloqueos del escudo) coincide con el despertar de Neon; desde
+  las 15:01:40 no hubo más avisos ni errores y `/api/health`, `/api/ready` y `/api/catalog`
+  respondieron 200. CI #248 (los 6 trabajos), CodeQL #191 y Production smoke #104 en verde.
+
+### 2026-11-03 · Portada: «mapa de la zona» en lugar del fondo giratorio
+
+- **Pedido del dueño:** «mejora la interfaz giratoria por otro fondo mejor, que no sea genérico,
+  más profesional, atractivo y creativo, de mi temática y animado» (señaló un `::after`).
+- **Qué giraba:** `.hero::after` (28-cinematic-v4.css), un degradado cónico de 170 % del tamaño de
+  la portada que rotaba sin parar (`tgsHeroSweep`, 18 s), y `.hero-rings` (04-hero.css), tres
+  círculos punteados que giraban (`spin`, 20 s), casi siempre tapados por el panel.
+- **Cambio:**
+  - `public/art/mapa-zona.svg` (25 KB, estático): curvas de nivel generadas, cuadrícula A–P × 1–7,
+    cotas con las cantidades de los paquetes y marcas de referencia. Sin scripts.
+  - `49-fondo-zona.css`: zona segura centrada en el panel (se cierra con `scale`), tormenta y
+    rumbos, aviso «ZONA 2», ruta de salto con marcador (`translateX`), cuatro drops con el ícono
+    `#icon-diamond` y su cantidad (pulso con `scale` y `opacity`) y un escaneo (`translateY`).
+    Posiciones propias para >1100 px, 901–1100 px, tableta y celular; con «reducir movimiento»
+    queda quieto (sin escaneo ni marcador).
+  - `index.html`: el fondo de la portada (`.hero-art`, ahora `aria-hidden="true"`) con las piezas
+    nuevas en lugar del piso, los anillos y las chispas.
+  - CSS borrado que quedaba sin uso: `.grid-floor`, `.hero-rings`, `.hero-spark` (04, 24 y 26),
+    `.hero:after` y `tgsHeroSweep` (28) y el fotograma `float` (18), que solo usaban las chispas.
+  - `e2e/motion.spec.ts`: prueba nueva (sin `.hero::after`, nada gira, solo transform/opacity, el
+    SVG responde 200 como `image/svg+xml`).
+- **Medición (Chromium sin GPU, 1366×860, 5 s por pasada, A/B local con la base `_test`):**
+  - Antes: ~34,6 fps y ~119 cuadros largos (>25 ms) en 3 pasadas.
+  - Después: ~48,6 fps y ~50 cuadros largos. Sin animar el fondo nuevo: ~60 fps; cada pieza por
+    separado cuesta 1–2 fps.
+  - Celular (390×844, táctil, CPU 4× más lenta): ~60 fps sin cuadros largos.
+- **Verificación local:** lint, formato y tipos OK; unitarias 406/406; e2e de escritorio 88/88
+  (incluida la prueba nueva); visuales 3/3. Cambiaron solo las 3 capturas `03-tienda-pagina-completa`
+  y todas las diferencias caen dentro de la portada (escritorio y 65–634, tableta 65–964, celular
+  63–995).
+- **NO VERIFICADO:** Firefox y WebKit en local (solo hay Chromium instalado; los cubre CI) y la
+  fluidez en celulares y computadores reales con GPU.

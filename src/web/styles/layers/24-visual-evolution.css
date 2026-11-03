@@ -83,9 +83,6 @@ body:before {
 .hero-left h1 {
   filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.18));
 }
-.hero-spark {
-  transition: transform 0.2s ease;
-}
 .game-switcher {
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
 }

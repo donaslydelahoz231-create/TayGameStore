@@ -28,69 +28,6 @@
     linear-gradient(90deg, rgba(5, 8, 21, 0.96), rgba(5, 8, 21, 0.66) 50%, rgba(5, 8, 21, 0.2));
   z-index: 2;
 }
-.grid-floor {
-  position: absolute;
-  left: 45%;
-  right: -10%;
-  bottom: -15%;
-  height: 72%;
-  transform: perspective(500px) rotateX(60deg);
-  background-image:
-    linear-gradient(rgba(55, 214, 255, 0.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 61, 255, 0.08) 1px, transparent 1px);
-  background-size: 38px 38px;
-  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent 75%);
-  opacity: 0.55;
-}
-.hero-rings {
-  position: absolute;
-  right: 12%;
-  top: 11%;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  border: 1px solid rgba(55, 214, 255, 0.08);
-  box-shadow:
-    0 0 0 34px rgba(139, 61, 255, 0.02),
-    0 0 0 68px rgba(55, 214, 255, 0.015);
-  animation: spin 20s linear infinite;
-}
-.hero-rings i {
-  position: absolute;
-  inset: 28px;
-  border: 1px dashed rgba(139, 61, 255, 0.15);
-  border-radius: 50%;
-}
-.hero-rings i:nth-child(2) {
-  inset: 75px;
-  border-style: solid;
-  border-color: rgba(55, 214, 255, 0.08);
-}
-.hero-rings i:nth-child(3) {
-  inset: 122px;
-  border-color: rgba(177, 140, 255, 0.12);
-}
-.hero-spark {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--cyan);
-  box-shadow: 0 0 14px var(--cyan);
-  z-index: 3;
-  animation: float 5s ease-in-out infinite;
-}
-.hero-spark.s1 {
-  right: 27%;
-  top: 23%;
-}
-.hero-spark.s2 {
-  right: 11%;
-  top: 62%;
-  animation-delay: 1.8s;
-  background: var(--violet2);
-  box-shadow: 0 0 14px var(--violet2);
-}
 .hero-left {
   position: relative;
   z-index: 4;

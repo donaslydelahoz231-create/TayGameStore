@@ -1,0 +1,424 @@
+/*
+ * Fondo de la portada: «mapa de la zona» (2026-11-03). Pedido del dueño: cambiar la interfaz
+ * giratoria (el barrido cónico de `.hero::after` y los anillos `.hero-rings`, que giraban sin
+ * parar) por un fondo propio de la tienda, profesional, creativo y animado.
+ *
+ * Idea: el inicio es el mapa táctico de una partida.
+ *   - mapa (art/mapa-zona.svg): curvas de nivel, cuadrícula con coordenadas y cotas que son las
+ *     cantidades de los paquetes de diamantes;
+ *   - zona segura alrededor del panel de estado: se cierra despacio, con la «tormenta» por fuera y
+ *     el aviso de la próxima zona;
+ *   - ruta de salto con un marcador que la recorre;
+ *   - drops de diamantes (el ícono de la tienda) que emiten un pulso, con su cantidad;
+ *   - un escaneo que barre el mapa de arriba abajo.
+ *
+ * Rendimiento: todo se mueve con transform y opacity (sin filtros ni repintados, ver
+ * 48-inicio-fluido.css); se pausa fuera de pantalla (33-motion-budget.css) y se queda quieto con
+ * «reducir movimiento».
+ */
+
+.hero-art {
+  /* Centro de la zona: el centro del panel de estado (407 px de ancho, a la derecha de .wrap). */
+  --zone-x: calc(50% + min(352px, 50% - 238px));
+  --zone-y: 50%;
+  --zone-r: clamp(250px, 23vw, 330px);
+}
+.hero-art::before {
+  /* El texto de la izquierda sigue sobre fondo oscuro; a la derecha se ve el mapa. */
+  background:
+    radial-gradient(circle at 72% 42%, rgba(139, 61, 255, 0.16), transparent 30%),
+    linear-gradient(90deg, rgba(5, 8, 21, 0.94), rgba(5, 8, 21, 0.62) 46%, rgba(5, 8, 21, 0.08));
+}
+
+/* ── Mapa ── */
+.hero-map {
+  position: absolute;
+  /* Margen para el paralaje del puntero (js/effects/visual.js). */
+  inset: -3%;
+  background: url('/art/mapa-zona.svg') 62% 50% / cover no-repeat;
+}
+
+/* ── Escaneo: una franja de luz que baja por el mapa ── */
+.hero-scan {
+  position: absolute;
+  left: 40%;
+  right: 0;
+  top: 0;
+  height: 26%;
+  /* Encima del velo oscuro (::before): así el mapa y el velo se pintan en una sola capa y el
+     compositor mueve menos superficie en cada cuadro (medido: ~48 → ~51 fps sin GPU). */
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(55, 214, 255, 0.045) 72%,
+    rgba(55, 214, 255, 0.2) 98%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 35%);
+  mask-image: linear-gradient(90deg, transparent, #000 35%);
+  animation: tgsEscaneo 7.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes tgsEscaneo {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(390%);
+  }
+}
+
+/* ── Ruta de salto ── */
+.hero-route {
+  position: absolute;
+  left: 38%;
+  top: 5%;
+  width: 80%;
+  height: 0;
+  z-index: 3;
+  border-top: 1px dashed rgba(167, 197, 255, 0.3);
+  transform: rotate(23deg);
+  transform-origin: 0 0;
+}
+.hero-route::before {
+  content: 'RUTA DE SALTO';
+  position: absolute;
+  left: 22px;
+  top: -17px;
+  font:
+    600 10px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.22em;
+  color: rgba(167, 197, 255, 0.5);
+  white-space: nowrap;
+}
+/* El marcador recorre la ruta: su caja mide lo mismo que la ruta, así translateX(100%) llega al
+   final. */
+.hero-drop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  animation: tgsSalto 13s linear infinite;
+}
+.hero-drop::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #ffffff, #7fe6ff 55%, #37d6ff);
+  box-shadow:
+    0 0 0 3px rgba(55, 214, 255, 0.18),
+    0 0 16px rgba(55, 214, 255, 0.7);
+  transform: rotate(45deg);
+}
+.hero-drop::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: -1px;
+  width: 110px;
+  height: 2px;
+  margin-right: 2px;
+  background: linear-gradient(90deg, transparent, rgba(55, 214, 255, 0.75));
+}
+@keyframes tgsSalto {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  8%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* ── Zona segura ── */
+.hero-zone {
+  position: absolute;
+  left: var(--zone-x);
+  top: var(--zone-y);
+  z-index: 3;
+  width: calc(var(--zone-r) * 2);
+  height: calc(var(--zone-r) * 2);
+  margin: calc(var(--zone-r) * -1) 0 0 calc(var(--zone-r) * -1);
+  border: 1.5px solid rgba(55, 214, 255, 0.55);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, transparent 80%, rgba(55, 214, 255, 0.07) 100%);
+  box-shadow:
+    0 0 0 6px rgba(55, 214, 255, 0.035),
+    0 0 36px rgba(55, 214, 255, 0.18),
+    inset 0 0 44px rgba(55, 214, 255, 0.1);
+  animation: tgsZonaCierra 16s ease-in-out infinite alternate;
+}
+/* Tormenta: franja violeta por fuera del borde. */
+.hero-zone::before {
+  content: '';
+  position: absolute;
+  inset: -24%;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    transparent 68%,
+    rgba(139, 61, 255, 0.2) 70.5%,
+    rgba(139, 61, 255, 0.07) 82%,
+    transparent 100%
+  );
+}
+/* Rumbos N, E, S y O sobre el borde. */
+.hero-zone > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  margin: -7px 0 0 -1px;
+  background: #7fe6ff;
+  box-shadow: 0 0 8px rgba(55, 214, 255, 0.8);
+}
+.hero-zone > i:nth-child(1) {
+  transform: translateY(calc(var(--zone-r) * -1));
+}
+.hero-zone > i:nth-child(2) {
+  transform: rotate(90deg) translateY(calc(var(--zone-r) * -1));
+}
+.hero-zone > i:nth-child(3) {
+  transform: translateY(var(--zone-r));
+}
+.hero-zone > i:nth-child(4) {
+  transform: rotate(90deg) translateY(var(--zone-r));
+}
+/* Próxima zona: círculo discontinuo a la derecha del panel que parpadea como aviso. */
+.hero-zone-next {
+  position: absolute;
+  left: calc(50% + var(--zone-r) * 0.82);
+  top: calc(50% - var(--zone-r) * 0.02);
+  width: calc(var(--zone-r) * 0.42);
+  height: calc(var(--zone-r) * 0.42);
+  margin: calc(var(--zone-r) * -0.21) 0 0 calc(var(--zone-r) * -0.21);
+  border: 1px dashed rgba(255, 255, 255, 0.42);
+  border-radius: 50%;
+  animation: tgsZonaAviso 2.6s steps(2, jump-none) infinite;
+}
+.hero-zone-next::after {
+  content: 'ZONA 2';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: 6px;
+  transform: translateX(-50%);
+  font:
+    700 10px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+@keyframes tgsZonaCierra {
+  from {
+    transform: scale(1.04);
+  }
+  to {
+    transform: scale(0.94);
+  }
+}
+@keyframes tgsZonaAviso {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ── Drops de diamantes ── */
+.hero-loot {
+  --lx: 0px;
+  --ly: 0px;
+  position: absolute;
+  left: calc(var(--zone-x) + var(--lx));
+  top: calc(var(--zone-y) + var(--ly));
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(55, 214, 255, 0.28), rgba(55, 214, 255, 0) 100%);
+  animation: tgsLootFlota 3.4s ease-in-out infinite alternate;
+}
+.hero-loot svg {
+  width: 19px;
+  height: 19px;
+}
+/* Pulso del drop. */
+.hero-loot::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 1.5px solid rgba(55, 214, 255, 0.75);
+  border-radius: 50%;
+  animation: tgsLootPulso 2.8s ease-out infinite;
+  animation-delay: inherit;
+}
+/* Cantidad del drop. */
+.hero-loot::after {
+  content: attr(data-loot);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin: -6px 0 0 6px;
+  font:
+    700 11px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.1em;
+  color: rgba(214, 236, 255, 0.78);
+  white-space: nowrap;
+}
+.hero-loot.l1 {
+  --lx: calc(var(--zone-r) * -0.38);
+  --ly: calc(var(--zone-r) * -0.83);
+}
+.hero-loot.l2 {
+  --lx: calc(var(--zone-r) * 0.84);
+  --ly: calc(var(--zone-r) * -0.5);
+  animation-delay: -0.9s;
+}
+.hero-loot.l3 {
+  --lx: calc(var(--zone-r) * 0.38);
+  --ly: calc(var(--zone-r) * 0.84);
+  animation-delay: -1.7s;
+}
+.hero-loot.l4 {
+  --lx: calc(var(--zone-r) * -0.84);
+  --ly: calc(var(--zone-r) * 0.6);
+  animation-delay: -2.4s;
+}
+/* Junto al panel, la cantidad va del lado libre. */
+.hero-loot.l4::after {
+  left: auto;
+  right: 100%;
+  margin: -6px 6px 0 0;
+}
+@keyframes tgsLootFlota {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+@keyframes tgsLootPulso {
+  from {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* ── Dos columnas estrechas (901–1100 px): el panel mide 300 px ── */
+@media (max-width: 1100px) {
+  .hero-art {
+    --zone-x: calc(100% - 201px);
+    --zone-r: 235px;
+  }
+  /* Con el panel tan alto, tres drops quedarían detrás de él o en el borde. */
+  .hero-zone-next,
+  .hero-loot.l1,
+  .hero-loot.l2,
+  .hero-loot.l3 {
+    display: none;
+  }
+}
+
+/* ── Tableta y celular: una sola columna; la zona rodea el panel, que queda abajo ── */
+@media (max-width: 900px) {
+  .hero-art {
+    --zone-x: 50%;
+    --zone-y: calc(100% - 240px);
+    --zone-r: 250px;
+  }
+  .hero-map {
+    inset: 0;
+    background-size: 1100px auto;
+    background-position: 78% 0;
+  }
+  .hero-route {
+    left: 58%;
+    top: 0;
+    width: 60%;
+    transform: rotate(28deg);
+  }
+  .hero-scan {
+    left: 0;
+    height: 14%;
+  }
+  .hero-loot {
+    left: auto;
+    margin: 0;
+  }
+  .hero-loot.l1 {
+    right: 7%;
+    top: 300px;
+  }
+  .hero-loot.l2 {
+    right: 30%;
+    top: 300px;
+  }
+  .hero-loot.l3,
+  .hero-loot.l4 {
+    display: none;
+  }
+}
+@media (max-width: 650px) {
+  .hero-art {
+    --zone-y: calc(100% - 210px);
+    --zone-r: 205px;
+  }
+  .hero-route,
+  .hero-loot.l2 {
+    display: none;
+  }
+  .hero-loot.l1 {
+    right: 9%;
+    top: 14px;
+  }
+}
+
+/* ── Reducir movimiento: el mapa queda quieto; sin escaneo ni marcador en marcha ── */
+@media (prefers-reduced-motion: reduce) {
+  .hero-scan,
+  .hero-drop {
+    display: none;
+  }
+  .hero-zone,
+  .hero-zone-next,
+  .hero-loot,
+  .hero-loot::before {
+    animation: none;
+  }
+  .hero-loot::before {
+    transform: scale(1.5);
+    opacity: 0.35;
+  }
+}

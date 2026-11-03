@@ -49,14 +49,6 @@ canvas {
     transform: none;
   }
 }
-@media (max-width: 760px) {
-  .hero-rings {
-    animation-duration: 28s;
-  }
-  .hero-spark {
-    animation-duration: 8s;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .header,
   .btn.glass,

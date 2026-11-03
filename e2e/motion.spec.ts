@@ -134,6 +134,66 @@ test('el inicio se anima sin filtros que se recalculen en cada cuadro (fluido y 
   );
 });
 
+test('el fondo de la portada es el mapa de la zona: nada gira y solo se mueve con transform/opacity', async ({
+  page,
+}) => {
+  // 2026-11-03: el dueño pidió cambiar la «interfaz giratoria» (el barrido cónico de .hero::after
+  // y los anillos que giraban) por un fondo propio del tema (49-fondo-zona.css).
+  await page.goto('/');
+  await enterAsGuest(page);
+  const art = await page.evaluate(() => {
+    const root = document.querySelector('.hero-art');
+    const names = new Set<string>();
+    const props = new Set<string>();
+    const rotations: string[] = [];
+    for (const animation of document.getAnimations()) {
+      const effect = animation.effect as KeyframeEffect | null;
+      const target = effect?.target;
+      if (!(target instanceof Element) || !root?.contains(target)) continue;
+      names.add((animation as CSSAnimation).animationName);
+      for (const frame of effect?.getKeyframes() ?? []) {
+        for (const [key, value] of Object.entries(frame)) {
+          if (['offset', 'computedOffset', 'easing', 'composite'].includes(key)) continue;
+          props.add(key);
+          if (/rotate/.test(String(value))) rotations.push(String(value));
+        }
+      }
+    }
+    const hero = document.querySelector('.hero') as Element;
+    const map = document.querySelector('.hero-map') as Element;
+    return {
+      names: [...names],
+      props: [...props].sort(),
+      rotations,
+      sweep: getComputedStyle(hero, '::after').content,
+      map: getComputedStyle(map).backgroundImage,
+    };
+  });
+  // Sin el barrido giratorio ni ninguna animación que gire.
+  expect(art.sweep).toBe('none');
+  expect(art.rotations).toEqual([]);
+  // Solo propiedades que la tarjeta de video compone sin repintar.
+  expect(art.props).toEqual(['opacity', 'transform']);
+  // Animaciones de elementos (no de ::before/::after, que no todos los motores listan igual).
+  expect(art.names).toEqual(
+    expect.arrayContaining([
+      'tgsZonaCierra',
+      'tgsZonaAviso',
+      'tgsLootFlota',
+      'tgsSalto',
+      'tgsEscaneo',
+    ]),
+  );
+  // El mapa es un archivo real del sitio (no un 404) y se sirve como imagen SVG.
+  expect(art.map).toContain('/art/mapa-zona.svg');
+  const svg = await page.request.get('/art/mapa-zona.svg');
+  expect(svg.status()).toBe(200);
+  expect(svg.headers()['content-type']).toContain('image/svg+xml');
+  // Los drops muestran cantidades de diamantes de la tienda.
+  await expect(page.locator('.hero-loot')).toHaveCount(4);
+  await expect(page.locator('.hero-art')).toHaveAttribute('aria-hidden', 'true');
+});
+
 test('la barra de avance sigue el scroll sin cambiar su ancho', async ({ page }) => {
   await page.goto('/');
   await enterAsGuest(page);

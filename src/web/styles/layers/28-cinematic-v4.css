@@ -42,29 +42,6 @@
 .hero {
   isolation: isolate;
 }
-.hero:after {
-  content: '';
-  position: absolute;
-  inset: -35%;
-  pointer-events: none;
-  z-index: 1;
-  background: conic-gradient(
-    from 180deg at 72% 44%,
-    transparent,
-    rgba(139, 61, 255, 0.09),
-    transparent 25%,
-    rgba(55, 214, 255, 0.055),
-    transparent 55%,
-    rgba(139, 61, 255, 0.06),
-    transparent
-  );
-  animation: tgsHeroSweep 18s linear infinite;
-}
-@keyframes tgsHeroSweep {
-  to {
-    transform: rotate(360deg);
-  }
-}
 .hero-inner {
   z-index: 4;
 }
@@ -294,7 +271,6 @@
   #tgsMotionBar {
     display: none !important;
   }
-  .hero:after,
   .product.selected,
   .hero-left h1 {
     animation: none !important;
