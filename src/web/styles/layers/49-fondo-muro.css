@@ -15,7 +15,7 @@
  * --pw, --ph del panel; --bx, --by, --bb de los botones); sin ellas solo se ve el muro.
  *
  * Empieza cuando se abre la tienda (#app.store-ready): antes la portada está oculta y la animación
- * se perdería. Solo se anima transform y opacity; se pausa fuera de pantalla (33-motion-budget.css)
+ * se perdería. Se repite sin fin cada 14 s: pinta, se queda, se desvanece y vuelve a pintar. Solo se anima transform y opacity; se pausa fuera de pantalla (33-motion-budget.css)
  * y con «reducir movimiento» el grafiti queda pintado y el grafitero quieto.
  */
 .hero-art::before {
@@ -146,6 +146,8 @@
   width: 1000%;
   height: 100%;
   background: url('/art/grafitero.svg') 0 0 / 100% 100% no-repeat;
+}
+.grafitero-quieto {
   transform: translateX(-60%);
 }
 
@@ -182,8 +184,8 @@
   border-radius: 50%;
   background: radial-gradient(
     closest-side,
-    rgba(255, 79, 184, 0.3),
-    rgba(139, 92, 255, 0.16) 60%,
+    rgba(255, 63, 164, 0.16),
+    rgba(122, 60, 255, 0.07) 60%,
     transparent
   );
   opacity: 0;
@@ -214,16 +216,24 @@
   top: 0;
 }
 .grafiti-pieza b::before {
+  /* Contorno oscuro alrededor del blanco y sombra en 3D (abajo a la derecha). */
   z-index: -1;
-  color: #120c33;
-  -webkit-text-stroke: 9px #120c33;
-  transform: translate(3px, 4px);
+  color: #0d0826;
+  -webkit-text-stroke: 11px #0d0826;
+  transform: translate(2px, 3px);
 }
 .grafiti-pieza b::after {
   z-index: 1;
   color: transparent;
   -webkit-text-stroke: 0;
-  background: linear-gradient(180deg, #8ef6ff 10%, #8b5cff 55%, #ff4fb8 92%);
+  background:
+    linear-gradient(
+      180deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.7) 26%,
+      rgba(255, 255, 255, 0) 34%
+    ),
+    linear-gradient(180deg, #34ecff 8%, #7a3cff 54%, #ff2d9b 92%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -251,7 +261,8 @@
   transform: scale(0.2);
 }
 
-/* ── La función: empieza al abrir la tienda ── */
+/* ── La función: empieza al abrir la tienda y se repite sin fin (ciclo de 14 s) ──
+   pinta (≈3,6 s) → se queda → se desvanece letra por letra → pausa → vuelve a pintar. */
 .store-ready .neon-luz-letrero {
   animation: tgsNeonEnciende 1.5s 0.5s both;
 }
@@ -261,27 +272,33 @@
 .store-ready .neon-letrero .neon-falla {
   animation: tgsTuboFalla 9s 5s infinite;
 }
-.store-ready .grafitero i {
+.grafitero-rocia {
+  opacity: 0;
+}
+.store-ready .grafitero-rocia {
   animation:
-    tgsRocia 0.5s steps(6) 0.6s 8,
-    tgsSacude 4s step-end 4.6s infinite;
+    tgsRocia 0.5s steps(6) 0.6s infinite,
+    tgsTurnoRocia 14s step-end 0.6s infinite;
+}
+.store-ready .grafitero-quieto {
+  animation:
+    tgsSacude 4s step-end 0.6s infinite,
+    tgsTurnoQuieto 14s step-end 0.6s infinite;
 }
 .store-ready .grafiti-chorro {
-  animation: tgsChorro 3.7s linear 0.6s both;
+  animation: tgsChorro 14s linear 0.6s infinite;
 }
 .store-ready .grafiti-pieza::before {
-  animation: tgsAparece 3.4s ease-out 0.8s both;
+  animation: tgsNube 14s ease-out 0.8s infinite;
 }
 .store-ready .grafiti-pieza b {
-  animation: tgsPinta 0.35s ease-out calc(0.9s + var(--i) * 0.27s) both;
+  animation: tgsPinta 14s ease-out calc(0.9s + var(--i) * 0.27s) infinite;
 }
 .store-ready .grafiti-gota {
-  animation: tgsGotea 0.9s ease-in calc(4.1s + var(--i) * 0.05s) both;
+  animation: tgsGotea 14s ease-in calc(0.9s + var(--i) * 0.27s) infinite;
 }
 .store-ready .grafiti-brillo {
-  animation:
-    tgsBrilla 0.6s ease-out 4.4s both,
-    tgsTitila 5s ease-in-out 6s infinite;
+  animation: tgsBrilla 14s ease-out 4.4s infinite;
 }
 
 @keyframes tgsRocia {
@@ -329,50 +346,87 @@
     transform: translateX(-60%);
   }
 }
+@keyframes tgsTurnoRocia {
+  /* Rocía mientras pinta (primer 27 % del ciclo) y luego descansa. */
+  0% {
+    opacity: 1;
+  }
+  27%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes tgsTurnoQuieto {
+  0% {
+    opacity: 0;
+  }
+  27%,
+  100% {
+    opacity: 1;
+  }
+}
 @keyframes tgsChorro {
   0% {
     opacity: 0;
     transform: scaleX(0.04);
   }
-  6% {
+  1.5% {
     opacity: 1;
   }
-  90% {
+  24% {
     opacity: 1;
     transform: scaleX(1);
   }
+  27%,
   100% {
     opacity: 0;
     transform: scaleX(1);
   }
 }
-@keyframes tgsAparece {
-  from {
+@keyframes tgsNube {
+  0% {
     opacity: 0;
   }
-  to {
+  24%,
+  78% {
     opacity: 1;
+  }
+  88%,
+  100% {
+    opacity: 0;
   }
 }
 @keyframes tgsPinta {
+  /* Aparece en 0,35 s, se queda y se desvanece en el mismo orden en que se pintó. */
   0% {
     opacity: 0;
     transform: scale(1.25);
   }
-  45% {
+  1.1% {
     opacity: 0.6;
   }
-  100% {
+  2.5%,
+  78% {
     opacity: 1;
+    transform: none;
+  }
+  86%,
+  100% {
+    opacity: 0;
     transform: none;
   }
 }
 @keyframes tgsGotea {
-  from {
+  0%,
+  22% {
     transform: scaleY(0);
   }
-  to {
+  30%,
+  99% {
     transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(0);
   }
 }
 @keyframes tgsBrilla {
@@ -380,25 +434,28 @@
     opacity: 0;
     transform: scale(0.2);
   }
-  60% {
+  4% {
     opacity: 1;
     transform: scale(1.25);
   }
-  100% {
+  6%,
+  30% {
     opacity: 1;
     transform: none;
   }
-}
-@keyframes tgsTitila {
-  0%,
-  70%,
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-  80% {
+  34% {
     opacity: 0.3;
     transform: scale(0.6);
+  }
+  38%,
+  52% {
+    opacity: 1;
+    transform: none;
+  }
+  58%,
+  100% {
+    opacity: 0;
+    transform: none;
   }
 }
 @keyframes tgsNeonEnciende {
@@ -489,8 +546,8 @@
     -webkit-text-stroke-width: 3.5px;
   }
   .grafiti-pieza b::before {
-    -webkit-text-stroke-width: 6px;
-    transform: translate(2px, 3px);
+    -webkit-text-stroke-width: 7px;
+    transform: translate(1px, 2px);
   }
   .grafiti-gota {
     width: 2px;
@@ -558,5 +615,8 @@
   .grafiti-gota,
   .grafiti-brillo {
     transform: none;
+  }
+  .grafitero-rocia {
+    opacity: 0;
   }
 }

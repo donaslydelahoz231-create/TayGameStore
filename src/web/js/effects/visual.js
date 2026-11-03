@@ -50,8 +50,9 @@ export function initVisualEffects() {
           glow.style.transform = 'translate3d(' + mx + 'px,' + my + 'px,0) translate(-50%,-50%)';
           glow.style.opacity = '1';
           if (art) {
-            const x = (mx / innerWidth - 0.5) * 5;
-            const y = (my / innerHeight - 0.5) * 3;
+            // En píxeles enteros: con fracciones el fondo (y el grafiti) se ve borroso.
+            const x = Math.round((mx / innerWidth - 0.5) * 5);
+            const y = Math.round((my / innerHeight - 0.5) * 3);
             art.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
           }
           raf = 0;

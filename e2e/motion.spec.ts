@@ -134,7 +134,7 @@ test('el inicio se anima sin filtros que se recalculen en cada cuadro (fluido y 
   );
 });
 
-test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore» cuadro por cuadro sin girar nada', async ({
+test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore» cuadro por cuadro, en bucle y sin girar nada', async ({
   page,
 }) => {
   // 2026-11-03: el dueño pidió «un personaje callejero grafiteando TayGameStore, frame por frame»
@@ -149,12 +149,16 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
     const props = new Set<string>();
     const rotations: string[] = [];
     const steps: string[] = [];
+    const loops: number[] = [];
     for (const animation of document.getAnimations()) {
       const effect = animation.effect as KeyframeEffect | null;
       const target = effect?.target;
       if (!(target instanceof Element) || !root?.contains(target)) continue;
       const name = (animation as CSSAnimation).animationName;
       names.add(name);
+      if (['tgsPinta', 'tgsRocia', 'tgsChorro'].includes(name)) {
+        loops.push(effect?.getTiming().iterations ?? 0);
+      }
       for (const frame of effect?.getKeyframes() ?? []) {
         if (name === 'tgsRocia') steps.push(String(frame.easing));
         for (const [key, value] of Object.entries(frame)) {
@@ -176,6 +180,7 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
       props: [...props].sort(),
       rotations,
       steps,
+      loops,
       sweep: getComputedStyle(hero, '::after').content,
       wall: getComputedStyle(wall).backgroundImage,
       sprite: getComputedStyle(artist).backgroundImage,
@@ -201,6 +206,9 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
   );
   expect(art.steps.join(' ')).toContain('steps(6');
   expect(art.word).toBe('TayGameStore');
+  // Pinta, se desvanece y vuelve a pintar sin fin (pedido del dueño).
+  expect(art.loops.length).toBeGreaterThan(0);
+  expect(art.loops.every((n) => n === Infinity)).toBe(true);
   // En computador: el grafiti bajo el panel y el grafitero a su izquierda, sin taparlo.
   expect(art.piece.top).toBeGreaterThanOrEqual(art.panel.bottom - 4);
   expect(art.artistBox.right).toBeLessThanOrEqual(art.panel.left + 4);

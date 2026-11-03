@@ -2818,4 +2818,40 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   `03-tienda-pagina-completa`, con todas las diferencias dentro de la portada. Capturas sin errores
   de consola en 320, 360, 375, 390, 768, 1000, 1280, 1366 y 1920 px.
 - **NO VERIFICADO:** Firefox y WebKit en local (solo hay Chromium; los cubre CI) y la fluidez en
-  celulares y computadores reales con GPU. Sin publicar: falta la autorización del dueño.
+  celulares y computadores reales con GPU.
+- **Publicación de dd78f0f + 53bac64** (autorizada por el dueño: «Publicar los dos (Recomendado)»):
+  18 blobs iguales a los aprobados; `git ls-remote` = 53bac64. Render `dep-dbl3mc15efls73bmj180` en
+  `live` a las 19:52:35 UTC, sin avisos ni errores en los registros desde las 19:50. CI #250 en verde
+  (incluida la integración: la prueba de la hoja corregida pasa), CodeQL #193 y smoke #106 en
+  verde. Tienda en vivo: el HTML trae `grafiti-escena` y ya no `hero-zone`; `grafitero.svg`,
+  `rocio.svg` y `muro-ladrillo.svg` responden 200 como `image/svg+xml`, la fuente 200 como
+  `font/woff2` y `mapa-zona.svg` 404; `/api/ready`, `/api/health` y `/api/catalog` 200. Capturas de
+  producción (1366 y 390 px) con el grafitero y las 12 letras pintadas, fuente cargada y sin
+  peticiones fallidas (las cargas directas del navegador de este entorno fallaban por su proxy,
+  ERR_TOO_MANY_RETRIES; se cargó pasando las peticiones por Playwright).
+
+## 2026-11-03 · Portada: el grafiti más nítido y pintado en bucle sin fin (local, sin publicar)
+
+- **Pedido del dueño:** «quiero que el grafiti se vea más nítido y no opaco y además que luego se
+  desvanezca y luego lo grafitea continuamente sin límite».
+- **Causas de lo «opaco»:** relleno en tonos pastel, una nube rosada de 30 % de opacidad detrás de
+  las letras y el paralaje del fondo, que movía la capa por fracciones de píxel (texto borroso).
+- **Cambio:**
+  - `49-fondo-muro.css`: relleno saturado (#34ecff → #7a3cff → #ff2d9b) con un brillo blanco,
+    contorno oscuro de 11 px alrededor del blanco (sombra en 3D más corta) y nube a la mitad de
+    opacidad. Ciclo infinito de 14 s para las letras, el rocío, la nube, las goteras y el brillo:
+    pinta (≈3,6 s), se queda, se desvanece letra por letra (78–86 % del ciclo de cada letra) y
+    vuelve a pintar. El grafitero tiene dos capas de la misma hoja de cuadros: la de rociar
+    (`steps(6)`, en bucle) se ve durante la pintada y la de sacudir la lata el resto del ciclo.
+  - `index.html`: las dos capas del grafitero.
+  - `js/effects/visual.js`: el paralaje del fondo se redondea a píxeles enteros.
+  - `e2e/motion.spec.ts`: también comprueba que la pintada, el rocío y el grafitero se repiten sin
+    fin.
+- **Medición (Chromium sin GPU, 1366×860, 5 s, 3 pasadas):** ~59,8 cuadros por segundo y 0–2
+  cuadros largos. Celular (390×844, táctil, CPU 4× más lenta): 60 sin cuadros largos.
+- **Verificación local:** lint, formato y tipos OK; unitarias 406/406; e2e de escritorio 88/88;
+  visuales 3/3 (cambian las 3 capturas `03-tienda-pagina-completa` solo en el grafiti: escritorio
+  x 789–1161 y 572–634, tableta x 487–598 y 343–411, celular x 277–351 y 353–397). Video local de
+  30 s con dos ciclos completos.
+- **NO VERIFICADO:** Firefox y WebKit en local (los cubre CI) y la fluidez en equipos reales con
+  GPU. Sin publicar: falta la autorización del dueño.

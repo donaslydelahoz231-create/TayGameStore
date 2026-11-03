@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Portada: el grafiti más nítido y pintado en bucle sin fin (2026-11-03)
+
+- **Más nítido y con colores vivos** (el dueño lo veía «opaco»): relleno saturado (cian, violeta y
+  fucsia) con un brillo blanco, contorno oscuro alrededor del blanco y una nube de fondo más suave.
+  El paralaje del fondo con el puntero se mueve en píxeles enteros: con fracciones el texto se veía
+  borroso.
+- **Se repite sin fin, cada 14 s**: el grafitero pinta «TayGameStore» letra por letra, la pieza se
+  queda, se desvanece en el mismo orden en que se pintó y vuelve a pintarla. El grafitero rocía
+  mientras pinta y sacude la lata entre una pintada y otra.
+
 ### Portada: el muro del barrio con un grafitero que pinta «TayGameStore» (2026-11-03)
 
 - **Fondo propio y hecho a mano para la portada** (el dueño vio el mapa «muy genérico y muy IA» y
