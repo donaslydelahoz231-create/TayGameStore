@@ -338,10 +338,23 @@ describe('registro auxiliar en Google Sheets', () => {
   it('una pasada larga de la hoja se corta a tiempo: lo que falta sale después, sin gastar intentos', async () => {
     sheet.failing = true;
     const paid = await paidOrder();
+    // Las pasadas en segundo plano del pedido terminan mientras la hoja falla: las tres filas
+    // (en vivo, «Entregas» y «Pedidos») quedan pendientes, sin depender del orden de los hilos.
+    await h.settle();
+    const sheetRows = () =>
+      Promise.all([
+        sheetNotification(paid.id, 'order_sheet_sync', 'sheets_live'),
+        sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery'),
+        sheetNotification(paid.id),
+      ]);
+    const before = await sheetRows();
+    for (const row of before) expect(row?.status).toBe('PENDING');
     sheet.failing = false;
     sheet.calls = 0;
-    h.clock.now = new Date(Date.now() + 2 * 60_000);
-    // Tras la primera escritura, «pasan» 41 s: la segunda fila de la hoja ya no cabe en la pasada.
+    // Todas las filas ya tocan su reintento.
+    const due = Math.max(Date.now(), ...before.map((row) => row?.nextAttemptAt.getTime() ?? 0));
+    h.clock.now = new Date(due + 60_000);
+    // Tras la primera escritura, «pasan» 41 s: el resto de la hoja ya no cabe en la pasada.
     const realNow = Date.now.bind(Date);
     const clock = vi
       .spyOn(Date, 'now')
@@ -352,18 +365,21 @@ describe('registro auxiliar en Google Sheets', () => {
       clock.mockRestore();
     }
     expect(sheet.calls).toBe(1);
-    const rows = [
-      await sheetNotification(paid.id),
-      await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery'),
-    ];
-    const waiting = rows.filter((row) => row?.status === 'PENDING');
-    expect(waiting).toHaveLength(1);
-    // Conserva el intento fallido anterior (1) y queda lista para la pasada siguiente.
-    expect(waiting[0]).toMatchObject({ attempts: 1 });
-    expect(waiting[0]?.nextAttemptAt.getTime()).toBeLessThanOrEqual(h.clock.now.getTime());
+    const after = await sheetRows();
+    expect(after.filter((row) => row?.status === 'SENT')).toHaveLength(1);
+    const waiting = after.filter((row) => row?.status === 'PENDING');
+    expect(waiting).toHaveLength(2);
+    for (const row of waiting) {
+      // Conserva los intentos que traía (el corte no cuenta como intento) y sale en la siguiente.
+      const previous = before.find((item) => item?.id === row?.id);
+      expect(row?.attempts).toBe(previous?.attempts);
+      expect(row?.nextAttemptAt.getTime()).toBeLessThanOrEqual(h.clock.now.getTime());
+    }
     await deliverNotifications(h.deps, { orderId: paid.id });
+    expect(sheet.live).toHaveLength(1);
     expect(sheet.rows).toHaveLength(1);
     expect(sheet.deliveries).toHaveLength(1);
+    for (const row of await sheetRows()) expect(row?.status).toBe('SENT');
   });
 
   it('una hoja lenta no frena la petición: responde y la fila llega después', async () => {
