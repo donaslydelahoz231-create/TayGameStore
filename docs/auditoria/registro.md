@@ -2663,3 +2663,42 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   propuesta para el dueño.
 - **NO VERIFICADO:** la fluidez en celulares y computadores reales con GPU (la medición es en
   Chromium sin GPU; con GPU los filtros cuestan menos, así que la mejora real puede ser menor).
+
+### 2026-11-03 · Publicación de deceba5 + e60259e (hoja en tiempo real e inicio fluido)
+
+- **Autorización del dueño:** «Publicar ambos ahora (Recomendado)» (respaldo, 2 commits, push a la
+  rama desplegada y verificación completa) y «No tocar el acceso (Recomendado)»: el
+  `backdrop-filter` de la ventana de acceso se queda como está, también durante la transición.
+- **Respaldo antes del push:** Neon no admite más instantáneas en este plan (límite 1, ocupado por
+  la del 2026-10-13; no se borró). En su lugar, rama de respaldo
+  `respaldo-2026-11-03-antes-pedidos-en-vivo` (sin cómputo) desde `production` a las 14:05:54 UTC.
+- **Antes del commit:** los 28 archivos coincidían con los blobs aprobados, `git status` sin nada
+  más y escáner de datos sensibles con 0 coincidencias.
+- **Commits y push:** `deceba5` (hoja) y `e60259e` (inicio); `git ls-remote` confirma `e60259e` en
+  GitHub.
+- **Render:** despliegue `dep-dbkulb8ae00c7381nvlg` en `live` a las 14:08:42 UTC. Arranque con
+  `hojaGoogle: true` y «hoja de Google conectada»; ningún registro warn/error desde las 14:08.
+- **Base de datos:** 26 migraciones (0000–0025) y la restricción del canal ya admite
+  `sheets_live`.
+- **Hoja (original):**
+  - La red de seguridad registró «hoja de Google: «Pedidos en vivo» al día» con
+    `filasNuevas: 30` a las 14:08:48 UTC, 16 s después del arranque.
+  - En la base, 30 avisos `sheets_live` en `SENT` al primer intento: uno por pedido (30 pedidos).
+  - Leído de vuelta: encabezado + 30 filas. Estados: 26 «⌛ Venció sin pago», 3 «⚠️ Venció con un
+    aviso sin verificar», 1 «💰 El cliente avisó que pagó» (vence hoy 17:05 hora de Colombia).
+    Sin datos personales en la pestaña.
+  - Las filas quedan en orden de llegada, no estrictamente por fecha de creación; la pestaña se
+    puede ordenar por la columna B sin romper nada (la tienda busca por la referencia).
+  - «Léeme»: línea nueva para «Pedidos en vivo» y la pestaña añadida a las reglas de nombres y de
+    orden. Al primer intento Google respondió «service unavailable» sin escribir nada (leído de
+    vuelta: vacío); el reintento sí quedó escrito.
+- **Tienda en vivo:** el HTML trae el degradado `tyGlow` y los 2 círculos `.ty-glow`. La hoja de
+  estilos publicada (`main-80BY_ys0.css`, 198.560 bytes) es la misma del build local y trae las
+  reglas de `48-inicio-fluido.css` (p. ej. `.intro-aurora i { filter: none; scale: 1.45 }`).
+- **GitHub Actions sobre e60259e:** CodeQL #189 y Production smoke #102 en verde. CI #246: gitleaks;
+  lint, formato, tipos, unitarias y build; integración con PostgreSQL; e2e Chromium, Firefox y
+  WebKit: los 6 trabajos en verde (WebKit terminó a las 14:18:02 UTC).
+- **NO VERIFICADO:**
+  - La demora real del primer pedido nuevo de un cliente hasta su fila (no se crean pedidos reales
+    para probar; en las pruebas de integración es inmediata y el envío va en segundo plano).
+  - La fluidez en celulares y computadores reales con GPU.
