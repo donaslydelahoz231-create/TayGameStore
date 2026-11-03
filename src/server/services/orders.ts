@@ -27,7 +27,7 @@ import {
 } from '../lib/crypto.js';
 import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, notFound, type Actor, type ServiceDeps } from './context.js';
-import { deliverSoon, enqueueOrderNotifications } from './notifications.js';
+import { deliverSoon, enqueueLiveSync, enqueueOrderNotifications } from './notifications.js';
 import { deliveredPinCounts, deliveredPins, freeStock } from './inventory.js';
 import { consumeLookup, ownerKeyOf, playerLookupRefSchema } from './player.js';
 import { providerCovers, providerSkus, withPromoFloor } from './topup-coverage.js';
@@ -713,14 +713,16 @@ export async function createOrder(
         },
       });
       // Verificación manual: el operador debe saberlo enseguida (aviso a su automatización).
+      // Todo pedido nuevo, de cualquier método, aparece en «Pedidos en vivo» de la hoja.
       if (created.status === 'AWAITING_VERIFICATION') {
         await enqueueOrderNotifications(deps, tx, created.id, 'awaiting_verification');
+      } else {
+        await enqueueLiveSync(deps, tx, created.id);
       }
       return created;
     });
-    if (order.status === 'AWAITING_VERIFICATION') {
-      await deliverSoon(deps, order.id);
-    }
+    // Solo el aviso al operador vale una espera corta; la hoja sale en segundo plano.
+    await deliverSoon(deps, order.id, { wait: order.status === 'AWAITING_VERIFICATION' });
     return { order: await toPublicOrder(deps, deps.db, order), accessToken, created: true };
   } catch (error) {
     // Dos envíos simultáneos con la misma clave: el segundo choca con el UNIQUE y se resuelve
@@ -830,8 +832,10 @@ export async function confirmPlayer(
         verificationStatus: 'DECLINED_BY_CUSTOMER',
       });
     }
+    await enqueueLiveSync(deps, tx, row.id);
     return row;
   });
+  await deliverSoon(deps, order.id, { wait: false });
   const [fresh] = await deps.db.select().from(orders).where(eq(orders.id, order.id));
   if (!fresh) throw notFound();
   return toPublicOrder(deps, deps.db, fresh);

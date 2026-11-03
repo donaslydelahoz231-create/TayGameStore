@@ -10,11 +10,13 @@ import { createSign } from 'node:crypto';
  *   Nequi de «Pagos pendientes». La tienda las aplica con las mismas reglas del panel (ver
  *   services/sheet-commands.ts).
  * - Escribe con `valueInputOption=RAW`: nada se interpreta como fórmula.
- * - Cuatro pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
+ * - Cinco pestañas: «Pedidos» (historial de eventos, una fila por evento, solo datos de la
  *   operación), «Entregas» (una fila por pedido que se actualiza con cada cambio de estado, con
  *   los datos del jugador que hacen falta para recargar: ID, nickname, servidor y región),
- *   «Pagos pendientes» (una fila por pedido Nequi: lo que el cliente debe y lo que avisó) y
- *   «Usuarios» (una fila por cliente con su nombre de usuario, sin correo ni nombre real).
+ *   «Pagos pendientes» (una fila por pedido Nequi: lo que el cliente debe y lo que avisó),
+ *   «Usuarios» (una fila por cliente con su nombre de usuario, sin correo ni nombre real) y
+ *   «Pedidos en vivo» (una fila por pedido de cualquier método desde que se crea, sin datos
+ *   personales).
  * - Credenciales: una cuenta de servicio de Google Cloud con la hoja compartida con su correo.
  *   La llave privada (campo `private_key` del JSON de la cuenta) vive solo en el servidor.
  * - Se usa desde la cola de avisos: si Google falla, el pedido sigue igual y la fila se reintenta.
@@ -27,9 +29,10 @@ import { createSign } from 'node:crypto';
 /**
  * `orders`: pestaña sin datos personales. `deliveries`: con los datos del jugador. `pending`:
  * pagos Nequi por verificar (con los 4 últimos dígitos y la referencia que avisó el cliente).
- * `users`: nombres de usuario de los clientes (alias, nunca correo ni nombre real).
+ * `users`: nombres de usuario de los clientes (alias, nunca correo ni nombre real). `live`: cada
+ * pedido desde que se crea, de cualquier método, sin datos personales.
  */
-export type SheetTab = 'orders' | 'deliveries' | 'pending' | 'users';
+export type SheetTab = 'orders' | 'deliveries' | 'pending' | 'users' | 'live';
 
 /**
  * Columnas del dueño, justo después de las que escribe la tienda (al reescribir la fila de un
@@ -111,6 +114,18 @@ export class SheetsError extends Error {
 }
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString('base64url');
+
+/** Letra de columna (1 → A, 26 → Z, 27 → AA). */
+export function columnLetter(index: number): string {
+  let n = index;
+  let letters = '';
+  while (n > 0) {
+    const rest = (n - 1) % 26;
+    letters = String.fromCharCode(65 + rest) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
 
 /** Rango A1 de una pestaña; entre comillas si el nombre tiene espacios o guiones. */
 const a1 = (sheet: string, cells: string) =>
@@ -220,10 +235,15 @@ export class GoogleSheetsLog implements OrderSheetLog {
    * fila delante de las vacías y desplazaba los rangos de las fórmulas del dueño («Pedidos!B2:B»
    * pasaba a «B3:B»…): «Resumen», «Por entregar» y «Reporte diario» dejaban fuera todos los
    * pedidos (encontrado con una copia de la hoja real, 2026-10-20).
+   *
+   * El rango de búsqueda son solo las columnas que escribe la tienda (A hasta la última de la
+   * fila): Google busca la «tabla» dentro de ese rango. Con `A1`, unas casillas del dueño al lado
+   * (que valían FALSE en todas las filas vacías) estiraban la tabla hasta la fila 1000 y un pedido
+   * nuevo cayó en la 1001 (2026-11-02).
    */
   async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
     await this.request(
-      `${this.valuesUrl(tab, 'A1')}:append?valueInputOption=RAW&insertDataOption=OVERWRITE`,
+      `${this.valuesUrl(tab, `A:${columnLetter(Math.max(1, values.length))}`)}:append?valueInputOption=RAW&insertDataOption=OVERWRITE`,
       { method: 'POST', body: JSON.stringify({ values: [values] }) },
       'Google Sheets no aceptó la fila',
     );

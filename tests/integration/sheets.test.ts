@@ -21,7 +21,9 @@ import {
   catchUpSheet,
   deliverNotifications,
   enqueueSheetSync,
+  LIVE_ORDER_COLUMNS,
   PENDING_PAYMENT_COLUMNS,
+  refreshLiveSheet,
 } from '../../src/server/services/notifications.js';
 import {
   applySheetCommand,
@@ -52,12 +54,16 @@ class RecordingSheet implements OrderSheetLog {
   pendingStatuses: string[] = [];
   /** Pestaña «Usuarios»: una fila por cliente (código en la columna A). */
   users: (string | number)[][] = [];
+  /** Pestaña «Pedidos en vivo» (todos los pedidos, sin datos personales): una fila por referencia. */
+  live: (string | number)[][] = [];
+  /** Estado (columna C) de cada escritura en «Pedidos en vivo», en orden. */
+  liveStatuses: string[] = [];
   failing = false;
   /** Google responde 429: se pasó la cuota de escrituras por minuto. */
   rateLimited = false;
   /** Llamadas que llegaron a «Google» (escrituras y reescrituras). */
   calls = 0;
-  /** Si existe, cada escritura en «Entregas» espera a que se abra (simula a Google lento). */
+  /** Si existe, cada escritura en «Entregas» (solo esa pestaña) espera a que se abra (Google lento). */
   gate: Promise<void> | undefined;
   /** Se llama cuando una escritura en «Entregas» llegó a la hoja (antes de esperar `gate`). */
   onUpsert: (() => void) | undefined;
@@ -81,14 +87,17 @@ class RecordingSheet implements OrderSheetLog {
     this.calls += 1;
     if (this.rateLimited) throw new SheetsError('Google Sheets no aceptó la fila', 429);
     if (this.failing) throw new Error('Google Sheets no disponible (simulado)');
-    this.onUpsert?.();
-    await this.gate;
+    if (tab === 'deliveries') {
+      this.onUpsert?.();
+      await this.gate;
+    }
     const target = this.tab(tab);
     const index = target.findIndex((row) => row[0] === values[0]);
     if (index < 0) target.push([...values]);
     else target[index] = [...values];
     if (tab === 'deliveries') this.statuses.push(String(values[1]));
     if (tab === 'pending') this.pendingStatuses.push(String(values[1]));
+    if (tab === 'live') this.liveStatuses.push(String(values[2]));
   }
   private tab(tab: SheetTab) {
     return {
@@ -96,6 +105,7 @@ class RecordingSheet implements OrderSheetLog {
       deliveries: this.deliveries,
       pending: this.pending,
       users: this.users,
+      live: this.live,
     }[tab];
   }
 }
@@ -124,6 +134,8 @@ beforeEach(() => {
   sheet.rows = [];
   sheet.deliveries = [];
   sheet.statuses = [];
+  sheet.live = [];
+  sheet.liveStatuses = [];
   sheet.gate = undefined;
   sheet.onUpsert = undefined;
   sheet.commands = [];
@@ -222,7 +234,7 @@ async function fulfillment(orderId: string, payload: Record<string, string>) {
 async function sheetNotification(
   orderId: string,
   kind: 'order_paid_event' | 'order_sheet_sync' = 'order_paid_event',
-  channel: 'sheets' | 'sheets_delivery' = 'sheets',
+  channel: 'sheets' | 'sheets_delivery' | 'sheets_pending' | 'sheets_live' = 'sheets',
 ) {
   const [row] = await h.database.db
     .select()
@@ -236,6 +248,14 @@ async function sheetNotification(
     );
   return row;
 }
+
+/** Fila de un pedido en «Pedidos en vivo» (nunca más de una por pedido). */
+const liveRow = (ref: string) => {
+  const rows = sheet.live.filter((row) => row[0] === ref);
+  expect(rows.length, 'una sola fila por pedido').toBeLessThanOrEqual(1);
+  return rows[0];
+};
+const liveColumn = (name: (typeof LIVE_ORDER_COLUMNS)[number]) => LIVE_ORDER_COLUMNS.indexOf(name);
 
 describe('registro auxiliar en Google Sheets', () => {
   it('un pago confirmado agrega una fila sin datos personales', async () => {
@@ -285,11 +305,15 @@ describe('registro auxiliar en Google Sheets', () => {
   it('con la cuota de Google agotada (429) la fila espera sin gastar intentos y nunca se pierde', async () => {
     sheet.rateLimited = true;
     const paid = await paidOrder();
-    // La primera fila de la hoja recibió el 429; la otra de la misma pasada ni siquiera llamó.
-    expect(sheet.calls).toBe(1);
+    await h.settle();
+    // Cada pasada se detiene en su primer 429: las demás filas de esa pasada ni siquiera llaman.
+    // Hay tres filas (en vivo, «Entregas» y «Pedidos») y menos llamadas que filas.
+    expect(sheet.calls).toBeGreaterThanOrEqual(1);
+    expect(sheet.calls).toBeLessThan(3);
     const waiting = await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_delivery');
+    const live = await sheetNotification(paid.id, 'order_sheet_sync', 'sheets_live');
     const event = await sheetNotification(paid.id);
-    for (const row of [waiting, event]) {
+    for (const row of [waiting, live, event]) {
       expect(row).toMatchObject({ status: 'PENDING', attempts: 0 });
       const wait = (row?.nextAttemptAt.getTime() ?? 0) - h.clock.now.getTime();
       expect(wait).toBeGreaterThanOrEqual(60_000);
@@ -307,6 +331,7 @@ describe('registro auxiliar en Google Sheets', () => {
     await deliverNotifications(h.deps, { orderId: paid.id });
     expect(sheet.rows.map((row) => row[2])).toEqual(['Pago confirmado']);
     expect(sheet.deliveries).toHaveLength(1);
+    expect(sheet.live).toHaveLength(1);
     expect((await sheetNotification(paid.id))?.status).toBe('SENT');
   });
 
@@ -824,6 +849,31 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
     expect(text).not.toContain('Nombre Privado');
   });
 
+  it('«Pedidos en vivo» también sigue el pago Nequi, sin los datos del pago ni del jugador', async () => {
+    const o = await readyOrder();
+    await hn.settle();
+    expect(liveRow(o.ref)?.[liveColumn('Estado')]).toBe('🛒 Eligiendo cómo pagar');
+    expect((await customer(o, '/nequi')).statusCode).toBe(200);
+    expect(liveRow(o.ref)?.[liveColumn('Estado')]).toBe('⏳ Esperando la transferencia');
+    expect(liveRow(o.ref)?.[liveColumn('Método de pago')]).toBe('Nequi (transferencia)');
+    const report = await customer(o, '/nequi/report', {
+      senderLast4: '0421',
+      reference: 'M00054321',
+    });
+    expect(report.statusCode, report.body).toBe(200);
+    await hn.settle();
+    const row = liveRow(o.ref);
+    expect(row?.[liveColumn('Estado')]).toBe(
+      '💰 El cliente avisó que pagó: verifícalo en tu Nequi',
+    );
+    // El aviso nunca es un pago: sigue pendiente hasta que el dueño lo confirme.
+    expect(row?.[liveColumn('Estado del pago')]).toBe('Pendiente');
+    const text = JSON.stringify(row);
+    for (const secret of ['0421', 'M00054321', o.uid, o.email, 'Nombre Privado']) {
+      expect(text).not.toContain(secret);
+    }
+  });
+
   it('un pedido Nequi que vence sin pago queda «Venció sin pago»', async () => {
     const o = await readyOrder();
     expect((await customer(o, '/nequi')).statusCode).toBe(200);
@@ -994,5 +1044,189 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
       .from(notifications)
       .where(and(eq(notifications.orderId, paid.id), eq(notifications.channel, 'sheets_delivery')));
     expect(retried).toMatchObject({ status: 'PENDING', attempts: 0, lastError: null });
+  });
+});
+
+describe('pestaña «Pedidos en vivo» (todos los pedidos, de cualquier método)', () => {
+  /** Pedido nuevo, recién creado (el operador todavía no verificó el jugador). */
+  async function placeOrder() {
+    uid += 1;
+    const created = await inject({
+      method: 'POST',
+      url: '/api/checkout',
+      headers: CSRF,
+      payload: {
+        checkoutKey: randomUUID(),
+        game: 'freefire',
+        playerUid: String(uid),
+        playerServer: 'latam',
+        customerName: 'Nombre Privado',
+        customerEmail: `envivo-${uid}@example.com`,
+        acceptTerms: true,
+        termsVersion: '2026-10-05',
+        items: [{ sku: 'ff-110', quantity: 1 }],
+      },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const { order } = created.json<{ order: { reference: string; totalCop: number } }>();
+    const [row] = await h.database.db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.publicRef, order.reference));
+    return {
+      id: row?.id ?? '',
+      ref: order.reference,
+      total: order.totalCop,
+      uid: String(uid),
+      email: `envivo-${uid}@example.com`,
+      cookies: guestCookie(created),
+    };
+  }
+  type Placed = Awaited<ReturnType<typeof placeOrder>>;
+  const step = async (o: Placed, path: string, payload: object, asOwner = false) => {
+    const res = await inject({
+      method: 'POST',
+      url: asOwner ? `/api/admin/orders/${o.id}/${path}` : `/api/orders/${o.ref}/${path}`,
+      headers: CSRF,
+      cookies: asOwner ? admin : o.cookies,
+      payload,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    await h.settle();
+  };
+  const statusOf = (ref: string) => liveRow(ref)?.[liveColumn('Estado')];
+
+  it('un pedido aparece apenas se crea y la misma fila sigue cada paso hasta la entrega', async () => {
+    const o = await placeOrder();
+    // La respuesta al cliente no espera a Google: la fila sale en segundo plano.
+    await h.settle();
+    let row = liveRow(o.ref);
+    expect(row).toHaveLength(LIVE_ORDER_COLUMNS.length);
+    expect(row?.[liveColumn('Estado')]).toBe('🔎 Verificando el ID del jugador');
+    expect(row?.[liveColumn('Método de pago')]).toBe('Sin elegir');
+    expect(row?.[liveColumn('Total')]).toBe(o.total);
+    expect(row?.[liveColumn('Paquete')]).toMatch(/^1× /);
+    expect(row?.[liveColumn('Pedido creado (Colombia)')]).toMatch(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
+    expect(row?.[liveColumn('Vence (Colombia)')]).not.toBe('');
+
+    await step(
+      o,
+      'verification',
+      { result: 'VERIFIED', nickname: 'NickPrivado', region: 'Colombia' },
+      true,
+    );
+    expect(statusOf(o.ref)).toBe('👤 ID verificado: falta que el cliente lo acepte');
+    await step(o, 'confirm-player', { confirm: true, nickname: 'NickPrivado' });
+    expect(statusOf(o.ref)).toBe('🛒 Eligiendo cómo pagar');
+    await step(o, 'pay', {});
+    expect(statusOf(o.ref)).toBe('⏳ Esperando el pago en Mercado Pago');
+    expect(liveRow(o.ref)?.[liveColumn('Método de pago')]).toBe('Mercado Pago');
+
+    const paymentId = String(Math.floor(Math.random() * 1e12));
+    h.gateway.setPayment({ id: paymentId, externalReference: o.ref, amount: o.total });
+    const hook = await inject({
+      method: 'POST',
+      url: `/api/webhooks/mercadopago?data.id=${paymentId}&type=payment`,
+      headers: { 'x-signature': 'firma-valida', 'x-request-id': randomUUID() },
+      payload: { type: 'payment', action: 'payment.updated', data: { id: paymentId } },
+    });
+    expect(hook.statusCode).toBe(200);
+    await h.settle();
+    row = liveRow(o.ref);
+    expect(row?.[liveColumn('Estado')]).toBe('⏳ Por entregar');
+    expect(row?.[liveColumn('Estado del pago')]).toBe('Confirmado');
+    expect(row?.[liveColumn('Comprobante')]).toMatch(/^\d{6}$/);
+    expect(row?.[liveColumn('Vence (Colombia)')]).toBe('');
+
+    await fulfillment(o.id, { action: 'claim' });
+    await fulfillment(o.id, { action: 'start' });
+    await fulfillment(o.id, {
+      action: 'deliver',
+      evidence: 'Recarga hecha en el canal oficial (prueba)',
+    });
+    await h.settle();
+    row = liveRow(o.ref);
+    expect(row?.[liveColumn('Estado')]).toBe('✅ Entregado con éxito');
+    expect(row?.[liveColumn('Estado de la recarga')]).toBe('Completado');
+    // Sin datos personales: ni correo, ni nombre, ni ID, ni nickname del jugador.
+    const text = JSON.stringify(row);
+    for (const secret of [o.email, 'Nombre Privado', o.uid, 'NickPrivado', paymentId]) {
+      expect(text).not.toContain(secret);
+    }
+    expect(sheet.live.filter((r) => r[0] === o.ref)).toHaveLength(1);
+  });
+
+  it('un pedido sin pagar que vence queda «Venció sin pago» (los de Mercado Pago también)', async () => {
+    const o = await placeOrder();
+    await step(
+      o,
+      'verification',
+      { result: 'VERIFIED', nickname: 'NickPrivado', region: 'Colombia' },
+      true,
+    );
+    await step(o, 'confirm-player', { confirm: true, nickname: 'NickPrivado' });
+    const before = h.clock.now;
+    h.clock.now = new Date(before.getTime() + 3 * 3_600_000);
+    try {
+      expect(await expireOrders(h.deps)).toBeGreaterThanOrEqual(1);
+      await deliverNotifications(h.deps, { orderId: o.id });
+    } finally {
+      h.clock.now = before;
+    }
+    expect(statusOf(o.ref)).toBe('⌛ Venció sin pago');
+    expect(liveRow(o.ref)?.[liveColumn('Estado del pago')]).toBe('Vencido');
+    expect(liveRow(o.ref)?.[liveColumn('Vence (Colombia)')]).toBe('');
+  });
+
+  it('red de seguridad: pone la fila que falte y reescribe la de un pedido que cambió sin avisar', async () => {
+    const paid = await paidOrder();
+    await h.settle();
+    const liveQueue = async () =>
+      (
+        await h.database.db
+          .select()
+          .from(notifications)
+          .where(and(eq(notifications.orderId, paid.id), eq(notifications.channel, 'sheets_live')))
+      )[0];
+    // Sin hoja configurada no hace nada.
+    expect(await refreshLiveSheet({ ...h.deps, sheets: undefined })).toBe(0);
+
+    // 1) Pedido de cuando la hoja estaba apagada: no tiene fila en la cola ni en la hoja.
+    //    La tienda no puede borrar de la cola (su rol no tiene DELETE): lo prepara el dueño.
+    const dbOwner = new pg.Client({ connectionString: testDatabaseUrl() });
+    await dbOwner.connect();
+    try {
+      await dbOwner.query(
+        `delete from notifications where order_id = $1 and channel = 'sheets_live'`,
+        [paid.id],
+      );
+      sheet.live = [];
+      expect(await refreshLiveSheet(h.deps)).toBeGreaterThanOrEqual(1);
+      await deliverNotifications(h.deps, { orderId: paid.id });
+      expect(statusOf(paid.reference)).toBe('⏳ Por entregar');
+      expect(await liveQueue()).toMatchObject({ status: 'SENT' });
+
+      // 2) Al día (enviada después del último cambio): no se vuelve a encolar.
+      await dbOwner.query(
+        `update notifications set sent_at = now() + interval '1 hour'
+          where order_id = $1 and channel = 'sheets_live'`,
+        [paid.id],
+      );
+      await refreshLiveSheet(h.deps);
+      expect(await liveQueue()).toMatchObject({ status: 'SENT' });
+
+      // 3) Un cambio que no pasó por la cola (p. ej. Mercado Pago actualizó un pago sin cambiar
+      //    el pedido): se vuelve a escribir.
+      await dbOwner.query(
+        `update payments set updated_at = now() + interval '2 hours' where order_id = $1`,
+        [paid.id],
+      );
+      await refreshLiveSheet(h.deps);
+      expect(await liveQueue()).toMatchObject({ status: 'PENDING', attempts: 0, sentAt: null });
+    } finally {
+      await dbOwner.end();
+    }
   });
 });

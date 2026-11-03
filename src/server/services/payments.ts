@@ -21,7 +21,12 @@ import { AppError } from '../plugins/errors.js';
 import { audit, invalidState, type Actor, type ServiceDeps } from './context.js';
 import { kickTopups } from './topups.js';
 import { belongsToOrder, lockPaymentMethod, markOrderPaid } from './order-payment.js';
-import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
+import {
+  deliverSoon,
+  enqueueLiveSync,
+  enqueueOrderNotifications,
+  enqueueSheetSync,
+} from './notifications.js';
 import { loadOrderForAccess, transitionOrder, type OrderAccess } from './orders.js';
 
 const unavailable = () =>
@@ -53,6 +58,7 @@ export async function startPayment(
   const now = deps.now();
 
   // 1) Reserva (o reutiliza) el único intento abierto de la orden.
+  let methodLocked = false;
   const plan = await deps.db.transaction(async (tx) => {
     const order = await loadOrderForAccess(deps, tx, publicRef, access, true);
     if (order.status !== 'AWAITING_PAYMENT' || order.verificationStatus !== 'CONFIRMED') {
@@ -62,7 +68,11 @@ export async function startPayment(
       throw new AppError('ORDER_EXPIRED', 409, 'El tiempo para pagar este pedido terminó.');
     }
     // El pedido queda con Mercado Pago como método; si eligió otro (Nequi), aquí no se paga.
-    await lockPaymentMethod(tx, actor, order, 'mercadopago');
+    if (order.paymentMethod !== 'mercadopago') {
+      await lockPaymentMethod(tx, actor, order, 'mercadopago');
+      await enqueueLiveSync(deps, tx, order.id);
+      methodLocked = true;
+    }
     const [open] = await tx
       .select()
       .from(paymentAttempts)
@@ -117,6 +127,8 @@ export async function startPayment(
     });
     return { order, attempt, reuse: false };
   });
+  // «Pedidos en vivo»: el pedido ya dice «Mercado Pago» (en segundo plano: no frena el pago).
+  if (methodLocked) await deliverSoon(deps, plan.order.id, { wait: false });
   if (plan.reuse && plan.attempt.checkoutUrl) return { checkoutUrl: plan.attempt.checkoutUrl };
 
   // 2) Crea la preferencia fuera de la transacción (llamada de red). Repetir es seguro: la

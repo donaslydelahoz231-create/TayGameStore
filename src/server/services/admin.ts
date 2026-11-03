@@ -22,7 +22,12 @@ import { assignReceiptNumber } from './receipts.js';
 import { pendingReviewCount } from './reviews.js';
 import { nequiTransfersFor } from './nequi-view.js';
 import { pendingNequiCount } from './nequi-manual.js';
-import { deliverSoon, enqueueOrderNotifications, enqueueSheetSync } from './notifications.js';
+import {
+  deliverSoon,
+  enqueueLiveSync,
+  enqueueOrderNotifications,
+  enqueueSheetSync,
+} from './notifications.js';
 import {
   assignInventory,
   inventoryForOrder,
@@ -379,6 +384,7 @@ export async function verifyPlayer(
         toStatus: 'VERIFIED',
         data: { region: input.region },
       });
+      await enqueueLiveSync(deps, tx, order.id);
       return;
     }
     await transitionOrder(
@@ -394,7 +400,9 @@ export async function verifyPlayer(
       },
       { verification: input.result },
     );
+    await enqueueLiveSync(deps, tx, order.id);
   });
+  await deliverSoon(deps, orderId, { wait: false });
 }
 
 // ── Entrega manual ───────────────────────────────────────────────────────────

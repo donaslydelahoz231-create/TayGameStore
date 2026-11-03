@@ -421,6 +421,11 @@ const envSchema = z
       .string()
       .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
       .default('Usuarios'),
+    /** Pestaña con cada pedido desde que se crea (cualquier método), sin datos personales. */
+    GOOGLE_SHEETS_LIVE_TAB: z
+      .string()
+      .regex(/^[\p{L}\p{N} _-]{1,60}$/u, 'nombre de la pestaña: letras, números, espacios, _ y -')
+      .default('Pedidos en vivo'),
   })
   .superRefine((env, ctx) => {
     const issue = (path: string, message: string) =>
@@ -458,6 +463,17 @@ const envSchema = z
       )
     ) {
       issue('GOOGLE_SHEETS_USERS_TAB', 'debe ser una pestaña distinta de las otras de la hoja');
+    }
+    const liveTab = env.GOOGLE_SHEETS_LIVE_TAB.toLowerCase();
+    if (
+      [
+        env.GOOGLE_SHEETS_TAB,
+        env.GOOGLE_SHEETS_DELIVERY_TAB,
+        env.GOOGLE_SHEETS_PENDING_TAB,
+        env.GOOGLE_SHEETS_USERS_TAB,
+      ].some((tab) => tab.toLowerCase() === liveTab)
+    ) {
+      issue('GOOGLE_SHEETS_LIVE_TAB', 'debe ser una pestaña distinta de las otras de la hoja');
     }
     if (Boolean(env.EVENTS_WEBHOOK_URL) !== Boolean(env.EVENTS_WEBHOOK_SECRET)) {
       issue('EVENTS_WEBHOOK_SECRET', 'EVENTS_WEBHOOK_URL y EVENTS_WEBHOOK_SECRET van juntas');
@@ -640,7 +656,13 @@ export interface AppConfig {
         spreadsheetId: string;
         clientEmail: string;
         privateKey: string;
-        tabs: { orders: string; deliveries: string; pending: string; users: string };
+        tabs: {
+          orders: string;
+          deliveries: string;
+          pending: string;
+          users: string;
+          live: string;
+        };
       }
     | undefined;
   /** Por qué la hoja quedó apagada pese a tener alguna variable (sin valores; ver sheets.ts). */
@@ -832,6 +854,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
             deliveries: env.GOOGLE_SHEETS_DELIVERY_TAB,
             pending: env.GOOGLE_SHEETS_PENDING_TAB,
             users: env.GOOGLE_SHEETS_USERS_TAB,
+            live: env.GOOGLE_SHEETS_LIVE_TAB,
           },
         }
       : undefined,

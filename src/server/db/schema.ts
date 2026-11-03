@@ -1000,6 +1000,8 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
  * datos del jugador para recargar (migración 0019; una fila por pedido desde la 0020).
  * `sheets_pending`: pestaña «Pagos pendientes», una fila por pedido Nequi con lo que el cliente
  * debe al dueño y lo que avisó al transferir (migración 0022).
+ * `sheets_live`: pestaña «Pedidos en vivo», una fila por pedido de cualquier método desde que se
+ * crea, sin datos personales; se reescribe con cada cambio (migración 0025).
  * `telegram` se quitó en la migración 0018: el dueño decidió no usarlo (sin filas guardadas).
  */
 export const NOTIFICATION_CHANNELS = [
@@ -1008,6 +1010,7 @@ export const NOTIFICATION_CHANNELS = [
   'sheets',
   'sheets_delivery',
   'sheets_pending',
+  'sheets_live',
 ] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;

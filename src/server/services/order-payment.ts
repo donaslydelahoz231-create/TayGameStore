@@ -15,6 +15,7 @@ import { audit, invalidState, type Actor, type ServiceDeps } from './context.js'
 import { deliverFromInventory } from './inventory.js';
 import {
   deliverSoon,
+  enqueueLiveSync,
   enqueueOrderNotifications,
   enqueuePendingPaymentSync,
 } from './notifications.js';
@@ -102,6 +103,7 @@ export async function changePaymentMethod(
   to: PaymentMethod,
 ): Promise<OrderRow> {
   requirePaymentMethod(deps, to);
+  let changed = false;
   const order = await deps.db.transaction(async (tx) => {
     const order = await loadOrderForAccess(deps, tx, publicRef, access, true);
     if (order.status !== 'AWAITING_PAYMENT' || order.expiresAt.getTime() <= deps.now().getTime()) {
@@ -111,8 +113,11 @@ export async function changePaymentMethod(
     if (from === to) return order;
     if (!from) {
       await lockPaymentMethod(tx, actor, order, to);
-      // Pasar a Nequi: el cliente le debe el total al dueño (fila en «Pagos pendientes»).
+      // Pasar a Nequi: el cliente le debe el total al dueño (fila en «Pagos pendientes», que
+      // también pide la fila en vivo). Con otro método, solo la fila en vivo.
       if (to === 'nequi_manual') await enqueuePendingPaymentSync(deps, tx, order.id);
+      else await enqueueLiveSync(deps, tx, order.id);
+      changed = true;
       return order;
     }
     if (from === 'nequi_manual') {
@@ -169,10 +174,12 @@ export async function changePaymentMethod(
       data: { from, to, attemptsClosed: closed.length },
     });
     if (to === 'nequi_manual') await enqueuePendingPaymentSync(deps, tx, order.id);
+    else await enqueueLiveSync(deps, tx, order.id);
     order.paymentMethod = to;
+    changed = true;
     return order;
   });
-  if (to === 'nequi_manual') await deliverSoon(deps, order.id);
+  if (changed) await deliverSoon(deps, order.id, { wait: to === 'nequi_manual' });
   return order;
 }
 

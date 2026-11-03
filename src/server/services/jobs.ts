@@ -3,7 +3,13 @@ import { fulfillments, oauthStates, orders, payments, sessions } from '../db/sch
 import { withTimeout } from '../lib/time.js';
 import { audit, SYSTEM_ACTOR, type ServiceDeps } from './context.js';
 import { closeOpenAttempts, transitionOrder } from './orders.js';
-import { catchUpSheet, deliverNotifications, enqueuePendingPaymentSync } from './notifications.js';
+import {
+  catchUpSheet,
+  deliverNotifications,
+  enqueueLiveSync,
+  enqueuePendingPaymentSync,
+  refreshLiveSheet,
+} from './notifications.js';
 import { syncProfilesToSheet } from './profiles.js';
 import { purgeExpiredLookups } from './player.js';
 import { purgeExpiredBlocks } from './shield.js';
@@ -92,9 +98,12 @@ export async function expireOrders(deps: ServiceDeps): Promise<number> {
       if (inFlight) return; // Pago en curso (p. ej. efectivo pendiente): no se expira.
       await transitionOrder(tx, SYSTEM_ACTOR, order, 'EXPIRED', {}, { reason: 'ttl' });
       await closeOpenAttempts(tx, order.id, 'EXPIRED');
-      // El pago Nequi que se esperaba ya no llega a tiempo: la fila lo dice.
+      // El pago Nequi que se esperaba ya no llega a tiempo: la fila lo dice (y la fila en vivo,
+      // que se pide con cualquier método).
       if (order.paymentMethod === 'nequi_manual') {
         await enqueuePendingPaymentSync(deps, tx, order.id);
+      } else {
+        await enqueueLiveSync(deps, tx, order.id);
       }
       expired += 1;
     });
@@ -178,12 +187,15 @@ const JOBS: Record<JobName, (deps: ServiceDeps) => Promise<number>> = {
   cleanup,
   // Reintenta avisos (correo, webhook de eventos, hoja) que fallaron o no se enviaron al momento,
   // y escribe en la pestaña «Usuarios» los clientes nuevos o que cambiaron de nombre. La primera
-  // vez en cada proceso, la hoja se pone al día con lo que cambió mientras estuvo apagada.
+  // vez en cada proceso, la hoja se pone al día con lo que cambió mientras estuvo apagada; en cada
+  // pasada, «Pedidos en vivo» recoge los pedidos que falten o que cambiaron sin avisar.
   sendNotifications: async (deps) => {
     if (!sheetCaughtUp.has(deps)) {
       await catchUpSheet(deps);
       sheetCaughtUp.add(deps);
     }
+    // «Pedidos en vivo»: filas que falten o pedidos que cambiaron sin avisar (una consulta).
+    await refreshLiveSheet(deps);
     return (await deliverNotifications(deps, { limit: 50 })) + (await syncProfilesToSheet(deps));
   },
   // Recarga directa: empieza entregas pendientes y consulta recargas dudosas a UniPin.

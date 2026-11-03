@@ -52,6 +52,48 @@ En producción (2026-10-29) hay 24 pedidos, todos vencidos sin pago (18 de Merca
 Nequi), y 58 clientes. Al conectar, «Pagos pendientes» recibirá los 6 pedidos Nequi como
 «⌛ Venció sin pago» y «Usuarios» los 58 clientes; «Entregas» queda vacía hasta el primer pago.
 
+## Pestaña «Pedidos en vivo» (2026-11-03)
+
+Pedido del dueño (2026-11-03): «que en el Excel se actualicen los datos en tiempo real de inmediato
+que un cliente o usuario realice un pedido». Antes, un pedido de Mercado Pago solo llegaba a la
+hoja al pagarse (a «Entregas»), y uno de Nequi al elegir Nequi (a «Pagos pendientes»): los pedidos
+sin pagar o que vencían en Mercado Pago nunca se veían. El dueño eligió una pestaña nueva.
+
+- **Una fila por pedido, de cualquier método de pago, desde que el cliente lo crea**, que se
+  reescribe (misma fila, buscada por la referencia de la columna A) con cada cambio: ID
+  verificado, cliente que confirma su ID, método elegido o cambiado, pago iniciado en Mercado
+  Pago, aviso de transferencia Nequi, pago confirmado, entrega, revisión, reembolso o
+  vencimiento.
+- **Sin datos personales**: ni correo, ni nombre, ni ID ni nickname del jugador, ni datos de la
+  transferencia (esos siguen en «Entregas» y «Pagos pendientes», con su aviso).
+- 11 columnas (A–K): Referencia · Pedido creado (Colombia) · Estado · Método de pago · Paquete ·
+  Total · Estado del pago · Estado de la recarga · Comprobante · Vence (Colombia) · Actualizado
+  (Colombia).
+- Columna «Estado» (con color por estado): «🔎 Verificando el ID del jugador», «👤 ID verificado:
+  falta que el cliente lo acepte», «🛒 Eligiendo cómo pagar», «⏳ Esperando el pago en Mercado
+  Pago», los de Nequi de «Pagos pendientes» («⏳ Esperando la transferencia», «💰 El cliente avisó
+  que pagó…»), y desde el pago los de «Entregas» («⏳ Por entregar», «🔄 En proceso», «✅ Entregado
+  con éxito», …), «⌛ Venció sin pago», «✖️ Cerrado: el ID no se confirmó».
+- **Cuándo se escribe**:
+  - al crear el pedido, sin que la respuesta al cliente espere a Google (sale en segundo plano
+    enseguida; en la práctica, 1 a 2 segundos);
+  - en cada cambio, dentro de la misma transacción que el cambio (cola `notifications`, canal
+    `sheets_live`), igual que las otras pestañas;
+  - **red de seguridad** en cada pasada de la tarea de avisos (cada minuto con la tienda
+    despierta): una sola consulta crea la fila que falte (al publicar, todos los pedidos que ya
+    existen, en el orden en que se crearon) y vuelve a encolar la de cada pedido que cambió
+    después de su último envío (el pedido, sus pagos, su entrega o sus transferencias Nequi), por
+    ejemplo un pago rechazado por Mercado Pago que no cambia el pedido.
+- La hora del envío se guarda como la de la reserva de la fila, antes de leer el pedido: así un
+  cambio que llegue mientras se escribe siempre queda «más nuevo» y la red de seguridad lo
+  recoge.
+- Variable opcional: `GOOGLE_SHEETS_LIVE_TAB` (por defecto «Pedidos en vivo»), distinta de las
+  otras pestañas.
+- Pestaña creada en la copia de prueba y luego en la hoja real (2026-11-03), después de un
+  respaldo («Respaldo 2026-11-03 · … (antes de «Pedidos en vivo»)»): encabezados A1:K1, fila 1
+  fija, franjas, total en pesos, comprobante como texto, colores por estado y protección «solo
+  aviso». No tiene columnas del dueño.
+
 ## ¿Hace falta Make (o n8n)?
 
 No para esto. La conexión directa ya está programada, probada y es más rápida:
@@ -81,7 +123,8 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
 
 ## Qué hace y qué no
 
-- Escribe en **tres pestañas** de la misma hoja:
+- Escribe en **cinco pestañas** de la misma hoja («Usuarios» y «Pedidos en vivo» tienen su
+  propia sección):
   - «Pedidos»: **una fila por evento** (pago confirmado, recarga entregada y reembolso), como
     historial;
   - «Entregas»: **una fila por pedido** que se reescribe con cada cambio de estado;
@@ -218,6 +261,12 @@ firmados de pedidos (`EVENTS_WEBHOOK_URL`, ver `docs/n8n.md`) a cualquier webhoo
   filas**. Con `INSERT_ROWS` (lo que hacía antes del 2026-10-20) Google desplazaba los rangos de
   las fórmulas («Pedidos!B2:B» pasaba a «B7:B») y «Resumen», «Por entregar» y «Reporte diario»
   dejaban fuera todos los pedidos. Se encontró probando con una copia de la hoja real.
+- Busca la tabla solo en las columnas de la tienda (`A:<última columna de la fila>`, p. ej.
+  `'Pagos pendientes'!A:T`), nunca en toda la pestaña. Incidente del 2026-11-02: la validación de
+  casilla de U2:U1000 dejaba esas celdas en FALSO, Google tomó la pestaña entera como tabla y la
+  fila nueva cayó en la fila 1001. Se corrigió la casilla (forma de un solo valor, que deja vacías
+  las celdas sin marcar) y, desde el 2026-11-03, el rango acotado evita que vuelva a pasar con
+  cualquier columna del dueño.
 - Va por la cola de avisos:
   - si Google falla, el pedido y el pago siguen igual;
   - la fila se reintenta (1, 5, 15 y 60 min);
@@ -368,9 +417,9 @@ cuenta de servicio `tienda-hoja` como Editor.
 
 Otras formas que también valen: `GOOGLE_SHEETS_CLIENT_EMAIL` + `GOOGLE_SHEETS_PRIVATE_KEY` (el
 campo `private_key` del JSON, con los saltos de línea escritos como `\n`), y opcionalmente
-`GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB`, `GOOGLE_SHEETS_PENDING_TAB` y
-`GOOGLE_SHEETS_USERS_TAB` si las pestañas no se llaman «Pedidos», «Entregas», «Pagos pendientes» y
-«Usuarios».
+`GOOGLE_SHEETS_TAB`, `GOOGLE_SHEETS_DELIVERY_TAB`, `GOOGLE_SHEETS_PENDING_TAB`,
+`GOOGLE_SHEETS_USERS_TAB` y `GOOGLE_SHEETS_LIVE_TAB` si las pestañas no se llaman «Pedidos»,
+«Entregas», «Pagos pendientes», «Usuarios» y «Pedidos en vivo».
 
 Una variable de la hoja incompleta o mal escrita **nunca impide arrancar la tienda** (desde el
 2026-10-21; antes el servidor no arrancaba): la hoja queda apagada y el arranque explica qué falta.

@@ -2,6 +2,7 @@ import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ConfigError, loadConfig } from '../../src/server/config/env.js';
 import {
+  columnLetter,
   COMMAND_COLUMNS,
   GOOGLE_TOKEN_URL,
   GoogleSheetsLog,
@@ -13,6 +14,9 @@ import {
   DELIVERY_COLUMNS,
   deliveryRow,
   deliveryStatusLabel,
+  LIVE_ORDER_COLUMNS,
+  liveOrderRow,
+  liveStatusLabel,
   PENDING_PAYMENT_COLUMNS,
   pendingPaymentRow,
   pendingPaymentStatus,
@@ -90,6 +94,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
       fetch: fetcher.impl,
     });
@@ -102,9 +107,9 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
       'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer',
     );
     expect(append?.url).toBe(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Pedidos!A1:append?valueInputOption=RAW&insertDataOption=OVERWRITE`.replace(
-        'Pedidos!A1',
-        encodeURIComponent('Pedidos!A1'),
+      `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Pedidos!A:C:append?valueInputOption=RAW&insertDataOption=OVERWRITE`.replace(
+        'Pedidos!A:C',
+        encodeURIComponent('Pedidos!A:C'),
       ),
     );
     expect((append?.init.headers as Record<string, string>).authorization).toBe(
@@ -126,6 +131,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
       fetch: fetcher.impl,
     });
@@ -152,6 +158,7 @@ describe('Google Sheets: cuenta de servicio (JWT RS256)', () => {
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
       fetch: fetcher.impl,
     });
@@ -175,12 +182,13 @@ describe('Google Sheets: pestaña «Entregas»', () => {
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
       fetch: fetcher.impl,
     });
     await log.appendRow('deliveries', ['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']);
     const append = fetcher.calls[1];
-    expect(append?.url).toContain(`/values/${encodeURIComponent('Entregas!A1')}:append?`);
+    expect(append?.url).toContain(`/values/${encodeURIComponent('Entregas!A:C')}:append?`);
     expect(append?.url).toContain('valueInputOption=RAW');
     expect(JSON.parse(append?.init.body as string)).toEqual({
       values: [['TGS-AAAAAAAAAA', '0123456789', '=HYPERLINK("x")']],
@@ -194,7 +202,13 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
       spreadsheetId: SPREADSHEET_ID,
       clientEmail: CLIENT_EMAIL,
       privateKey,
-      tabs: { orders: 'Pedidos', deliveries, pending: 'Pagos pendientes', users: 'Usuarios' },
+      tabs: {
+        orders: 'Pedidos',
+        deliveries,
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+        live: 'Pedidos en vivo',
+      },
       fetch: impl,
     });
   const values = (url: string) => decodeURIComponent(url.split('/values/')[1] ?? '');
@@ -227,7 +241,7 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
     ]);
     await sheetLog(fetcher.impl).upsertRow('deliveries', ['Referencia', 'x']);
     const write = fetcher.calls[2];
-    expect(write?.url).toContain(`/values/${encodeURIComponent('Entregas!A1')}:append?`);
+    expect(write?.url).toContain(`/values/${encodeURIComponent('Entregas!A:B')}:append?`);
     expect(write?.init.method).toBe('POST');
   });
 
@@ -242,7 +256,7 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
     await sheetLog(fetcher.impl, 'Mis entregas').upsertRow('deliveries', ['TGS-AAAAAAAAAA']);
     expect(values(fetcher.calls[1]?.url ?? '')).toBe("'Mis entregas'!A:A?majorDimension=COLUMNS");
     expect(values(fetcher.calls[2]?.url ?? '')).toBe(
-      "'Mis entregas'!A1:append?valueInputOption=RAW&insertDataOption=OVERWRITE",
+      "'Mis entregas'!A:A:append?valueInputOption=RAW&insertDataOption=OVERWRITE",
     );
   });
 
@@ -259,6 +273,29 @@ describe('Google Sheets: fila única por pedido en «Entregas»', () => {
       expect(call.url).toContain('insertDataOption=OVERWRITE');
       expect(call.url).not.toContain('INSERT_ROWS');
     }
+  });
+
+  it('agrega buscando la tabla solo en las columnas de la tienda, nunca en las del dueño', async () => {
+    // 2026-11-02: con el rango «A1», las casillas del dueño (que valían FALSE en las filas vacías)
+    // estiraban la tabla hasta la fila 1000 y un pedido real nuevo cayó en la 1001.
+    const fetcher = fakeFetch([json({ access_token: 'token' }), json({})]);
+    const row = Array.from({ length: 20 }, (_, i) => (i === 0 ? 'TGS-AAAAAAAAAA' : `c${i}`));
+    await sheetLog(fetcher.impl).appendRow('pending', row);
+    expect(values(fetcher.calls[1]?.url ?? '')).toBe(
+      "'Pagos pendientes'!A:T:append?valueInputOption=RAW&insertDataOption=OVERWRITE",
+    );
+  });
+
+  it('letras de columna como las de Google (A, Z, AA, AZ, BA)', () => {
+    expect([1, 19, 20, 26, 27, 52, 53].map(columnLetter)).toEqual([
+      'A',
+      'S',
+      'T',
+      'Z',
+      'AA',
+      'AZ',
+      'BA',
+    ]);
   });
 
   it('si Google no deja leer, falla sin escribir (se reintenta desde la cola)', async () => {
@@ -361,6 +398,7 @@ describe('Google Sheets: configuración', () => {
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
     });
     expect(config.sheets?.privateKey).toBe(privateKey);
@@ -385,6 +423,114 @@ describe('Google Sheets: configuración', () => {
     expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_PENDING_TAB: "='x'!A1" }))).toThrow(
       ConfigError,
     );
+  });
+
+  it('«Pedidos en vivo» es una pestaña propia, distinta de las demás', () => {
+    expect(loadConfig(sheetsEnv({})).sheets?.tabs.live).toBe('Pedidos en vivo');
+    for (const name of ['pedidos', 'ENTREGAS', 'Pagos pendientes', 'usuarios']) {
+      expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_LIVE_TAB: name }))).toThrow(ConfigError);
+    }
+    expect(() => loadConfig(sheetsEnv({ GOOGLE_SHEETS_LIVE_TAB: "='x'!A1" }))).toThrow(ConfigError);
+    expect(loadConfig(sheetsEnv({ GOOGLE_SHEETS_LIVE_TAB: 'En vivo' })).sheets?.tabs.live).toBe(
+      'En vivo',
+    );
+  });
+});
+
+describe('Google Sheets: «Pedidos en vivo»', () => {
+  const pending = { payment: 'PENDING', recharge: 'PENDING' } as const;
+  const order = {
+    reference: 'TGS-ENVIVO0001',
+    status: 'AWAITING_VERIFICATION',
+    verificationStatus: 'PENDING' as const,
+    paymentMethod: null,
+    totalCop: 18000,
+    items: [{ name: '310 diamantes', quantity: 1, unitPriceCop: 18000, lineTotalCop: 18000 }],
+    receipt: null,
+    createdAt: new Date('2026-11-03T15:00:00Z'),
+    expiresAt: new Date('2026-11-03T16:00:00Z'),
+  };
+  const col = (name: (typeof LIVE_ORDER_COLUMNS)[number]) => LIVE_ORDER_COLUMNS.indexOf(name);
+
+  it('el estado cuenta todo el camino del pedido, con cualquier método de pago', () => {
+    const label = (
+      changes: Partial<Parameters<typeof liveStatusLabel>[0]>,
+      states: Parameters<typeof liveStatusLabel>[1] = pending,
+      latest?: Parameters<typeof liveStatusLabel>[2],
+    ) => liveStatusLabel({ ...order, ...changes }, states, latest);
+    expect(label({})).toBe('🔎 Verificando el ID del jugador');
+    expect(label({ verificationStatus: 'VERIFIED' })).toBe(
+      '👤 ID verificado: falta que el cliente lo acepte',
+    );
+    expect(label({ status: 'REJECTED' })).toBe('✖️ Cerrado: el ID no se confirmó');
+    expect(label({ status: 'AWAITING_PAYMENT' })).toBe('🛒 Eligiendo cómo pagar');
+    expect(label({ status: 'AWAITING_PAYMENT', paymentMethod: 'mercadopago' })).toBe(
+      '⏳ Esperando el pago en Mercado Pago',
+    );
+    // Nequi: lo mismo que «Pagos pendientes» (el aviso del cliente nunca es un pago).
+    expect(label({ status: 'AWAITING_PAYMENT', paymentMethod: 'nequi_manual' })).toBe(
+      '⏳ Esperando la transferencia',
+    );
+    expect(
+      label({ status: 'AWAITING_PAYMENT', paymentMethod: 'nequi_manual' }, pending, {
+        status: 'REPORTED',
+      }),
+    ).toBe('💰 El cliente avisó que pagó: verifícalo en tu Nequi');
+    expect(label({ status: 'EXPIRED', paymentMethod: 'mercadopago' })).toBe('⌛ Venció sin pago');
+    expect(label({ status: 'EXPIRED' })).toBe('⌛ Venció sin pago');
+    // Pagado en adelante: igual que «Entregas».
+    expect(label({ status: 'PAID' }, { payment: 'CONFIRMED', recharge: 'PENDING' })).toBe(
+      '⏳ Por entregar',
+    );
+    expect(label({ status: 'DELIVERED' }, { payment: 'CONFIRMED', recharge: 'COMPLETED' })).toBe(
+      '✅ Entregado con éxito',
+    );
+    expect(label({ status: 'REFUNDED' }, { payment: 'REFUNDED', recharge: 'CANCELLED' })).toBe(
+      '↩️ Reembolsado',
+    );
+  });
+
+  it('recién creado: referencia, hora, total y plazo; sin método todavía', () => {
+    const row = liveOrderRow(order, pending, undefined, new Date('2026-11-03T15:00:30Z'));
+    expect(row).toHaveLength(LIVE_ORDER_COLUMNS.length);
+    expect(row[col('Referencia')]).toBe('TGS-ENVIVO0001');
+    expect(row[col('Pedido creado (Colombia)')]).toBe('2026-11-03 10:00');
+    expect(row[col('Método de pago')]).toBe('Sin elegir');
+    expect(row[col('Total')]).toBe(18000);
+    expect(row[col('Paquete')]).toBe('1× 310 diamantes');
+    expect(row[col('Estado del pago')]).toBe('Pendiente');
+    expect(row[col('Estado de la recarga')]).toBe('Pendiente');
+    expect(row[col('Comprobante')]).toBe('');
+    expect(row[col('Vence (Colombia)')]).toBe('2026-11-03 11:00');
+    expect(row[col('Actualizado (Colombia)')]).toBe('2026-11-03 10:00');
+  });
+
+  it('pagado: método, comprobante y sin plazo; nunca correo, nombre, ID ni nickname', () => {
+    const paid = {
+      ...order,
+      status: 'PAID',
+      paymentMethod: 'mercadopago' as const,
+      receipt: { number: 42, verificationCode: 'ABCD-EFGH' },
+      // Campos que la fila nunca debe copiar aunque vengan en el pedido.
+      playerUid: '123456789',
+      nickname: 'NickFicticio',
+      customerEmail: 'cliente@example.com',
+    };
+    const row = liveOrderRow(
+      paid,
+      { payment: 'CONFIRMED', recharge: 'PENDING' },
+      undefined,
+      new Date('2026-11-03T15:05:00Z'),
+    );
+    expect(row[col('Estado')]).toBe('⏳ Por entregar');
+    expect(row[col('Método de pago')]).toBe('Mercado Pago');
+    expect(row[col('Estado del pago')]).toBe('Confirmado');
+    expect(row[col('Comprobante')]).toBe('000042');
+    expect(row[col('Vence (Colombia)')]).toBe('');
+    const text = JSON.stringify(row);
+    for (const secret of ['123456789', 'NickFicticio', 'cliente@example.com', 'ABCD-EFGH']) {
+      expect(text).not.toContain(secret);
+    }
   });
 });
 
@@ -683,6 +829,7 @@ describe('Google Sheets: casillas del dueño en «Entregas» y «Pagos pendiente
         deliveries: 'Entregas',
         pending: 'Pagos pendientes',
         users: 'Usuarios',
+        live: 'Pedidos en vivo',
       },
       fetch: fetcher.impl,
     });

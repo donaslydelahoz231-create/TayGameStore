@@ -12,6 +12,7 @@ import {
   type NotificationChannel,
   type NotificationKind,
   type OrderStatus,
+  type PaymentMethod,
   type VerificationStatus,
 } from '../db/schema.js';
 import { paidOrderText } from '../integrations/notify/owner.js';
@@ -28,6 +29,7 @@ import {
 import type { ServiceDeps } from './context.js';
 import { deliveredPinCounts, deliveredPins } from './inventory.js';
 import { nequiTransfersFor, type NequiTransferView } from './nequi-view.js';
+import { PAYMENT_METHOD_LABELS } from './payment-methods.js';
 import { receiptVerificationCode } from './receipts.js';
 
 /**
@@ -40,7 +42,9 @@ import { receiptVerificationCode } from './receipts.js';
  * - y, si hay hoja de Google: pagado/entregado/reembolsado como filas nuevas de «Pedidos» (historial
  *   sin datos personales) y la fila única del pedido en «Entregas» (con ID, nickname, servidor y
  *   región del jugador), que se reescribe con el estado actual en cada cambio: tomado, en curso,
- *   entregado con éxito, fallido, en revisión o reembolsado.
+ *   entregado con éxito, fallido, en revisión o reembolsado;
+ * - y la fila única del pedido en «Pedidos en vivo» (cualquier método de pago, desde que el cliente
+ *   lo crea, sin datos personales), que se reescribe con cada cambio del pedido.
  * Se encolan en la misma transacción que el cambio de estado, se envían justo después de
  * confirmarla y, si un envío falla, el scheduler lo reintenta con espera creciente.
  *
@@ -87,7 +91,13 @@ const RATE_LIMIT_JITTER_MS = 120_000;
  */
 const SHEET_PASS_BUDGET_MS = 40_000;
 
-const SHEET_CHANNELS: NotificationChannel[] = ['sheets', 'sheets_delivery', 'sheets_pending'];
+const SHEET_CHANNELS: NotificationChannel[] = [
+  'sheets',
+  'sheets_delivery',
+  'sheets_pending',
+  'sheets_live',
+];
+type SheetRowChannel = 'sheets_delivery' | 'sheets_pending' | 'sheets_live';
 const isSheetChannel = (channel: NotificationChannel) => SHEET_CHANNELS.includes(channel);
 const isRateLimited = (reason: unknown) => reason instanceof SheetsError && reason.status === 429;
 
@@ -138,6 +148,17 @@ export async function enqueuePendingPaymentSync(
 }
 
 /**
+ * Pide reescribir la fila del pedido en «Pedidos en vivo» (todos los pedidos, de cualquier método,
+ * desde que se crean). Llamar dentro de la transacción de cada cambio del pedido que no pase ya por
+ * `enqueueSheetSync` o `enqueuePendingPaymentSync` (esas dos también la piden): crearlo, confirmar
+ * el jugador, elegir o cambiar el método de pago, vencer. Lo que se escape lo recoge
+ * `refreshLiveSheet` en la siguiente pasada de la tarea programada.
+ */
+export async function enqueueLiveSync(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
+  await enqueueSheetRow(deps, tx, orderId, 'sheets_live');
+}
+
+/**
  * Hay una sola fila de cola por pedido y pestaña: se vuelve a poner pendiente y, si justo se está
  * enviando, conserva la reserva para que nunca haya dos envíos a la vez (el que está en curso la
  * reenvía al terminar, ver `deliverNotifications`).
@@ -146,9 +167,20 @@ async function enqueueSheetRow(
   deps: ServiceDeps,
   tx: Tx,
   orderId: string,
-  channel: 'sheets_delivery' | 'sheets_pending',
+  channel: SheetRowChannel,
 ): Promise<void> {
   if (!deps.sheets) return;
+  await upsertSheetRow(deps, tx, orderId, channel);
+  // Todo cambio que toca «Entregas» o «Pagos pendientes» también cambia la fila en vivo.
+  if (channel !== 'sheets_live') await upsertSheetRow(deps, tx, orderId, 'sheets_live');
+}
+
+async function upsertSheetRow(
+  deps: ServiceDeps,
+  tx: Tx,
+  orderId: string,
+  channel: SheetRowChannel,
+): Promise<void> {
   const now = deps.now();
   await tx
     .insert(notifications)
@@ -173,6 +205,7 @@ async function enqueueSheetRow(
  * - encola la fila de «Entregas» de cada pedido que llegó a pagado (tiene comprobante) y la de
  *   «Pagos pendientes» de cada pedido Nequi que nunca tuvieron la suya (la hoja estaba apagada);
  * - vuelve a intentar las filas de la hoja que quedaron fallidas (p. ej. la llave no servía).
+ * Las filas de «Pedidos en vivo» que falten las pone `refreshLiveSheet` (en cada pasada).
  * «Pedidos» es un historial de eventos: empieza desde que la hoja está conectada. Idempotente:
  * las filas que ya existen (enviadas, pendientes o en curso) no se tocan. Devuelve cuántas encoló.
  */
@@ -204,6 +237,56 @@ export async function catchUpSheet(deps: ServiceDeps): Promise<number> {
 }
 
 /**
+ * Red de seguridad de «Pedidos en vivo», en cada pasada de la tarea programada (una sola consulta):
+ * - crea la fila de cola de los pedidos que no la tienen (al conectar la hoja: todos los pedidos,
+ *   en el orden en que se crearon);
+ * - vuelve a encolar la de cada pedido que cambió después de su último envío: el pedido, sus pagos,
+ *   su entrega o sus transferencias Nequi (p. ej. un pago rechazado por Mercado Pago, que no cambia
+ *   el pedido, o un cambio que no pasó por `enqueueLiveSync`).
+ * El envío inmediato lo hace `deliverSoon`; esto solo recoge lo que se escape. Devuelve cuántas
+ * filas encoló.
+ */
+export async function refreshLiveSheet(deps: ServiceDeps): Promise<number> {
+  if (!deps.sheets) return 0;
+  const now = deps.now();
+  const result = await deps.db.execute<{ stale: number; missing: number }>(sql`
+    with changed as (
+      select o.id, o.created_at,
+             greatest(
+               o.updated_at,
+               (select max(p.updated_at) from payments p where p.order_id = o.id),
+               (select max(f.updated_at) from fulfillments f where f.order_id = o.id),
+               (select max(t.updated_at) from nequi_transfers t where t.order_id = o.id)
+             ) as changed_at
+        from orders o
+    ), stale as (
+      update notifications n
+         set status = 'PENDING', attempts = 0, last_error = null, sent_at = null,
+             next_attempt_at = ${now}
+        from changed c
+       where n.order_id = c.id and n.kind = 'order_sheet_sync' and n.channel = 'sheets_live'
+         and n.status = 'SENT' and n.sent_at < c.changed_at
+      returning n.id
+    ), missing as (
+      insert into notifications (order_id, kind, channel, next_attempt_at, created_at)
+      select c.id, 'order_sheet_sync', 'sheets_live', ${now}::timestamptz, c.created_at
+        from changed c
+      on conflict (order_id, kind, channel) do nothing
+      returning id
+    )
+    select (select count(*) from stale)::int as stale, (select count(*) from missing)::int as missing`);
+  const [counts] = result.rows;
+  const queued = (counts?.stale ?? 0) + (counts?.missing ?? 0);
+  if (queued) {
+    deps.log.info(
+      { filasNuevas: counts?.missing ?? 0, filasActualizadas: counts?.stale ?? 0 },
+      'hoja de Google: «Pedidos en vivo» al día',
+    );
+  }
+  return queued;
+}
+
+/**
  * Aviso al dueño: una recarga directa falló, quedó sin confirmar o el proveedor no cubre el
  * pedido. Si ya hubo uno para este pedido (p. ej. tras un reintento), se vuelve a enviar.
  */
@@ -229,6 +312,7 @@ export async function enqueueOrderNotifications(
   event: OrderEvent,
 ): Promise<void> {
   if (event !== 'awaiting_verification') await enqueueSheetSync(deps, tx, orderId);
+  else await enqueueLiveSync(deps, tx, orderId);
   const planned = plannedFor(deps, event);
   if (!planned.length) return;
   await tx
@@ -985,6 +1069,92 @@ export function deliveryRow(
   ];
 }
 
+/**
+ * Encabezados de la pestaña «Pedidos en vivo» (misma hoja; ver docs/google-sheets.md): una fila por
+ * pedido de cualquier método de pago, desde que el cliente lo crea. La columna A (referencia) es la
+ * clave de la fila. Pedido del dueño (2026-11-03): ver cada pedido en la hoja apenas se hace. Sin
+ * datos personales (ni ID ni nickname del jugador: esos van en «Entregas» y «Pagos pendientes»).
+ */
+export const LIVE_ORDER_COLUMNS = [
+  'Referencia',
+  'Pedido creado (Colombia)',
+  'Estado',
+  'Método de pago',
+  'Paquete',
+  'Total',
+  'Estado del pago',
+  'Estado de la recarga',
+  'Comprobante',
+  'Vence (Colombia)',
+  'Actualizado (Colombia)',
+] as const;
+
+type LiveOrder = Pick<
+  OrderSnapshot,
+  'reference' | 'status' | 'totalCop' | 'items' | 'receipt' | 'verificationStatus'
+> & {
+  paymentMethod: PaymentMethod | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+};
+
+/**
+ * Estado del pedido en una frase, de principio a fin: verificación del ID, elección del método,
+ * espera del pago (con lo que avisó el cliente si es Nequi), entrega, vencimiento o reembolso. Sale
+ * del pedido y de los estados derivados: nunca de lo que diga la hoja.
+ */
+export function liveStatusLabel(
+  order: Pick<LiveOrder, 'status' | 'paymentMethod' | 'verificationStatus'>,
+  states: SheetStates,
+  latest: { status: NequiTransferStatus } | undefined,
+): string {
+  const nequi = order.paymentMethod === 'nequi_manual';
+  switch (order.status) {
+    case 'AWAITING_VERIFICATION':
+      return order.verificationStatus === 'VERIFIED'
+        ? '👤 ID verificado: falta que el cliente lo acepte'
+        : '🔎 Verificando el ID del jugador';
+    case 'REJECTED':
+      return '✖️ Cerrado: el ID no se confirmó';
+    case 'AWAITING_PAYMENT':
+      if (!order.paymentMethod) return '🛒 Eligiendo cómo pagar';
+      if (nequi) return pendingPaymentStatus(order, latest);
+      return order.paymentMethod === 'mercadopago'
+        ? '⏳ Esperando el pago en Mercado Pago'
+        : `⏳ Esperando el pago (${PAYMENT_METHOD_LABELS[order.paymentMethod]})`;
+    case 'EXPIRED':
+      return nequi ? pendingPaymentStatus(order, latest) : '⌛ Venció sin pago';
+    default:
+      return deliveryStatusLabel(states);
+  }
+}
+
+/**
+ * Fila de «Pedidos en vivo»: qué se pidió, cuándo, por cuánto, cómo se paga y en qué va. Solo datos
+ * de la operación: nunca correo, nombre, ID, nickname, celular ni PIN.
+ */
+export function liveOrderRow(
+  order: LiveOrder,
+  states: SheetStates,
+  latest: { status: NequiTransferStatus } | undefined,
+  updatedAt: Date,
+): (string | number)[] {
+  const waiting = order.status === 'AWAITING_VERIFICATION' || order.status === 'AWAITING_PAYMENT';
+  return [
+    order.reference,
+    bogotaTime.format(order.createdAt),
+    liveStatusLabel(order, states, latest),
+    order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] : 'Sin elegir',
+    sheetItems(order),
+    order.totalCop,
+    PAYMENT_STATE_LABELS[states.payment],
+    RECHARGE_STATE_LABELS[states.recharge],
+    sheetReceipt(order),
+    waiting && order.expiresAt ? bogotaTime.format(order.expiresAt) : '',
+    bogotaTime.format(updatedAt),
+  ];
+}
+
 async function currentStates(deps: ServiceDeps, orderId: string, status: OrderStatus) {
   const [paymentRows, [fulfillment]] = await Promise.all([
     deps.db
@@ -1016,6 +1186,26 @@ async function sendOne(
 ): Promise<void> {
   const order = await loadSnapshot(deps, row.orderId);
   if (!order) throw new Error('pedido no encontrado');
+  if (row.channel === 'sheets_live') {
+    if (!deps.sheets) throw new Error('Google Sheets no está configurado');
+    const [meta] = await deps.db
+      .select({ paymentMethod: orders.paymentMethod, createdAt: orders.createdAt })
+      .from(orders)
+      .where(eq(orders.id, row.orderId));
+    if (!meta) throw new Error('pedido no encontrado');
+    const [states, transfers] = await Promise.all([
+      currentStates(deps, row.orderId, order.status as OrderStatus),
+      meta.paymentMethod === 'nequi_manual'
+        ? nequiTransfersFor(deps.db, [row.orderId])
+        : Promise.resolve(undefined),
+    ]);
+    const latest = transfers?.get(row.orderId)?.[0];
+    await deps.sheets.upsertRow(
+      'live',
+      liveOrderRow({ ...order, ...meta }, states, latest, deps.now()),
+    );
+    return;
+  }
   if (row.channel === 'sheets_pending') {
     if (!deps.sheets) throw new Error('Google Sheets no está configurado');
     const [meta] = await deps.db
@@ -1109,13 +1299,20 @@ type ClaimedRow = {
 /**
  * Envía los avisos de un pedido justo después de confirmar su transacción, sin que la petición
  * espere de más a un correo o a Google lentos: espera como mucho `notifyInlineWaitMs` y el resto
- * sigue en segundo plano. Nunca lanza; lo que no salga lo reenvía la tarea programada.
+ * sigue en segundo plano. Con `wait: false` no espera nada (solo la fila en vivo de la hoja: el
+ * cliente no tiene por qué esperar a Google). Nunca lanza; lo que no salga lo reenvía la tarea
+ * programada.
  */
-export async function deliverSoon(deps: ServiceDeps, orderId: string): Promise<void> {
+export async function deliverSoon(
+  deps: ServiceDeps,
+  orderId: string,
+  options: { wait?: boolean } = {},
+): Promise<void> {
   const task = deliverNotifications(deps, { orderId }).catch((error: unknown) => {
     deps.log.error({ err: error, orderId }, 'notifications: envío inmediato falló');
   });
   deps.background?.(task);
+  if (options.wait === false) return;
   const budget = deps.config.notifyInlineWaitMs;
   if (budget <= 0) return;
   let timer: NodeJS.Timeout | undefined;
@@ -1253,9 +1450,12 @@ async function deliverPass(
       }
       if (result.status === 'fulfilled') {
         sent += 1;
+        // La fila en vivo se leyó después de reservarla: con la hora de la reserva, todo cambio
+        // posterior a esa lectura queda más nuevo que el envío y `refreshLiveSheet` lo recoge.
+        const sentAt = row.channel === 'sheets_live' ? now : deps.now();
         const saved = await deps.db
           .update(notifications)
-          .set({ status: 'SENT', sentAt: deps.now(), lastError: null })
+          .set({ status: 'SENT', sentAt, lastError: null })
           .where(stillClaimed(row))
           .returning({ id: notifications.id });
         await releaseIfRearmed(row, saved);
