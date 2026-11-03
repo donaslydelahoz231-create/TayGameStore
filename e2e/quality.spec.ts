@@ -191,8 +191,12 @@ test('el menú de escritorio se ve completo con una sesión iniciada', async ({ 
   await page.locator('#enterStoreBtn').click();
   await page.locator('[data-provider="facebook"]').click();
   await expect(page.locator('#accountName')).toHaveText('TiburonInvencible999');
+  // La píldora «TAYPULSE · Sistemas listos para operar» se quitó de la cabecera (decisión del
+  // dueño, 2026-11-03): el estado de la tienda se ve en el panel del inicio.
+  await expect(page.locator('#serviceText, .service-pill')).toHaveCount(0);
+  await expect(page.locator('.header')).not.toContainText('TAYPULSE');
   const clipped: string[] = [];
-  // Por encima de 1100 px conviven píldora de estado, menú y nombre de la cuenta.
+  // Por encima de 1100 px conviven el menú y el nombre de la cuenta.
   for (const width of [1101, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     const hidden = await page.evaluate(() => {

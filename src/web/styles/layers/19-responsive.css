@@ -1,7 +1,4 @@
 @media (max-width: 1100px) {
-  .service-pill {
-    display: none;
-  }
   .nav a {
     font-size: 0.69rem;
   }

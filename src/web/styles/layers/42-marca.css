@@ -157,10 +157,6 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-#app .service-pill b {
-  font-size: var(--fs-label);
-}
-
 /* ── Portada: logotipo de la marca ── */
 #app .hero-left h1.hero-brand .hero-wordmark {
   font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem);
@@ -228,12 +224,6 @@ body {
 }
 #app .footer-brand b {
   font-size: 1rem;
-}
-/* El pulso del servicio deja solo el punto y su código cuando la cabecera va justa. */
-@media (max-width: 1440px) {
-  #app .service-pill b {
-    display: none;
-  }
 }
 @media (max-width: 420px) {
   /* Dos tarjetas por fila en teléfonos estrechos: el precio más largo cabe completo. */

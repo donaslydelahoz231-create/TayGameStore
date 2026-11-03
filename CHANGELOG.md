@@ -5,6 +5,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Cabecera sin la píldora «TAYPULSE» (2026-11-03)
+
+- **Se quitó de la cabecera la píldora «TAYPULSE · Sistemas listos para operar»** (pedido del
+  dueño). El estado real de la tienda sigue a la vista en el panel «Estado de operación» del
+  inicio (catálogo, verificación, pagos y entrega).
+- Se borraron su HTML, la línea que escribía su texto y el CSS que solo la usaba. La cabecera
+  no cambia de sitio: el menú, la cuenta y el carrito quedan donde estaban.
+- La prueba de la cabecera (e2e/quality) comprueba que la píldora no vuelve.
+
 ### Inicio fluido y nítido (2026-11-03)
 
 - **La presentación, la bienvenida y «Entrar» ya no se entrecortan en computador**, sin quitar

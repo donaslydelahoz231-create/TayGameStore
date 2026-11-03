@@ -74,13 +74,6 @@ body:before {
     inset 0 0 18px rgba(139, 61, 255, 0.3),
     0 0 24px rgba(139, 61, 255, 0.35);
 }
-.service-pill {
-  box-shadow: inset 0 0 15px rgba(55, 214, 255, 0.025);
-}
-.service-pill:after {
-  content: '';
-  position: absolute;
-}
 .hero {
   box-shadow: inset 0 -1px rgba(177, 140, 255, 0.08);
 }

@@ -2702,3 +2702,20 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   - La demora real del primer pedido nuevo de un cliente hasta su fila (no se crean pedidos reales
     para probar; en las pruebas de integración es inmediata y el envío va en segundo plano).
   - La fluidez en celulares y computadores reales con GPU.
+
+### 2026-11-03 · Cabecera sin la píldora «TAYPULSE · Sistemas listos para operar»
+
+- **Pedido del dueño:** «elimina o descarta `<b id="serviceText">Sistemas listos para operar</b>`
+  (TAYPULSE Sistema)».
+- **Cambio:**
+  - `index.html`: fuera la píldora `.service-pill` (punto, «TAYPULSE» y `#serviceText`).
+  - `features/service.js`: fuera la línea que escribía `#serviceText`. El panel «Estado de
+    operación» del inicio no cambia.
+  - CSS solo de la píldora borrado en `03-header.css`, `19-responsive.css`,
+    `24-visual-evolution.css`, `31-commerce-ux.css` y `42-marca.css`. Se conserva
+    `.nav { flex-shrink: 0 }` (el menú no se recorta).
+  - `e2e/quality.spec.ts`: la prueba del menú de escritorio comprueba que la píldora no existe.
+- **Verificación local:** lint, formato y tipos OK; unitarias 406/406; e2e de escritorio 87/87;
+  visuales 3/3. Solo cambió la captura `desktop-1280/03-tienda-pagina-completa.png` (2.457
+  píxeles, el 1 %, todos en x 300–401 · y 16–47: la zona de la píldora). Móvil y tableta no
+  cambian (allí la píldora ya estaba oculta).

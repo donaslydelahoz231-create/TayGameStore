@@ -85,22 +85,9 @@
 }
 
 /* Cabecera de escritorio: el menú no se recorta (con un nombre de cuenta largo "Soporte"
-   quedaba oculto); si falta espacio, el texto de estado de la píldora se abrevia. */
+   quedaba oculto). */
 @media (min-width: 1101px) {
   .nav {
     flex-shrink: 0;
-  }
-  .service-pill {
-    min-width: 0;
-    overflow: hidden;
-  }
-  .service-pill > * {
-    flex: none;
-  }
-  .service-pill b {
-    flex: 0 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 }

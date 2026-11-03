@@ -26,19 +26,6 @@
 .brand-text {
   font-size: 1.16rem;
 }
-.service-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(8, 14, 38, 0.75);
-  color: var(--muted);
-  font-size: var(--fs-label);
-  white-space: nowrap;
-}
-.service-pill > i,
 .service-state i,
 .catalog-status i,
 .payment-state i,
@@ -48,19 +35,6 @@
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 9px var(--green);
-}
-.service-code {
-  font-family: var(--display);
-  font-weight: 800;
-  color: var(--cyan);
-  letter-spacing: 0.08em;
-}
-.service-pill b {
-  color: var(--ink);
-}
-.service-pill em {
-  font-style: normal;
-  color: var(--muted2);
 }
 .nav {
   display: flex;

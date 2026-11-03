@@ -5,7 +5,7 @@ import { money } from '../format.js';
 import { state } from '../state.js';
 import { updateOAuthUI } from './account.js';
 
-/** Estado del servicio (cabecera, panel del hero y sección de jugador) según /api/config. */
+/** Estado del servicio (panel del hero y sección de jugador) según /api/config. */
 export function renderService() {
   const cfg = state.serverConfig;
   // Cada método por su lado: la tienda opera si al menos uno está activo (Mercado Pago o Nequi).
@@ -32,10 +32,6 @@ export function renderService() {
     e.className = 'service-state ' + (live ? ' ok' : '');
     e.querySelector('span').textContent = label;
   }
-  setText(
-    'serviceText',
-    sandbox ? 'Modo prueba: sin cobros reales' : live ? 'Sistemas listos para operar' : label,
-  );
   renderOperationPanel(cfg, { live, sandbox, label, methodNames });
 }
 
