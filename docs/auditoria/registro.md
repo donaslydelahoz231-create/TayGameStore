@@ -2759,3 +2759,63 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   63–995).
 - **NO VERIFICADO:** Firefox y WebKit en local (solo hay Chromium instalado; los cubre CI) y la
   fluidez en celulares y computadores reales con GPU.
+- **Publicación de 4bcc6da** (autorizada por el dueño: «Publicar ahora (Recomendado)»): 15 blobs
+  iguales a los aprobados; `git ls-remote` = 4bcc6da. Render `dep-dbl01obbc2fs738eoi30` en `live`
+  a las 15:43:38 UTC, sin avisos ni errores en los registros desde las 15:42. Tienda en vivo: el
+  HTML trae `hero-zone` y ya no `hero-rings`; `/art/mapa-zona.svg` responde 200 como
+  `image/svg+xml`. CodeQL #192 y smoke #105 en verde.
+- **CI #249 en rojo (solo la prueba, no la tienda):** falló «Integración con PostgreSQL» en
+  `sheets.test.ts › una pasada larga de la hoja se corta a tiempo` (318/319 en verde; las otras 5
+  tareas en verde). Causa: la prueba es anterior a la fila «Pedidos en vivo» (deceba5) y solo
+  miraba «Pedidos» y «Entregas». Esa fila nace con el pedido, es la más antigua de la cola y, si
+  las pasadas en segundo plano terminaban después de que la prueba «arreglaba» la hoja, quedaba
+  pendiente y se llevaba la única escritura de la pasada: entonces «Pedidos» y «Entregas» quedaban
+  las dos esperando (2 en lugar de 1). Dependía del orden de los hilos, por eso en local pasaba.
+- **Corrección (solo la prueba):** espera con `h.settle()` a que terminen las pasadas del pedido
+  mientras la hoja falla, mira las tres filas y comprueba lo que de verdad importa: la pasada
+  cortada escribe una sola fila, las otras dos quedan pendientes con los mismos intentos que traían
+  (el corte no gasta intentos) y listas para la pasada siguiente, que las envía todas una vez. El
+  código de la tienda no cambia.
+- **Verificación local:** la prueba 12/12 seguidas y 8/8 con los 4 núcleos ocupados; integración
+  319/319; lint, formato y tipos OK.
+
+## 2026-11-03 · Portada: el muro del barrio con un grafitero que pinta «TayGameStore» (local, sin publicar)
+
+- **Pedido del dueño:** el mapa «se visualiza muy genérico y mucho IA»; quiere un estilo propio,
+  auténtico y hecho por un diseñador, solo en la portada animada: «el ícono lo dejas quieto y todo
+  lo deja como está».
+- **Proceso:** 3 propuestas sobre la tienda real local (A «Neón de barrio», B «Geoda», C «Collage de
+  stickers»), con capturas y un video de cada una. Sin elección del dueño, se montó la A en local.
+  Al verla, el dueño pidió: «quita el borde neón y en el muro haz un personaje callejero
+  grafiteando TayGameStore estilo grafiti frame por frame fluido». El neón nunca se publicó.
+  Ícono de Tay: sin cambios.
+- **Cambio (solo el fondo de la portada):**
+  - `public/art/muro-ladrillo.svg` (50 KB), `public/art/grafitero.svg` (41 KB, 10 cuadros de
+    120×140: 0-5 rociando, 6-9 sacudiendo la lata y parpadeando) y `public/art/rocio.svg`
+    (18 KB). Arte propio, estático, sin scripts.
+  - `public/fonts/sedgwick-ave-display-tgs.woff2` (4 KB): Sedgwick Ave Display (OFL), recortada a
+    las letras de «TayGameStore»; su licencia se agregó a `LICENCIA-FUENTES-OFL.txt` y su
+    `@font-face` a `fonts.css`.
+  - `49-fondo-muro.css` (reemplaza a `49-fondo-zona.css`): el grafitero se anima con `steps()`
+    sobre la hoja de cuadros; las letras se pintan una por una (0,27 s cada una) mientras el rocío
+    avanza; después salen la nube, las goteras y el brillo. En computador, el grafiti va bajo el
+    panel y el grafitero a su izquierda; en tableta y celular, a la derecha de los botones (en
+    menos de 340 px, solo el grafiti). El letrero «ABIERTO» sigue desde 1330 px. Todo empieza con
+    `#app.store-ready`: antes la tienda está oculta y la animación se perdía.
+  - `js/effects/vitrina.js` (nuevo, desde `main.js`): copia la caja de diseño del panel
+    (`--pl/--pt/--pw/--ph`) y la de los botones (`--bx/--by/--bb`); sin esos datos solo se ve el
+    muro.
+  - `index.html`: el contenido de `.hero-art` (sigue `aria-hidden="true"`).
+  - Se borran `49-fondo-zona.css` y `art/mapa-zona.svg`, que quedan sin uso.
+  - `e2e/motion.spec.ts`: la prueba del fondo comprueba que el grafitero va con `steps(6)`, que el
+    grafiti dice «TayGameStore», que no tapa el panel, que nada gira, que solo cambian transform y
+    opacity, que no queda nada del mapa ni del neón y que el arte y la fuente responden 200.
+- **Medición (Chromium sin GPU, 1366×860, 5 s por pasada, 3 pasadas):** ~58 cuadros por segundo
+  y 5–12 cuadros largos (el mapa daba ~48,6 y ~50). Celular (390×844, táctil, CPU 4× más lenta):
+  60 sin cuadros largos.
+- **Verificación local:** lint, formato y tipos OK; unitarias 406/406; e2e de escritorio 88/88
+  (incluida la prueba nueva); visuales 3/3. Cambiaron solo las 3 capturas
+  `03-tienda-pagina-completa`, con todas las diferencias dentro de la portada. Capturas sin errores
+  de consola en 320, 360, 375, 390, 768, 1000, 1280, 1366 y 1920 px.
+- **NO VERIFICADO:** Firefox y WebKit en local (solo hay Chromium; los cubre CI) y la fluidez en
+  celulares y computadores reales con GPU. Sin publicar: falta la autorización del dueño.

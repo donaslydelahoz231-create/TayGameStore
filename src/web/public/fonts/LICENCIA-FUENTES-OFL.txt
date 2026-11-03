@@ -2,6 +2,13 @@ Licencia de las fuentes de TayGameStore
 
 Las fuentes de esta carpeta se distribuyen con la SIL Open Font License 1.1.
 
+== Sedgwick Ave Display (sedgwick-ave-display-tgs.woff2, recortada a las letras de «TayGameStore») ==
+Copyright 2017 The Sedgwick Ave Project Authors (https://github.com/googlefonts/sedgwickave)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://scripts.sil.org/OFL
+
 == Oxanium (oxanium-*.woff2) ==
 Copyright 2019 The Oxanium Project Authors (https://github.com/sevmeyer/oxanium)
 

@@ -134,24 +134,29 @@ test('el inicio se anima sin filtros que se recalculen en cada cuadro (fluido y 
   );
 });
 
-test('el fondo de la portada es el mapa de la zona: nada gira y solo se mueve con transform/opacity', async ({
+test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore» cuadro por cuadro sin girar nada', async ({
   page,
 }) => {
-  // 2026-11-03: el dueño pidió cambiar la «interfaz giratoria» (el barrido cónico de .hero::after
-  // y los anillos que giraban) por un fondo propio del tema (49-fondo-zona.css).
+  // 2026-11-03: el dueño pidió «un personaje callejero grafiteando TayGameStore, frame por frame»
+  // y sin el borde de neón (49-fondo-muro.css). Antes hubo un barrido giratorio (.hero::after),
+  // un mapa y un marco de neón: ninguno debe volver.
   await page.goto('/');
   await enterAsGuest(page);
+  await expect(page.locator('.hero-art')).toHaveAttribute('data-vitrina', 'lista');
   const art = await page.evaluate(() => {
     const root = document.querySelector('.hero-art');
     const names = new Set<string>();
     const props = new Set<string>();
     const rotations: string[] = [];
+    const steps: string[] = [];
     for (const animation of document.getAnimations()) {
       const effect = animation.effect as KeyframeEffect | null;
       const target = effect?.target;
       if (!(target instanceof Element) || !root?.contains(target)) continue;
-      names.add((animation as CSSAnimation).animationName);
+      const name = (animation as CSSAnimation).animationName;
+      names.add(name);
       for (const frame of effect?.getKeyframes() ?? []) {
+        if (name === 'tgsRocia') steps.push(String(frame.easing));
         for (const [key, value] of Object.entries(frame)) {
           if (['offset', 'computedOffset', 'easing', 'composite'].includes(key)) continue;
           props.add(key);
@@ -159,38 +164,56 @@ test('el fondo de la portada es el mapa de la zona: nada gira y solo se mueve co
         }
       }
     }
+    const box = (selector: string) => {
+      const r = (document.querySelector(selector) as HTMLElement).getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    };
     const hero = document.querySelector('.hero') as Element;
-    const map = document.querySelector('.hero-map') as Element;
+    const wall = document.querySelector('.neon-muro') as Element;
+    const artist = document.querySelector('.grafitero i') as Element;
     return {
       names: [...names],
       props: [...props].sort(),
       rotations,
+      steps,
       sweep: getComputedStyle(hero, '::after').content,
-      map: getComputedStyle(map).backgroundImage,
+      wall: getComputedStyle(wall).backgroundImage,
+      sprite: getComputedStyle(artist).backgroundImage,
+      word: [...document.querySelectorAll('.grafiti-pieza b')]
+        .map((b) => b.getAttribute('data-l'))
+        .join(''),
+      panel: box('.hero-panel'),
+      piece: box('.grafiti-pieza'),
+      artistBox: box('.grafitero'),
+      gone: document.querySelectorAll('.hero-map, .hero-zone, .hero-loot, .neon-marco, .neon-gema')
+        .length,
     };
   });
-  // Sin el barrido giratorio ni ninguna animación que gire.
+  // Sin el barrido giratorio, sin el mapa ni el marco de neón, y sin ninguna animación que gire.
   expect(art.sweep).toBe('none');
+  expect(art.gone).toBe(0);
   expect(art.rotations).toEqual([]);
-  // Solo propiedades que la tarjeta de video compone sin repintar.
+  // Solo transform y opacity: la tarjeta de video lo compone sin repintar.
   expect(art.props).toEqual(['opacity', 'transform']);
-  // Animaciones de elementos (no de ::before/::after, que no todos los motores listan igual).
+  // El grafitero se anima cuadro por cuadro (steps) y el grafiti se pinta letra por letra.
   expect(art.names).toEqual(
-    expect.arrayContaining([
-      'tgsZonaCierra',
-      'tgsZonaAviso',
-      'tgsLootFlota',
-      'tgsSalto',
-      'tgsEscaneo',
-    ]),
+    expect.arrayContaining(['tgsRocia', 'tgsSacude', 'tgsPinta', 'tgsChorro']),
   );
-  // El mapa es un archivo real del sitio (no un 404) y se sirve como imagen SVG.
-  expect(art.map).toContain('/art/mapa-zona.svg');
-  const svg = await page.request.get('/art/mapa-zona.svg');
-  expect(svg.status()).toBe(200);
-  expect(svg.headers()['content-type']).toContain('image/svg+xml');
-  // Los drops muestran cantidades de diamantes de la tienda.
-  await expect(page.locator('.hero-loot')).toHaveCount(4);
+  expect(art.steps.join(' ')).toContain('steps(6');
+  expect(art.word).toBe('TayGameStore');
+  // En computador: el grafiti bajo el panel y el grafitero a su izquierda, sin taparlo.
+  expect(art.piece.top).toBeGreaterThanOrEqual(art.panel.bottom - 4);
+  expect(art.artistBox.right).toBeLessThanOrEqual(art.panel.left + 4);
+  // El muro, la hoja de cuadros y el rocío son archivos reales del sitio, servidos como SVG.
+  expect(art.wall).toContain('/art/muro-ladrillo.svg');
+  expect(art.sprite).toContain('/art/grafitero.svg');
+  for (const file of ['/art/muro-ladrillo.svg', '/art/grafitero.svg', '/art/rocio.svg']) {
+    const response = await page.request.get(file);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('image/svg+xml');
+  }
+  const font = await page.request.get('/fonts/sedgwick-ave-display-tgs.woff2');
+  expect(font.status()).toBe(200);
   await expect(page.locator('.hero-art')).toHaveAttribute('aria-hidden', 'true');
 });
 

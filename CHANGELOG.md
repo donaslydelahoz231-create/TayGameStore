@@ -5,6 +5,25 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Portada: el muro del barrio con un grafitero que pinta «TayGameStore» (2026-11-03)
+
+- **Fondo propio y hecho a mano para la portada** (el dueño vio el mapa «muy genérico y muy IA» y
+  pidió «un personaje callejero grafiteando TayGameStore, estilo grafiti, frame por frame»):
+  - Muro de ladrillo de noche (`art/muro-ladrillo.svg`).
+  - Un grafitero (`art/grafitero.svg`, 10 cuadros dibujados) animado cuadro por cuadro: rocía la
+    pared y después sacude la lata y parpadea.
+  - El grafiti «TayGameStore» se pinta letra por letra con el rocío (`art/rocio.svg`): contorno
+    blanco, sombra en 3D, relleno de colores, nube de color, goteras y un brillo. Letra Sedgwick Ave
+    Display (OFL), recortada a esas letras (4 KB).
+  - En computador va bajo el panel, con el grafitero a la izquierda; en tableta y celular, a la
+    derecha de los botones. En pantallas anchas sigue el letrero «ABIERTO».
+  - Empieza cuando se abre la tienda (antes estaba oculta y la animación se perdía).
+  - El ícono de Tay, el texto, los botones y el panel no cambian.
+- `effects/vitrina.js` copia la caja del panel y la de los botones en variables CSS; sin ese dato
+  solo se ve el muro.
+- Solo se anima transform y opacity; con «reducir movimiento» el grafiti queda pintado y el
+  grafitero quieto. Se quitan `49-fondo-zona.css` y `art/mapa-zona.svg`.
+
 ### Portada: «mapa de la zona» en lugar del fondo giratorio (2026-11-03)
 
 - **El fondo de la portada ya no es un barrido que gira sin parar**, sino un mapa táctico propio de
