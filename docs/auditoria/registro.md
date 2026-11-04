@@ -2949,3 +2949,84 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   suavizado de fuentes), así que no se regeneraron: `03-tienda-pagina-completa` queda con el
   catálogo anterior. Firefox y WebKit en local (los cubre CI). Sin publicar: falta la autorización
   del dueño.
+- **Publicación de 5a86f1c** (autorizada por el dueño: «Publicar ahora (Recomendado)», 2026-11-04):
+  Render `dep-dbljgbc9v7es73d82kng` en `live` a las 13:51:46 UTC, sin errores en los registros. CI
+  #253, smoke #109 y CodeQL #196 en verde. Captura de producción: 0 tarjetas con «Directo a tu ID»
+  o «c/100».
+
+## 2026-11-04 · La tienda en todos los dispositivos de Chrome DevTools (local, sin publicar)
+
+- **Pedidos del dueño** (con la captura de la lista de dispositivos de Chrome DevTools): que la
+  tienda «se adapte y no se visualice con errores ni fallos visuales ni de funciones, a detalle y a
+  profundidad» en esos dispositivos y resoluciones; después, «sigue con la auditoría y además
+  corrige los fallidos y pendientes» y «sigue con la auditoría y corrige lo que falte», con la lista
+  completa marcada.
+- **Lista auditada:** los 46 dispositivos de `front_end/models/emulation/EmulatedDevices.ts`
+  (devtools-frontend), con sus medidas y capacidades (móvil y táctil; los portátiles HiDPI y MDPI,
+  sin pantalla táctil): 74 tamaños distintos entre vertical, horizontal y plegables abiertos.
+- **Método:** auditoría con Playwright (Chromium) en cada tamaño: bienvenida, acceso, tienda
+  (recorrida de arriba abajo), carrito, búsqueda y menú de la cuenta. Mide desplazamiento lateral y
+  página alejada (en el celular, si algo es más ancho que la pantalla, el navegador aleja la página
+  entera), piezas fuera de la pantalla, texto cortado o desbordado, textos encimados, controles
+  tapados (`elementFromPoint` en su centro), áreas táctiles de menos de 24 px (WCAG 2.5.8), letra
+  de menos de 12 px, imágenes rotas y errores de consola o HTTP. Cada dispositivo entra como un
+  cliente distinto (`X-Forwarded-For`, el servidor de pruebas confía en el proxy) para que el
+  escudo anti-abuso no confunda la auditoría con un abuso.
+- **Hallazgos y cambios:** nueva capa `styles/layers/50-dispositivos.css` (importada al final de
+  `main.css`). No se tocan `account.js`, `15-modals.css` ni `21-auth.css` (accesos).
+  1. Cabecera de 901 a 1100 px (iPad mini en horizontal, iPad Pro 13 y Surface Pro en vertical,
+     celulares grandes en horizontal): «Seguimiento» y «Soporte» quedaban debajo de la búsqueda
+     y la cuenta. La cuenta y el carrito se muestran solo con su ícono.
+  2. Con el carrito solo con ícono, la palabra «Carrito» se oculta a la vista, no a los lectores
+     de pantalla (antes, con `display: none`, el botón se anunciaba solo con el número).
+  3. Menos de 360 px (Galaxy Z Fold 5 cerrado, 344 px): la cabecera medía 365 px; se ve solo el
+     logo de Tay, como ya pasaba hasta 340 px.
+  4. Búsqueda o menú de la cuenta abiertos: las burbujas de soporte (z 330) y la barra de compra
+     (z 320) están fuera de `#app` (z 3), así que ninguna capa de la página podía quedar encima y
+     tapaban resultados y opciones. Se ocultan mientras están abiertos (`body:has(...)`).
+  5. Celular en horizontal: el menú de la cuenta y los resultados de búsqueda se salían por abajo;
+     ahora se desplazan dentro de su caja.
+  6. Carrito con 520 px de alto o menos: la lista de paquetes quedaba en una franja diminuta,
+     tapada por el total; ahora se desplaza el panel entero.
+  7. «Continuar como invitado» y los demás botones de texto del acceso: 17 → 31 px de área táctil,
+     sin mover nada (relleno compensado con margen negativo).
+  8. JioPhone 2 (240 px): «Normal / Promo» no cabía junto al título del catálogo (la página medía
+     309 px y se alejaba), las tarjetas de «Consulta de jugador» no bajaban de 228 px y el estado
+     de la lista previa no cabía al lado del texto.
+  9. JioPhone 2 en vertical: paquetes, medios de pago y «Así llegan tus diamantes» en dos columnas
+     de unos 100 px cortaban el precio («$ 3.800 CO»), la estrella de favoritos y palabras; el menú
+     de la cuenta (255 px) se salía 33 px por la izquierda; en la barra de compra el total ocupaba
+     tres líneas bajo «Revisar pedido»; con un paquete en el carrito, la fila «− 1 + Eliminar» del
+     resumen ensanchaba el catálogo a 242 px y el celular alejaba la página. Ahora: una columna,
+     menú con 8 px a cada lado, total arriba y botón debajo (burbujas a 100 px del borde), la fila
+     baja de línea si no cabe y la columna del catálogo no pasa del ancho de la pantalla.
+  10. Con mouse (portátiles sin pantalla táctil), los enlaces del pie y «¿Dónde encuentro mi ID?»
+      medían 21 px de alto: ahora 25 px, sin mover nada (posiciones iguales antes y después a
+      1440×900 y 412×915; con pantalla táctil siguen en 44 px).
+  - `js/store/bindings.js`: Escape también cierra el menú de la cuenta (teclado en iPad y Surface).
+  - `e2e/dispositivos.spec.ts` (nuevo, incluido en `test:e2e`): los 74 tamaños (sin desplazamiento
+    lateral ni página alejada, también con un paquete en el carrito; menú de la cabecera completo;
+    menú de la cuenta dentro de la pantalla; sin controles tapados en el menú, la búsqueda, la barra
+    de compra y el carrito) y una prueba de acceso y teclado en iPhone SE.
+- **Resultado de la auditoría:** pasada completa con los cambios 1–8: 64 de 74 tamaños sin
+  hallazgos. Tras los cambios 9 y 10, nueva pasada de los 23 tamaños afectados y de control, de a
+  uno: sin hallazgos, salvo dos que no son fallos:
+  - Galaxy Z Fold 5 en horizontal: un título pasa por debajo de la cabecera fija al desplazarse; la
+    cabecera es opaca y queda encima (comprobado con `elementFromPoint`).
+  - Pantallas grandes (Zenbook Fold abierto, portátil de 1440×900): a los 0,9 s de abrirse el
+    acceso, la transición del diamante aún lo cubría. Medido (3 veces por tamaño): lo cubre 0,84–0,88
+    s en celular y 1,07–1,37 s en pantallas grandes en este entorno sin tarjeta gráfica; el diseño es
+    0,8 s (`HOLD_MS` + `REVEAL_MS`). Solo se toca lo que ya se ve por el diamante.
+  - Recortado con «…» a propósito: solo el nombre de la cuenta en el botón de la cabecera, en 16
+    tamaños (el menú de la cuenta lo muestra completo).
+- **Verificación local:** formato, lint y tipos OK; unitarias 406/406; `e2e/dispositivos.spec.ts`
+  75/75 en Chromium, Firefox (en serie, como la CI) y WebKit; suite e2e completa en Chromium
+  163/163 (en serie); escáner 0 coincidencias. Capturas antes y después (iPhone SE en horizontal: menú
+  y búsqueda; Galaxy A55 en horizontal: carrito; Surface Pro 10 en vertical: cabecera).
+- **Observación:** Firefox con 3 navegadores en paralelo (en local): 1 y 2 de 75 navegaciones no
+  llegaron a `load` en 60 s, en dispositivos distintos cada vez (las 25 peticiones respondieron 200
+  y la página se veía completa). En serie, 75/75. La tienda no depende de `load` (solo
+  `style-guard.js`, para reintentar la hoja de estilos).
+- **NO VERIFICADO:** equipos reales (solo la emulación de Chrome DevTools en Playwright, sin tarjeta
+  gráfica); las capturas visuales de referencia (`test:visual`), que en este contenedor fallan
+  incluso sin cambios; Firefox en paralelo. Sin publicar: falta la autorización del dueño.

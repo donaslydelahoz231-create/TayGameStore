@@ -313,6 +313,8 @@ function bindGlobal() {
         !state.storeUnlocked && !!document.querySelector('#loginModal:not([hidden])');
       closeDrawer();
       closeSearch();
+      // Con teclado (iPad, Surface): Escape también cierra el menú de la cuenta.
+      closeMenus();
       closeAllModals();
       if (wasEntry) showEntryLanding();
       else document.body.classList.remove('lock');

@@ -1,0 +1,167 @@
+/*
+ * Adaptación a dispositivos (2026-11-04). Pedido del dueño: que la tienda se vea y funcione sin
+ * fallos en todos los dispositivos de Chrome DevTools (iPhone, Pixel, Galaxy, Moto, JioPhone,
+ * Surface Duo, plegables cerrados y abiertos, iPad, Surface Pro, Galaxy Tab, Nest Hub Max y
+ * portátiles), en vertical y en horizontal. Cada regla corrige un fallo medido en esa auditoría.
+ */
+
+/* 1. Cabecera de 901 a 1100 px de ancho (Galaxy Z Fold 6 en horizontal, Surface Pro 10 e iPad Pro
+   13 en vertical): el menú (Inicio … Soporte) no cabía y «Seguimiento» y «Soporte» quedaban debajo
+   de la búsqueda y la cuenta. La cuenta y el carrito se muestran solo con su ícono, como en el
+   celular. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .account-btn > span:not(.avatar),
+  .account-btn .chev {
+    display: none;
+  }
+  .account-btn {
+    padding: 4px;
+  }
+}
+
+/* 2. Cuando el carrito se muestra solo con el ícono, la palabra «Carrito» se oculta a la vista pero
+   no a los lectores de pantalla (con display: none el botón se anunciaba solo con el número). */
+@media (max-width: 650px), (min-width: 901px) and (max-width: 1100px) {
+  .cart-btn span {
+    display: inline;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* 3. Cabecera de menos de 360 px (Galaxy Z Fold 5 cerrado, 344 px): logo, nombre, búsqueda, cuenta
+   y carrito sumaban 365 px y la página se desplazaba de lado. Como ya pasaba hasta 340 px, se ve
+   solo el logo de Tay; el nombre sigue para lectores de pantalla. */
+@media (max-width: 359px) {
+  #app .header .brand-text {
+    display: none;
+  }
+}
+
+/* 4. Con la búsqueda o el menú de la cuenta abiertos se ocultan las burbujas de soporte (z 330) y la
+   barra de compra del celular (z 320): están fuera de #app, así que ninguna capa de la página podía
+   quedar encima y tapaban resultados y opciones del menú. Vuelven al cerrar. */
+body:has(#accountMenu:not([hidden])) :is(.support-float, .buy-bar),
+body:has(#searchPanel:not([hidden])) :is(.support-float, .buy-bar) {
+  visibility: hidden;
+}
+
+/* 5. En pantallas bajas (celular en horizontal) el menú de la cuenta y los resultados de búsqueda
+   se salían por abajo y no había forma de verlos: ahora se desplazan dentro de su caja. */
+.account-menu,
+.search-panel {
+  max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 6. Carrito en pantallas de 520 px de alto o menos (celular en horizontal): se desplaza el panel
+   entero. Antes la lista de paquetes quedaba en una franja diminuta, tapada por el total. */
+@media (max-height: 520px) {
+  .drawer {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .drawer-items {
+    flex: none;
+    overflow: visible;
+  }
+}
+
+/* 7. «Continuar como invitado» y los demás botones de texto del acceso medían 17 px de alto (el
+   mínimo táctil de WCAG 2.5.8 es 24 px). Más área para tocar sin cambiar cómo se ven: el relleno
+   se compensa con margen negativo y nada se mueve. */
+.text-btn.inline {
+  padding-block: 7px;
+  margin-block: -7px;
+}
+
+/* 8. Pantallas muy angostas (JioPhone 2, 240 px). Si algo es más ancho que la pantalla, el celular
+   aleja la página entera y todo se ve pequeño:
+   - «Normal / Promo» no cabía junto al título del catálogo (la página medía 309 px): ahora baja a
+     otra línea cuando no cabe; en pantallas más anchas sigue en la misma;
+   - las tarjetas «Consulta de jugador» y «Lista antes de pagar» no bajaban de 228 px (la columna
+     1fr no se encoge por debajo de su contenido): ahora la columna sí puede;
+   - en las filas de la lista, el estado («Pendiente») va debajo del texto cuando no cabe al lado. */
+.catalog-toolbar {
+  flex-wrap: wrap;
+}
+@media (max-width: 900px) {
+  .verify-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 300px) {
+  .check-line {
+    grid-template-columns: 29px minmax(0, 1fr);
+  }
+  .check-line strong {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* 9. El resto del JioPhone 2 en vertical (240 px):
+   - los paquetes, los medios de pago y «Así llegan tus diamantes» iban en dos columnas de unos
+     100 px: se cortaban el precio («$ 3.800 CO»), la estrella de favoritos y palabras como
+     «Masterca» o «Preparam». Ahora van en una sola columna;
+   - el menú de la cuenta (255 px) se salía 33 px por la izquierda: ahora ocupa el ancho de la
+     pantalla con 8 px a cada lado;
+   - en la barra de compra, el total ocupaba tres líneas y «Revisar pedido» lo tapaba: el total va
+     en una línea y el botón debajo, a todo lo ancho; las burbujas de soporte suben con ella;
+   - con un paquete en el carrito, la fila «− 1 + Eliminar» del resumen no cabía y ensanchaba la
+     columna del catálogo a 242 px: el celular alejaba la página. Ahora la fila baja a otra línea
+     cuando no cabe y la columna no pasa del ancho de la pantalla. */
+@media (max-width: 300px) {
+  .products,
+  .pay-means-grid,
+  .lab-grid,
+  .catalog-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cart-controls {
+    flex-wrap: wrap;
+  }
+  .account-menu {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+  .buy-bar:not([hidden]) {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+  .buy-bar-info {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px;
+  }
+  .buy-bar-info b {
+    font-size: 1rem;
+  }
+  .buy-bar .btn {
+    flex: 1 0 100%;
+    min-height: 40px;
+  }
+  body.has-buy-bar:not(.in-checkout):not(.entry-locked) :is(.support-float, .toast-stack) {
+    bottom: 100px;
+  }
+}
+
+/* 10. Con mouse (portátiles sin pantalla táctil), los enlaces del pie y «¿Dónde encuentro mi ID?»
+   medían 21 px de alto. Más área para hacer clic sin mover nada (como en la regla 7). Con pantalla
+   táctil ya miden 44 px (34-accessibility.css y 39-landing-clarity.css). */
+@media not all and (pointer: coarse) {
+  .footer-links a,
+  .id-help summary {
+    padding-block: 2px;
+    margin-block: -2px;
+  }
+}

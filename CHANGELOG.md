@@ -5,6 +5,30 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### La tienda se adapta a todos los dispositivos de Chrome DevTools (2026-11-04)
+
+- A pedido del dueño, la tienda se revisó en los 46 dispositivos de la lista de Chrome DevTools
+  (74 tamaños distintos: vertical, horizontal y plegables cerrados y abiertos), y se corrigió lo que
+  fallaba (`50-dispositivos.css`):
+  - **Cabecera de 901 a 1100 px** (iPad mini en horizontal, iPad Pro 13 y Surface Pro en vertical,
+    y celulares grandes en horizontal): «Seguimiento» y «Soporte» quedaban debajo de la búsqueda;
+    la cuenta y el carrito se muestran con su ícono.
+  - **Búsqueda y menú de la cuenta**: las burbujas de soporte y la barra de compra los tapaban; se
+    ocultan mientras están abiertos. En celular en horizontal se salían por abajo: ahora se
+    desplazan dentro de su caja. Escape también cierra el menú de la cuenta.
+  - **Carrito en celular en horizontal**: la lista de paquetes quedaba en una franja diminuta; ahora
+    se desplaza el panel entero.
+  - **Pantallas angostas**: el Galaxy Z Fold 5 cerrado (344 px) y el JioPhone 2 (240 px) se
+    desplazaban de lado o alejaban la página; ya no. En el JioPhone 2 los paquetes, los medios de
+    pago y «Así llegan tus diamantes» van en una sola columna (en dos se cortaban el precio y
+    palabras), el menú de la cuenta cabe en la pantalla y la barra de compra pone el total arriba y
+    «Revisar pedido» debajo.
+  - «Continuar como invitado» tiene un área táctil de 31 px (antes 17). Con mouse, los enlaces del
+    pie y «¿Dónde encuentro mi ID?» pasan de 21 a 25 px de alto, sin mover nada.
+- Prueba nueva `e2e/dispositivos.spec.ts`: los 74 tamaños, sin desplazamiento lateral (también con
+  un paquete en el carrito), el menú de la cuenta dentro de la pantalla y sin controles tapados en
+  el menú, la búsqueda, la barra de compra y el carrito.
+
 ### Catálogo: tarjetas sin «Directo a tu ID» ni el precio por cada 100 diamantes (2026-11-04)
 
 - A pedido del dueño, cada paquete deja de mostrar «Directo a tu ID» y «≈ $ … c/100». Siguen el
