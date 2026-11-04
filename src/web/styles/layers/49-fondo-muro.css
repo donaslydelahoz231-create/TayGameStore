@@ -41,7 +41,29 @@
 .neon-vitrina {
   position: absolute;
   inset: 0;
+}
+/* Capas: la sombra de la izquierda (.hero-art::before, z 1), el letrero (z 2), el contenido de la
+   portada (.hero-inner, z 4) y el grafiti (z 5), por encima de la sombra que proyecta el panel: bajo
+   ella el grafiti se veía opaco en computador. Para eso ni .hero-art ni .neon-vitrina forman su
+   propio apilamiento, y el paralaje (effects/visual.js) mueve cada capa con --art-x/--art-y en vez
+   de mover .hero-art. El grafiti no tapa el contenido (va bajo el panel o a la derecha de los
+   botones) y no recibe clics. */
+.neon-vitrina > :not(.grafiti-escena) {
   z-index: 2;
+}
+.neon-vitrina > .grafiti-escena {
+  z-index: 5;
+}
+.neon-muro,
+.neon-vitrina > * {
+  translate: var(--art-x, 0) var(--art-y, 0);
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  /* Con puntero fino corre el paralaje: cada capa va aparte en la GPU y moverla no repinta. */
+  .neon-muro,
+  .neon-vitrina > * {
+    will-change: transform;
+  }
 }
 .hero-art:not([data-vitrina]) .neon-vitrina {
   display: none;
@@ -155,9 +177,10 @@
 .grafiti-chorro {
   position: absolute;
   left: calc(var(--pl) - 24px);
+  /* 62 px de alto, pero nunca por encima del borde de abajo del panel: va sobre el contenido. */
+  top: max(calc(var(--pt) + var(--ph) + 2px), calc(100% - 76px));
   bottom: 14px;
   width: calc(var(--pw) - 6px);
-  height: 62px;
   background: url('/art/rocio.svg') 0 0 / 100% 100% no-repeat;
   transform-origin: 0 6%;
   opacity: 0;
@@ -205,7 +228,9 @@
     cursive;
   letter-spacing: -0.02em;
   color: #fff;
-  -webkit-text-stroke: 5px #fff;
+  /* Contornos en em: crecen y se achican con la letra. Fijos en píxeles, en celular tapaban los
+     huecos de la «e», la «a» y la «o», y la palabra no se leía. */
+  -webkit-text-stroke: 0.1em #fff;
   opacity: 0;
 }
 .grafiti-pieza b::before,
@@ -219,21 +244,15 @@
   /* Contorno oscuro alrededor del blanco y sombra en 3D (abajo a la derecha). */
   z-index: -1;
   color: #0d0826;
-  -webkit-text-stroke: 11px #0d0826;
+  -webkit-text-stroke: 0.22em #0d0826;
   transform: translate(2px, 3px);
 }
 .grafiti-pieza b::after {
   z-index: 1;
   color: transparent;
   -webkit-text-stroke: 0;
-  background:
-    linear-gradient(
-      180deg,
-      transparent 20%,
-      rgba(255, 255, 255, 0.7) 26%,
-      rgba(255, 255, 255, 0) 34%
-    ),
-    linear-gradient(180deg, #34ecff 8%, #7a3cff 54%, #ff2d9b 92%);
+  /* Colores sólidos, sin la franja blanca translúcida que lavaba la parte de arriba. */
+  background: linear-gradient(180deg, #34ecff 8%, #7a3cff 54%, #ff2d9b 92%);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -397,10 +416,10 @@
   }
 }
 @keyframes tgsPinta {
-  /* Aparece en 0,35 s, se queda y se desvanece en el mismo orden en que se pintó. */
+  /* Aparece en 0,35 s, se queda y se desvanece en el mismo orden en que se pintó. Solo opacidad:
+     con una escala animada el navegador dibuja la letra a otro tamaño y se ve borrosa. */
   0% {
     opacity: 0;
-    transform: scale(1.25);
   }
   1.1% {
     opacity: 0.6;
@@ -408,12 +427,10 @@
   2.5%,
   78% {
     opacity: 1;
-    transform: none;
   }
   86%,
   100% {
     opacity: 0;
-    transform: none;
   }
 }
 @keyframes tgsGotea {
@@ -542,11 +559,7 @@
   .grafiti-fila:first-child {
     font-size: 1.6em;
   }
-  .grafiti-pieza b {
-    -webkit-text-stroke-width: 3.5px;
-  }
   .grafiti-pieza b::before {
-    -webkit-text-stroke-width: 7px;
     transform: translate(1px, 2px);
   }
   .grafiti-gota {
@@ -582,8 +595,17 @@
       rgba(5, 6, 18, 0.1) 62%
     );
   }
+  /* Celular: la escena cabe en la franja de los botones, sin pegarse al texto de arriba ni a los
+     pasos de abajo, y las dos filas del grafiti no se montan una sobre otra. */
+  .grafiti-escena {
+    top: calc(var(--by) + 4px);
+    height: calc(var(--bb) - var(--by) - 8px);
+  }
   .grafitero {
     height: min(100%, 72px);
+  }
+  .grafiti-pieza {
+    gap: 0.7em;
   }
 }
 /* Celulares angostos: menos espacio a la derecha de los botones. */

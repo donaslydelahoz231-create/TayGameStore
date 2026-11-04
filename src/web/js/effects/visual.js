@@ -50,10 +50,13 @@ export function initVisualEffects() {
           glow.style.transform = 'translate3d(' + mx + 'px,' + my + 'px,0) translate(-50%,-50%)';
           glow.style.opacity = '1';
           if (art) {
-            // En píxeles enteros: con fracciones el fondo (y el grafiti) se ve borroso.
+            // En píxeles enteros: con fracciones el fondo (y el grafiti) se ve borroso. Se mueve
+            // cada capa (49-fondo-muro.css) y no .hero-art, para que el grafiti pueda ir encima
+            // de la sombra del panel.
             const x = Math.round((mx / innerWidth - 0.5) * 5);
             const y = Math.round((my / innerHeight - 0.5) * 3);
-            art.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
+            art.style.setProperty('--art-x', x + 'px');
+            art.style.setProperty('--art-y', y + 'px');
           }
           raf = 0;
         });

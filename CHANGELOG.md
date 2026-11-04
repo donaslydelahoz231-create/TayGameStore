@@ -5,6 +5,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Portada: el grafiti nítido y legible, y con aire en celular (2026-11-03)
+
+- **Nítido y sin opacar**: en computador el grafiti quedaba debajo de la sombra del panel, que lo
+  oscurecía; ahora va encima (sin tapar el panel ni el texto). Las letras aparecen solo con
+  opacidad: con la escala animada se dibujaban borrosas. El relleno es de colores sólidos, sin la
+  franja blanca translúcida.
+- **Legible en celular**: los contornos crecen y se achican con la letra; fijos en píxeles tapaban
+  los huecos de la «e», la «a» y la «o».
+- **Con aire en celular**: «Tay» y «GameStore» ya no se montan una sobre otra, y el grafitero y el
+  grafiti caben en la franja de los botones, sin pegarse al texto de arriba ni a los pasos
+  «01 / 02» de abajo.
+
 ### Portada: el grafiti más nítido y pintado en bucle sin fin (2026-11-03)
 
 - **Más nítido y con colores vivos** (el dueño lo veía «opaco»): relleno saturado (cian, violeta y

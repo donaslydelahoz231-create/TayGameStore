@@ -150,6 +150,7 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
     const rotations: string[] = [];
     const steps: string[] = [];
     const loops: number[] = [];
+    const paint = new Set<string>();
     for (const animation of document.getAnimations()) {
       const effect = animation.effect as KeyframeEffect | null;
       const target = effect?.target;
@@ -164,6 +165,7 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
         for (const [key, value] of Object.entries(frame)) {
           if (['offset', 'computedOffset', 'easing', 'composite'].includes(key)) continue;
           props.add(key);
+          if (name === 'tgsPinta') paint.add(key);
           if (/rotate/.test(String(value))) rotations.push(String(value));
         }
       }
@@ -175,9 +177,18 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
     const hero = document.querySelector('.hero') as Element;
     const wall = document.querySelector('.neon-muro') as Element;
     const artist = document.querySelector('.grafitero i') as Element;
+    const style = (selector: string) =>
+      getComputedStyle(document.querySelector(selector) as Element);
     return {
       names: [...names],
       props: [...props].sort(),
+      paint: [...paint],
+      layers: {
+        art: style('.hero-art').transform,
+        vitrina: style('.neon-vitrina').zIndex,
+        scene: Number(style('.grafiti-escena').zIndex),
+        content: Number(style('.hero-inner').zIndex),
+      },
       rotations,
       steps,
       loops,
@@ -209,6 +220,13 @@ test('el fondo de la portada es el muro con el grafitero: pinta «TayGameStore»
   // Pinta, se desvanece y vuelve a pintar sin fin (pedido del dueño).
   expect(art.loops.length).toBeGreaterThan(0);
   expect(art.loops.every((n) => n === Infinity)).toBe(true);
+  // Nítido y sin opacar (pedido del dueño): las letras solo cambian de opacidad (con una escala
+  // animada se dibujan borrosas) y el grafiti va encima de la sombra del panel, por eso .hero-art
+  // y .neon-vitrina no forman su propio apilamiento.
+  expect(art.paint).toEqual(['opacity']);
+  expect(art.layers.art).toBe('none');
+  expect(art.layers.vitrina).toBe('auto');
+  expect(art.layers.scene).toBeGreaterThan(art.layers.content);
   // En computador: el grafiti bajo el panel y el grafitero a su izquierda, sin taparlo.
   expect(art.piece.top).toBeGreaterThanOrEqual(art.panel.bottom - 4);
   expect(art.artistBox.right).toBeLessThanOrEqual(art.panel.left + 4);

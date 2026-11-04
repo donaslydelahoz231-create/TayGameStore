@@ -2855,3 +2855,64 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   30 s con dos ciclos completos.
 - **NO VERIFICADO:** Firefox y WebKit en local (los cubre CI) y la fluidez en equipos reales con
   GPU. Sin publicar: falta la autorización del dueño.
+- **Publicación de dba0bfb** (autorizada por el dueño: «Publicar ahora (Recomendado)»): 9 blobs
+  iguales a los aprobados; `git ls-remote` = dba0bfb. Render `dep-dbl4es49v7es73atv4lg` en `live` a
+  las 20:44:42 UTC, sin avisos ni errores en los registros desde las 20:43. CI #251 en verde (lint,
+  tipos, unitarias y build; integración; e2e en Chromium, Firefox y WebKit; gitleaks), CodeQL #194 y
+  smoke #107 en verde. Tienda en vivo: el HTML trae las dos capas del grafitero y la hoja de estilos
+  `tgsTurnoRocia`, `tgsTurnoQuieto` y `tgsPinta 14s`; `/api/ready` y `/api/health` 200. Captura de
+  producción a 390 px con el grafitero, las 12 letras, la fuente cargada y sin peticiones fallidas.
+
+## 2026-11-03 · Portada: el grafiti nítido y legible, y con aire en celular (local, sin publicar)
+
+- **Pedidos del dueño:** «en el celular no quiero que se peguen demasiado arriba y abajo el
+  grafiti» y, al ver ese arreglo, «defínemelo más nitidez el grafiti, que sí sea legible sin
+  opacar».
+- **Qué pasaba (medido a 360, 390 y 412 px):** las dos filas del grafiti se montaban: la cola de la
+  «y» de «Tay» y su gotera tocaban «GameStore». Además la escena salía de la franja de los botones:
+  empezaba 18 px más arriba y terminaba 12 px más abajo, y los pies del grafitero quedaban casi
+  encima de los pasos «01 / 02».
+- **Cambio para el aire en celular (solo hasta 650 px de ancho):**
+  - `49-fondo-muro.css`: la escena ocupa la franja de los botones (4 px adentro arriba y abajo);
+    entre «Tay» y «GameStore» hay 0,7 em de separación. A 390 px: grafiti de 356 a 423 (antes 359 a
+    414, con las filas encimadas); el texto de arriba termina en 316 y los botones en 442; el
+    grafitero termina en 438 (antes 454, por debajo de los botones).
+- **Qué lo opacaba y lo hacía borroso (medido):**
+  - En computador, la sombra del panel (`0 30px 75px rgba(0,0,0,.37)`, en `.hero-inner`, z 4) caía
+    sobre el grafiti, que va justo debajo del panel en `.hero-art` (bajo el contenido). En la
+    captura de 1366 px no había ni un píxel blanco puro (el más claro, 242 de 255); sin esa sombra,
+    11 416.
+  - `tgsPinta` animaba `scale(1.25)` → `none` en bucle infinito: el navegador puede dibujar la
+    capa a la escala mayor y reducirla, y la letra queda blanda.
+  - Contornos fijos (5 px blanco y 11 px oscuro; 3,5 y 7 px en celular, con letras de 14–18 px):
+    tapaban los huecos de la «e», la «a» y la «o».
+  - Franja blanca translúcida (70 %) en el relleno, que lavaba la parte de arriba de las letras.
+- **Cambio para la nitidez (todas las pantallas):**
+  - `49-fondo-muro.css`: `.neon-vitrina` sin `z-index` (ya no agrupa); el letrero queda en z 2 y
+    la escena del grafiti en z 5, encima de la sombra del panel. El paralaje mueve cada capa con
+    `translate: var(--art-x) var(--art-y)` (con `will-change: transform` solo con puntero fino)
+    en vez de mover `.hero-art`, que con una transformación formaba su propio apilamiento y no
+    dejaba subir al grafiti. El rocío nunca sube por encima del borde de abajo del panel.
+  - Letras: solo opacidad en `tgsPinta`; contornos en em (0,1 em blanco y 0,22 em oscuro: en
+    computador casi iguales a antes, en celular más finos); relleno de colores sólidos.
+  - `js/effects/visual.js`: el paralaje escribe `--art-x/--art-y` (en píxeles enteros) en lugar
+    de `transform` en `.hero-art`.
+  - `e2e/motion.spec.ts`: comprueba que `tgsPinta` solo anima la opacidad, que `.hero-art` no
+    tiene transformación, que `.neon-vitrina` no forma apilamiento y que la escena va por encima
+    de `.hero-inner`.
+- **Que no tape el contenido:** en 22 anchos (320 a 1920 px) ninguna pieza del grafiti (grafitero,
+  filas, brillo, rocío y goteras) toca un texto, botón, imagen o el panel de `.hero-inner`; el
+  rocío lo tocaba 8 px en computador hasta limitarlo al borde del panel. El arte no recibe clics
+  (`pointer-events: none` en `.hero-art`).
+- **Medición:** píxeles blancos puros en el grafiti, 1366 px: 0 → 11 667; píxeles de color
+  saturado: +39 % en computador y +13–15 % en celular. Paralaje: el muro y el grafiti se mueven
+  juntos (2 px, 1 px) y `.hero-art` queda sin transformación. Fluidez con el puntero moviéndose
+  (Chromium sin GPU, 1366×860, 3 pasadas de 5 s): 59,1–60 cuadros por segundo y 1–3 cuadros
+  largos. Celular (390×844, CPU 4× más lenta): 60 sin cuadros largos.
+- **Capturas de referencia:** cambian las 3 `03-tienda-pagina-completa`, solo dentro del grafiti
+  (computador x 737–1172 e y 553–634; tableta x 488–596 e y 340–406; celular x 281–349 e
+  y 350–397).
+- **Verificación local:** formato, lint y tipos OK; unitarias 406/406; e2e 88/88 (con las
+  comprobaciones nuevas); visuales 3/3. Capturas a 2× (computador) y 3× (celular) antes y después.
+- **NO VERIFICADO:** Firefox y WebKit en local (los cubre CI) y equipos reales con GPU. Sin
+  publicar: falta la autorización del dueño.
