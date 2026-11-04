@@ -118,21 +118,6 @@
   line-height: 1.5;
 }
 
-/* Tarjeta de paquete: entrega y valor real por cada 100 diamantes (del precio vigente). */
-.product-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 2px 8px;
-  margin-top: 4px;
-  color: var(--muted2);
-  font-size: var(--fs-2xs);
-}
-.product-meta span:last-child {
-  color: #b9c6f2;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Franja de promo sobre el catálogo (ahorro máximo real, calculado del servidor). */
 .promo-strip {
   display: flex;

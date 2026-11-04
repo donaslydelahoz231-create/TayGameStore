@@ -78,10 +78,10 @@ test.describe('entrada y acceso', () => {
     // El servidor de pruebas no cobra dinero real: la tienda lo anuncia sin tecnicismos.
     await expect(page.locator('#serverState')).toContainText('Modo prueba · sin cobros reales');
     await expect(page.locator('body')).not.toContainText(/sandbox/i);
-    // Cada paquete dice cómo llega y cuánto cuestan 100 diamantes con el precio vigente.
-    await expect(page.locator('#products .product').first().locator('.product-meta')).toContainText(
-      /Directo a tu ID.*c\/100/,
-    );
+    // Pedido del dueño (2026-11-04): las tarjetas ya no dicen «Directo a tu ID» ni el precio por
+    // cada 100 diamantes («≈ $ … c/100»).
+    await expect(page.locator('#products .product-meta')).toHaveCount(0);
+    await expect(page.locator('#products')).not.toContainText(/Directo a tu ID|c\/100/);
     // Ayuda para encontrar el ID en el perfil del juego, sin datos inventados.
     await page.locator('.id-help summary').click();
     await expect(page.locator('.id-help ol')).toContainText('Toca tu avatar');

@@ -103,21 +103,13 @@
   }
 }
 
-/* Celular: tarjetas más compactas sin perder nada (el texto sigue para lectores de pantalla). */
+/* Celular: tarjetas más compactas. */
 @media (max-width: 560px) {
   #products .product {
     padding: 9px;
   }
   #products .product-visual.has-art {
     margin-bottom: 8px;
-  }
-  #products .product-meta span:first-child {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   #products .product-price {
     margin: 6px 0;

@@ -2916,3 +2916,36 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   comprobaciones nuevas); visuales 3/3. Capturas a 2× (computador) y 3× (celular) antes y después.
 - **NO VERIFICADO:** Firefox y WebKit en local (los cubre CI) y equipos reales con GPU. Sin
   publicar: falta la autorización del dueño.
+- **Publicación de f351973** (autorizada por el dueño: «Publicar ahora (Recomendado)», 2026-11-04):
+  8 blobs iguales a los aprobados; `git ls-remote` = f351973. Render `dep-dblj1vk9v7es73d7c250` en
+  `live` a las 13:21:04 UTC, sin avisos ni errores en los registros desde las 13:19. CI #252 en
+  verde (incluidos e2e en Chromium, Firefox y WebKit), CodeQL #195 y smoke #108 en verde. Tienda en
+  vivo: la hoja de estilos publicada trae `--art-x`; `/api/ready` y `/api/health` 200. Capturas de
+  producción (1366 y 390 px): el grafiti con blanco puro encima de la sombra del panel, el letrero
+  «ABIERTO» igual, y en celular «Tay» y «GameStore» separadas dentro de la franja de los botones;
+  arte y fuente 200, sin peticiones fallidas.
+
+## 2026-11-04 · Catálogo: tarjetas sin «Directo a tu ID» ni el precio por cada 100 diamantes (local, sin publicar)
+
+- **Pedido del dueño:** «quiero que descarte esta información en los catálogos, por ejemplo
+  (Directo a tu ID ≈ $ 3.636 c/100)».
+- **Cambio:**
+  - `js/store/features/catalog.js`: la tarjeta de cada paquete ya no pinta `.product-meta` («Directo
+    a tu ID» y «≈ $ … c/100») ni calcula el precio por cada 100. Precio, «Disponible», favoritos y
+    botones quedan igual; el cálculo de precios del servidor no se toca.
+  - `36-pay-means.css` y `41-tienda-pro.css`: se quitan las reglas de `.product-meta`, que quedan
+    sin uso.
+  - `e2e/behavior.spec.ts`: la prueba del catálogo comprueba ahora que no hay `.product-meta` ni los
+    textos «Directo a tu ID» o «c/100».
+- **Entorno:** el contenedor de la sesión se recreó desde una copia vieja (11 commits atrás, sin
+  cambios locales); se avanzó con `git merge --ff-only` hasta f351973, sin reescribir nada. Se
+  reinstalaron dependencias, se creó la base local desechable de pruebas y se descargó en el
+  scratchpad el Chromium de @playwright/test 1.56.1 (build 1194).
+- **Verificación local:** formato, lint y tipos OK; unitarias 406/406; e2e 88/88 (con la
+  comprobación nueva). Capturas del catálogo en producción (antes: el texto en las 6 tarjetas) y en
+  local (después: 0 tarjetas con `.product-meta`, sin «Directo a tu ID» ni «c/100»), a 1280 y 390 px.
+- **NO VERIFICADO:** las capturas visuales de referencia (`test:visual`, que la CI no ejecuta). En
+  este contenedor nuevo fallan incluso sin el cambio (hasta 84 % de píxeles distintos por el
+  suavizado de fuentes), así que no se regeneraron: `03-tienda-pagina-completa` queda con el
+  catálogo anterior. Firefox y WebKit en local (los cubre CI). Sin publicar: falta la autorización
+  del dueño.

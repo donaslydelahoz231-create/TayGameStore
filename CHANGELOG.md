@@ -5,6 +5,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Catálogo: tarjetas sin «Directo a tu ID» ni el precio por cada 100 diamantes (2026-11-04)
+
+- A pedido del dueño, cada paquete deja de mostrar «Directo a tu ID» y «≈ $ … c/100». Siguen el
+  nombre, los diamantes totales, el precio, «Disponible» y los botones; los precios no cambian.
+
 ### Portada: el grafiti nítido y legible, y con aire en celular (2026-11-03)
 
 - **Nítido y sin opacar**: en computador el grafiti quedaba debajo de la sombra del panel, que lo
