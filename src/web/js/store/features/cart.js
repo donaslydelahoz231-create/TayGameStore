@@ -71,6 +71,15 @@ function renderBuyBar(hasItems, count) {
  * sección «Pedido» ocupa la pantalla.
  */
 export function watchBuyBar() {
+  // Las burbujas de soporte y los avisos van encima de la barra. Con un total largo la barra crece
+  // (69 → 96 px en celulares de 344–360 px) y, a una altura fija, la tapaban: su alto real queda
+  // en --buy-bar-h (ver 50-dispositivos.css). Oculta mide 0 y se conserva el último alto.
+  const bar = document.getElementById('buyBar');
+  if (bar && typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => {
+      if (bar.offsetHeight) document.body.style.setProperty('--buy-bar-h', `${bar.offsetHeight}px`);
+    }).observe(bar);
+  }
   const invoice = document.getElementById('factura');
   if (!invoice || typeof IntersectionObserver !== 'function') return;
   new IntersectionObserver(

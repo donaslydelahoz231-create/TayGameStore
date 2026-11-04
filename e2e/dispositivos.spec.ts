@@ -137,6 +137,14 @@ let consoleErrors: string[] = [];
 test.beforeEach(async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280', 'cada caso fija su propio tamaño');
   consoleErrors = await preparePage(page);
+  // Como en producción, con WhatsApp y correo de soporte configurados: los botones de los dos
+  // canales ocupan espacio (en el JioPhone 2 ensanchaban la sección «Pedido»). Número ficticio.
+  await page.route('**/api/config', async (route) => {
+    const response = await route.fetch();
+    const config = (await response.json()) as { support?: Record<string, unknown> };
+    config.support = { ...config.support, whatsapp: '570000000000' };
+    await route.fulfill({ response, json: config });
+  });
 });
 test.afterEach(() => {
   expect(unexpectedErrors(consoleErrors)).toEqual([]);
@@ -220,8 +228,9 @@ for (const [nombres, w, h, movil, tactil] of DISPOSITIVOS) {
       await page.keyboard.press('Escape');
       await expect(page.locator('#searchPanel')).toBeHidden();
 
-      // Carrito: con un paquete, sus controles y el botón de seguir se pueden tocar.
-      const agregar = page.locator('#products .product .add-btn:not([disabled])').first();
+      // Carrito: con un paquete, sus controles y el botón de seguir se pueden tocar. El más caro:
+      // su total es el más largo y es el que hacía crecer la barra de compra.
+      const agregar = page.locator('#products .product .add-btn:not([disabled])').last();
       await agregar.scrollIntoViewIfNeeded();
       await agregar.click();
       // Con el paquete en el resumen y la barra de compra a la vista, la página sigue sin
@@ -235,7 +244,25 @@ for (const [nombres, w, h, movil, tactil] of DISPOSITIVOS) {
         w,
       );
       expect(conPaquete.ventana, 'con un paquete, la página no se aleja').toBe(w);
-      // La barra de compra del celular: «Revisar pedido» se puede tocar.
+      // La barra de compra del celular: ninguna burbuja de soporte se monta sobre ella (con un
+      // total largo la barra crece) y «Revisar pedido» se puede tocar. Se espera a que las
+      // burbujas lleguen a su sitio: con movimiento reducido el cambio de posición aún pasa por
+      // una transición de 0,01 ms (20-reduced-motion.css) y el primer cuadro trae la anterior.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const barra = document.querySelector<HTMLElement>('#buyBar');
+              if (!barra || barra.hidden || getComputedStyle(barra).display === 'none') return [];
+              const borde = barra.getBoundingClientRect().top;
+              return [...document.querySelectorAll<HTMLElement>('.support-float-btn')]
+                .filter((b) => b.getBoundingClientRect().height > 0)
+                .filter((b) => b.getBoundingClientRect().bottom > borde + 0.5)
+                .map((b) => b.id);
+            }),
+          { message: 'burbujas sobre la barra de compra' },
+        )
+        .toEqual([]);
       expect(await tapados(page, '#buyBar:not([hidden]) .btn')).toEqual([]);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.locator('#cartBtn').click();

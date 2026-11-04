@@ -113,7 +113,8 @@ body:has(#searchPanel:not([hidden])) :is(.support-float, .buy-bar) {
    - el menú de la cuenta (255 px) se salía 33 px por la izquierda: ahora ocupa el ancho de la
      pantalla con 8 px a cada lado;
    - en la barra de compra, el total ocupaba tres líneas y «Revisar pedido» lo tapaba: el total va
-     en una línea y el botón debajo, a todo lo ancho; las burbujas de soporte suben con ella;
+     arriba (ver la regla 13) y el botón debajo, a todo lo ancho (las burbujas de soporte suben con
+     ella: regla 14);
    - con un paquete en el carrito, la fila «− 1 + Eliminar» del resumen no cabía y ensanchaba la
      columna del catálogo a 242 px: el celular alejaba la página. Ahora la fila baja a otra línea
      cuando no cabe y la columna no pasa del ancho de la pantalla. */
@@ -137,21 +138,9 @@ body:has(#searchPanel:not([hidden])) :is(.support-float, .buy-bar) {
     gap: 6px;
     padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
   }
-  .buy-bar-info {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    column-gap: 8px;
-  }
-  .buy-bar-info b {
-    font-size: 1rem;
-  }
   .buy-bar .btn {
     flex: 1 0 100%;
     min-height: 40px;
-  }
-  body.has-buy-bar:not(.in-checkout):not(.entry-locked) :is(.support-float, .toast-stack) {
-    bottom: 100px;
   }
 }
 
@@ -163,5 +152,60 @@ body:has(#searchPanel:not([hidden])) :is(.support-float, .buy-bar) {
   .id-help summary {
     padding-block: 2px;
     margin-block: -2px;
+  }
+}
+
+/* 11. Sección «Pedido» en el JioPhone 2 (visto en producción, donde WhatsApp y correo están
+   configurados): los botones «WhatsApp» y «Correo», lado a lado, no cabían y ensanchaban la
+   sección a 289 px, así que el celular alejaba la página (307 px). Ahora las columnas no pasan del
+   ancho de la pantalla, los dos botones van uno debajo del otro y la marca y el total del
+   comprobante bajan de línea si no caben. */
+@media (max-width: 300px) {
+  .invoice-layout,
+  .invoice-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .support-mini {
+    flex-wrap: wrap;
+  }
+  .support-mini .btn {
+    flex: 1 0 100%;
+  }
+  #invoice .invoice-head,
+  #invoice .invoice-total {
+    flex-wrap: wrap;
+  }
+}
+
+/* 12. Pantallas de 300 px de alto o menos (JioPhone 2 en horizontal, 240 px): con la barra de
+   compra, las dos burbujas de soporte (una encima de la otra, 124 px) subían hasta la cabecera y
+   la de WhatsApp tapaba el carrito. Ahora van una al lado de la otra (56 px de alto). */
+@media (max-height: 300px) {
+  .support-float {
+    grid-auto-flow: column;
+  }
+}
+
+/* 13. Barra de compra en pantallas de 300 px de ancho o de alto (JioPhone 2): «N paquetes» y el
+   total no cabían en una línea y la barra llegaba a 96–117 px (hasta el 40 % de la pantalla de
+   240 px de alto), con la burbuja del correo encima de su borde. Aquí la barra muestra solo el
+   total; cuántos paquetes hay lo dice el número del carrito en la cabecera. */
+@media (max-width: 300px), (max-height: 300px) {
+  .buy-bar-info span {
+    display: none;
+  }
+  .buy-bar-info b {
+    font-size: 1rem;
+  }
+}
+
+/* 14. Burbujas de soporte y avisos sobre la barra de compra del celular: iban a 88 px del borde,
+   lo justo para una barra de 69 px. Con un total largo («$ 150.000 COP» en 344–360 px) la barra
+   mide 96 px y la burbuja la tapaba 8 px; en el JioPhone 2 la barra apilada también es más alta.
+   Ahora siguen el alto real de la barra (--buy-bar-h, lo mide cart.js) con el mismo espacio de
+   19 px: con la barra de siempre quedan donde estaban. */
+@media (max-width: 760px) {
+  body.has-buy-bar:not(.in-checkout):not(.entry-locked) :is(.support-float, .toast-stack) {
+    bottom: calc(var(--buy-bar-h, 69px) + 19px);
   }
 }

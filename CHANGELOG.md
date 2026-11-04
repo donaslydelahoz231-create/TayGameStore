@@ -5,6 +5,16 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Dispositivos: lo que solo se veía con los datos de producción (2026-11-04)
+
+- **JioPhone 2 en vertical**: con WhatsApp y correo configurados, los dos botones de la sección
+  «Pedido» ensanchaban la página (307 px) y el celular la alejaba. Ahora van uno debajo del otro.
+- **JioPhone 2 en horizontal**: con un paquete en el carrito, la burbuja de WhatsApp tapaba el
+  carrito de la cabecera. En pantallas de 300 px de alto o menos las burbujas van una al lado de la
+  otra, y la barra de compra muestra solo el total.
+- **Celulares de 344–360 px con un total largo** («$ 150.000 COP»): la barra de compra crecía y las
+  burbujas de soporte la tapaban. Ahora siguen el alto real de la barra.
+
 ### La tienda se adapta a todos los dispositivos de Chrome DevTools (2026-11-04)
 
 - A pedido del dueño, la tienda se revisó en los 46 dispositivos de la lista de Chrome DevTools

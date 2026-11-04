@@ -3030,3 +3030,59 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **NO VERIFICADO:** equipos reales (solo la emulación de Chrome DevTools en Playwright, sin tarjeta
   gráfica); las capturas visuales de referencia (`test:visual`), que en este contenedor fallan
   incluso sin cambios; Firefox en paralelo. Sin publicar: falta la autorización del dueño.
+- **Publicación de 0e78f3e** (autorizada por el dueño: «Publicar ahora (Recomendado)», 2026-11-04):
+  7 blobs iguales a los aprobados; `git ls-remote` = 0e78f3e. Render `dep-dblp2vbbc2fs73905pu0` en
+  `live` a las 20:13:24 UTC, sin errores ni avisos en los registros desde las 20:08. La hoja de
+  estilos publicada es idéntica byte a byte a la del build del commit; `/api/ready` y `/api/health`
+  200. CI #254 en verde (gitleaks; lint, tipos, unitarias y build; integración; e2e en Chromium,
+  Firefox y WebKit, con la prueba de dispositivos), smoke #110 y CodeQL #197 en verde. En vivo, a
+  960×1440 el menú termina en 744 px y la búsqueda empieza en 755.
+
+## 2026-11-04 · Dispositivos: lo que solo se veía con los datos de producción (local, sin publicar)
+
+- **Origen:** la verificación en vivo de 0e78f3e. Producción tiene WhatsApp y correo de soporte
+  configurados (el servidor de pruebas, solo correo) y precios reales (un paquete de
+  «$ 150.000 COP»). Con eso aparecieron fallos que la auditoría local no veía:
+  - JioPhone 2 en vertical (240×320): la página medía 307 px y el celular la alejaba. Los botones
+    «WhatsApp» y «Correo» de la sección «Pedido», lado a lado, ensanchaban la sección a 289 px.
+  - JioPhone 2 en horizontal (320×240), con un paquete en el carrito: las dos burbujas de soporte,
+    una encima de la otra, subían hasta la cabecera y la de WhatsApp tapaba el carrito
+    (`elementFromPoint` en el centro del carrito devolvía `floatWhatsApp`).
+  - Celulares de 344 y 360 px (Galaxy Z Fold 5 cerrado, Galaxy S8+, Galaxy A55, Moto G4) con un
+    total largo: el total pasa a dos líneas, la barra de compra crece de 69 a 96 px y las burbujas,
+    a 88 px fijos del borde, la tapaban 8 px. También en el JioPhone 2, donde la barra apilada es
+    más alta.
+  - La barra de compra ocupaba hasta el 40 % de la pantalla de 240 px de alto.
+- **Cambios:**
+  - `50-dispositivos.css`, regla 11 (≤ 300 px de ancho): columnas de «Pedido» que no pasan del
+    ancho de la pantalla; «WhatsApp» y «Correo» uno debajo del otro; la marca y el total del
+    comprobante bajan de línea si no caben.
+  - Regla 12 (≤ 300 px de alto): las burbujas de soporte van una al lado de la otra (56 px de alto
+    en vez de 124).
+  - Regla 13 (≤ 300 px de ancho o de alto): la barra muestra solo el total (el número de paquetes
+    ya está en el carrito de la cabecera), a 1 rem.
+  - Regla 14 (≤ 760 px): burbujas y avisos a 19 px por encima del alto real de la barra
+    (`--buy-bar-h`) en vez de 88 px fijos; con la barra de 69 px quedan donde estaban.
+  - `js/store/features/cart.js`: `watchBuyBar` mide la barra con `ResizeObserver` y guarda su
+    alto en `--buy-bar-h` (si está oculta conserva el último).
+  - `e2e/dispositivos.spec.ts`: simula WhatsApp configurado (número ficticio, como en producción),
+    agrega el paquete más caro (el total más largo) y comprueba que ninguna burbuja quede sobre la
+    barra.
+- **Reproducción antes de corregir:** sin la regla 11 la prueba del JioPhone 2 falla con 307 px
+  (la cifra de producción); sin la regla 14 fallan Galaxy S8+, Galaxy A55, Galaxy Z Fold 5 y
+  JioPhone 2 («burbujas sobre la barra de compra»). Con las reglas, pasan.
+- **Contra los datos reales:** en la tienda en vivo, inyectando las reglas y la medición de la barra
+  solo en el navegador de prueba (sin tocar producción ni crear pedidos; los paquetes quedan en el
+  carrito del navegador): 240×320, 320×240, 344×882, 360×640, 360×800, 375×667, 390×844, 412×915,
+  667×375 y 760×1024, con 1 o 4 paquetes: sin desbordes, el carrito libre y las burbujas siempre
+  19 px por encima de la barra.
+- **Nota de la prueba:** en WebKit, la comprobación de las burbujas fallaba en 21 tamaños aunque
+  la tienda estaba bien. Las pruebas corren con movimiento reducido y `20-reduced-motion.css` da a
+  todo una transición de 0,01 ms: el primer cuadro después de agregar el paquete aún trae la
+  posición anterior de las burbujas (`getAnimations()` mostraba la transición de `bottom` en
+  `currentTime` 0, también en Chromium). La prueba ahora espera a que lleguen a su sitio
+  (`expect.poll`); sin la regla 14 el solapamiento es permanente y sigue fallando.
+- **Verificación local:** formato, lint y tipos OK; unitarias 406/406; suite e2e completa en
+  Chromium 163/163 (en serie); `e2e/dispositivos.spec.ts` con la versión final 75/75 en Chromium, Firefox y WebKit (en serie).
+- **NO VERIFICADO:** equipos reales y Safari real (solo WebKit de Playwright); las capturas visuales
+  de referencia (`test:visual`). Sin publicar: falta la autorización del dueño.
