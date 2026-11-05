@@ -114,6 +114,15 @@ const DISPOSITIVOS: [
 // Firefox no emula celulares (isMobile); Chromium y WebKit sí.
 const MOVIL = (process.env.E2E_BROWSER ?? 'chromium') !== 'firefox';
 
+/**
+ * Al entrar como invitado, la tienda crea su perfil (POST /api/profile). Hasta que responde, el
+ * botón de la cuenta abre el acceso en vez del menú (en la CI de WebKit tardó 0,9 s y la prueba
+ * tocó antes). Se espera a ver el nombre de usuario en la cabecera, como las demás pruebas.
+ */
+async function esperarPerfil(page: Page) {
+  await expect(page.locator('#accountName')).not.toHaveText('Invitado', { timeout: 15_000 });
+}
+
 /** Controles visibles que no se pueden tocar porque otra cosa queda encima de su centro. */
 function tapados(page: Page, selector: string) {
   return page.evaluate((sel) => {
@@ -164,6 +173,7 @@ test.describe('acceso y teclado en celular (iPhone SE)', () => {
     expect(caja?.height ?? 0).toBeGreaterThanOrEqual(24);
     await page.locator('#guestBtn').click();
     await expect(page.locator('#loginModal')).toBeHidden();
+    await esperarPerfil(page);
 
     await page.locator('#accountBtn').click();
     await expect(page.locator('#accountMenu')).toBeVisible();
@@ -180,6 +190,7 @@ for (const [nombres, w, h, movil, tactil] of DISPOSITIVOS) {
     test('se adapta sin desbordes y sin controles tapados', async ({ page }) => {
       await page.goto('/');
       await enterAsGuest(page);
+      await esperarPerfil(page);
 
       // Sin desplazamiento lateral ni página alejada: en un celular, si algo es más ancho que la
       // pantalla el navegador aleja la página entera (innerWidth crece) y todo se ve pequeño.

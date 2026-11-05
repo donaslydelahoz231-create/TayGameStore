@@ -3086,3 +3086,27 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
   Chromium 163/163 (en serie); `e2e/dispositivos.spec.ts` con la versión final 75/75 en Chromium, Firefox y WebKit (en serie).
 - **NO VERIFICADO:** equipos reales y Safari real (solo WebKit de Playwright); las capturas visuales
   de referencia (`test:visual`). Sin publicar: falta la autorización del dueño.
+- **Publicación de afaee06** (autorizada por el dueño: «Publicar ahora (Recomendado)», 2026-11-04):
+  5 blobs iguales a los aprobados; `git ls-remote` = afaee06. Render `dep-dblqij7f3r2c73d6uhv0` en
+  `live` a las 21:54:19 UTC, sin errores ni avisos en los registros. La hoja de estilos y el
+  JavaScript publicados son idénticos byte a byte a los del build del commit; `/api/ready` y
+  `/api/health` 200. CodeQL #198 y smoke #111 en verde. En vivo y sin inyectar nada, con el paquete
+  más caro: 240×320, 320×240, 344×882, 360×740, 375×667 y 960×1440 sin desbordes, el carrito libre,
+  ninguna burbuja sobre la barra y `--buy-bar-h` igual al alto real de la barra (96, 71, 96, 96 y
+  69 px); sin peticiones fallidas ni errores de página.
+- **CI #255 en rojo (la prueba, no la tienda):** gitleaks, lint/tipos/unitarias/build, integración
+  y e2e en Chromium y Firefox en verde; en WebKit 160 pasaron y falló 1: Surface Duo (540×720), «el
+  menú de la cuenta no se abrió». La traza del artefacto muestra la causa: al entrar como invitado
+  la tienda crea el perfil (`POST /api/profile`, 884 ms en esa máquina) y la prueba tocó el botón
+  de la cuenta 0,3 s antes de la respuesta; sin perfil, ese botón abre el acceso y no el menú
+  (`bindings.js`). Las demás pruebas del repositorio ya esperan el nombre de usuario en la cabecera
+  antes de abrir el menú; la de dispositivos no.
+- **Corrección (solo la prueba, local, sin publicar):** `e2e/dispositivos.spec.ts` espera a que
+  `#accountName` deje de decir «Invitado» antes de abrir el menú (en la prueba por tamaño y en la de
+  teclado). Reproducido antes de corregir: con `POST /api/profile` retrasado 1,5 s, la prueba de
+  Surface Duo y la de teclado fallan igual que en la CI («#accountMenu hidden»); con la espera,
+  pasan en Chromium y WebKit con el mismo retraso. El retraso fue temporal y no queda en la prueba. Sin
+  retraso, la prueba de dispositivos completa: 75/75 en WebKit, Chromium y Firefox (en serie).
+- **Observación para el dueño (sin cambiar):** con una red lenta, un invitado que toca el botón de
+  la cuenta durante el primer segundo ve otra vez la ventana de acceso. Es el comportamiento del
+  acceso (`bindings.js`), fuera de este pedido; no se toca sin su autorización.
