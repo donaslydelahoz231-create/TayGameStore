@@ -203,6 +203,55 @@ for (const [nombres, w, h, movil, tactil] of DISPOSITIVOS) {
       expect(anchos.ventana, 'la página no se aleja').toBe(w);
       expect(anchos.diseno, 'el diseño ocupa el ancho de la pantalla').toBe(w);
 
+      // Portada: el grafiti (grafitero y letras) se ve entero dentro de la pantalla (en iPhone Plus
+      // y Pro Max se salía por la derecha), el texto del panel de estado no se corta en su borde
+      // (celulares en horizontal y tabletas de 1024 px) y el panel no tapa la marca «TayGameStore»
+      // (Safari de 901 px en adelante). Bajo 300 px el grafiti no cabe junto a los botones: queda
+      // fuera de esta comprobación.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const fallas: string[] = [];
+              const ancho = document.documentElement.clientWidth;
+              if (ancho >= 300) {
+                const piezas = document.querySelectorAll<HTMLElement>(
+                  '.grafiti-escena .grafitero, .grafiti-escena .grafiti-pieza',
+                );
+                for (const el of piezas) {
+                  const r = el.getBoundingClientRect();
+                  if (getComputedStyle(el).display === 'none' || r.width < 1) continue;
+                  if (r.left < -0.5 || r.right > ancho + 0.5) {
+                    fallas.push(`${el.className}: ${Math.round(r.left)}..${Math.round(r.right)}`);
+                  }
+                }
+              }
+              const panel = document.querySelector<HTMLElement>('.hero-panel');
+              if (panel) {
+                const p = panel.getBoundingClientRect();
+                const borde = p.right - parseFloat(getComputedStyle(panel).paddingRight) + 1;
+                for (const el of panel.querySelectorAll('.hero-panel-copy, .hero-panel-copy > *')) {
+                  if (el.getBoundingClientRect().right > borde) {
+                    fallas.push(`panel: ${el.tagName.toLowerCase()} cortado`);
+                  }
+                }
+                const marca = document.querySelector('.hero-wordmark')?.getBoundingClientRect();
+                if (
+                  marca &&
+                  p.top < marca.bottom &&
+                  p.bottom > marca.top &&
+                  p.left < marca.right &&
+                  p.right > marca.left
+                ) {
+                  fallas.push(`el panel tapa la marca ${Math.round(marca.right - p.left)} px`);
+                }
+              }
+              return fallas;
+            }),
+          { message: 'portada: grafiti, panel de estado y marca' },
+        )
+        .toEqual([]);
+
       // Si se ve el menú de la cabecera, cabe entero antes de la búsqueda.
       const cabecera = await page.evaluate(() => {
         const nav = document.querySelector<HTMLElement>('.header .nav');

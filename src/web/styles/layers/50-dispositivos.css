@@ -209,3 +209,58 @@ body:has(#searchPanel:not([hidden])) :is(.support-float, .buy-bar) {
     bottom: calc(var(--buy-bar-h, 69px) + 19px);
   }
 }
+
+/* 15. Grafiti de la portada en celulares de 413 a 599 px (iPhone 14/15 Plus y Pro Max, iPhone 16
+   Plus y Pro Max, Surface Duo): los dos botones cabían en una sola fila y el grafiti, que va a su
+   derecha, se quedaba sin espacio: el grafitero salía cortado por el borde de la pantalla y las
+   letras «TayGameStore» quedaban fuera. Hasta 412 px los botones ya bajan uno debajo del otro y el
+   grafiti cabe al lado; aquí se apilan igual. Desde 600 px el grafiti cabe junto a la fila. */
+@media (max-width: 599px) {
+  .hero-buttons {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* 16. Panel de estado de 901 a unos 1060 px de ancho (celulares en horizontal como los iPhone Plus y
+   Pro Max, Pixel y Galaxy; iPad y otras tabletas de 1024 px en horizontal): en dos columnas el
+   panel mide 248–311 px y la bóveda de 156 px no dejaba sitio al texto: «Estado de operación»,
+   «Listo para tu próxima recarga» y el precio salían cortados por el borde del panel. La bóveda
+   sigue a la izquierda, cuadrada y completa, y se achica (hasta 76 px, como en los teléfonos
+   angostos) para dejar al texto 7.5rem; en paneles más anchos sigue midiendo 156 px. */
+@media (min-width: 481px) {
+  .hero-vault {
+    width: clamp(76px, calc(100% - 18px - 7.5rem), 156px);
+  }
+}
+
+/* 17. Safari (WebKit) de 901 px en adelante, en dos columnas: al medir lo mínimo que necesita la
+   columna izquierda no contaba el ancho del Tay de la portada (.hero-logo: ancho con vw, alto
+   automático y aspect-ratio), y la daba 100–120 px más angosta que el título. El panel de estado
+   tapaba «Store» 59–100 px en celulares en horizontal y tabletas (915–1100 px) y 10–23 px en
+   computador (1180–1280 px). Con un ancho mínimo igual a su ancho, Safari reparte las columnas
+   igual que Chrome y Firefox, donde nada cambia. */
+@media (min-width: 901px) {
+  .hero-logo {
+    min-width: clamp(112px, 13.5vw, 172px);
+  }
+}
+
+/* 18. Grafiti en celulares de 340 a 359 px (Galaxy Z Fold 5 cerrado, 344 px): el grafitero de 58 px
+   de alto y las letras no cabían juntos a la derecha de los botones y las letras se salían 2 px por
+   el borde de la pantalla. El grafitero se achica a 48 px de alto, con su misma proporción. */
+@media (min-width: 340px) and (max-width: 359px) {
+  .grafitero {
+    height: min(100%, 48px);
+  }
+}
+
+/* 19. Panel de estado en pantallas de 300 px de ancho o menos (JioPhone 2, 240 px): con la bóveda
+   de 76 px a la izquierda, al texto le quedaban 78 px y «Estado de operación», el título y el precio
+   salían cortados por el borde del panel. Aquí el texto va debajo de la bóveda, a todo el ancho. */
+@media (max-width: 300px) {
+  .hero-core {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

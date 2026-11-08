@@ -3110,3 +3110,53 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Observación para el dueño (sin cambiar):** con una red lenta, un invitado que toca el botón de
   la cuenta durante el primer segundo ve otra vez la ventana de acceso. Es el comportamiento del
   acceso (`bindings.js`), fuera de este pedido; no se toca sin su autorización.
+- **Publicación de 930f2f8** (autorizada por el dueño: «Subir ahora (Recomendado)», 2026-11-05):
+  2 blobs iguales a los aprobados; `git ls-remote` = 930f2f8. Render `dep-dbm7jcm7bikc73em1mog` en
+  `live` a las 12:43:31 UTC, sin errores ni avisos. La tienda sirve la misma hoja de estilos y el
+  mismo JavaScript que afaee06 (idénticos byte a byte al build). CI #256 en verde (gitleaks; lint,
+  tipos, unitarias y build; integración; e2e en Chromium, Firefox y WebKit), CodeQL #199 y smoke
+  #112 en verde.
+
+## 2026-11-08 · Portada en iPhone Plus y Pro Max, tabletas y Safari (local, sin publicar)
+
+- **Pedido del dueño:** que Tay y el muro de ladrillo con el grafiti se adapten sin deformarse en
+  el iPhone 16 Pro Max (430×932 según el pedido), cubran bien el alto y no se desajusten. Nota: el
+  iPhone 16 Pro Max mide 440×956; 430×932 es el de los iPhone 14 Pro Max, 15 Plus, 15 Pro Max y
+  16 Plus. Se midieron los dos, con y sin las barras de Safari (430×739 y 440×763, aproximado), en
+  vertical y en horizontal.
+- **Medido sin cambios (Chromium y WebKit, DPR 3):** sin deformación: Tay 1:1 (`viewBox` 160×160,
+  `xMidYMid meet`), grafitero 0,857 (120:140), muro con `background-size: cover` (escala uniforme
+  1,13–1,21 en vertical). Al cambiar el alto de la ventana 100 px (las barras de Safari) el muro no
+  cambia de escala: la portada no depende del alto de la ventana. Sin desplazamiento lateral.
+- **Fallos encontrados** (scripts en el scratchpad: `proporcion.mjs`, `escena.mjs`, `panel.mjs`,
+  `boveda.mjs`, `marca.mjs`):
+  - 413–599 px (iPhone Plus y Pro Max, Surface Duo): los dos botones caben en una fila (`--bx`
+    = 405 px) y la escena del grafiti quedaba de 0 px (430) o 9 px (440): grafitero en 419..453 y
+    letras en 459..549, fuera de la pantalla (`.hero-art` recorta). Hasta 412 px los botones bajan
+    solos y el grafiti cabe.
+  - 901–1060 px en dos columnas (celulares en horizontal, iPad Mini en horizontal): panel de
+    248–311 px; la bóveda de 156 px dejaba al texto 66–99 px y su ancho mínimo es 115 px: 3–4
+    líneas cortadas por el borde, en los tres motores.
+  - Solo WebKit, de 901 px en adelante: la columna izquierda medía 100–120 px menos que el título
+    (`h1` 581 px en una columna de 460 px a 932×430) y el panel tapaba «Store» 59–100 px (915–1100)
+    y 10–23 px (1180–1440). Causa: WebKit no cuenta el ancho de `.hero-logo` (ancho con `vw`, alto
+    automático y `aspect-ratio`) en el mínimo de la columna. Con `min-width` igual a su ancho, las
+    columnas quedan idénticas a las de Chromium (580,6/264,0 px a 932; 697,1/408,0 a 1280).
+  - Al añadir la comprobación a la prueba aparecieron dos más, previos: Galaxy Z Fold 5 cerrado
+    (344 px), letras del grafiti 2 px fuera; JioPhone 2 (240 px), texto del panel cortado.
+- **Corrección** (`50-dispositivos.css`, reglas 15–19): botones apilados hasta 599 px; bóveda
+  `clamp(76px, 100% - 18px - 7.5rem, 156px)` desde 481 px (en paneles anchos sigue en 156 px);
+  `min-width` del Tay de la portada desde 901 px; grafitero de 48 px de alto en 340–359 px; texto
+  del panel bajo la bóveda hasta 300 px. Nada se quita ni se deforma.
+- **Prueba** (`e2e/dispositivos.spec.ts`): en cada tamaño, grafitero y letras dentro de la
+  pantalla (desde 300 px), texto del panel dentro de su borde y el panel sin tapar la marca. Sin la
+  corrección falla donde estaban los fallos (Chromium: iPhone 16 Pro Max, su horizontal e iPad Mini
+  horizontal; WebKit: además la marca tapada 96, 90 y 23 px).
+- **Verificación local:** con la corrección, prueba de dispositivos completa: Chromium 75/75 (con
+  las animaciones, 82/82), WebKit 75/75 y Firefox 75/75 (en serie). Lint sin errores, unitarias y
+  API 406/406, Prettier y escáner sin coincidencias. Las capturas visuales (360, 768 y 1280 px):
+  NO VERIFICADO aquí; en esos tamaños las medidas no cambian (botones ya apilados a 360 px, bóveda
+  de 156 px a 768 y 1280).
+- **Queda para el dueño:** bajo 300 px (JioPhone 2, Galaxy Fold cerrado de 280 px) las letras del
+  grafiti no caben junto a los botones y salen cortadas (el grafitero ya se oculta ahí desde antes).
+  No se cambia sin su decisión.

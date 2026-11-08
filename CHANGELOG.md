@@ -5,6 +5,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Portada en iPhone Plus y Pro Max, tabletas y Safari (2026-11-08)
+
+- **iPhone 14, 15 y 16 Plus y Pro Max (428–440 px) y Surface Duo (540 px)**: los dos botones de
+  la portada cabían en una fila y el grafiti se quedaba sin espacio a su derecha: el grafitero salía
+  cortado por el borde y las letras «TayGameStore» quedaban fuera de la pantalla. Ahora los botones
+  van uno debajo del otro, como en los demás celulares, y el grafiti se ve entero a su lado.
+- **Celulares en horizontal y tabletas de 1024 px en horizontal (901–1060 px)**: el texto del panel
+  de estado («Listo para tu próxima recarga» y el precio) salía cortado. La bóveda se achica para
+  dejarle sitio; en pantallas más anchas no cambia.
+- **Safari (iPhone, iPad y Mac) de 901 px en adelante**: el panel de estado tapaba «Store» del
+  título (96 px en el iPhone 16 Pro Max en horizontal, 23 px en un Mac de 1280–1440 px). Ahora
+  Safari reparte las columnas igual que Chrome y Firefox.
+- **Galaxy Z Fold 5 cerrado (344 px)**: las letras del grafiti se salían 2 px; el grafitero se
+  achica un poco, con su misma proporción.
+- **JioPhone 2 (240 px)**: el texto del panel de estado salía cortado; ahora va debajo de la bóveda.
+- Tay, el grafitero y el muro conservan su proporción en todos los tamaños medidos, y el muro no
+  cambia de escala cuando Safari muestra u oculta sus barras.
+- La prueba de dispositivos revisa ahora la portada: el grafiti dentro de la pantalla, el texto del
+  panel sin cortes y la marca sin tapar.
+
 ### Dispositivos: lo que solo se veía con los datos de producción (2026-11-04)
 
 - **JioPhone 2 en vertical**: con WhatsApp y correo configurados, los dos botones de la sección
