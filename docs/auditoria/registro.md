@@ -3198,3 +3198,20 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Publicación**: solo documentos, la tienda no cambia. Se publica únicamente con la autorización
   explícita del dueño para este diff exacto (`despliegue-seguro`); la autorización se anota en la
   entrada siguiente.
+
+## 2026-11-11 · Mantenimiento de producción autorizado por el dueño (local, sin publicar)
+
+Autorización del dueño: «te autorizo todo en orden todo completo» sobre la rama
+`claude/taygamestore-production-pfctbn` (sin mezclar la rama de WhatsApp, que queda aparte). Cada
+parte se prueba en local; el push se pide aparte con el diff exacto.
+
+### 1. Vulnerabilidades de dependencias
+
+- **Antes**: `npm audit` 12 moderadas; 3 en dependencias de producción (`@fastify/static` 10.1.6
+  → `glob` → `minimatch`: «potential denial of service via globparts amplification» y «AbortSignal
+  cancellation bypass»), 9 en herramientas de desarrollo (ESLint y typescript-eslint vía
+  `minimatch`).
+- **Cambio**: `@fastify/static` 10.1.10 (versión de parche, la misma que propone Dependabot en el
+  PR #29) y `overrides.minimatch` 11.0.8 (lo usan glob, ESLint y typescript-eslint).
+- **Después**: `npm audit` 0. Lint (comprobado que sigue detectando errores), tipos, formato,
+  build, unitarias 406/406, integración 319/319 y e2e de entrada, cabeceras y estáticos 11/11.
