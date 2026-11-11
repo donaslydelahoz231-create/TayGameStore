@@ -1,12 +1,5 @@
-name: Mantenimiento automático
 
-# Cada lunes aplica las correcciones automáticas seguras y, si algo cambió y las comprobaciones
-# pasan, abre un pull request para revisarlo (nunca hace push a la rama principal):
-#   - npm audit fix sin --force (solo versiones compatibles),
-#   - eslint --fix y prettier --write.
-# Las actualizaciones de versión las propone Dependabot (.github/dependabot.yml).
-# Nota: los pull requests creados con GITHUB_TOKEN no disparan otros workflows; la CI se ejecuta
-# al aprobarlo o al hacer cualquier push a esa rama.
+name: Mantenimiento automático
 
 on:
   schedule:
@@ -26,20 +19,26 @@ jobs:
     name: Correcciones automáticas
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      GH_TOKEN: ${{ github.token }}
+
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
+
       - run: npm ci
+
       - name: Aplicar correcciones
         run: |
           npm audit fix || true
           npx eslint . --fix || true
           npx prettier --write . > /dev/null
+
       - name: ¿Hay cambios?
         id: diff
         run: |
@@ -49,24 +48,30 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             git diff --stat
           fi
-      - name: Comprobar que todo sigue pasando
+
+      - name: Comprobar cambios
         if: steps.diff.outputs.changed == 'true'
         run: |
           npm run lint
           npm run typecheck
           npm test
           npm run build
-      - name: Abrir pull request
+
+      - name: Crear Pull Request
         if: steps.diff.outputs.changed == 'true'
-        run: |
-          branch="mantenimiento/auto-$(date -u +%Y%m%d)"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git commit -am "chore: correcciones automáticas de mantenimiento"
-          git push --force-with-lease origin "$branch"
-          if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')" ]; then
-            gh pr create --base "${{ github.ref_name }}" --head "$branch" \
-              --title "Mantenimiento automático $(date -u +%F)" \
-              --body "Correcciones automáticas (npm audit fix sin --force, eslint --fix, prettier). Lint, tipos, pruebas unitarias y build pasaron en el workflow. Revisa el diff antes de fusionar."
-          fi
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          branch: mantenimiento/automatico
+          delete-branch: false
+          commit-message: "chore: correcciones automáticas de mantenimiento"
+          title: "Mantenimiento automático"
+          body: |
+            Correcciones automáticas:
+            - npm audit fix sin --force
+            - ESLint
+            - Prettier
+
+            Las comprobaciones de lint, tipos, pruebas y build
+            deben pasar antes de integrar los cambios.
+          base: ${{ github.ref_name }}
