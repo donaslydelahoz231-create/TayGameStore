@@ -3215,3 +3215,94 @@ parte se prueba en local; el push se pide aparte con el diff exacto.
   PR #29) y `overrides.minimatch` 11.0.8 (lo usan glob, ESLint y typescript-eslint).
 - **Después**: `npm audit` 0. Lint (comprobado que sigue detectando errores), tipos, formato,
   build, unitarias 406/406, integración 319/319 y e2e de entrada, cabeceras y estáticos 11/11.
+
+### 2. Pruebas inestables de WebKit, corregidas en el origen
+
+Las dos pruebas que fallaban a veces en el CI de WebKit (Safari) eran fallos reales de la tienda,
+no de las pruebas. Ninguna aserción se quitó ni se relajó.
+
+- **Contraste (axe) bajo la entrada** (commit `0740ce6`): con «movimiento reducido», la tienda
+  tapada por la entrada seguía visible un fotograma por una transición de 0,01 ms
+  (`20-reduced-motion.css`). `33-motion-budget.css` quita toda transición mientras la tienda está
+  bloqueada (`.store-locked`). En WebKit, 10 de 10 cargas: tienda oculta desde el primer instante;
+  axe 0 infracciones (antes, visible en 9 de 10).
+- **«Fetch API cannot load …/api/orders/TGS-… due to access control checks»**: la traza del CI
+  (11-11) muestra que la consulta periódica del pedido seguía en vuelo cuando la tienda navegó al
+  cobro de Mercado Pago y WebKit la cortó. Corrección (`orders.js`, `checkout.js`): antes de salir
+  al cobro se para el sondeo y se espera la consulta en vuelo (como mucho 2 s); además, un ciclo
+  de un sondeo ya parado ya no reprograma otro (`pollRun`). Sin tocar CORS, CSP ni controles.
+- **«Atrás» desde Mercado Pago** (encontrado al revisar la corrección anterior): la portada se
+  sirve con `no-cache`, así que el navegador puede devolverla desde la caché atrás/adelante tal
+  como quedó: botón «Abriendo Mercado Pago…» bloqueado (fallo que ya existía) y, con la corrección,
+  seguimiento detenido. `pageshow` con `persisted` reactiva el botón y consulta el pedido al
+  instante (`resumeFromBackForwardCache`).
+- **Pruebas** (`e2e/behavior.spec.ts`, «salida al cobro»): /pay tarda 6,5 s y la consulta 2,5 s
+  (ninguna consulta cortada); y el regreso con la página restaurada (cobro con 204 + `pageshow`).
+  Control negativo: sin la corrección, las dos fallan en Chromium y en WebKit; con ella pasan
+  (WebKit 3 de 3).
+
+### 3. Comprobante, historial y «Enviar a TayGameStore»
+
+- Commit `0556e08`: «Enviar a TayGameStore» (imagen del comprobante + datos línea por línea por el
+  menú de compartir; en computador: JPG descargado, texto copiado y chat de la tienda abierto con
+  el texto), comprobante ordenado (nombre largo completo, total que no se sale a 360 px, detalle a
+  lo ancho en celular) e historial con «Compra exitosa».
+- **Caso límite corregido**: un pedido **reembolsado** conserva su número de comprobante (el
+  servidor lo mantiene como prueba del pago original) y el historial lo presentaba como «Compra
+  exitosa». Ahora `purchaseSucceeded` exige comprobante y estado PAID, DELIVERING o DELIVERED; un
+  pedido reembolsado o en revisión muestra «Comprobante N.º …» sin esa etiqueta, y la descarga
+  dice su estado («… listo para descargar · Reembolsado»). Pruebas unitarias y e2e con datos
+  ficticios (control negativo: con la lógica anterior la e2e falla).
+- **Imagen preparada de antemano**: en iPhone, el menú de compartir solo se abre dentro del toque
+  del cliente; la imagen se dibujaba después del toque (fuentes, logo, JPG). Ahora se prepara al
+  aparecer el comprobante y JPG, PDF, Compartir y Enviar la reutilizan (solo el JPG y sus medidas;
+  el lienzo se libera).
+- Servidor revisado (solo lectura): el historial solo devuelve pedidos de la cuenta o del
+  navegador (máx. 50); la base garantiza total = subtotal − descuento, línea = precio × cantidad,
+  número de comprobante único y pago solo con jugador confirmado; la verificación pública de un
+  comprobante reembolsado dice «Pago reembolsado».
+
+### 4. Integración continua y diagnóstico diario
+
+- `scripts/ci/instalar-navegador.sh`: instala el navegador de Playwright con 3 intentos (espera
+  45 s y 90 s). El 11-11 el paso cayó por DNS de los espejos de apt de GitHub. Si los 3 fallan, el
+  paso falla (nada se oculta). Lo usan `ci.yml`, `diagnostico.yml` y `production-smoke.yml`.
+- `tools/smoke/burbujas.mjs`: un «diseño cargado: NO» ahora explica la causa (`--bg`, aviso de
+  estilos, hojas aplicadas, en qué milisegundo llegó la hoja frente al evento `load`, estado y
+  tipo de cada hoja y script, errores de consola sin números largos). El fallo del 11-11 (ejecución
+  43080262595, solo a 360 px: «diseño cargado: NO (sin detalle)» y «bienvenida sin burbuja: NO»,
+  mientras las comprobaciones posteriores de esa página sí tenían estilos) indica estilos que
+  llegaron tarde en la primera carga; no hay recargas automáticas ni cambios de hojas en la tienda
+  que lo expliquen. Causa exacta NO VERIFICADA; el 12-11 el diagnóstico completo contra la tienda
+  publicada pasa en 360 y 1280 px. Probado también el camino «NO» (proxy local con aviso inyectado).
+- Revisado para el aviso de WebKit: la tienda no tiene service worker ni configuración CORS (la API
+  es del mismo origen, `credentials: 'same-origin'`); «access control checks» es el texto con que
+  WebKit registra una petición cancelada por la navegación, no un bloqueo de seguridad.
+
+### 5. Pruebas e2e: un fallo intermitente ya no arrastra a las demás
+
+- **Visto en Firefox** (primera pasada local completa): 5 fallos. Uno real: «Nequi desde el panel»
+  agotó sus 60 s, y su `finally` no alcanzó a devolver el servidor de pruebas al modo de
+  verificación del equipo. Los otros 4 fueron en cascada: las pruebas siguientes que crean pedidos
+  heredaron el modo «cliente confirma su ID» y `/api/checkout` respondió 400. Sola, la prueba pasa
+  en 5,2 s, y la segunda pasada completa dio 164/164 (3 omitidas por diseño). La causa del bloqueo
+  de 60 s queda NO VERIFICADA; es de la misma familia que los bloqueos de Firefox en el CI
+  (ejecuciones 39/40/43) ya anotados en `preparePage`.
+- **Corrección**: el servidor de pruebas tiene `/__e2e__/reset` (solo en `e2e/support/server.ts`,
+  nunca en producción), que devuelve Nequi, el modo de verificación y la entrega con PIN a sus
+  valores de arranque. `preparePage` lo llama antes de cada prueba. Un fallo sigue siendo un
+  fallo (nada se oculta), pero ya no contagia a las pruebas siguientes. Control negativo: sin la
+  restauración, una prueba hereda el modo `customer` de la anterior; con ella, `operator`.
+
+### Resultados (2026-11-12, código final, en local)
+
+- Lint, formato y tipos: OK. Esquema y migraciones: sin cambios (`drizzle-kit generate`).
+- Unitarias 415/415 (41 archivos). Integración 319/319 (29 archivos, PostgreSQL 16 local con
+  credenciales ficticias). Build OK. `npm audit`: 0 (producción y desarrollo).
+- E2E con el comando del CI (`npm run test:e2e`, escritorio 1280): Chromium 167/167; WebKit 165/165
+  (2 omitidas por diseño: llaves de acceso y toque emulado, que usan el CDP de Chromium); Firefox
+  164/164 (3 omitidas por diseño).
+- Escáner de secretos: 0 coincidencias (árbol, `dist/`, ignorados e historial).
+- Tienda publicada (solo lectura): `golive:check --url` → «LISTO para vender»; diagnóstico de
+  burbujas, todo «sí» a 360 y 1280 px.
+- Sin push ni despliegue: GitHub y Render siguen en `9c023cc`.
