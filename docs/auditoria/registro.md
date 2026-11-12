@@ -3498,3 +3498,26 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   - Health Check Path de Render: el conector no lo permite, y no se pide una clave de la API de
     Render (daría control de toda la cuenta) para un ajuste menor. Valor recomendado:
     `/api/ready`.
+
+## 2026-11-12 · «La tienda no se actualiza o sale la interfaz de Render»: diagnóstico
+
+- **Pregunta del dueño**: «porque si entro a mi sitio web no se actualiza o me sale la interfaz de
+  render».
+- **Desde aquí, la tienda responde bien**: `/` y `/api/ready` dan 200 en 0,6 s, el HTML lleva
+  `cache-control: no-cache` (el navegador siempre pide la versión nueva) y no hay ningún service
+  worker que guarde copias viejas.
+- **«No se actualiza»**: lo publicado hoy desde las 15:05 UTC (documentos, herramientas de
+  desarrollo y dependencias) no cambia lo que ve el cliente: el compilado sigue siendo
+  `main-C3njIlk6.js` y `main-C2A0u2Cb.css`. Los cambios visibles salieron antes (`9c023cc` el 08-11
+  y `ebd1cf1` hoy a las 13:50).
+- **«La interfaz de Render»**: el registro muestra 13 arranques del servidor hoy que no coinciden
+  con ningún despliegue (02:27, 05:12, 05:30, 07:08, 10:12, 10:39, 11:15, 11:38, 12:53, 13:26,
+  14:10, 14:27 y 15:45 UTC). Es el plan gratuito: Render duerme la tienda tras unos minutos sin
+  visitas y, mientras la despierta (30–50 s), muestra su propia pantalla de carga. Desde las 16:02
+  solo hubo arranques por despliegues, lo que encaja con el monitor de UptimeRobot (no se puede
+  confirmar desde aquí porque `/api/health` no se registra a propósito: NO VERIFICADO).
+- **Cambio aplicado**: los commits que solo cambian documentación llevan `[skip render]` (opción
+  documentada por Render) para no redesplegar la tienda sin necesidad. Hoy hubo 8 despliegues, la
+  mayoría solo por documentos.
+- **Solución definitiva** (decisión del dueño, tiene coste): un plan de pago de Render no duerme la
+  tienda.

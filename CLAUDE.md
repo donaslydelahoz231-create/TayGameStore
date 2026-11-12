@@ -38,7 +38,8 @@ el asistente puede:
   producción y PR de Dependabot), y avisar al dueño de lo que encuentre.
 - Volver a ejecutar flujos de GitHub Actions que fallen por causas pasajeras.
 - Publicar cambios solo de documentación (`docs/` y `CHANGELOG.md`) que registren trabajo ya
-  autorizado, siguiendo las etapas de `despliegue-seguro`.
+  autorizado, siguiendo las etapas de `despliegue-seguro`. El mensaje de esos commits lleva
+  `[skip render]`, para que Render no vuelva a desplegar la tienda sin necesidad.
 - Volver a desplegar en Render el mismo commit que ya está publicado si un despliegue falla por una
   causa pasajera.
 

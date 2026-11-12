@@ -79,7 +79,9 @@ Estados: `AWAITING_VERIFICATION` → `AWAITING_PAYMENT` → `PAID` → `DELIVERI
 ## 4. Cómo se publica
 
 - Un push a la rama de producción despliega solo en Render y lanza el CI. Se hace **solo con la
-  autorización explícita del dueño** para un diff exacto (skill `despliegue-seguro`).
+  autorización explícita del dueño** para un diff exacto (skill `despliegue-seguro`), salvo lo que
+  `CLAUDE.md` delega en el asistente. Los commits que solo cambian documentación llevan
+  `[skip render]` en el mensaje y no redespliegan la tienda.
 - Los secretos y variables viven solo en Render; nunca en el repositorio.
 - Los commits se firman como TayGameStore (`CLAUDE.md`).
 - Copias de seguridad: ramas `respaldo-…` en Neon y bundles de Git en manos del dueño.
