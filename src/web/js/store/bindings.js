@@ -25,7 +25,7 @@ import { renderPromo, weekendPromo } from './features/promo.js';
 import { renderTariffBoard } from './features/tariffs.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
-import { copyShareText, exportInvoice } from './features/invoice-export.js';
+import { copyShareText, exportInvoice, sendReceiptToStore } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { showPins } from './features/pins.js';
 import { submitReview } from './features/reviews.js';
@@ -275,6 +275,7 @@ function bindInvoiceAndCheckout() {
   $('jpgBtn').onclick = () => exportInvoice('jpg');
   $('pdfBtn').onclick = () => exportInvoice('pdf');
   $('shareBtn').onclick = () => exportInvoice('share');
+  $('sendStoreBtn').onclick = sendReceiptToStore;
   $('shareCopy').onclick = copyShareText;
   $('howBtn').onclick = () => modal('howModal', true);
   $('securityBtn').onclick = () => modal('securityModal', true);

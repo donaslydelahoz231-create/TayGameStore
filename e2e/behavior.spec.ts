@@ -1251,6 +1251,8 @@ test.describe('comprobante', () => {
         await expect(page.locator(id)).toBeDisabled();
       // «Compartir» siempre está a la vista (inactivo hasta que hay comprobante).
       await expect(page.locator('#shareBtn')).toBeVisible();
+      // Sin WhatsApp de la tienda configurado no se ofrece «Enviar a TayGameStore».
+      await expect(page.locator('#sendStoreBtn')).toBeHidden();
 
       await page.locator('#playerUid').fill('734567890');
       await page.locator('#verifyBtn').click();
@@ -1321,6 +1323,139 @@ test.describe('comprobante', () => {
       expect(decodeURIComponent(wa)).toContain(code);
       expect(await page.locator('#shareMail').getAttribute('href')).toMatch(/^mailto:\?subject=/);
       await expect(page.locator('#exportMsg')).toContainText('JPG descargado');
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
+  test('pagado: «Enviar a TayGameStore» manda imagen y datos por línea; comprobante e historial ordenados', async ({
+    page,
+    context,
+  }) => {
+    // Todo ficticio: número de WhatsApp inexistente (wa.me se responde en local) y nombre largo.
+    const STORE = '570000000000';
+    const LONG_NAME = 'María Fernanda de los Ángeles Rodríguez-Castellanos Villamizar y Ospina';
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { support?: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: { ...body, support: { ...body.support, whatsapp: `+${STORE}` } },
+      });
+    });
+    await context.route('https://wa.me/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<title>WhatsApp (simulado)</title>' }),
+    );
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      // Con WhatsApp de la tienda: el botón se ve, inactivo hasta que hay comprobante.
+      await expect(page.locator('#sendStoreBtn')).toBeVisible();
+      await expect(page.locator('#sendStoreBtn')).toBeDisabled();
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567891');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567891');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567891 confirmado ✓');
+      await page.locator('#customerName').fill(LONG_NAME);
+      await page.locator('#customerEmail').fill('enviar-tienda-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/);
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      const code = ((await page.locator('#invoiceCode').textContent()) ?? '').split(' · ')[1];
+      await expect(page.locator('#exportMsg')).toContainText('¡Compra exitosa!');
+      await expect(page.locator('#sendStoreBtn')).toBeEnabled();
+
+      // Celular: el menú de compartir lleva la imagen y el texto, un dato por línea.
+      await page.evaluate(() => {
+        const nav = navigator as Navigator & { __shared?: unknown };
+        nav.canShare = () => true;
+        nav.share = async (data?: ShareData) => {
+          nav.__shared = {
+            text: data?.text,
+            files: (data?.files ?? []).map((f) => `${f.name}|${f.type}`),
+          };
+        };
+      });
+      await page.locator('#sendStoreBtn').click();
+      await expect
+        .poll(() => page.evaluate(() => (navigator as Navigator & { __shared?: unknown }).__shared))
+        .toMatchObject({ files: [`Comprobante-${ref}.jpg|image/jpeg`] });
+      const lines = (
+        await page.evaluate(
+          () => (navigator as Navigator & { __shared?: { text: string } }).__shared?.text ?? '',
+        )
+      ).split('\n');
+      expect(lines).toEqual(
+        expect.arrayContaining([
+          `Pedido: ${ref}`,
+          `Cliente: ${LONG_NAME}`,
+          'ID Free Fire: 734567891',
+          '• 1× 100 + 10 Diamantes',
+          'Pago: Mercado Pago · Pago confirmado',
+          `Código de verificación: ${code}`,
+        ]),
+      );
+      await expect(page.locator('#exportMsg')).toContainText('Elige el chat de TayGameStore');
+
+      // Computador: se descarga la imagen y se abre el chat de la tienda con el texto escrito.
+      await page.evaluate(() => {
+        Object.assign(navigator, { canShare: undefined });
+      });
+      const [image, chat] = await Promise.all([
+        page.waitForEvent('download'),
+        page.waitForEvent('popup'),
+        page.locator('#sendStoreBtn').click(),
+      ]);
+      expect(image.suggestedFilename()).toBe(`Comprobante-${ref}.jpg`);
+      await chat.waitForLoadState();
+      const opened = new URL(chat.url());
+      expect(opened.pathname).toBe(`/${STORE}`);
+      expect(opened.searchParams.get('text')).toContain(`Pedido: ${ref}`);
+      expect(opened.searchParams.get('text')).toContain(`Código de verificación: ${code}`);
+      await chat.close();
+      await expect(page.locator('#sharePanel')).toBeVisible();
+      await expect(page.locator('#shareWaLabel')).toHaveText('WhatsApp de TayGameStore');
+      expect(await page.locator('#shareWa').getAttribute('href')).toMatch(
+        new RegExp(`^https://wa\\.me/${STORE}\\?text=`),
+      );
+      await expect(page.locator('#exportMsg')).toContainText('Se abrió el chat de TayGameStore');
+
+      // Comprobante ordenado: el nombre completo y nada fuera de la tarjeta, en celular y computador.
+      for (const width of [360, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(page.locator('#invoiceClient')).toHaveText(LONG_NAME);
+        const problems = await page.evaluate(() => {
+          const card = document.getElementById('invoice')!.getBoundingClientRect();
+          const found: string[] = [];
+          for (const el of document.querySelectorAll<HTMLElement>('#invoice *')) {
+            if (el.closest('.invoice-watermark, .invoice-glow')) continue;
+            const r = el.getBoundingClientRect();
+            if (!r.width || !r.height) continue;
+            const clipped =
+              el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible';
+            if (r.left < card.left - 1 || r.right > card.right + 1 || clipped)
+              found.push(`${el.id || el.className || el.tagName}${clipped ? ' (cortado)' : ''}`);
+          }
+          return found;
+        });
+        expect(problems, `comprobante a ${width}px`).toEqual([]);
+      }
+
+      // Historial: la compra pagada dice «Compra exitosa» con su comprobante y lleva a él.
+      await page.evaluate(() => document.getElementById('menuHistory')?.click());
+      const entry = page.locator('#historyList .history-entry', { hasText: ref });
+      await expect(entry).toContainText('Compra exitosa');
+      await expect(entry).toContainText(/Comprobante N\.º \d{6}/);
+      await expect(entry.locator('.history-view')).toHaveText('Ver comprobante');
+      await entry.locator('.history-view').click();
+      await expect(page.locator('#historyModal')).toBeHidden();
+      await expect(page.locator('#invoiceRef')).toHaveText(ref);
     } finally {
       await operator(page, 'player-verification', { mode: 'operator' });
     }

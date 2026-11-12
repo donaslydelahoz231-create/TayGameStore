@@ -9,6 +9,7 @@ import {
   invoiceReference,
   invoiceTotal,
 } from './invoice.js';
+import { receiptText, storeWhatsAppDigits } from './receipt-text.js';
 
 // Exportación del comprobante a JPG/PDF, generada íntegramente en el navegador. Solo existe para
 // pedidos pagados: número y código de verificación del servidor (sin borradores ni comprobantes
@@ -42,6 +43,28 @@ function fit(c, text, max) {
   return t;
 }
 
+/**
+ * Parte el texto en líneas de hasta `max` px, como mucho `maxLines`; lo que sobre va en la última,
+ * recortado con «…» solo si aun así no cabe.
+ */
+function linesOf(c, text, max, maxLines) {
+  const lines = [];
+  let line = '';
+  for (const word of String(text || '—')
+    .trim()
+    .split(/\s+/)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && c.measureText(next).width > max) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines)
+    lines.splice(maxLines - 1, Infinity, lines.slice(maxLines - 1).join(' '));
+  return lines.map((l) => fit(c, l, max));
+}
+
 function rule(c, x1, x2, y, dashed = false) {
   c.save();
   c.strokeStyle = RULE;
@@ -64,7 +87,16 @@ async function invoiceCanvas() {
   const items = invoiceLines(),
     W = 760,
     PAD = 40,
-    H = 760 + items.length * 64,
+    colW = (W - PAD * 2) / 2,
+    client = $('invoiceClient').textContent;
+  // Un nombre que no cabe en media columna va en su propia fila (hasta dos líneas) en vez de
+  // cortarse con «…»; el alto de la imagen crece lo justo.
+  const measure = document.createElement('canvas').getContext('2d');
+  measure.font = `700 18px ${UI}`;
+  const clientLines =
+    measure.measureText(client).width > colW - 24 ? linesOf(measure, client, W - PAD * 2, 2) : null;
+  const clientRow = clientLines ? 62 + (clientLines.length - 1) * 22 : 0;
+  const H = 760 + items.length * 64 + clientRow,
     S = 2,
     cv = document.createElement('canvas');
   cv.width = W * S;
@@ -109,9 +141,17 @@ async function invoiceCanvas() {
 
   // Datos del jugador
   let y = 128;
-  const colW = (W - PAD * 2) / 2;
+  if (clientLines) {
+    c.fillStyle = INK_2;
+    c.font = `600 12px ${UI}`;
+    c.fillText('CLIENTE', PAD, y + 36);
+    c.fillStyle = INK;
+    c.font = `700 18px ${UI}`;
+    clientLines.forEach((line, i) => c.fillText(line, PAD, y + 62 + i * 22));
+    y += clientRow;
+  }
   const fields = [
-    ['CLIENTE', $('invoiceClient').textContent],
+    ...(clientLines ? [] : [['CLIENTE', client]]),
     ['UID', $('invoiceUid').textContent],
     ['NICKNAME', $('invoiceNick').textContent],
     ['REGIÓN', $('invoiceRegion').textContent],
@@ -297,25 +337,28 @@ function jpegToPdf(jpegBytes, width, height) {
 }
 
 /**
- * Texto que acompaña al comprobante: número, pedido, total y código para verificarlo. Solo datos
- * del propio comprobante (ningún dato del dueño ni del pago).
+ * Texto que acompaña al comprobante: un dato por línea (pedido, ID, paquetes, total, pago y
+ * código para verificarlo), listo para copiar. Solo datos del propio pedido (receipt-text.js).
  */
 export function receiptShareText() {
-  const order = state.currentOrder;
-  if (!order?.receipt) return '';
-  const number = String(order.receipt.number).padStart(6, '0');
-  return (
-    `Comprobante TayGameStore N.º ${number} · Pedido ${order.reference} · Total ${money(invoiceTotal())}. ` +
-    `Código de verificación: ${order.receipt.verificationCode}. ` +
-    `Verifícalo en ${location.origin} → Soporte → «Verificar comprobante».`
-  );
+  return receiptText(state.currentOrder, location.origin);
 }
 
-function showSharePanel(text) {
+/** WhatsApp oficial de la tienda (SUPPORT_WHATSAPP) en dígitos; '' si no está configurado. */
+export function storeWhatsApp() {
+  return storeWhatsAppDigits(state.serverConfig?.support?.whatsapp);
+}
+
+/**
+ * Opciones para enviar el JPG descargado. Con `store` (dígitos del WhatsApp de la tienda) el enlace
+ * abre directamente el chat de TayGameStore; sin él, el cliente elige a quién enviarlo.
+ */
+function showSharePanel(text, store = '') {
   const panel = $('sharePanel');
   if (!panel) return;
   const subject = 'Comprobante TayGameStore ' + invoiceReference();
-  $('shareWa').href = 'https://wa.me/?text=' + encodeURIComponent(text);
+  $('shareWa').href = 'https://wa.me/' + store + '?text=' + encodeURIComponent(text);
+  setText('shareWaLabel', store ? 'WhatsApp de TayGameStore' : 'WhatsApp');
   $('shareMail').href =
     'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
   panel.dataset.ref = invoiceReference();
@@ -336,16 +379,71 @@ export async function copyShareText() {
   }
 }
 
+/** Imagen JPG del comprobante (la misma de «JPG») y el nombre base de sus archivos. */
+async function receiptJpg() {
+  const cv = await invoiceCanvas();
+  const jpg = await new Promise((res, rej) =>
+    cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
+  );
+  return { cv, jpg, base: 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_') };
+}
+
+/**
+ * «Enviar a TayGameStore»: el cliente manda al WhatsApp de la tienda la imagen del comprobante y
+ * sus datos en texto, sin escribir nada. En el celular se abre el menú de compartir con la imagen
+ * y el texto adjuntos (elige el chat de TayGameStore). Donde no se pueden compartir archivos
+ * (computador): se descarga la imagen, se copia el texto y se abre el chat de la tienda con el
+ * texto escrito. Nada se envía solo: el cliente pulsa enviar en WhatsApp.
+ */
+export async function sendReceiptToStore() {
+  if (!hasReceipt()) {
+    toast('El comprobante se emite cuando se confirma el pago.', 'bad');
+    return;
+  }
+  const store = storeWhatsApp();
+  if (!store) {
+    toast('La tienda no tiene WhatsApp configurado. Usa «Compartir» o «Copiar datos».', 'bad');
+    return;
+  }
+  const { jpg, base } = await receiptJpg();
+  const file = new File([jpg], base + '.jpg', { type: 'image/jpeg' });
+  const text = receiptShareText();
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ title: 'Comprobante TayGameStore', text, files: [file] });
+      setText(
+        'exportMsg',
+        'Elige el chat de TayGameStore en WhatsApp: la imagen va con tus datos.',
+      );
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // El cliente cerró el menú de compartir.
+    }
+  }
+  saveBlob(jpg, base + '.jpg');
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    // Sin permiso de portapapeles: el texto ya va escrito en el chat y queda «Copiar datos».
+  }
+  showSharePanel(text, store);
+  // Abre el chat de la tienda; si el navegador lo bloquea, queda el botón del panel.
+  window.open($('shareWa').href, '_blank', 'noopener');
+  setText(
+    'exportMsg',
+    'Se abrió el chat de TayGameStore con tus datos escritos: adjunta el JPG descargado y envía.' +
+      (copied ? ' El texto también quedó copiado.' : ''),
+  );
+}
+
 export async function exportInvoice(type) {
   if (!hasReceipt()) {
     toast('El comprobante se emite cuando Mercado Pago confirma el pago.', 'bad');
     return;
   }
-  const cv = await invoiceCanvas(),
-    jpg = await new Promise((res, rej) =>
-      cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
-    );
-  const base = 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_');
+  const { cv, jpg, base } = await receiptJpg();
   if (type === 'jpg') {
     saveBlob(jpg, base + '.jpg');
     setText('exportMsg', 'JPG generado correctamente.');

@@ -35,10 +35,20 @@ export function renderHistory() {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-    const items = o.items.map((x) => `${x.quantity}× ${x.name}`).join(' · ');
+    const items = o.items
+      .map((x) => `<li><b>${esc(String(x.quantity))}×</b> ${esc(x.name)}</li>`)
+      .join('');
     const who = o.verification?.nickname || o.playerUid;
-    el.className = 'history-entry';
-    el.innerHTML = `<div><b>${esc(o.reference)}</b><small>${esc(date)} · ${esc(who)} · ${money(o.totalCop)}</small><small>${esc(items)}</small><span class="history-status ${historyStatusClass(o.status)}">${esc(humanStatus(o))}</span><div class="history-source">Registro del servidor</div></div><div class="history-actions"><button class="btn glass history-view" type="button">Ver</button><button class="btn primary history-copy" type="button">Copiar</button></div>`;
+    // «Compra exitosa» solo cuando el servidor confirmó el pago con el proveedor y emitió el
+    // comprobante (número y código): el navegador nunca lo decide.
+    const paid = Boolean(o.receipt);
+    const success = paid
+      ? `<p class="history-success"><b>Compra exitosa</b><span>Comprobante N.º ${esc(
+          String(o.receipt.number).padStart(6, '0'),
+        )}</span></p>`
+      : '';
+    el.className = 'history-entry' + (paid ? ' is-paid' : '');
+    el.innerHTML = `<div class="history-main"><div class="history-head"><b translate="no">${esc(o.reference)}</b><strong>${esc(money(o.totalCop))}</strong></div>${success}<small>${esc(date)} · ${esc(who)}</small><ul class="history-items" aria-label="Paquetes">${items}</ul><span class="history-status ${historyStatusClass(o.status)}">${esc(humanStatus(o))}</span><div class="history-source">Registro del servidor</div></div><div class="history-actions"><button class="btn ${paid ? 'primary' : 'glass'} history-view" type="button">${paid ? 'Ver comprobante' : 'Ver'}</button><button class="btn glass history-copy" type="button">Copiar</button></div>`;
     el.querySelector('.history-view').onclick = () => {
       setCurrentOrder(o);
       startPolling();
