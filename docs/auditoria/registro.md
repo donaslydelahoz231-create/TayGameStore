@@ -3374,3 +3374,22 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
 - **Tienda despierta**: el dueño configuró UptimeRobot (plan gratuito, cada 5 minutos) contra
   `/api/health`. Antes, la primera carga tras unos 20 minutos sin visitas tardó 43 s. Con el
   monitor, dos pruebas tras 19,5 y 21 minutos sin visitas propias respondieron en 0,7 s.
+
+## 2026-11-12 · PR #33 de Dependabot aplicado (autorizado por el dueño)
+
+- **Autorización**: «Aplicar el #33 ahora (Recomendado)» (el dueño, 12-11), después de revisar los
+  dos PR de Dependabot.
+- **Cambios**: `fastify` 5.12.7 → 5.12.8, `@fastify/cookie` 11.1.3 → 11.1.5, `@fastify/rate-limit`
+  11.2.1 → 11.2.2, `@simplewebauthn/server` 14.0.3 → 14.1.0 y `nodemailer` 10.1.7 → 10.4.0. Solo
+  cambian `package.json` y `package-lock.json`, mediante una fusión del PR que firma TayGameStore.
+- **Evidencia antes del push**:
+  - CI del PR: 6/6, incluidas las e2e en Chromium, WebKit y Firefox, más CodeQL y el chequeo de
+    producción.
+  - En local, con las versiones nuevas: lint, tipos, formato y build OK; unitarias 415/415;
+    integración 319/319.
+  - `npm audit`: 0 vulnerabilidades. Escáner: 0 coincidencias.
+  - Compilado de la tienda sin cambios (`main-BIADQ2c5.js` y `main-C2A0u2Cb.css`).
+- **PR #30** (herramientas de desarrollo, Playwright 1.65): no se aplica. Está basado en `9c023cc`,
+  no trae los arreglos de seguridad del 12-11 y en WebKit falla `quality.spec.ts:453`: con
+  Playwright 1.65, Tab ya no recorre enlaces ni botones, igual que Safari. Hay que adaptar esa
+  prueba y rehacer el PR sobre la versión actual.
