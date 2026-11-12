@@ -1576,6 +1576,102 @@ test.describe('comprobante', () => {
   });
 });
 
+test.describe('salida al cobro', () => {
+  test('al ir a pagar no deja a medias la consulta del seguimiento (WebKit la registraba como error)', async ({
+    page,
+  }) => {
+    // CI de WebKit (2026-11-11): «Fetch API cannot load …/api/orders/TGS-… due to access control
+    // checks». La consulta periódica del pedido seguía en vuelo cuando la tienda navegó al cobro.
+    // Se fuerza ese momento: /pay tarda 6,5 s (el sondeo sale a los 5 s) y la consulta tarda 2,5 s.
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const poll = /\/api\/orders\/TGS-[0-9A-Z]{10}$/;
+    let pollsStarted = 0;
+    const cut: string[] = [];
+    page.on('requestfailed', (request) => {
+      if (poll.test(new URL(request.url()).pathname)) cut.push(request.failure()?.errorText ?? '?');
+    });
+    try {
+      await page.route('**/api/orders/*/pay', async (route) => {
+        await sleep(6_500);
+        await route.continue().catch(() => {});
+      });
+      await page.route(poll, async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        pollsStarted += 1;
+        await sleep(2_500);
+        await route.continue().catch(() => {});
+      });
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567892');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567892');
+      await page.locator('#confirmUid').click();
+      await page.locator('#customerName').fill('Cliente Ficticio');
+      await page.locator('#customerEmail').fill('salida-cobro-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/, { timeout: 30_000 });
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      expect(pollsStarted, 'el sondeo consultó mientras /pay respondía').toBeGreaterThan(0);
+      expect(cut, 'consultas del seguimiento cortadas por la navegación').toEqual([]);
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
+  test('al volver con «Atrás» desde el cobro (página restaurada de memoria) el botón y el seguimiento vuelven a funcionar', async ({
+    page,
+  }) => {
+    // La portada se sirve con no-cache: el navegador puede guardarla en la caché atrás/adelante y
+    // devolverla tal como quedó al irse al cobro («Abriendo Mercado Pago…», seguimiento detenido).
+    // Aquí el cobro responde 204, así que el navegador no sale de la tienda y la página queda en
+    // ese mismo estado; luego llega el «pageshow» restaurado que dispara el navegador.
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    const poll = /\/api\/orders\/TGS-[0-9A-Z]{10}$/;
+    let checkoutVisits = 0;
+    try {
+      await page.route('**/__e2e__/mercadopago**', (route) => {
+        checkoutVisits += 1;
+        return route.fulfill({ status: 204 });
+      });
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567893');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567893');
+      await page.locator('#confirmUid').click();
+      await page.locator('#customerName').fill('Cliente Ficticio');
+      await page.locator('#customerEmail').fill('regreso-cobro-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await expect.poll(() => checkoutVisits).toBe(1);
+      await expect(page.locator('#payBtn')).toHaveText('Abriendo Mercado Pago…');
+      await expect(page.locator('#payBtn')).toBeDisabled();
+
+      const consult = page.waitForRequest(
+        (r) => r.method() === 'GET' && poll.test(new URL(r.url()).pathname),
+        { timeout: 3_000 },
+      );
+      await page.evaluate(() =>
+        dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })),
+      );
+      // Consulta el pedido al instante (sin esperar los 5 s del sondeo): pudo pagarse en el cobro.
+      await consult;
+      await expect(page.locator('#payBtn')).toHaveText('Pagar con Mercado Pago');
+      await expect(page.locator('#payBtn')).toBeEnabled();
+      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+});
+
 test.describe('panel de administración', () => {
   test('sin sesión muestra el acceso: correo y contraseña, huella y Google si está activo', async ({
     page,

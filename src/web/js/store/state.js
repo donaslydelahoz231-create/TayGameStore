@@ -46,6 +46,10 @@ export const runtime = {
   paymentBusy: false,
   orderBusy: false,
   pollTimer: null,
+  /** Sube con cada arranque o parada del sondeo: un ciclo de un sondeo ya parado no reprograma. */
+  pollRun: 0,
+  /** Consulta del sondeo en vuelo (promesa), para esperarla antes de salir de la tienda. */
+  pollInFlight: null,
   /** Sube con cada cambio de la orden: una lectura que empezó antes llega vieja y se descarta. */
   orderGeneration: 0,
   pollStartedAt: 0,

@@ -17,7 +17,12 @@ import {
 } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer, watchBuyBar } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
-import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
+import {
+  goToNextStep,
+  preparePayment,
+  resetCheckoutKey,
+  resumeFromBackForwardCache,
+} from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { playEnterTransition } from './features/intro.js';
 import { renderFavorites } from './features/favorites.js';
@@ -334,6 +339,11 @@ function bindGlobal() {
     if (state.currentOrder) pollOrder();
   });
   window.addEventListener('offline', () => toast('Navegador sin conexión.', 'bad'));
+  // «Atrás» desde Mercado Pago puede restaurar la página de la caché atrás/adelante (la portada
+  // se sirve con no-cache, que lo permite): ver resumeFromBackForwardCache.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) resumeFromBackForwardCache();
+  });
 }
 
 /** Conecta los controles de la página con sus acciones. */

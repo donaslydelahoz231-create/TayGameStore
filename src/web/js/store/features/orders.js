@@ -82,23 +82,52 @@ function nextDelay() {
 }
 
 export function stopPolling() {
+  // Invalida el ciclo que esté consultando: al terminar no programa el siguiente.
+  runtime.pollRun += 1;
   clearTimeout(runtime.pollTimer);
   runtime.pollTimer = null;
 }
 
-export function startPolling() {
+/** `firstDelay`: 0 consulta al instante (p. ej. al volver de Mercado Pago con «Atrás»). */
+export function startPolling(firstDelay = 5_000) {
   stopPolling();
+  const run = runtime.pollRun;
   runtime.pollStartedAt = Date.now();
   const tick = async () => {
+    if (run !== runtime.pollRun) return;
     if (document.hidden) {
       runtime.pollTimer = setTimeout(tick, 5_000);
       return;
     }
-    const done = await pollOrder();
-    if (!done) runtime.pollTimer = setTimeout(tick, nextDelay());
-    else runtime.pollTimer = null;
+    const pending = pollOrder();
+    runtime.pollInFlight = pending;
+    const done = await pending;
+    if (runtime.pollInFlight === pending) runtime.pollInFlight = null;
+    // Se paró (o volvió a empezar) mientras consultaba: este ciclo no reprograma nada.
+    if (run !== runtime.pollRun) return;
+    runtime.pollTimer = done ? null : setTimeout(tick, nextDelay());
   };
-  runtime.pollTimer = setTimeout(tick, 5_000);
+  runtime.pollTimer = setTimeout(tick, firstDelay);
+}
+
+/**
+ * Antes de salir de la tienda (ir al cobro): para el sondeo y espera la consulta que esté en vuelo
+ * (como mucho `maxMs`). Si la navegación cortara esa petición a medias, WebKit la registra como
+ * error («Fetch API cannot load … due to access control checks», CI del 2026-11-11), aunque la
+ * tienda ya la maneja; además es una consulta desperdiciada.
+ */
+export async function settlePolling(maxMs = 2_000) {
+  stopPolling();
+  const pending = runtime.pollInFlight;
+  if (!pending) return;
+  let timer;
+  await Promise.race([
+    pending.catch(() => {}),
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, maxMs);
+    }),
+  ]);
+  clearTimeout(timer);
 }
 
 export { isFinal as isFinalOrderStatus };
