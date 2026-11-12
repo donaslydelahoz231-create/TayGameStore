@@ -3348,3 +3348,29 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   compilado esperado en vivo es `main-BIADQ2c5.js` y `main-C2A0u2Cb.css`.
 - **Después del push**: la verificación (CI, compilado en vivo, `golive:check` y diagnóstico) se
   informa al dueño y se anota en la próxima entrada.
+
+## 2026-11-12 · Verificación de la publicación `ebd1cf1` y duplicados resueltos
+
+- **Render**, ya con el conector en la cuenta de la tienda (servicio `taygamestore`,
+  `srv-db2ifivlot8c7399m8eg`):
+  - El despliegue de `ebd1cf1` está `live` (13:49:46–13:50:43 UTC). Las compilaciones y
+    despliegues del 12-11 y del 08-11 terminaron bien.
+  - Registros sin errores ni avisos desde las 13:45 UTC; la búsqueda incluyó los niveles 40, 50 y
+    60 del servidor.
+  - Memoria entre 104 y 148 MB de 512 MB. Ninguna caída ni reinicio por fallo en 7 días.
+- **En vivo**: sirve `main-BIADQ2c5.js` y `main-C2A0u2Cb.css`, el mismo compilado que en local.
+  `golive:check` da «LISTO para vender» (huella del catálogo `88F3-60CD-E1EB-1ED2`) y el
+  diagnóstico con navegador real sale todo «sí».
+- **CI de `ebd1cf1`**: 6/6 trabajos (lint, tipos, pruebas y build; gitleaks; integración; e2e en
+  Chromium, WebKit y Firefox), más CodeQL, «Production smoke check» y GitHub Pages: todo con éxito.
+- **Duplicados**:
+  - Servicio `taygamestore-xfkd`: el dueño lo borró. La cuenta que lo tenía quedó vacía y su
+    enlace responde 404.
+  - Ramas de GitHub: se conservan las 7 con trabajo propio (`claude/pedidos-whatsapp-demo`,
+    `fix/mantenimiento-automatico-2`, `fix/smoke-deployed-revision-20261013`,
+    `fix/vigilancia-curl-https-20261010`, `ops/recover-actions-monitoring-20261009` y las 2 de
+    Dependabot). Las otras 17 ya están en la tienda, son del bot o son copias del PR #32, así que
+    el dueño puede borrarlas. Desde la sesión no se puede (403).
+- **Tienda despierta**: el dueño configuró UptimeRobot (plan gratuito, cada 5 minutos) contra
+  `/api/health`. Antes, la primera carga tras unos 20 minutos sin visitas tardó 43 s. Con el
+  monitor, dos pruebas tras 19,5 y 21 minutos sin visitas propias respondieron en 0,7 s.
