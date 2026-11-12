@@ -89,7 +89,8 @@ jobs:
             });
           ' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+        # Con reintentos: los espejos de apt de los runners fallan a veces (ver el script).
+        run: bash scripts/ci/instalar-navegador.sh chromium
       - name: Burbujas de soporte (navegador real)
         run: |
           set +e -o pipefail

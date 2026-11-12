@@ -16,21 +16,56 @@ try {
   ]) {
     const page = await browser.newPage({ viewport });
     const failedCss = [];
+    // Para explicar un «diseño cargado: NO»: qué respondió el servidor por cada hoja y script
+    // (estado y tipo) y qué errores dio la consola. Sin datos personales: los números largos se
+    // ocultan.
+    const assets = [];
+    const consoleErrors = [];
     page.on('requestfailed', (req) => {
       if (req.resourceType() === 'stylesheet') failedCss.push(new URL(req.url()).pathname);
     });
     page.on('response', (res) => {
-      if (res.request().resourceType() === 'stylesheet' && res.status() >= 400)
-        failedCss.push(`${new URL(res.url()).pathname} → ${res.status()}`);
+      const type = res.request().resourceType();
+      if (type !== 'stylesheet' && type !== 'script') return;
+      const path = new URL(res.url()).pathname;
+      const mime = (res.headers()['content-type'] ?? 'sin tipo').split(';')[0];
+      assets.push(`${path} → ${res.status()} ${mime}`);
+      if (type === 'stylesheet' && res.status() >= 400) failedCss.push(`${path} → ${res.status()}`);
+    });
+    page.on('console', (msg) => {
+      if (msg.type() === 'error')
+        consoleErrors.push(
+          msg
+            .text()
+            .replace(/\d{8,}/g, '…')
+            .slice(0, 160),
+        );
     });
     await page.goto(base.href, { waitUntil: 'load', timeout: 90_000 });
     await page.locator('#enterStoreBtn').waitFor({ timeout: 60_000 });
     // La hoja principal define --bg; sin ella la tienda se vería en blanco (o con el aviso).
-    const styled = await page.evaluate(
-      () =>
-        getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() !== '' &&
-        !document.getElementById('estilosCaidos'),
-    );
+    // También cuándo llegó cada hoja frente al evento load: muestra si el diseño llegó tarde.
+    const look = await page.evaluate(() => ({
+      bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() !== '',
+      notice: Boolean(document.getElementById('estilosCaidos')),
+      sheets: document.styleSheets.length,
+      cssEnd: performance
+        .getEntriesByType('resource')
+        .filter((e) => /\.css(\?|$)/.test(e.name))
+        .map((e) => Math.round(e.responseEnd)),
+      loadEnd: Math.round(performance.getEntriesByType('navigation')[0]?.loadEventEnd ?? 0),
+    }));
+    const styled = look.bg && !look.notice;
+    const why = () =>
+      failedCss.join(', ') ||
+      [
+        `--bg ${look.bg ? 'definida' : 'vacía'}`,
+        `aviso de estilos: ${look.notice ? 'sí' : 'no'}`,
+        `hojas aplicadas: ${look.sheets}`,
+        `CSS recibido a los ${look.cssEnd.join(' y ') || '—'} ms; load a los ${look.loadEnd} ms`,
+        `recursos: ${assets.join(', ') || 'ninguno'}`,
+        `consola: ${consoleErrors.join(' | ') || 'sin errores'}`,
+      ].join(' · ');
     const onWelcome = await page.locator('#supportFloat').isVisible();
     await page.locator('#enterStoreBtn').click();
     await page.locator('#guestBtn').click();
@@ -43,7 +78,7 @@ try {
     const box = await wa.boundingBox();
     const right = box ? viewport.width - (box.x + box.width) <= 24 : false;
     console.log(
-      `${viewport.width}px · diseño cargado: ${styled ? 'sí' : `NO (${failedCss.join(', ') || 'sin detalle'})`} · bienvenida sin burbuja: ${!onWelcome ? 'sí' : 'NO'} · WhatsApp visible: ${waVisible ? 'sí' : 'NO'} · enlace wa.me: ${waLink ? 'sí' : 'NO'} · a la derecha: ${right ? 'sí' : 'NO'} · correo visible: ${mailVisible ? 'sí' : 'NO'}`,
+      `${viewport.width}px · diseño cargado: ${styled ? 'sí' : `NO (${why()})`} · bienvenida sin burbuja: ${!onWelcome ? 'sí' : 'NO'} · WhatsApp visible: ${waVisible ? 'sí' : 'NO'} · enlace wa.me: ${waLink ? 'sí' : 'NO'} · a la derecha: ${right ? 'sí' : 'NO'} · correo visible: ${mailVisible ? 'sí' : 'NO'}`,
     );
     if (!styled || onWelcome || !waVisible || !waLink || !right || !mailVisible)
       failures.push(`${viewport.width}px`);

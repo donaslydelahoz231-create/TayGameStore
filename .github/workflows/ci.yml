@@ -103,7 +103,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Instalar el navegador de Playwright
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        # Con reintentos: los espejos de apt de los runners fallan a veces (ver el script).
+        run: bash scripts/ci/instalar-navegador.sh ${{ matrix.browser }}
       # Las referencias visuales (test:visual) no se ejecutan aquí: dependen del motor de
       # render y de las fuentes del sistema con que se generaron.
       - run: npm run test:e2e
