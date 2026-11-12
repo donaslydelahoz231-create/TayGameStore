@@ -3442,3 +3442,31 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   y `CLAUDE.md`.
 - **NO VERIFICADO**: el Health Check Path de Render sigue vacío; el conector de Render no permite
   cambiarlo y queda como ajuste opcional del dueño (`/api/health`).
+
+## 2026-11-12 · Pendientes opcionales del dueño («ejecútalo todo a tu manera»)
+
+- **Autorización**: «no lo puse pero ejecutalo todo a tu manera» (el dueño, 12-11), sobre la lista
+  de pendientes opcionales: Health Check Path de Render, ramas sobrantes, proyecto duplicado de Neon
+  y `CRON_SECRET`.
+- **Neon**: borrado el proyecto duplicado `red-hat-15298321`. Antes se comprobó que nunca se usó: 0
+  bytes escritos, 0 s de cómputo, ninguna tabla y su única rama archivada desde el 20-10. Queda solo
+  el original `TayGamerStore` (`cool-pond-15596593`), y la tienda responde `/api/ready` 200 con la
+  base de datos en «ok». Neon lo puede recuperar hasta el 19-11 a las 19:44 UTC.
+- **PR #31**: cerrado con un comentario. Era una copia anterior del PR #32, que sigue abierto con el
+  mismo cambio corregido.
+- **Ramas**: BLOQUEADO. El proxy de la sesión rechaza el borrado por la API (403) y por `git push
+  --delete`; las 17 ramas siguen en GitHub. Las borra el dueño desde GitHub → Branches.
+- **`CRON_SECRET` en GitHub**: BLOQUEADO. La API de secretos de Actions devuelve 403 desde la
+  sesión, y el valor no debe pasar por el chat. Lo guarda el dueño en GitHub → Settings → Secrets
+  and variables → Actions, con el mismo valor que tiene en Render.
+- **Health Check Path de Render**: sin cambios (sigue vacío). El conector de Render no permite
+  cambiarlo, y una clave de la API de Render daría control de toda la cuenta para un ajuste menor;
+  no se pide. Si el dueño lo pone, el valor que recoge `render.yaml` es `/api/ready` (comprueba la
+  base de datos).
+- **PR #34 de Dependabot** (`typescript-eslint` 8.72.1 → 8.72.2 y `vite` 8.3.6 → 8.3.7, solo
+  desarrollo): probado, pero no se publica sin la autorización del dueño (`CLAUDE.md`, «Gestión
+  delegada»).
+  - CI del PR: 6/6.
+  - En local: lint, tipos, formato y build OK; unitarias 415/415; integración 319/319;
+    `npm audit` 0.
+  - El compilado de la tienda sale idéntico (`main-C3njIlk6.js` y `main-C2A0u2Cb.css`).

@@ -91,10 +91,12 @@ Estados: `AWAITING_VERIFICATION` → `AWAITING_PAYMENT` → `PAID` → `DELIVERI
 - **Gestión**: el asistente lleva el día a día de Render y GitHub con los límites de `CLAUDE.md`
   («Gestión delegada»).
 - **Resuelto el 12-11**: servicio duplicado de Render borrado; monitor externo de UptimeRobot (plan
-  gratuito, cada 5 minutos) a `/api/health`; conector de Render enlazado con la cuenta de la tienda.
+  gratuito, cada 5 minutos) a `/api/health`; conector de Render enlazado con la cuenta de la tienda;
+  el dueño activó el permiso para que GitHub Actions cree PR (aún sin usar: NO VERIFICADO).
 - **Pendientes del dueño**:
-  1. Permitir que GitHub Actions cree PR, para que funcione «Mantenimiento automático».
-  2. Opcional: borrar las 17 ramas sobrantes de GitHub y el proyecto duplicado de Neon
-     (`red-hat-15298321`).
-  3. Opcional: guardar `CRON_SECRET` en GitHub, con el mismo valor que en Render, para el testigo
+  1. Opcional: borrar las 17 ramas sobrantes de GitHub (la sesión no puede: 403). El proyecto
+     duplicado de Neon ya se borró el 12-11.
+  2. Opcional: guardar `CRON_SECRET` en GitHub, con el mismo valor que en Render, para el testigo
      de integridad.
+  3. Opcional: Health Check Path de Render en `/api/ready`.
+  4. Autorizar, si quiere, el PR #34 de Dependabot (probado; no cambia el compilado de la tienda).
