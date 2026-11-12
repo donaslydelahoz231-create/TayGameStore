@@ -331,6 +331,24 @@ app.post('/__e2e__/player-verification', async (request) => {
   return { ok: true };
 });
 
+/**
+ * Los interruptores que cambian las pruebas (Nequi, modo de verificación, entrega con PIN), como
+ * al arrancar. preparePage los restaura antes de cada prueba: si una prueba agota su tiempo antes
+ * de restaurarlos en su `finally` (Firefox en CI), las siguientes no heredan su modo ni fallan en
+ * cascada por eso.
+ */
+const startup = {
+  nequi: config.nequi.manual,
+  playerVerification: config.orders.playerVerification,
+  pinAutoDelivery: config.orders.pinAutoDelivery,
+};
+app.post('/__e2e__/reset', async () => {
+  config.nequi.manual = startup.nequi;
+  config.orders.playerVerification = startup.playerVerification;
+  config.orders.pinAutoDelivery = startup.pinAutoDelivery;
+  return { ok: true };
+});
+
 /** Entrega automática con PIN del inventario (y carga de PIN de prueba para un paquete). */
 app.post('/__e2e__/pin-auto', async (request) => {
   const { on, sku, codes } = request.body as { on: boolean; sku?: string; codes?: string[] };

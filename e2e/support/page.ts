@@ -52,6 +52,10 @@ async function isolateClientIp(context: BrowserContext, prefix: string): Promise
 /** Devuelve la lista (viva) de errores de consola y de página. */
 export async function preparePage(page: Page, options: PrepareOptions = {}): Promise<string[]> {
   await isolateClientIp(page.context(), options.ipPrefix ?? '198.18');
+  // Cada prueba empieza con los interruptores del servidor de pruebas como al arrancar (ver
+  // /__e2e__/reset en server.ts): una prueba que agotó su tiempo no contagia su modo a las demás.
+  const reset = await page.request.post('/__e2e__/reset', { headers: { 'x-tgs-csrf': '1' } });
+  if (!reset.ok()) throw new Error(`/__e2e__/reset respondió ${reset.status()}`);
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() !== 'error') return;
