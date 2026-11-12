@@ -3470,3 +3470,31 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   - En local: lint, tipos, formato y build OK; unitarias 415/415; integración 319/319;
     `npm audit` 0.
   - El compilado de la tienda sale idéntico (`main-C3njIlk6.js` y `main-C2A0u2Cb.css`).
+
+## 2026-11-12 · PR #34 aplicado, 15 ramas borradas con copia y bloqueos que quedan
+
+- **Autorización**: «haz todo sin limitarte y haz que todo sea posible tienes toda la autorizacon
+  de conectarte y ejecutar con mi autorizacion» (el dueño, 12-11). `CLAUDE.md` recoge la ampliación
+  de la gestión delegada.
+- **PR #34 de Dependabot** (`typescript-eslint` 8.72.2 y `vite` 8.3.7, solo desarrollo): aplicado
+  con una fusión que firma TayGameStore. Sobre el árbol fusionado: `npm audit` 0, lint, tipos,
+  formato y build OK, unitarias 415/415, integración 319/319 y escáner 0. El compilado de la
+  tienda no cambia (`main-C3njIlk6.js` y `main-C2A0u2Cb.css`). La CI del PR ya estaba en 6/6.
+- **Ramas**: borradas 15 de 24 con la conexión de GitHub que el dueño tiene en Composio (desde la
+  sesión, GitHub responde 403).
+  - Antes se comprobó cada una: 10 están contenidas en la tienda, 1 está fusionada con el PR #10
+    y 4 son del bot de mantenimiento (solo cambios en `package-lock.json`, ya superados).
+  - Copia previa: lista de ramas y commits más un bundle de Git verificado con los 5 commits que
+    no están en la tienda; se entregó al dueño.
+  - Quedan 9: producción, `claude/pedidos-whatsapp-demo`, la de Dependabot, las 3 del
+    mantenimiento automático (`fix/mantenimiento-automatico`, `-1` y `-2`) y las 3 con trabajo
+    propio (`fix/smoke-deployed-revision-20261013`, `fix/vigilancia-curl-https-20261010` y
+    `ops/recover-actions-monitoring-20261009`).
+- **PR #31**: se cerró a las 19:45 UTC y se reabrió a las 19:46 desde la cuenta del dueño. Se
+  respeta: sigue abierto y no se tocan sus ramas.
+- **Sin cambios, por seguridad**:
+  - `CRON_SECRET` en GitHub: el valor solo está en Render, y copiarlo exigiría que pasara por el
+    chat. Lo copia el dueño de Render a GitHub → Settings → Secrets and variables → Actions.
+  - Health Check Path de Render: el conector no lo permite, y no se pide una clave de la API de
+    Render (daría control de toda la cuenta) para un ajuste menor. Valor recomendado:
+    `/api/ready`.

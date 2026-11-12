@@ -42,10 +42,19 @@ el asistente puede:
 - Volver a desplegar en Render el mismo commit que ya está publicado si un despliegue falla por una
   causa pasajera.
 
-Siguen necesitando la autorización explícita del dueño, caso por caso: publicar cambios de código o
-de dependencias, hacer un rollback, cambiar variables o secretos de Render, activar los pagos,
-borrar servicios, datos o ramas, cambiar los ajustes del repositorio o estas reglas, y cualquier
-cambio que pueda aumentar la exposición de datos.
+Ampliación del mismo día («haz todo sin limitarte … con mi autorización»): también puede, sin
+preguntar,
+
+- aplicar los PR de Dependabot cuando su CI está completa en verde y las pruebas locales pasan, y
+  verificar el despliegue;
+- borrar ramas ya integradas en la tienda o sustituidas, después de guardar una copia verificada y
+  de comprobar que nadie las está usando (un PR abierto o reabierto se respeta).
+
+Siguen necesitando la autorización explícita del dueño, caso por caso: publicar otros cambios de
+código, hacer un rollback, cambiar variables o secretos de Render, activar los pagos, borrar
+servicios o datos, cambiar los ajustes del repositorio o estas reglas, y cualquier cambio que pueda
+aumentar la exposición de datos. Los secretos nunca pasan por el chat: si un paso exige ver o
+escribir uno, lo hace el dueño.
 
 Procedimientos: skill `auditoria-segura` (solo lectura) y skill `despliegue-seguro` (autorización
 por etapas). La guardia `.claude/hooks/guardia-datos.sh` bloquea secretos, el documento completo y

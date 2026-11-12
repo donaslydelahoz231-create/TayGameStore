@@ -9,9 +9,9 @@ cada pieza y cómo se publica. Todo lo que se describe está en este repositorio
 | Pieza                | Original (la que se usa)                                                                                                    | Duplicado o copia                                                                                                      | Decisión                                                            |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Repositorio          | `donaslydelahoz231-create/TayGameStore`                                                                                     | Ninguno (sin forks)                                                                                                    | —                                                                   |
-| Rama de producción | `claude/taygamestore-production-pfctbn`: predeterminada, protegida por la regla «TayGamerStore» (no se borra ni se fuerza) | 24 ramas viejas (`fix/…`, `mantenimiento/…`, `ops/…`, `security/…`, `dependabot/…`, `claude/pedidos-whatsapp-demo`) | Se conservan las 7 con trabajo propio; las otras 17 las puede borrar el dueño (lista en el registro) |
+| Rama de producción | `claude/taygamestore-production-pfctbn`: predeterminada, protegida por la regla «TayGamerStore» (no se borra ni se fuerza) | Había 24 ramas; quedan 9 (`fix/…`, `ops/…`, `dependabot/…`, `claude/pedidos-whatsapp-demo`) | 15 sobrantes borradas el 12-11 con copia previa; las 9 que quedan tienen trabajo propio o un PR abierto |
 | Servicio de Render | `taygamestore` (`srv-db2ifivlot8c7399m8eg`) → **https://taygamestore.onrender.com**, en la cuenta con la que se creó | «TayGameStore» `taygamestore-xfkd`, creado a mano el 29-10 en otra cuenta; nunca arrancó | **Borrado por el dueño el 2026-11-12**; el enlace de la tienda no cambió |
-| Base de datos (Neon) | Proyecto `TayGamerStore` (`cool-pond-15596593`), rama `production`                                                          | Proyecto `red-hat-15298321`, creado un minuto antes y nunca usado                                                      | Lo borra el dueño. Las ramas `respaldo-…` son copias de seguridad   |
+| Base de datos (Neon) | Proyecto `TayGamerStore` (`cool-pond-15596593`), rama `production`                                                          | Proyecto `red-hat-15298321`, creado un minuto antes y nunca usado (borrado el 12-11)                                                      | Lo borra el dueño. Las ramas `respaldo-…` son copias de seguridad   |
 | GitHub Pages         | Publica el `README` desde la rama de producción (no es la tienda)                                                           | —                                                                                                                      | —                                                                   |
 | Chat de desarrollo   | La sesión que hizo 204 de los 213 commits fue eliminada                                                                     | —                                                                                                                      | Su trabajo completo está aquí: código, documentos y el registro     |
 
@@ -93,10 +93,10 @@ Estados: `AWAITING_VERIFICATION` → `AWAITING_PAYMENT` → `PAID` → `DELIVERI
 - **Resuelto el 12-11**: servicio duplicado de Render borrado; monitor externo de UptimeRobot (plan
   gratuito, cada 5 minutos) a `/api/health`; conector de Render enlazado con la cuenta de la tienda;
   el dueño activó el permiso para que GitHub Actions cree PR (aún sin usar: NO VERIFICADO).
-- **Pendientes del dueño**:
-  1. Opcional: borrar las 17 ramas sobrantes de GitHub (la sesión no puede: 403). El proyecto
-     duplicado de Neon ya se borró el 12-11.
-  2. Opcional: guardar `CRON_SECRET` en GitHub, con el mismo valor que en Render, para el testigo
-     de integridad.
-  3. Opcional: Health Check Path de Render en `/api/ready`.
-  4. Autorizar, si quiere, el PR #34 de Dependabot (probado; no cambia el compilado de la tienda).
+- **Limpieza del 12-11**: proyecto duplicado de Neon borrado; 15 ramas sobrantes borradas con copia
+  previa (quedan 9, cada una con su motivo en `docs/auditoria/registro.md`); PR #34 de Dependabot
+  aplicado.
+- **Pendientes del dueño** (opcionales; requieren ver un secreto o una clave):
+  1. Copiar `CRON_SECRET` de Render a GitHub (Settings → Secrets and variables → Actions), para el
+     testigo de integridad.
+  2. Health Check Path de Render en `/api/ready`.
