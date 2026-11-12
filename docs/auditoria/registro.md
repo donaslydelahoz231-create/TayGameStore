@@ -3393,3 +3393,26 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   no trae los arreglos de seguridad del 12-11 y en WebKit falla `quality.spec.ts:453`: con
   Playwright 1.65, Tab ya no recorre enlaces ni botones, igual que Safari. Hay que adaptar esa
   prueba y rehacer el PR sobre la versión actual.
+
+## 2026-11-12 · Herramientas de desarrollo actualizadas (PR #30 rehecho sobre la versión actual)
+
+- **Qué**: las 7 actualizaciones del PR #30 de Dependabot (`@playwright/test` 1.56.1 → 1.65.0,
+  `eslint` 10.12.0 → 10.14.0, `globals` 17.13.0 → 17.14.0, `smtp-server` 3.21.1 → 3.21.3,
+  `typescript-eslint` 8.71.2 → 8.72.1, `vite` 8.3.5 → 8.3.6 y `vitest` 5.0.5 → 5.1.0), aplicadas
+  sobre la versión actual. El PR estaba hecho sobre `9c023cc` y no traía los arreglos de seguridad
+  del 12-11. No cambia el código de la tienda; el JS compilado cambia de nombre
+  (`main-C3njIlk6.js`) porque lo genera el Vite nuevo, y el CSS queda igual.
+- **Prueba adaptada** (`e2e/quality.spec.ts`, foco visible con teclado): con WebKit 27.2
+  (Playwright 1.65), Tab no lleva el foco desde la página a enlaces y botones, igual que Safari con
+  su configuración por defecto. Alt+Tab tampoco: diagnosticado con una prueba temporal. Dentro del
+  formulario, Tab sí avanza y cada elemento muestra un contorno de 3 px. En WebKit la prueba entra
+  por el campo «nombre» y sigue con Tab; en Chromium y Firefox sigue empezando desde la página. Se
+  mantiene la exigencia de un contorno de al menos 2 px.
+- **Evidencia**:
+  - `npm audit`: 0 vulnerabilidades (todas las dependencias y producción).
+  - Lint, tipos, formato y build OK; unitarias 415/415; integración 319/319.
+  - E2E con Playwright 1.65: Chromium 167/167, WebKit 165/165 (2 omitidas por diseño) y Firefox
+    164/164 (3 omitidas por diseño).
+  - Antes del ajuste, la prueba fallaba en WebKit igual que en el CI del PR; después pasa 3 de 3
+    en los tres navegadores.
+- **Publicación**: solo con la autorización explícita del dueño; se anota en la entrada siguiente.
