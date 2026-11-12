@@ -86,8 +86,10 @@ Estados: `AWAITING_VERIFICATION` → `AWAITING_PAYMENT` → `PAID` → `DELIVERI
 
 ## 5. Estado y pendientes (2026-11-12)
 
-- **Tienda**: en línea con `ebd1cf1`, desplegado en el Render original el 12-11 a las 13:50 UTC.
-  Verificación en `docs/auditoria/registro.md`.
+- **Tienda**: en línea con `6d7391c` (dependencias del 12-11), desplegado en el Render original el
+  12-11 a las 19:03 UTC. Verificación en `docs/auditoria/registro.md`.
+- **Gestión**: el asistente lleva el día a día de Render y GitHub con los límites de `CLAUDE.md`
+  («Gestión delegada»).
 - **Resuelto el 12-11**: servicio duplicado de Render borrado; monitor externo de UptimeRobot (plan
   gratuito, cada 5 minutos) a `/api/health`; conector de Render enlazado con la cuenta de la tienda.
 - **Pendientes del dueño**:

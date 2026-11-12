@@ -28,6 +28,25 @@
   firma del asistente. Los commits ya publicados conservan su autor: cambiarlos exigiría reescribir
   el historial publicado, y eso está prohibido.
 
+## Gestión delegada de Render y GitHub (decisión del dueño, 2026-11-12)
+
+El dueño encargó al asistente la gestión diaria de Render y GitHub de la tienda («ten el control
+gestion de render y de github … para que yo no gestione manualmente»). Sin pedir permiso cada vez,
+el asistente puede:
+
+- Vigilar la tienda, Render (despliegues, registros y métricas) y GitHub (CI, CodeQL, chequeo de
+  producción y PR de Dependabot), y avisar al dueño de lo que encuentre.
+- Volver a ejecutar flujos de GitHub Actions que fallen por causas pasajeras.
+- Publicar cambios solo de documentación (`docs/` y `CHANGELOG.md`) que registren trabajo ya
+  autorizado, siguiendo las etapas de `despliegue-seguro`.
+- Volver a desplegar en Render el mismo commit que ya está publicado si un despliegue falla por una
+  causa pasajera.
+
+Siguen necesitando la autorización explícita del dueño, caso por caso: publicar cambios de código o
+de dependencias, hacer un rollback, cambiar variables o secretos de Render, activar los pagos,
+borrar servicios, datos o ramas, cambiar los ajustes del repositorio o estas reglas, y cualquier
+cambio que pueda aumentar la exposición de datos.
+
 Procedimientos: skill `auditoria-segura` (solo lectura) y skill `despliegue-seguro` (autorización
 por etapas). La guardia `.claude/hooks/guardia-datos.sh` bloquea secretos, el documento completo y
 la reescritura del historial; no la desactives ni la eludas.

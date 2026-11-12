@@ -3416,3 +3416,29 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   - Antes del ajuste, la prueba fallaba en WebKit igual que en el CI del PR; después pasa 3 de 3
     en los tres navegadores.
 - **Publicación**: solo con la autorización explícita del dueño; se anota en la entrada siguiente.
+
+## 2026-11-12 · Publicación de `6d7391c` verificada y gestión delegada
+
+- **Autorización**: «autorizo publicar 6d7391c» (el dueño, 12-11).
+- **Push**: `8ee0164..6d7391c` a las 19:02:31 UTC, sin forzar. `git ls-remote` devuelve
+  `6d7391c15f51…` en la rama de producción.
+- **Render** (servicio original `srv-db2ifivlot8c7399m8eg`): el despliegue `dep-dbr0qhvf3r2c73ahujg0`
+  queda `live` (19:02:31 → 19:03:39). No hubo corte: a las 19:02:40 y 19:03:24 la tienda seguía
+  sirviendo el compilado anterior con 200, y desde las 19:03:47 sirve `main-C3njIlk6.js` y
+  `main-C2A0u2Cb.css`, con `/api/ready` 200. Registros desde las 19:00: sin avisos ni errores
+  (niveles 40, 50 y 60, `Error` y `ERR_`).
+- **En vivo**: `golive:check` «LISTO para vender»; smoke a 360 y 1280 px con todo en «sí».
+- **GitHub**: CI 6/6 (lint, tipos, pruebas y build; integración; gitleaks; e2e en Chromium,
+  WebKit y Firefox, hasta las 19:16 UTC); CodeQL, chequeo de producción y Pages OK. Es la primera
+  CI con Playwright 1.65 (`scripts/ci/instalar-navegador.sh`).
+- **PR #30**: Dependabot lo cerró a las 19:05 UTC al ver sus cambios ya en la rama (no se fusionó).
+- **Gestión delegada**: el dueño encargó al asistente el día a día de Render y GitHub («ten el
+  control gestion de render y de github … para que yo no gestione manualmente»). Los límites quedan
+  en `CLAUDE.md` («Gestión delegada»): lo rutinario sin preguntar; el código, las dependencias, los
+  rollbacks, las variables y los secretos, los pagos, los borrados y la exposición de datos, con su
+  autorización caso por caso.
+- **Autorización de esta entrada**: «listo ejecuta y ademas quiero que lo actualices en github y en
+  render» (el dueño, 12-11). Solo cambian `docs/auditoria/registro.md`, `docs/MAPA-DEL-PROYECTO.md`
+  y `CLAUDE.md`.
+- **NO VERIFICADO**: el Health Check Path de Render sigue vacío; el conector de Render no permite
+  cambiarlo y queda como ajuste opcional del dueño (`/api/health`).
