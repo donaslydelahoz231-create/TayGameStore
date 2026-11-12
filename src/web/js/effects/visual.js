@@ -29,13 +29,13 @@ export function initVisualEffects() {
   // de la página antes de mostrarla.
   progressRaf = requestAnimationFrame(paintProgress);
 
-  // Desktop-only cursor glow + hero parallax. Disabled on touch / low power / reduced motion.
+  // Desktop-only cursor glow. Disabled on touch / low power / reduced motion. El muro y el grafiti
+  // de la portada ya no se mueven con el puntero (pedido del dueño, 2026-11-12): quedan fijos.
   const enhanced = !reduce && !touch && !lowPower;
   if (enhanced) {
     const glow = document.createElement('div');
     glow.id = 'tgsCursorGlow';
     body.appendChild(glow);
-    const art = document.querySelector('.hero-art');
     let raf = 0,
       mx = innerWidth / 2,
       my = innerHeight / 2;
@@ -49,15 +49,6 @@ export function initVisualEffects() {
           // Con transform lo mueve la GPU; con left/top se recalculaba la página en cada cuadro.
           glow.style.transform = 'translate3d(' + mx + 'px,' + my + 'px,0) translate(-50%,-50%)';
           glow.style.opacity = '1';
-          if (art) {
-            // En píxeles enteros: con fracciones el fondo (y el grafiti) se ve borroso. Se mueve
-            // cada capa (49-fondo-muro.css) y no .hero-art, para que el grafiti pueda ir encima
-            // de la sombra del panel.
-            const x = Math.round((mx / innerWidth - 0.5) * 5);
-            const y = Math.round((my / innerHeight - 0.5) * 3);
-            art.style.setProperty('--art-x', x + 'px');
-            art.style.setProperty('--art-y', y + 'px');
-          }
           raf = 0;
         });
       },
