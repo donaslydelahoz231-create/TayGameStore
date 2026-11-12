@@ -3,7 +3,7 @@ import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
-import { humanStatus, paymentInProgress } from './order-status.js';
+import { humanStatus, paymentInProgress, purchaseSucceeded } from './order-status.js';
 import { chosenPayMeans, PAY_MEANS } from './pay-means.js';
 import { storeWhatsAppDigits } from './receipt-text.js';
 
@@ -35,9 +35,14 @@ export const invoiceCode = () => {
 function exportState(lines) {
   const order = state.currentOrder;
   if (hasReceipt()) {
+    const number = String(order.receipt.number).padStart(6, '0');
+    // Reembolsado o en revisión: el comprobante sigue siendo real (dice su estado), pero ya no es
+    // una «compra exitosa».
     return {
       enabled: true,
-      text: `¡Compra exitosa! Comprobante N.º ${String(order.receipt.number).padStart(6, '0')} listo para descargar.`,
+      text: purchaseSucceeded(order)
+        ? `¡Compra exitosa! Comprobante N.º ${number} listo para descargar.`
+        : `Comprobante N.º ${number} listo para descargar · ${humanStatus(order)}.`,
     };
   }
   if (order) {

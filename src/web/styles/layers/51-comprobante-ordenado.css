@@ -137,6 +137,13 @@
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
+/* Con comprobante pero sin «Compra exitosa» (reembolsado o en revisión): el número, discreto. */
+.history-receipt {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
 .history-entry.is-paid {
   border-color: rgba(42, 210, 130, 0.28);
 }

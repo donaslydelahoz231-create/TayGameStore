@@ -84,6 +84,9 @@ async function invoiceCanvas() {
     document.fonts?.load(`600 16px ${UI}`),
   ]).catch(() => {});
   const logo = await loadImage(new URL('brand/tay-logo.svg', document.baseURI).href);
+  // Desde aquí hasta el final todo es síncrono: la clave describe exactamente lo que se dibuja.
+  const key = receiptKey(),
+    base = 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_');
   const items = invoiceLines(),
     W = 760,
     PAD = 40,
@@ -275,7 +278,7 @@ async function invoiceCanvas() {
   foot.addColorStop(1, '#37d6ff');
   c.fillStyle = foot;
   c.fillRect(0, H - 6, W, 6);
-  return cv;
+  return { cv, key, base };
 }
 
 function saveBlob(blob, name) {
@@ -379,13 +382,69 @@ export async function copyShareText() {
   }
 }
 
-/** Imagen JPG del comprobante (la misma de «JPG») y el nombre base de sus archivos. */
-async function receiptJpg() {
-  const cv = await invoiceCanvas();
+/** Todo lo que dibuja el comprobante: si algo cambia, la imagen preparada ya no sirve. */
+function receiptKey() {
+  if (!hasReceipt()) return '';
+  const shown = [
+    'invoiceRef',
+    'invoiceDate',
+    'invoiceClient',
+    'invoiceUid',
+    'invoiceNick',
+    'invoiceRegion',
+    'invoiceMethod',
+  ].map((id) => $(id)?.textContent ?? '');
+  return JSON.stringify([shown, invoiceCode(), invoiceLines(), invoiceTotal()]);
+}
+
+/** Dibuja el comprobante y lo pasa a JPG. Guarda solo el JPG y sus medidas, no el lienzo. */
+async function drawReceiptJpg() {
+  const { cv, key, base } = await invoiceCanvas();
   const jpg = await new Promise((res, rej) =>
     cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
   );
-  return { cv, jpg, base: 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_') };
+  const { width, height } = cv;
+  // Safari libera la memoria del lienzo (unos 15 MB) en cuanto mide 0.
+  cv.width = cv.height = 0;
+  return { jpg, base, key, width, height };
+}
+
+/**
+ * Imagen preparada de antemano. En el celular, «Compartir» y «Enviar a TayGameStore» solo abren
+ * el menú de compartir dentro del toque del cliente: si la imagen se dibujara después del toque
+ * (fuentes, logo, JPG), Safari podría rechazarlo por haber pasado el gesto. Se dibuja en cuanto el
+ * comprobante aparece y se reutiliza mientras no cambie nada de lo que muestra.
+ */
+let prepared = null;
+let preparing = 0;
+
+function prepareReceiptImage() {
+  const key = receiptKey();
+  if (!key || prepared?.key === key) return;
+  const entry = { key, promise: drawReceiptJpg() };
+  prepared = entry;
+  entry.promise.catch(() => {
+    if (prepared === entry) prepared = null; // Se vuelve a dibujar al pulsar.
+  });
+}
+
+/** Tras cada render: si hay comprobante, prepara su imagen sin frenar la página. */
+export function scheduleReceiptImage() {
+  if (!hasReceipt() || preparing) return;
+  preparing = setTimeout(() => {
+    preparing = 0;
+    prepareReceiptImage();
+  }, 300);
+}
+
+/** Imagen JPG del comprobante (la misma de «JPG»), sus medidas y el nombre base de sus archivos. */
+async function receiptJpg() {
+  const key = receiptKey();
+  if (key && prepared?.key === key) {
+    const ready = await prepared.promise.catch(() => null);
+    if (ready?.key === key) return ready;
+  }
+  return drawReceiptJpg();
 }
 
 /**
@@ -443,7 +502,7 @@ export async function exportInvoice(type) {
     toast('El comprobante se emite cuando Mercado Pago confirma el pago.', 'bad');
     return;
   }
-  const { cv, jpg, base } = await receiptJpg();
+  const { jpg, base, width, height } = await receiptJpg();
   if (type === 'jpg') {
     saveBlob(jpg, base + '.jpg');
     setText('exportMsg', 'JPG generado correctamente.');
@@ -469,7 +528,7 @@ export async function exportInvoice(type) {
   }
   const fr = new FileReader();
   fr.onload = () => {
-    saveBlob(jpegToPdf(new Uint8Array(fr.result), cv.width, cv.height), base + '.pdf');
+    saveBlob(jpegToPdf(new Uint8Array(fr.result), width, height), base + '.pdf');
     setText('exportMsg', 'PDF generado correctamente.');
     toast('PDF generado.', 'good');
   };

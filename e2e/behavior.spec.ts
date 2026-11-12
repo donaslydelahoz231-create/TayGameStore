@@ -1240,6 +1240,23 @@ test.describe('comprobante', () => {
     page,
   }) => {
     expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    // Cuenta las imágenes del comprobante que dibuja la tienda (cada una termina en toBlob).
+    await page.addInitScript(() => {
+      const w = window as Window & { __toBlobCalls?: number };
+      type ToBlob = (
+        this: HTMLCanvasElement,
+        ...args: Parameters<HTMLCanvasElement['toBlob']>
+      ) => void;
+      const original = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob')
+        ?.value as ToBlob;
+      w.__toBlobCalls = 0;
+      HTMLCanvasElement.prototype.toBlob = function (this: HTMLCanvasElement, ...args) {
+        w.__toBlobCalls = (w.__toBlobCalls ?? 0) + 1;
+        original.apply(this, args);
+      };
+    });
+    const drawn = () =>
+      page.evaluate(() => (window as Window & { __toBlobCalls?: number }).__toBlobCalls ?? 0);
     try {
       await page.goto('/');
       await enterAsGuest(page);
@@ -1270,6 +1287,9 @@ test.describe('comprobante', () => {
       expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
       await expect(page.locator('#invoiceCode')).toContainText(/N\.º \d{6} · V1-/);
       await expect(page.locator('#exportMsg')).toContainText('listo para descargar');
+      // La imagen se prepara sola al aparecer el comprobante: en el celular, «Compartir» abre el
+      // menú dentro del toque del cliente, sin dibujar nada después del toque.
+      await expect.poll(drawn).toBe(1);
 
       const [jpg] = await Promise.all([
         page.waitForEvent('download'),
@@ -1282,6 +1302,8 @@ test.describe('comprobante', () => {
       ]);
       const bytes = await readFile(await pdf.path());
       expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+      // El PDF lleva la imagen con sus medidas reales (760 px de diseño × 2).
+      expect(bytes.toString('latin1')).toContain('/Width 1520 /Height ');
       const code = ((await page.locator('#invoiceCode').textContent()) ?? '').split(' · ')[1];
 
       // Con el menú de compartir del sistema (celular): la imagen va con su texto de verificación.
@@ -1323,6 +1345,8 @@ test.describe('comprobante', () => {
       expect(decodeURIComponent(wa)).toContain(code);
       expect(await page.locator('#shareMail').getAttribute('href')).toMatch(/^mailto:\?subject=/);
       await expect(page.locator('#exportMsg')).toContainText('JPG descargado');
+      // JPG, PDF y los dos «Compartir» usaron la misma imagen preparada.
+      expect(await drawn()).toBe(1);
     } finally {
       await operator(page, 'player-verification', { mode: 'operator' });
     }
@@ -1459,6 +1483,96 @@ test.describe('comprobante', () => {
     } finally {
       await operator(page, 'player-verification', { mode: 'operator' });
     }
+  });
+
+  test('historial: un pedido reembolsado o en revisión conserva su comprobante, pero no dice «Compra exitosa»', async ({
+    page,
+  }) => {
+    // El servidor conserva el número de comprobante de un pedido reembolsado (es la prueba del
+    // pago original): el historial debe mostrarlo sin presentarlo como compra exitosa.
+    // Respuestas simuladas con datos ficticios.
+    const base = {
+      createdAt: '2026-11-10T15:00:00.000Z',
+      customerName: 'Cliente Ficticio',
+      playerUid: '734567894',
+      playerServer: 'latam',
+      totalCop: 21800,
+      items: [
+        {
+          sku: 'ff-110',
+          name: '100 + 10 Diamantes',
+          quantity: 2,
+          unitPriceCop: 10900,
+          lineTotalCop: 21800,
+        },
+      ],
+      verification: { status: 'CONFIRMED', nickname: 'JugadorFicticio', region: 'Colombia' },
+      payment: { method: 'mercadopago', status: 'APPROVED', canPay: false },
+    };
+    const code = 'V1-AAAA-BBBB-CCCC-DDDD';
+    const orders = [
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA1',
+        status: 'DELIVERED',
+        receipt: { number: 41, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA2',
+        status: 'REFUNDED',
+        payment: { ...base.payment, status: 'REFUNDED' },
+        receipt: { number: 42, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA3',
+        status: 'NEEDS_REVIEW',
+        receipt: { number: 43, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA4',
+        status: 'AWAITING_PAYMENT',
+        payment: { method: 'mercadopago', status: null, canPay: true },
+        receipt: null,
+      },
+    ];
+    await page.route(/\/api\/orders(\/TGS-[0-9A-Z]{10})?$/, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const ref = /TGS-[0-9A-Z]{10}$/.exec(new URL(route.request().url()).pathname)?.[0];
+      if (!ref) return route.fulfill({ json: { orders } });
+      return route.fulfill({ json: { order: orders.find((o) => o.reference === ref) } });
+    });
+    await page.goto('/');
+    await enterAsGuest(page);
+    await page.evaluate(() => document.getElementById('menuHistory')?.click());
+    const entry = (ref: string) => page.locator('#historyList .history-entry', { hasText: ref });
+
+    await expect(entry('TGS-AAAAAAAAA1')).toContainText('Compra exitosa');
+    await expect(entry('TGS-AAAAAAAAA1')).toContainText('Comprobante N.º 000041');
+    await expect(entry('TGS-AAAAAAAAA1').locator('.history-view')).toHaveText('Ver comprobante');
+    for (const [ref, number, status] of [
+      ['TGS-AAAAAAAAA2', '000042', 'Reembolsado'],
+      ['TGS-AAAAAAAAA3', '000043', 'En revisión'],
+    ] as const) {
+      await expect(entry(ref)).not.toContainText('Compra exitosa');
+      await expect(entry(ref)).not.toHaveClass(/is-paid/);
+      await expect(entry(ref).locator('.history-receipt')).toHaveText(`Comprobante N.º ${number}`);
+      await expect(entry(ref).locator('.history-status')).toHaveText(status);
+      await expect(entry(ref).locator('.history-view')).toHaveText('Ver comprobante');
+    }
+    await expect(entry('TGS-AAAAAAAAA4')).not.toContainText('Comprobante');
+    await expect(entry('TGS-AAAAAAAAA4').locator('.history-view')).toHaveText('Ver');
+
+    // El comprobante del reembolsado se puede abrir y descargar (dice su estado real), pero no
+    // anuncia una compra exitosa.
+    await entry('TGS-AAAAAAAAA2').locator('.history-view').click();
+    await expect(page.locator('#invoiceRef')).toHaveText('TGS-AAAAAAAAA2');
+    await expect(page.locator('#exportMsg')).toHaveText(
+      'Comprobante N.º 000042 listo para descargar · Reembolsado.',
+    );
+    await expect(page.locator('#jpgBtn')).toBeEnabled();
   });
 });
 
