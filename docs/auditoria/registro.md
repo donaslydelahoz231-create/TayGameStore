@@ -3326,3 +3326,25 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   (`update_failed`), como todos sus despliegues anteriores. No es la tienda; lo borra el dueño.
 - **Rama local**: las 8 mejoras sin publicar se rehicieron encima de `8e6094d` (mismo código ya
   probado). La versión anterior queda en `refs/respaldo/rama-antes-de-8e6094d`.
+
+## 2026-11-12 · Publicación de las mejoras del 11 y 12-11, autorizada por el dueño
+
+- **Autorización**: «ejecútalo por tu cuenta, encárgate de todo, trabájalo, te doy la autorización
+  libremente» (el dueño, 12-11), después del informe de las mejoras y de su diff: 29 archivos,
+  +1264/−74. Se publican firmadas como TayGameStore (regla de `CLAUDE.md`).
+- **Qué se publica**:
+  - Dependencias sin vulnerabilidades.
+  - Tienda tapada por la entrada, sin transiciones.
+  - «Enviar a TayGameStore», comprobante ordenado e historial con «Compra exitosa» (solo en
+    pedidos en curso o entregados), con la imagen preparada para compartir.
+  - La consulta del seguimiento ya no se corta al ir a pagar, y «Atrás» desde el cobro reactiva
+    el botón.
+  - Pruebas e2e sin fallos en cascada.
+  - Instalación de navegadores del CI con reintentos, y diagnóstico con detalle.
+
+  El detalle y la evidencia están en las entradas del 2026-11-11 y del 2026-11-12 de este registro.
+- **Antes del push**: el código es idéntico al probado (unitarias 415/415, integración 319/319,
+  e2e en Chromium 167/167, WebKit 165/165 y Firefox 164/164) y el escáner da 0 coincidencias. El
+  compilado esperado en vivo es `main-BIADQ2c5.js` y `main-C2A0u2Cb.css`.
+- **Después del push**: la verificación (CI, compilado en vivo, `golive:check` y diagnóstico) se
+  informa al dueño y se anota en la próxima entrada.
