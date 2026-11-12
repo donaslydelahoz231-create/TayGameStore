@@ -3306,3 +3306,23 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
 - Tienda publicada (solo lectura): `golive:check --url` → «LISTO para vender»; diagnóstico de
   burbujas, todo «sí» a 360 y 1280 px.
 - Sin push ni despliegue: GitHub y Render siguen en `9c023cc`.
+
+## 2026-11-12 · Publicación de 8e6094d (solo documentos), autorizada por el dueño
+
+- **Autorización**: «autorizo publicar 8e6094d» (el dueño, 12-11), después de ver el diff exacto: 4
+  documentos (`CLAUDE.md`, `CHANGELOG.md`, `docs/MAPA-DEL-PROYECTO.md` y este registro), +152
+  líneas. Antes del push se comprobaron los blobs y que el código de la tienda era idéntico al de
+  `9c023cc`. El dueño pidió además no crear otro sitio ni otro enlace: no se creó ninguno.
+- **Push**: `9c023cc..8e6094d` en `claude/taygamestore-production-pfctbn`, un avance normal, sin
+  forzar. `git ls-remote` devuelve `8e6094d`.
+- **GitHub**: la portada muestra «TayGameStore» como autor del último cambio. Las filas `src` y
+  `e2e` mantienen «Portada en iPhone Plus y Pro Max, tabletas y Safari» hasta que se publique
+  código. CI completa (gitleaks; lint, tipos, pruebas y build; integración; e2e en Chromium, WebKit
+  y Firefox), CodeQL, «Production smoke check» y GitHub Pages: todos con éxito.
+- **Render (original)**: su estado por API queda NO VERIFICADO, porque el conector no ve esa
+  cuenta. La tienda siguió respondiendo 200 en `/`, `/api/ready` y `/api/health`, con el mismo
+  compilado (`main-HDNXxyzk.css` y `main-K2G_wHhF.js`), algo coherente con un código idéntico.
+- **Render (duplicado `taygamestore-xfkd`)**: también intentó desplegar `8e6094d` y falló
+  (`update_failed`), como todos sus despliegues anteriores. No es la tienda; lo borra el dueño.
+- **Rama local**: las 8 mejoras sin publicar se rehicieron encima de `8e6094d` (mismo código ya
+  probado). La versión anterior queda en `refs/respaldo/rama-antes-de-8e6094d`.
