@@ -3521,3 +3521,22 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   mayoría solo por documentos.
 - **Solución definitiva** (decisión del dueño, tiene coste): un plan de pago de Render no duerme la
   tienda.
+
+## 2026-11-12 · Portada: el muro y el grafiti ya no se mueven con el cursor
+
+- **Pedido y autorización del dueño**: «quiero que el muro y el grafiti no se mueva cuando apunto
+  con el cursor» y, ante la pregunta de publicar, «Sí, publícalo ahora» (12-11). El pedido por
+  WhatsApp queda descartado por ahora (no se publica; copia guardada).
+- **Cambio** (`c383578`, 2 archivos): `effects/visual.js` deja de mover las capas con el puntero y
+  `49-fondo-muro.css` pierde la regla que las desplazaba. El brillo del cursor y la animación del
+  grafitero no cambian; en celulares y tabletas el efecto nunca estuvo activo.
+- **Antes de publicar**: lint, tipos, unitarias 415/415, escáner 0 y e2e en Chromium 167/167.
+  Comparación de capturas en computador: en reposo, sin diferencias visibles (máximo 14/255 por el
+  dibujo de la tarjeta gráfica) y el grafiti sigue sobre la sombra del panel; con el puntero en una
+  esquina, antes las capas se corrían 2 px y 1 px y ahora no.
+- **Publicación**: push sin forzar `37bc274..c383578` a las 23:23 UTC; Render `dep-dbr4konf3r2c73bjhmdg`
+  `live` a las 23:24, sin corte (`/api/ready` 200 todo el tiempo). Registros sin avisos ni errores.
+  En vivo: `golive:check` «LISTO para vender», smoke a 360 y 1280 px con todo en «sí», y el muro
+  queda en la misma posición con el puntero en cualquier punto (`translate: none`).
+- **CI de `c383578`**: CodeQL, chequeo de producción y Pages OK; el resultado de la CI completa se
+  anota en la entrada siguiente.
