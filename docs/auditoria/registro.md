@@ -3160,3 +3160,41 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Queda para el dueño:** bajo 300 px (JioPhone 2, Galaxy Fold cerrado de 280 px) las letras del
   grafiti no caben junto a los botones y salen cortadas (el grafitero ya se oculta ahí desde antes).
   No se cambia sin su decisión.
+
+## 2026-11-12 · Auditoría, originales frente a duplicados y firma TayGameStore
+
+- **Firma**: por decisión del dueño, los commits salen a nombre de TayGameStore, sin la firma del
+  asistente (regla en `CLAUDE.md`). Es el primer commit publicado con esa firma. Los anteriores
+  conservan su autor: cambiarlo exigiría reescribir el historial publicado, algo prohibido y que la
+  regla «TayGamerStore» de GitHub bloquea.
+- **Mapa del proyecto**: `docs/MAPA-DEL-PROYECTO.md` (lo original frente a los duplicados, cómo
+  funciona una compra, la organización del código y cómo se publica).
+- **Auditoría** (skill `auditoria-segura`, solo lectura) sobre el código local (`9c023cc` más 9
+  commits sin publicar):
+  - Compilación OK; tipos, lint y formato OK.
+  - Escáner: 0 coincidencias. La búsqueda del documento del propietario queda NO VERIFICADA porque
+    falta su sufijo.
+  - Unitarias 415/415, integración 319/319 y e2e Chromium 167/167.
+  - Tienda publicada: responde 200, `/api/ready` 200 y sirve el compilado de `9c023cc`;
+    `golive:check` da «LISTO para vender».
+- **Render**: el conector solo ve la cuenta del duplicado. El servicio original le responde 404,
+  así que su estado por API queda NO VERIFICADO; la tienda en vivo sí está verificada. El duplicado
+  `taygamestore-xfkd` tiene todos sus despliegues en `update_failed`, incluidos 5 reintentos
+  manuales el 11-11: de ahí salen los avisos de fallo.
+- **GitHub Actions**:
+  - «Vigilancia» y «Mantener la tienda activa»: sin fallos.
+  - «Diagnóstico diario»: 5 fallos del 04-11 al 11-11, siempre con la tienda dormida («no
+    responde»). «Mantener la tienda activa», programado cada 10 min, se ejecutó con una mediana de
+    303 min en 100 ejecuciones (del 22-10 al 12-11), así que la tienda se duerme entre visitas.
+  - «Mantenimiento automático»: falla porque GitHub Actions no tiene permiso para crear PR.
+  - «Tareas programadas»: omitidas por diseño (respaldo opcional desactivado).
+- **Neon**: la base original es `TayGamerStore` (rama `production`), con 3 ramas de respaldo
+  (13-10, 27-10 y 03-11). El proyecto `red-hat-15298321` es un duplicado sin uso.
+- **Ramas de GitHub**: hay 24 sobrantes. El dueño recibió una copia; el borrado desde la sesión fue
+  rechazado (HTTP 403 del proxy). GitHub Pages se construye desde la rama de producción.
+- **Copias locales**: borradas las copias de trabajo temporales y el espejo de la sesión. Queda una
+  sola copia, enlazada al repositorio original.
+- **Chat original**: eliminado y no recuperable; su trabajo está en este repositorio.
+- **Publicación**: solo documentos, la tienda no cambia. Se publica únicamente con la autorización
+  explícita del dueño para este diff exacto (`despliegue-seguro`); la autorización se anota en la
+  entrada siguiente.

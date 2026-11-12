@@ -21,6 +21,13 @@
 - **Evidencia**: si una comprobación no puede hacerse, márcala como NO VERIFICADO. No afirmes que
   algo fue publicado, eliminado o verificado sin evidencia técnica.
 
+## Firma de los commits (decisión del dueño, 2026-11-12)
+
+- Todo commit sale a nombre de **TayGameStore** (`TayGameStore <noreply@taygamestore.onrender.com>`),
+  sin líneas `Co-Authored-By` ni `Claude-Session`, y los títulos y descripciones de PR van sin
+  firma del asistente. Los commits ya publicados conservan su autor: cambiarlos exigiría reescribir
+  el historial publicado, y eso está prohibido.
+
 Procedimientos: skill `auditoria-segura` (solo lectura) y skill `despliegue-seguro` (autorización
 por etapas). La guardia `.claude/hooks/guardia-datos.sh` bloquea secretos, el documento completo y
 la reescritura del historial; no la desactives ni la eludas.
