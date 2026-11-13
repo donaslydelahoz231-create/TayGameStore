@@ -84,6 +84,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+        # Con reintentos: los espejos de apt de los runners fallan a veces (ver el script).
+        run: bash scripts/ci/instalar-navegador.sh chromium
       - name: Burbujas de soporte en la tienda publicada (navegador real)
         run: node tools/smoke/burbujas.mjs https://taygamestore.onrender.com

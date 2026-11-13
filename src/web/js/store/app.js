@@ -13,6 +13,7 @@ import { initSound } from '../effects/sonido.js';
 import { playIntro } from './features/intro.js';
 import { renderHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
+import { scheduleReceiptImage } from './features/invoice-export.js';
 import { navObserver } from './features/nav.js';
 import { isFinalOrderStatus, loadOrder, startPolling, syncOrder } from './features/orders.js';
 import { consumeAccessFragment, renderTrackAccess } from './features/order-access.js';
@@ -49,6 +50,8 @@ registerRenderers([
   renderSupport,
   renderAccount,
   renderHistory,
+  // Al final: la imagen del comprobante se prepara con la página ya pintada.
+  scheduleReceiptImage,
   saveLocal,
 ]);
 

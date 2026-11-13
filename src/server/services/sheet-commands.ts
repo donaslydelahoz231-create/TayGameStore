@@ -5,7 +5,7 @@ import { AppError } from '../plugins/errors.js';
 import { fulfillmentAction, type FulfillmentAction } from './admin.js';
 import type { Actor, ServiceDeps } from './context.js';
 import { confirmNequiTransfer, nequiReference } from './nequi-manual.js';
-import { bogotaTime } from './notifications.js';
+import { bogotaTime, liveOwnerState } from './notifications.js';
 
 /**
  * Lo que el dueño marca en la hoja de Google, aplicado con las mismas reglas y el mismo historial
@@ -165,6 +165,91 @@ export async function applyPaymentCommand(
   return `✔️ Pago confirmado${receiptLabel(after?.receiptNumber ?? null)} · ya está en «Entregas»`;
 }
 
+/** Estado elegido en el menú «Estado (tú)» de «Pedidos en vivo» (sin tildes ni mayúsculas). */
+type LiveTarget = 'pending' | 'paid' | 'start' | 'deliver';
+const LIVE_TARGETS: Record<string, LiveTarget> = {
+  pendiente: 'pending',
+  'pago verificado': 'paid',
+  'en proceso': 'start',
+  'envio exitoso': 'deliver',
+  entregado: 'deliver',
+};
+
+/**
+ * Menú «Estado (tú)» de «Pedidos en vivo» (pedido del dueño, 2026-11-12): Pendiente, Pago
+ * verificado, En proceso y Envío exitoso, con las mismas reglas que el panel y que las casillas:
+ * - «Pago verificado» confirma un pago Nequi por su total exacto con la referencia de su app Nequi
+ *   (columna N). Mercado Pago se confirma solo: nunca desde la hoja.
+ * - «En proceso» y «Envío exitoso» exigen el pago confirmado; si es Nequi y el dueño escribió la
+ *   referencia en N, primero confirma el pago y luego sigue.
+ * - «Pendiente» no deshace nada (un pago confirmado o una entrega no se borran desde la hoja).
+ */
+export async function applyLiveCommand(
+  deps: ServiceDeps,
+  command: SheetCommand,
+  actor: Actor | undefined,
+): Promise<string> {
+  const target = LIVE_TARGETS[normalize(command.command)];
+  if (!target) return '✖️ No entendí el estado: elige uno del menú.';
+  if (!actor) {
+    return '✖️ No se aplicó: entra una vez al panel con tu cuenta de dueño y vuelve a elegirlo.';
+  }
+  const [order] = await deps.db
+    .select({ status: orders.status, paymentMethod: orders.paymentMethod })
+    .from(orders)
+    .where(eq(orders.publicRef, command.reference))
+    .limit(1);
+  if (!order) return '✖️ No se aplicó: no hay un pedido con esa referencia.';
+  const paid = ['PAID', 'DELIVERING', 'DELIVERED'].includes(order.status);
+  if (target === 'pending') {
+    if (paid) {
+      return '✖️ No se aplicó: un pedido pagado no vuelve a Pendiente desde la hoja; revísalo en el panel.';
+    }
+    // Vencido, cerrado, en revisión o reembolsado: no está pendiente ni se reabre desde la hoja.
+    return liveOwnerState(order.status)
+      ? '✔️ Ya estaba: Pendiente'
+      : '✖️ No se aplicó: este pedido ya está cerrado o en revisión; gestiónalo en el panel.';
+  }
+  if (!paid) {
+    if (order.paymentMethod === 'mercadopago') {
+      return '✖️ No se aplicó: los pagos de Mercado Pago los confirma Mercado Pago, no la hoja.';
+    }
+    if (order.paymentMethod !== 'nequi_manual') {
+      return '✖️ No se aplicó: el cliente todavía no eligió cómo pagar.';
+    }
+    if (target !== 'paid' && !nequiReference.safeParse(command.note).success) {
+      return '✖️ No se aplicó: primero el pago. Escribe en la columna N la referencia que ves en tu app Nequi y elige «Pago verificado» (o este estado de nuevo).';
+    }
+    const payment = await applyPaymentCommand(
+      deps,
+      { ...command, tab: 'pending', command: 'true' },
+      actor,
+    );
+    // Solo un pago confirmado sigue a la entrega; «registrado, pero en revisión» (pago tardío de un
+    // pedido vencido) o un rechazo se responden tal cual.
+    if (!payment.startsWith('✔️ Pago confirmado') || target === 'paid') {
+      return payment.replace(' · ya está en «Entregas»', '').replace('columna V', 'columna N');
+    }
+  } else if (target === 'paid') {
+    return '✔️ Ya estaba pagado';
+  }
+  return applySheetCommand(
+    deps,
+    { ...command, tab: 'deliveries', command: target === 'start' ? 'en proceso' : 'entregado' },
+    actor,
+  );
+}
+
+/** Estado del menú de «Pedidos en vivo» para la referencia, tras aplicar la orden. */
+async function liveStateOf(deps: ServiceDeps, reference: string): Promise<string> {
+  const [order] = await deps.db
+    .select({ status: orders.status })
+    .from(orders)
+    .where(eq(orders.publicRef, reference))
+    .limit(1);
+  return order ? liveOwnerState(order.status) : '';
+}
+
 /** Aplica lo que el dueño marcó en la hoja y devuelve la respuesta para él (última columna). */
 export async function applySheetCommand(
   deps: ServiceDeps,
@@ -172,6 +257,7 @@ export async function applySheetCommand(
   actor: Actor | undefined,
 ): Promise<string> {
   if (command.tab === 'pending') return applyPaymentCommand(deps, command, actor);
+  if (command.tab === 'live') return applyLiveCommand(deps, command, actor);
   const target = parseSheetCommand(command.command);
   if (!target) return '✖️ No entendí la opción: elige una de la lista.';
   if (!actor) {
@@ -218,8 +304,8 @@ export async function applySheetCommand(
 }
 
 /**
- * Una pasada: lee las casillas de «Entregas» y «Pagos pendientes» (sin tocar la base de datos si
- * están sin marcar), aplica cada una y deja la respuesta en la fila. Si falla la base de datos, la orden sigue escrita y
+ * Una pasada: lee las casillas de «Entregas» y «Pagos pendientes» y el menú de «Pedidos en vivo»
+ * (sin tocar la base de datos si nadie cambió nada), aplica cada una y deja la respuesta en la fila. Si falla la base de datos, la orden sigue escrita y
  * se reintenta en la próxima pasada. Devuelve cuántas órdenes respondió.
  */
 export async function processSheetCommands(deps: ServiceDeps): Promise<number> {
@@ -230,7 +316,9 @@ export async function processSheetCommands(deps: ServiceDeps): Promise<number> {
   const actor = await ownerActor(deps);
   for (const command of commands) {
     const response = await applySheetCommand(deps, command, actor);
-    await sheets.finishCommand(command, `${response} · ${bogotaTime.format(deps.now())}`);
+    // En «Pedidos en vivo» el menú vuelve a mostrar el estado real (el nuevo, si se aplicó).
+    const state = command.tab === 'live' ? await liveStateOf(deps, command.reference) : undefined;
+    await sheets.finishCommand(command, `${response} · ${bogotaTime.format(deps.now())}`, state);
     deps.log.info(
       { ref: command.reference, pestaña: command.tab, aplicado: response.startsWith('✔️') },
       'hoja de Google: cambio de estado del dueño',

@@ -17,7 +17,12 @@ import {
 } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer, watchBuyBar } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
-import { goToNextStep, preparePayment, resetCheckoutKey } from './features/checkout.js';
+import {
+  goToNextStep,
+  preparePayment,
+  resetCheckoutKey,
+  resumeFromBackForwardCache,
+} from './features/checkout.js';
 import { revealStore, showEntryLanding } from './features/entry.js';
 import { playEnterTransition } from './features/intro.js';
 import { renderFavorites } from './features/favorites.js';
@@ -25,7 +30,7 @@ import { renderPromo, weekendPromo } from './features/promo.js';
 import { renderTariffBoard } from './features/tariffs.js';
 import { renderHistory, syncPurchaseHistory } from './features/history.js';
 import { renderInvoice } from './features/invoice.js';
-import { copyShareText, exportInvoice } from './features/invoice-export.js';
+import { copyShareText, exportInvoice, sendReceiptToStore } from './features/invoice-export.js';
 import { pollOrder, setCurrentOrder, stopPolling, syncOrder } from './features/orders.js';
 import { showPins } from './features/pins.js';
 import { submitReview } from './features/reviews.js';
@@ -275,6 +280,7 @@ function bindInvoiceAndCheckout() {
   $('jpgBtn').onclick = () => exportInvoice('jpg');
   $('pdfBtn').onclick = () => exportInvoice('pdf');
   $('shareBtn').onclick = () => exportInvoice('share');
+  $('sendStoreBtn').onclick = sendReceiptToStore;
   $('shareCopy').onclick = copyShareText;
   $('howBtn').onclick = () => modal('howModal', true);
   $('securityBtn').onclick = () => modal('securityModal', true);
@@ -333,6 +339,11 @@ function bindGlobal() {
     if (state.currentOrder) pollOrder();
   });
   window.addEventListener('offline', () => toast('Navegador sin conexión.', 'bad'));
+  // «Atrás» desde Mercado Pago puede restaurar la página de la caché atrás/adelante (la portada
+  // se sirve con no-cache, que lo permite): ver resumeFromBackForwardCache.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) resumeFromBackForwardCache();
+  });
 }
 
 /** Conecta los controles de la página con sus acciones. */

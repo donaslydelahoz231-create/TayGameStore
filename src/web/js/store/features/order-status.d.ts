@@ -3,7 +3,9 @@ interface OrderLike {
   status: string;
   verification?: { status: string } | null;
   payment?: { status: string | null } | null;
+  receipt?: { number: number; verificationCode: string } | null;
 }
 export function paymentInProgress(order: OrderLike | null | undefined): boolean;
 export function humanStatus(order: OrderLike | null | undefined): string;
 export function historyStatusClass(status: string): 'ok' | 'bad' | 'warn';
+export function purchaseSucceeded(order: OrderLike | null | undefined): boolean;

@@ -3160,3 +3160,383 @@ salgan «según el inventario» y que haya un Excel «bien guardado y organizado
 - **Queda para el dueño:** bajo 300 px (JioPhone 2, Galaxy Fold cerrado de 280 px) las letras del
   grafiti no caben junto a los botones y salen cortadas (el grafitero ya se oculta ahí desde antes).
   No se cambia sin su decisión.
+
+## 2026-11-12 · Auditoría, originales frente a duplicados y firma TayGameStore
+
+- **Firma**: por decisión del dueño, los commits salen a nombre de TayGameStore, sin la firma del
+  asistente (regla en `CLAUDE.md`). Es el primer commit publicado con esa firma. Los anteriores
+  conservan su autor: cambiarlo exigiría reescribir el historial publicado, algo prohibido y que la
+  regla «TayGamerStore» de GitHub bloquea.
+- **Mapa del proyecto**: `docs/MAPA-DEL-PROYECTO.md` (lo original frente a los duplicados, cómo
+  funciona una compra, la organización del código y cómo se publica).
+- **Auditoría** (skill `auditoria-segura`, solo lectura) sobre el código local (`9c023cc` más 9
+  commits sin publicar):
+  - Compilación OK; tipos, lint y formato OK.
+  - Escáner: 0 coincidencias. La búsqueda del documento del propietario queda NO VERIFICADA porque
+    falta su sufijo.
+  - Unitarias 415/415, integración 319/319 y e2e Chromium 167/167.
+  - Tienda publicada: responde 200, `/api/ready` 200 y sirve el compilado de `9c023cc`;
+    `golive:check` da «LISTO para vender».
+- **Render**: el conector solo ve la cuenta del duplicado. El servicio original le responde 404,
+  así que su estado por API queda NO VERIFICADO; la tienda en vivo sí está verificada. El duplicado
+  `taygamestore-xfkd` tiene todos sus despliegues en `update_failed`, incluidos 5 reintentos
+  manuales el 11-11: de ahí salen los avisos de fallo.
+- **GitHub Actions**:
+  - «Vigilancia» y «Mantener la tienda activa»: sin fallos.
+  - «Diagnóstico diario»: 5 fallos del 04-11 al 11-11, siempre con la tienda dormida («no
+    responde»). «Mantener la tienda activa», programado cada 10 min, se ejecutó con una mediana de
+    303 min en 100 ejecuciones (del 22-10 al 12-11), así que la tienda se duerme entre visitas.
+  - «Mantenimiento automático»: falla porque GitHub Actions no tiene permiso para crear PR.
+  - «Tareas programadas»: omitidas por diseño (respaldo opcional desactivado).
+- **Neon**: la base original es `TayGamerStore` (rama `production`), con 3 ramas de respaldo
+  (13-10, 27-10 y 03-11). El proyecto `red-hat-15298321` es un duplicado sin uso.
+- **Ramas de GitHub**: hay 24 sobrantes. El dueño recibió una copia; el borrado desde la sesión fue
+  rechazado (HTTP 403 del proxy). GitHub Pages se construye desde la rama de producción.
+- **Copias locales**: borradas las copias de trabajo temporales y el espejo de la sesión. Queda una
+  sola copia, enlazada al repositorio original.
+- **Chat original**: eliminado y no recuperable; su trabajo está en este repositorio.
+- **Publicación**: solo documentos, la tienda no cambia. Se publica únicamente con la autorización
+  explícita del dueño para este diff exacto (`despliegue-seguro`); la autorización se anota en la
+  entrada siguiente.
+
+## 2026-11-11 · Mantenimiento de producción autorizado por el dueño (local, sin publicar)
+
+Autorización del dueño: «te autorizo todo en orden todo completo» sobre la rama
+`claude/taygamestore-production-pfctbn` (sin mezclar la rama de WhatsApp, que queda aparte). Cada
+parte se prueba en local; el push se pide aparte con el diff exacto.
+
+### 1. Vulnerabilidades de dependencias
+
+- **Antes**: `npm audit` 12 moderadas; 3 en dependencias de producción (`@fastify/static` 10.1.6
+  → `glob` → `minimatch`: «potential denial of service via globparts amplification» y «AbortSignal
+  cancellation bypass»), 9 en herramientas de desarrollo (ESLint y typescript-eslint vía
+  `minimatch`).
+- **Cambio**: `@fastify/static` 10.1.10 (versión de parche, la misma que propone Dependabot en el
+  PR #29) y `overrides.minimatch` 11.0.8 (lo usan glob, ESLint y typescript-eslint).
+- **Después**: `npm audit` 0. Lint (comprobado que sigue detectando errores), tipos, formato,
+  build, unitarias 406/406, integración 319/319 y e2e de entrada, cabeceras y estáticos 11/11.
+
+### 2. Pruebas inestables de WebKit, corregidas en el origen
+
+Las dos pruebas que fallaban a veces en el CI de WebKit (Safari) eran fallos reales de la tienda,
+no de las pruebas. Ninguna aserción se quitó ni se relajó.
+
+- **Contraste (axe) bajo la entrada** (commit `0740ce6`): con «movimiento reducido», la tienda
+  tapada por la entrada seguía visible un fotograma por una transición de 0,01 ms
+  (`20-reduced-motion.css`). `33-motion-budget.css` quita toda transición mientras la tienda está
+  bloqueada (`.store-locked`). En WebKit, 10 de 10 cargas: tienda oculta desde el primer instante;
+  axe 0 infracciones (antes, visible en 9 de 10).
+- **«Fetch API cannot load …/api/orders/TGS-… due to access control checks»**: la traza del CI
+  (11-11) muestra que la consulta periódica del pedido seguía en vuelo cuando la tienda navegó al
+  cobro de Mercado Pago y WebKit la cortó. Corrección (`orders.js`, `checkout.js`): antes de salir
+  al cobro se para el sondeo y se espera la consulta en vuelo (como mucho 2 s); además, un ciclo
+  de un sondeo ya parado ya no reprograma otro (`pollRun`). Sin tocar CORS, CSP ni controles.
+- **«Atrás» desde Mercado Pago** (encontrado al revisar la corrección anterior): la portada se
+  sirve con `no-cache`, así que el navegador puede devolverla desde la caché atrás/adelante tal
+  como quedó: botón «Abriendo Mercado Pago…» bloqueado (fallo que ya existía) y, con la corrección,
+  seguimiento detenido. `pageshow` con `persisted` reactiva el botón y consulta el pedido al
+  instante (`resumeFromBackForwardCache`).
+- **Pruebas** (`e2e/behavior.spec.ts`, «salida al cobro»): /pay tarda 6,5 s y la consulta 2,5 s
+  (ninguna consulta cortada); y el regreso con la página restaurada (cobro con 204 + `pageshow`).
+  Control negativo: sin la corrección, las dos fallan en Chromium y en WebKit; con ella pasan
+  (WebKit 3 de 3).
+
+### 3. Comprobante, historial y «Enviar a TayGameStore»
+
+- Commit `0556e08`: «Enviar a TayGameStore» (imagen del comprobante + datos línea por línea por el
+  menú de compartir; en computador: JPG descargado, texto copiado y chat de la tienda abierto con
+  el texto), comprobante ordenado (nombre largo completo, total que no se sale a 360 px, detalle a
+  lo ancho en celular) e historial con «Compra exitosa».
+- **Caso límite corregido**: un pedido **reembolsado** conserva su número de comprobante (el
+  servidor lo mantiene como prueba del pago original) y el historial lo presentaba como «Compra
+  exitosa». Ahora `purchaseSucceeded` exige comprobante y estado PAID, DELIVERING o DELIVERED; un
+  pedido reembolsado o en revisión muestra «Comprobante N.º …» sin esa etiqueta, y la descarga
+  dice su estado («… listo para descargar · Reembolsado»). Pruebas unitarias y e2e con datos
+  ficticios (control negativo: con la lógica anterior la e2e falla).
+- **Imagen preparada de antemano**: en iPhone, el menú de compartir solo se abre dentro del toque
+  del cliente; la imagen se dibujaba después del toque (fuentes, logo, JPG). Ahora se prepara al
+  aparecer el comprobante y JPG, PDF, Compartir y Enviar la reutilizan (solo el JPG y sus medidas;
+  el lienzo se libera).
+- Servidor revisado (solo lectura): el historial solo devuelve pedidos de la cuenta o del
+  navegador (máx. 50); la base garantiza total = subtotal − descuento, línea = precio × cantidad,
+  número de comprobante único y pago solo con jugador confirmado; la verificación pública de un
+  comprobante reembolsado dice «Pago reembolsado».
+
+### 4. Integración continua y diagnóstico diario
+
+- `scripts/ci/instalar-navegador.sh`: instala el navegador de Playwright con 3 intentos (espera
+  45 s y 90 s). El 11-11 el paso cayó por DNS de los espejos de apt de GitHub. Si los 3 fallan, el
+  paso falla (nada se oculta). Lo usan `ci.yml`, `diagnostico.yml` y `production-smoke.yml`.
+- `tools/smoke/burbujas.mjs`: un «diseño cargado: NO» ahora explica la causa (`--bg`, aviso de
+  estilos, hojas aplicadas, en qué milisegundo llegó la hoja frente al evento `load`, estado y
+  tipo de cada hoja y script, errores de consola sin números largos). El fallo del 11-11 (ejecución
+  43080262595, solo a 360 px: «diseño cargado: NO (sin detalle)» y «bienvenida sin burbuja: NO»,
+  mientras las comprobaciones posteriores de esa página sí tenían estilos) indica estilos que
+  llegaron tarde en la primera carga; no hay recargas automáticas ni cambios de hojas en la tienda
+  que lo expliquen. Causa exacta NO VERIFICADA; el 12-11 el diagnóstico completo contra la tienda
+  publicada pasa en 360 y 1280 px. Probado también el camino «NO» (proxy local con aviso inyectado).
+- Revisado para el aviso de WebKit: la tienda no tiene service worker ni configuración CORS (la API
+  es del mismo origen, `credentials: 'same-origin'`); «access control checks» es el texto con que
+  WebKit registra una petición cancelada por la navegación, no un bloqueo de seguridad.
+
+### 5. Pruebas e2e: un fallo intermitente ya no arrastra a las demás
+
+- **Visto en Firefox** (primera pasada local completa): 5 fallos. Uno real: «Nequi desde el panel»
+  agotó sus 60 s, y su `finally` no alcanzó a devolver el servidor de pruebas al modo de
+  verificación del equipo. Los otros 4 fueron en cascada: las pruebas siguientes que crean pedidos
+  heredaron el modo «cliente confirma su ID» y `/api/checkout` respondió 400. Sola, la prueba pasa
+  en 5,2 s, y la segunda pasada completa dio 164/164 (3 omitidas por diseño). La causa del bloqueo
+  de 60 s queda NO VERIFICADA; es de la misma familia que los bloqueos de Firefox en el CI
+  (ejecuciones 39/40/43) ya anotados en `preparePage`.
+- **Corrección**: el servidor de pruebas tiene `/__e2e__/reset` (solo en `e2e/support/server.ts`,
+  nunca en producción), que devuelve Nequi, el modo de verificación y la entrega con PIN a sus
+  valores de arranque. `preparePage` lo llama antes de cada prueba. Un fallo sigue siendo un
+  fallo (nada se oculta), pero ya no contagia a las pruebas siguientes. Control negativo: sin la
+  restauración, una prueba hereda el modo `customer` de la anterior; con ella, `operator`.
+
+### Resultados (2026-11-12, código final, en local)
+
+- Lint, formato y tipos: OK. Esquema y migraciones: sin cambios (`drizzle-kit generate`).
+- Unitarias 415/415 (41 archivos). Integración 319/319 (29 archivos, PostgreSQL 16 local con
+  credenciales ficticias). Build OK. `npm audit`: 0 (producción y desarrollo).
+- E2E con el comando del CI (`npm run test:e2e`, escritorio 1280): Chromium 167/167; WebKit 165/165
+  (2 omitidas por diseño: llaves de acceso y toque emulado, que usan el CDP de Chromium); Firefox
+  164/164 (3 omitidas por diseño).
+- Escáner de secretos: 0 coincidencias (árbol, `dist/`, ignorados e historial).
+- Tienda publicada (solo lectura): `golive:check --url` → «LISTO para vender»; diagnóstico de
+  burbujas, todo «sí» a 360 y 1280 px.
+- Sin push ni despliegue: GitHub y Render siguen en `9c023cc`.
+
+## 2026-11-12 · Publicación de 8e6094d (solo documentos), autorizada por el dueño
+
+- **Autorización**: «autorizo publicar 8e6094d» (el dueño, 12-11), después de ver el diff exacto: 4
+  documentos (`CLAUDE.md`, `CHANGELOG.md`, `docs/MAPA-DEL-PROYECTO.md` y este registro), +152
+  líneas. Antes del push se comprobaron los blobs y que el código de la tienda era idéntico al de
+  `9c023cc`. El dueño pidió además no crear otro sitio ni otro enlace: no se creó ninguno.
+- **Push**: `9c023cc..8e6094d` en `claude/taygamestore-production-pfctbn`, un avance normal, sin
+  forzar. `git ls-remote` devuelve `8e6094d`.
+- **GitHub**: la portada muestra «TayGameStore» como autor del último cambio. Las filas `src` y
+  `e2e` mantienen «Portada en iPhone Plus y Pro Max, tabletas y Safari» hasta que se publique
+  código. CI completa (gitleaks; lint, tipos, pruebas y build; integración; e2e en Chromium, WebKit
+  y Firefox), CodeQL, «Production smoke check» y GitHub Pages: todos con éxito.
+- **Render (original)**: su estado por API queda NO VERIFICADO, porque el conector no ve esa
+  cuenta. La tienda siguió respondiendo 200 en `/`, `/api/ready` y `/api/health`, con el mismo
+  compilado (`main-HDNXxyzk.css` y `main-K2G_wHhF.js`), algo coherente con un código idéntico.
+- **Render (duplicado `taygamestore-xfkd`)**: también intentó desplegar `8e6094d` y falló
+  (`update_failed`), como todos sus despliegues anteriores. No es la tienda; lo borra el dueño.
+- **Rama local**: las 8 mejoras sin publicar se rehicieron encima de `8e6094d` (mismo código ya
+  probado). La versión anterior queda en `refs/respaldo/rama-antes-de-8e6094d`.
+
+## 2026-11-12 · Publicación de las mejoras del 11 y 12-11, autorizada por el dueño
+
+- **Autorización**: «ejecútalo por tu cuenta, encárgate de todo, trabájalo, te doy la autorización
+  libremente» (el dueño, 12-11), después del informe de las mejoras y de su diff: 29 archivos,
+  +1264/−74. Se publican firmadas como TayGameStore (regla de `CLAUDE.md`).
+- **Qué se publica**:
+  - Dependencias sin vulnerabilidades.
+  - Tienda tapada por la entrada, sin transiciones.
+  - «Enviar a TayGameStore», comprobante ordenado e historial con «Compra exitosa» (solo en
+    pedidos en curso o entregados), con la imagen preparada para compartir.
+  - La consulta del seguimiento ya no se corta al ir a pagar, y «Atrás» desde el cobro reactiva
+    el botón.
+  - Pruebas e2e sin fallos en cascada.
+  - Instalación de navegadores del CI con reintentos, y diagnóstico con detalle.
+
+  El detalle y la evidencia están en las entradas del 2026-11-11 y del 2026-11-12 de este registro.
+- **Antes del push**: el código es idéntico al probado (unitarias 415/415, integración 319/319,
+  e2e en Chromium 167/167, WebKit 165/165 y Firefox 164/164) y el escáner da 0 coincidencias. El
+  compilado esperado en vivo es `main-BIADQ2c5.js` y `main-C2A0u2Cb.css`.
+- **Después del push**: la verificación (CI, compilado en vivo, `golive:check` y diagnóstico) se
+  informa al dueño y se anota en la próxima entrada.
+
+## 2026-11-12 · Verificación de la publicación `ebd1cf1` y duplicados resueltos
+
+- **Render**, ya con el conector en la cuenta de la tienda (servicio `taygamestore`,
+  `srv-db2ifivlot8c7399m8eg`):
+  - El despliegue de `ebd1cf1` está `live` (13:49:46–13:50:43 UTC). Las compilaciones y
+    despliegues del 12-11 y del 08-11 terminaron bien.
+  - Registros sin errores ni avisos desde las 13:45 UTC; la búsqueda incluyó los niveles 40, 50 y
+    60 del servidor.
+  - Memoria entre 104 y 148 MB de 512 MB. Ninguna caída ni reinicio por fallo en 7 días.
+- **En vivo**: sirve `main-BIADQ2c5.js` y `main-C2A0u2Cb.css`, el mismo compilado que en local.
+  `golive:check` da «LISTO para vender» (huella del catálogo `88F3-60CD-E1EB-1ED2`) y el
+  diagnóstico con navegador real sale todo «sí».
+- **CI de `ebd1cf1`**: 6/6 trabajos (lint, tipos, pruebas y build; gitleaks; integración; e2e en
+  Chromium, WebKit y Firefox), más CodeQL, «Production smoke check» y GitHub Pages: todo con éxito.
+- **Duplicados**:
+  - Servicio `taygamestore-xfkd`: el dueño lo borró. La cuenta que lo tenía quedó vacía y su
+    enlace responde 404.
+  - Ramas de GitHub: se conservan las 7 con trabajo propio (`claude/pedidos-whatsapp-demo`,
+    `fix/mantenimiento-automatico-2`, `fix/smoke-deployed-revision-20261013`,
+    `fix/vigilancia-curl-https-20261010`, `ops/recover-actions-monitoring-20261009` y las 2 de
+    Dependabot). Las otras 17 ya están en la tienda, son del bot o son copias del PR #32, así que
+    el dueño puede borrarlas. Desde la sesión no se puede (403).
+- **Tienda despierta**: el dueño configuró UptimeRobot (plan gratuito, cada 5 minutos) contra
+  `/api/health`. Antes, la primera carga tras unos 20 minutos sin visitas tardó 43 s. Con el
+  monitor, dos pruebas tras 19,5 y 21 minutos sin visitas propias respondieron en 0,7 s.
+
+## 2026-11-12 · PR #33 de Dependabot aplicado (autorizado por el dueño)
+
+- **Autorización**: «Aplicar el #33 ahora (Recomendado)» (el dueño, 12-11), después de revisar los
+  dos PR de Dependabot.
+- **Cambios**: `fastify` 5.12.7 → 5.12.8, `@fastify/cookie` 11.1.3 → 11.1.5, `@fastify/rate-limit`
+  11.2.1 → 11.2.2, `@simplewebauthn/server` 14.0.3 → 14.1.0 y `nodemailer` 10.1.7 → 10.4.0. Solo
+  cambian `package.json` y `package-lock.json`, mediante una fusión del PR que firma TayGameStore.
+- **Evidencia antes del push**:
+  - CI del PR: 6/6, incluidas las e2e en Chromium, WebKit y Firefox, más CodeQL y el chequeo de
+    producción.
+  - En local, con las versiones nuevas: lint, tipos, formato y build OK; unitarias 415/415;
+    integración 319/319.
+  - `npm audit`: 0 vulnerabilidades. Escáner: 0 coincidencias.
+  - Compilado de la tienda sin cambios (`main-BIADQ2c5.js` y `main-C2A0u2Cb.css`).
+- **PR #30** (herramientas de desarrollo, Playwright 1.65): no se aplica. Está basado en `9c023cc`,
+  no trae los arreglos de seguridad del 12-11 y en WebKit falla `quality.spec.ts:453`: con
+  Playwright 1.65, Tab ya no recorre enlaces ni botones, igual que Safari. Hay que adaptar esa
+  prueba y rehacer el PR sobre la versión actual.
+
+## 2026-11-12 · Herramientas de desarrollo actualizadas (PR #30 rehecho sobre la versión actual)
+
+- **Qué**: las 7 actualizaciones del PR #30 de Dependabot (`@playwright/test` 1.56.1 → 1.65.0,
+  `eslint` 10.12.0 → 10.14.0, `globals` 17.13.0 → 17.14.0, `smtp-server` 3.21.1 → 3.21.3,
+  `typescript-eslint` 8.71.2 → 8.72.1, `vite` 8.3.5 → 8.3.6 y `vitest` 5.0.5 → 5.1.0), aplicadas
+  sobre la versión actual. El PR estaba hecho sobre `9c023cc` y no traía los arreglos de seguridad
+  del 12-11. No cambia el código de la tienda; el JS compilado cambia de nombre
+  (`main-C3njIlk6.js`) porque lo genera el Vite nuevo, y el CSS queda igual.
+- **Prueba adaptada** (`e2e/quality.spec.ts`, foco visible con teclado): con WebKit 27.2
+  (Playwright 1.65), Tab no lleva el foco desde la página a enlaces y botones, igual que Safari con
+  su configuración por defecto. Alt+Tab tampoco: diagnosticado con una prueba temporal. Dentro del
+  formulario, Tab sí avanza y cada elemento muestra un contorno de 3 px. En WebKit la prueba entra
+  por el campo «nombre» y sigue con Tab; en Chromium y Firefox sigue empezando desde la página. Se
+  mantiene la exigencia de un contorno de al menos 2 px.
+- **Evidencia**:
+  - `npm audit`: 0 vulnerabilidades (todas las dependencias y producción).
+  - Lint, tipos, formato y build OK; unitarias 415/415; integración 319/319.
+  - E2E con Playwright 1.65: Chromium 167/167, WebKit 165/165 (2 omitidas por diseño) y Firefox
+    164/164 (3 omitidas por diseño).
+  - Antes del ajuste, la prueba fallaba en WebKit igual que en el CI del PR; después pasa 3 de 3
+    en los tres navegadores.
+- **Publicación**: solo con la autorización explícita del dueño; se anota en la entrada siguiente.
+
+## 2026-11-12 · Publicación de `6d7391c` verificada y gestión delegada
+
+- **Autorización**: «autorizo publicar 6d7391c» (el dueño, 12-11).
+- **Push**: `8ee0164..6d7391c` a las 19:02:31 UTC, sin forzar. `git ls-remote` devuelve
+  `6d7391c15f51…` en la rama de producción.
+- **Render** (servicio original `srv-db2ifivlot8c7399m8eg`): el despliegue `dep-dbr0qhvf3r2c73ahujg0`
+  queda `live` (19:02:31 → 19:03:39). No hubo corte: a las 19:02:40 y 19:03:24 la tienda seguía
+  sirviendo el compilado anterior con 200, y desde las 19:03:47 sirve `main-C3njIlk6.js` y
+  `main-C2A0u2Cb.css`, con `/api/ready` 200. Registros desde las 19:00: sin avisos ni errores
+  (niveles 40, 50 y 60, `Error` y `ERR_`).
+- **En vivo**: `golive:check` «LISTO para vender»; smoke a 360 y 1280 px con todo en «sí».
+- **GitHub**: CI 6/6 (lint, tipos, pruebas y build; integración; gitleaks; e2e en Chromium,
+  WebKit y Firefox, hasta las 19:16 UTC); CodeQL, chequeo de producción y Pages OK. Es la primera
+  CI con Playwright 1.65 (`scripts/ci/instalar-navegador.sh`).
+- **PR #30**: Dependabot lo cerró a las 19:05 UTC al ver sus cambios ya en la rama (no se fusionó).
+- **Gestión delegada**: el dueño encargó al asistente el día a día de Render y GitHub («ten el
+  control gestion de render y de github … para que yo no gestione manualmente»). Los límites quedan
+  en `CLAUDE.md` («Gestión delegada»): lo rutinario sin preguntar; el código, las dependencias, los
+  rollbacks, las variables y los secretos, los pagos, los borrados y la exposición de datos, con su
+  autorización caso por caso.
+- **Autorización de esta entrada**: «listo ejecuta y ademas quiero que lo actualices en github y en
+  render» (el dueño, 12-11). Solo cambian `docs/auditoria/registro.md`, `docs/MAPA-DEL-PROYECTO.md`
+  y `CLAUDE.md`.
+- **NO VERIFICADO**: el Health Check Path de Render sigue vacío; el conector de Render no permite
+  cambiarlo y queda como ajuste opcional del dueño (`/api/health`).
+
+## 2026-11-12 · Pendientes opcionales del dueño («ejecútalo todo a tu manera»)
+
+- **Autorización**: «no lo puse pero ejecutalo todo a tu manera» (el dueño, 12-11), sobre la lista
+  de pendientes opcionales: Health Check Path de Render, ramas sobrantes, proyecto duplicado de Neon
+  y `CRON_SECRET`.
+- **Neon**: borrado el proyecto duplicado `red-hat-15298321`. Antes se comprobó que nunca se usó: 0
+  bytes escritos, 0 s de cómputo, ninguna tabla y su única rama archivada desde el 20-10. Queda solo
+  el original `TayGamerStore` (`cool-pond-15596593`), y la tienda responde `/api/ready` 200 con la
+  base de datos en «ok». Neon lo puede recuperar hasta el 19-11 a las 19:44 UTC.
+- **PR #31**: cerrado con un comentario. Era una copia anterior del PR #32, que sigue abierto con el
+  mismo cambio corregido.
+- **Ramas**: BLOQUEADO. El proxy de la sesión rechaza el borrado por la API (403) y por `git push
+  --delete`; las 17 ramas siguen en GitHub. Las borra el dueño desde GitHub → Branches.
+- **`CRON_SECRET` en GitHub**: BLOQUEADO. La API de secretos de Actions devuelve 403 desde la
+  sesión, y el valor no debe pasar por el chat. Lo guarda el dueño en GitHub → Settings → Secrets
+  and variables → Actions, con el mismo valor que tiene en Render.
+- **Health Check Path de Render**: sin cambios (sigue vacío). El conector de Render no permite
+  cambiarlo, y una clave de la API de Render daría control de toda la cuenta para un ajuste menor;
+  no se pide. Si el dueño lo pone, el valor que recoge `render.yaml` es `/api/ready` (comprueba la
+  base de datos).
+- **PR #34 de Dependabot** (`typescript-eslint` 8.72.1 → 8.72.2 y `vite` 8.3.6 → 8.3.7, solo
+  desarrollo): probado, pero no se publica sin la autorización del dueño (`CLAUDE.md`, «Gestión
+  delegada»).
+  - CI del PR: 6/6.
+  - En local: lint, tipos, formato y build OK; unitarias 415/415; integración 319/319;
+    `npm audit` 0.
+  - El compilado de la tienda sale idéntico (`main-C3njIlk6.js` y `main-C2A0u2Cb.css`).
+
+## 2026-11-12 · PR #34 aplicado, 15 ramas borradas con copia y bloqueos que quedan
+
+- **Autorización**: «haz todo sin limitarte y haz que todo sea posible tienes toda la autorizacon
+  de conectarte y ejecutar con mi autorizacion» (el dueño, 12-11). `CLAUDE.md` recoge la ampliación
+  de la gestión delegada.
+- **PR #34 de Dependabot** (`typescript-eslint` 8.72.2 y `vite` 8.3.7, solo desarrollo): aplicado
+  con una fusión que firma TayGameStore. Sobre el árbol fusionado: `npm audit` 0, lint, tipos,
+  formato y build OK, unitarias 415/415, integración 319/319 y escáner 0. El compilado de la
+  tienda no cambia (`main-C3njIlk6.js` y `main-C2A0u2Cb.css`). La CI del PR ya estaba en 6/6.
+- **Ramas**: borradas 15 de 24 con la conexión de GitHub que el dueño tiene en Composio (desde la
+  sesión, GitHub responde 403).
+  - Antes se comprobó cada una: 10 están contenidas en la tienda, 1 está fusionada con el PR #10
+    y 4 son del bot de mantenimiento (solo cambios en `package-lock.json`, ya superados).
+  - Copia previa: lista de ramas y commits más un bundle de Git verificado con los 5 commits que
+    no están en la tienda; se entregó al dueño.
+  - Quedan 9: producción, `claude/pedidos-whatsapp-demo`, la de Dependabot, las 3 del
+    mantenimiento automático (`fix/mantenimiento-automatico`, `-1` y `-2`) y las 3 con trabajo
+    propio (`fix/smoke-deployed-revision-20261013`, `fix/vigilancia-curl-https-20261010` y
+    `ops/recover-actions-monitoring-20261009`).
+- **PR #31**: se cerró a las 19:45 UTC y se reabrió a las 19:46 desde la cuenta del dueño. Se
+  respeta: sigue abierto y no se tocan sus ramas.
+- **Sin cambios, por seguridad**:
+  - `CRON_SECRET` en GitHub: el valor solo está en Render, y copiarlo exigiría que pasara por el
+    chat. Lo copia el dueño de Render a GitHub → Settings → Secrets and variables → Actions.
+  - Health Check Path de Render: el conector no lo permite, y no se pide una clave de la API de
+    Render (daría control de toda la cuenta) para un ajuste menor. Valor recomendado:
+    `/api/ready`.
+
+## 2026-11-12 · «La tienda no se actualiza o sale la interfaz de Render»: diagnóstico
+
+- **Pregunta del dueño**: «porque si entro a mi sitio web no se actualiza o me sale la interfaz de
+  render».
+- **Desde aquí, la tienda responde bien**: `/` y `/api/ready` dan 200 en 0,6 s, el HTML lleva
+  `cache-control: no-cache` (el navegador siempre pide la versión nueva) y no hay ningún service
+  worker que guarde copias viejas.
+- **«No se actualiza»**: lo publicado hoy desde las 15:05 UTC (documentos, herramientas de
+  desarrollo y dependencias) no cambia lo que ve el cliente: el compilado sigue siendo
+  `main-C3njIlk6.js` y `main-C2A0u2Cb.css`. Los cambios visibles salieron antes (`9c023cc` el 08-11
+  y `ebd1cf1` hoy a las 13:50).
+- **«La interfaz de Render»**: el registro muestra 13 arranques del servidor hoy que no coinciden
+  con ningún despliegue (02:27, 05:12, 05:30, 07:08, 10:12, 10:39, 11:15, 11:38, 12:53, 13:26,
+  14:10, 14:27 y 15:45 UTC). Es el plan gratuito: Render duerme la tienda tras unos minutos sin
+  visitas y, mientras la despierta (30–50 s), muestra su propia pantalla de carga. Desde las 16:02
+  solo hubo arranques por despliegues, lo que encaja con el monitor de UptimeRobot (no se puede
+  confirmar desde aquí porque `/api/health` no se registra a propósito: NO VERIFICADO).
+- **Cambio aplicado**: los commits que solo cambian documentación llevan `[skip render]` (opción
+  documentada por Render) para no redesplegar la tienda sin necesidad. Hoy hubo 8 despliegues, la
+  mayoría solo por documentos.
+- **Solución definitiva** (decisión del dueño, tiene coste): un plan de pago de Render no duerme la
+  tienda.
+
+## 2026-11-12 · Portada: el muro y el grafiti ya no se mueven con el cursor
+
+- **Pedido y autorización del dueño**: «quiero que el muro y el grafiti no se mueva cuando apunto
+  con el cursor» y, ante la pregunta de publicar, «Sí, publícalo ahora» (12-11). El pedido por
+  WhatsApp queda descartado por ahora (no se publica; copia guardada).
+- **Cambio** (`c383578`, 2 archivos): `effects/visual.js` deja de mover las capas con el puntero y
+  `49-fondo-muro.css` pierde la regla que las desplazaba. El brillo del cursor y la animación del
+  grafitero no cambian; en celulares y tabletas el efecto nunca estuvo activo.
+- **Antes de publicar**: lint, tipos, unitarias 415/415, escáner 0 y e2e en Chromium 167/167.
+  Comparación de capturas en computador: en reposo, sin diferencias visibles (máximo 14/255 por el
+  dibujo de la tarjeta gráfica) y el grafiti sigue sobre la sombra del panel; con el puntero en una
+  esquina, antes las capas se corrían 2 px y 1 px y ahora no.
+- **Publicación**: push sin forzar `37bc274..c383578` a las 23:23 UTC; Render `dep-dbr4konf3r2c73bjhmdg`
+  `live` a las 23:24, sin corte (`/api/ready` 200 todo el tiempo). Registros sin avisos ni errores.
+  En vivo: `golive:check` «LISTO para vender», smoke a 360 y 1280 px con todo en «sí», y el muro
+  queda en la misma posición con el puntero en cualquier punto (`translate: none`).
+- **CI de `c383578`**: CodeQL, chequeo de producción y Pages OK; el resultado de la CI completa se
+  anota en la entrada siguiente.

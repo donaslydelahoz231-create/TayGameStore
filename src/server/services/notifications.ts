@@ -1087,7 +1087,44 @@ export const LIVE_ORDER_COLUMNS = [
   'Comprobante',
   'Vence (Colombia)',
   'Actualizado (Colombia)',
+  // Columnas del interruptor del dueño (2026-11-12): L es el menú que él cambia; M es la copia que
+  // escribe la tienda (oculta en la hoja). Si L ≠ M, el dueño eligió algo y la tienda lo aplica.
+  // N (referencia Nequi) y O (respuesta) son del dueño y de la respuesta: la tienda no las reescribe.
+  'Estado (tú)',
+  'Control (no tocar)',
 ] as const;
+
+/**
+ * Menú «Estado (tú)» de «Pedidos en vivo»: los 4 estados que el dueño ve y elige (pedido del dueño,
+ * 2026-11-12). Si no lo toca, el pedido sigue en «Pendiente» hasta que se pague.
+ */
+export const LIVE_OWNER_STATES = [
+  'Pendiente',
+  'Pago verificado',
+  'En proceso',
+  'Envío exitoso',
+] as const;
+export type LiveOwnerState = (typeof LIVE_OWNER_STATES)[number];
+
+/**
+ * Estado del menú que corresponde al pedido. Vencido, cerrado, en revisión o reembolsado quedan
+ * fuera del menú (celda vacía): la columna «Estado» dice cuál es.
+ */
+export function liveOwnerState(status: OrderStatus): LiveOwnerState | '' {
+  switch (status) {
+    case 'AWAITING_VERIFICATION':
+    case 'AWAITING_PAYMENT':
+      return 'Pendiente';
+    case 'PAID':
+      return 'Pago verificado';
+    case 'DELIVERING':
+      return 'En proceso';
+    case 'DELIVERED':
+      return 'Envío exitoso';
+    default:
+      return '';
+  }
+}
 
 type LiveOrder = Pick<
   OrderSnapshot,
@@ -1152,6 +1189,9 @@ export function liveOrderRow(
     sheetReceipt(order),
     waiting && order.expiresAt ? bogotaTime.format(order.expiresAt) : '',
     bogotaTime.format(updatedAt),
+    // Menú del dueño (L) y su copia (M): siempre el estado real del pedido.
+    liveOwnerState(order.status as OrderStatus),
+    liveOwnerState(order.status as OrderStatus),
   ];
 }
 

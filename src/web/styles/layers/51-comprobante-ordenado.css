@@ -1,0 +1,172 @@
+/* ── Comprobante, historial y «Enviar a TayGameStore» (2026-11-12) ──
+   Pedido del dueño: que nada sobresalga ni quede mal ubicado en el comprobante y que el historial
+   muestre la compra exitosa. Medido con un pedido de 6 paquetes ×5 y un nombre de 70 letras a
+   360, 430, 820 y 1366 px:
+   - el nombre del cliente se cortaba con «…» (09-invoice.css: nowrap + ellipsis);
+   - a 360 px «$ 1.405.000 COP» llegaba al borde de la banda del total;
+   - en celular el detalle dejaba unos 100 px al nombre del paquete (tres líneas por paquete);
+   - en el historial, los botones dejaban al texto una columna de 90 px a 360 px. */
+
+/* Datos del cliente y del jugador: el texto largo pasa a la línea siguiente, completo, y cada
+   dato empieza arriba de su celda (junto a un nombre de varias líneas, el UID no queda flotando a
+   media altura). */
+#invoice .invoice-grid > div {
+  align-content: start;
+}
+#invoice .invoice-grid b {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+}
+
+/* Total: si la cifra no cabe junto a «TOTAL», baja a su propia línea, alineada a la derecha. */
+#invoice .invoice-total {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+#invoice .invoice-total strong {
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Detalle en pantallas angostas: el paquete usa todo el ancho libre; a la derecha, el total y
+   debajo la cantidad («Cant. 5»). */
+@media (max-width: 520px) {
+  #invoice :is(.invoice-line, .invoice-table-head) {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    column-gap: 12px;
+  }
+  #invoice .invoice-table-head > :nth-child(2) {
+    display: none;
+  }
+  #invoice .invoice-line {
+    grid-template-areas:
+      'name total'
+      'name qty';
+    align-items: start;
+    row-gap: 2px;
+  }
+  #invoice .invoice-line > :first-child {
+    grid-area: name;
+  }
+  #invoice .invoice-line > :nth-child(2) {
+    grid-area: qty;
+    text-align: right;
+    color: var(--ink-2);
+    font-size: var(--fs-2xs);
+  }
+  #invoice .invoice-line > :nth-child(2)::before {
+    content: 'Cant. ';
+  }
+  #invoice .invoice-line > :last-child {
+    grid-area: total;
+    min-width: 0;
+  }
+}
+
+/* «Enviar a TayGameStore»: acción principal del comprobante pagado, en su propia fila. */
+#app .export-grid #sendStoreBtn {
+  grid-column: 1 / -1;
+  justify-content: center;
+  font-weight: 800;
+}
+
+/* ── Historial de compras ── */
+.history-entry {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+.history-main {
+  min-width: 0;
+}
+.history-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.history-head b {
+  overflow-wrap: anywhere;
+  letter-spacing: 0.02em;
+}
+.history-head strong {
+  font-family: var(--display);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.history-items {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.history-items b {
+  display: inline-block;
+  min-width: 2.2em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.history-success {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(42, 210, 130, 0.38);
+  border-radius: 12px;
+  background: rgba(42, 210, 130, 0.1);
+}
+.history-success b {
+  color: #7dffbf;
+  font-size: 0.875rem;
+}
+.history-success b::before {
+  content: '✓ ';
+}
+.history-success span {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Con comprobante pero sin «Compra exitosa» (reembolsado o en revisión): el número, discreto. */
+.history-receipt {
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.history-entry.is-paid {
+  border-color: rgba(42, 210, 130, 0.28);
+}
+.history-actions {
+  flex-direction: column;
+  align-items: stretch;
+}
+.history-actions .btn {
+  min-height: var(--ctl-md, 44px);
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Celular: los botones van debajo, a lo ancho, y el texto usa toda la tarjeta. */
+@media (max-width: 560px) {
+  .history-entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+  .history-actions .btn {
+    padding-inline: 10px;
+  }
+}

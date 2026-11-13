@@ -452,6 +452,7 @@ test('la tienda no carga nada de terceros: ni analítica, ni fuentes de Google, 
 
 test('legibilidad: ningún texto visible bajo 11 px y foco visible con teclado', async ({
   page,
+  browserName,
 }) => {
   // Guías de Apple (accessibility.md › Vision): 11 pt mínimo en móvil; foco visible para teclado.
   await page.setViewportSize({ width: 360, height: 800 });
@@ -474,7 +475,12 @@ test('legibilidad: ningún texto visible bajo 11 px y foco visible con teclado',
   expect(tiny).toEqual([]);
 
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  // Safari, con su configuración por defecto, no lleva el foco con Tab desde la página a enlaces y
+  // botones (solo lo mueve entre campos), y el WebKit de Playwright 1.65 se comporta igual. Ahí se
+  // entra por un campo del formulario y se sigue con Tab, como haría una persona con teclado en
+  // Safari; en los demás navegadores se empieza desde la página.
+  if (browserName === 'webkit') await page.locator('#customerName').click();
+  else await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   for (let i = 0; i < 4; i++) await page.keyboard.press('Tab');
   await expect
     .poll(() =>

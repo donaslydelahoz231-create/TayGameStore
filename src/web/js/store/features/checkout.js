@@ -12,7 +12,7 @@ import { loadCatalog } from './catalog.js';
 import { chosenMethod, chosenMpMeans, chosenPayMeans } from './pay-means.js';
 import { changePaymentMethod, startNequi } from './nequi.js';
 import { lookupExpired, verifyPlayer } from './player.js';
-import { setCurrentOrder, startPolling } from './orders.js';
+import { isFinalOrderStatus, setCurrentOrder, settlePolling, startPolling } from './orders.js';
 
 // Checkout: el pedido sigue SOLO el flujo del método elegido.
 //   1. "Pagar": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
@@ -222,6 +222,18 @@ export async function preparePayment() {
   scrollToSection('seguimiento');
 }
 
+/**
+ * La página volvió de la caché atrás/adelante (p. ej. «Atrás» desde Mercado Pago): el navegador
+ * la devuelve tal como quedó al salir, con el botón en «Abriendo Mercado Pago…» y el seguimiento
+ * detenido. Se reactiva el botón y se consulta el pedido al instante: pudo pagarse en el cobro.
+ */
+export function resumeFromBackForwardCache() {
+  runtime.paymentBusy = false;
+  const order = state.currentOrder;
+  if (order && !isFinalOrderStatus(order.status)) startPolling(0);
+  renderAll();
+}
+
 /** El servidor crea (o reutiliza) la preferencia de Mercado Pago y se redirige al cobro. */
 async function goToCheckout(order) {
   if (!order || runtime.paymentBusy) return;
@@ -239,6 +251,8 @@ async function goToCheckout(order) {
     if (url.protocol !== 'https:' && url.origin !== location.origin) {
       throw new ApiError('INVALID_CHECKOUT_URL', 'Respuesta de pago inválida.');
     }
+    // Ninguna consulta del seguimiento queda a medias al salir hacia el cobro.
+    await settlePolling();
     location.assign(url.toString());
   } catch (err) {
     toast(errorMessage(err, 'No se pudo abrir Mercado Pago. Tu pedido sigue guardado.'), 'bad');

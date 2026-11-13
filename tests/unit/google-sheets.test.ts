@@ -16,6 +16,8 @@ import {
   deliveryStatusLabel,
   LIVE_ORDER_COLUMNS,
   liveOrderRow,
+  LIVE_OWNER_STATES,
+  liveOwnerState,
   liveStatusLabel,
   PENDING_PAYMENT_COLUMNS,
   pendingPaymentRow,
@@ -852,13 +854,16 @@ describe('Google Sheets: casillas del dueño en «Entregas» y «Pagos pendiente
     const { log, calls } = newLog([
       json({ valueRanges: [{ values: [[false], [false, '']] }] }),
       empty(),
+      // «Pedidos en vivo»: el menú con el mismo estado que su copia (nadie lo cambió).
+      json({ valueRanges: [{ values: [['Pendiente', 'Pendiente']] }] }),
     ]);
     expect(await log.readCommands()).toEqual([]);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
     expect(calls[1]?.url).toContain('/values:batchGet?');
     expect(calls[1]?.url).toContain('valueRenderOption=UNFORMATTED_VALUE');
     expect(ranges(calls[1]?.url)).toEqual(['Entregas!T2:U']);
     expect(ranges(calls[2]?.url)).toEqual(["'Pagos pendientes'!U2:V"]);
+    expect(ranges(calls[3]?.url)).toEqual(["'Pedidos en vivo'!L2:N"]);
   });
 
   it('une cada casilla marcada con la referencia de su fila, en las dos pestañas', async () => {
@@ -869,6 +874,7 @@ describe('Google Sheets: casillas del dueño en «Entregas» y «Pagos pendiente
       }),
       json({ valueRanges: [{ values: [[true, 12345678], [' En proceso ']] }] }),
       json({ valueRanges: [{ values: [['TGS-DDDDDDDDDD']] }] }),
+      empty(),
     ]);
     expect(await log.readCommands()).toEqual([
       {
@@ -946,5 +952,152 @@ describe('Google Sheets: casillas del dueño en «Entregas» y «Pagos pendiente
       '✔️ Aplicado: Entregado',
     );
     expect(calls).toHaveLength(2);
+  });
+});
+
+describe('Google Sheets: menú «Estado (tú)» de «Pedidos en vivo»', () => {
+  const sheetLog = (impl: typeof fetch) =>
+    new GoogleSheetsLog({
+      spreadsheetId: SPREADSHEET_ID,
+      clientEmail: CLIENT_EMAIL,
+      privateKey,
+      tabs: {
+        orders: 'Pedidos',
+        deliveries: 'Entregas',
+        pending: 'Pagos pendientes',
+        users: 'Usuarios',
+        live: 'Pedidos en vivo',
+      },
+      fetch: impl,
+    });
+  const ranges = (url: string) =>
+    [...new URL(url).searchParams.getAll('ranges')].map((range) => decodeURIComponent(range));
+  const values = (url: string) => decodeURIComponent(url.split('/values/')[1] ?? '');
+
+  it('los 4 estados del menú salen del estado real del pedido; lo demás queda fuera del menú', () => {
+    expect(LIVE_OWNER_STATES).toEqual([
+      'Pendiente',
+      'Pago verificado',
+      'En proceso',
+      'Envío exitoso',
+    ]);
+    expect(liveOwnerState('AWAITING_VERIFICATION')).toBe('Pendiente');
+    expect(liveOwnerState('AWAITING_PAYMENT')).toBe('Pendiente');
+    expect(liveOwnerState('PAID')).toBe('Pago verificado');
+    expect(liveOwnerState('DELIVERING')).toBe('En proceso');
+    expect(liveOwnerState('DELIVERED')).toBe('Envío exitoso');
+    for (const status of ['EXPIRED', 'REJECTED', 'REFUNDED', 'NEEDS_REVIEW'] as const) {
+      expect(liveOwnerState(status)).toBe('');
+    }
+    // La fila de la tienda llega hasta M: el menú (L) y su copia (M), con el mismo estado.
+    expect(LIVE_ORDER_COLUMNS.slice(-2)).toEqual(['Estado (tú)', 'Control (no tocar)']);
+  });
+
+  it('solo es una orden la fila donde el dueño cambió el menú (L distinta de M), con su referencia', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({ valueRanges: [{}] }),
+      json({ valueRanges: [{}] }),
+      json({
+        valueRanges: [
+          {
+            values: [
+              ['Pendiente', 'Pendiente'],
+              ['Envío exitoso', 'Pendiente'],
+              ['Pago verificado', 'Pendiente', 'M8F3K2'],
+              ['', 'Pendiente'],
+            ],
+          },
+        ],
+      }),
+      json({
+        valueRanges: [
+          {
+            values: [
+              ['TGS-AAAAAAAAAA'],
+              ['TGS-BBBBBBBBBB'],
+              ['TGS-CCCCCCCCCC'],
+              ['TGS-DDDDDDDDDD'],
+            ],
+          },
+        ],
+      }),
+    ]);
+    const commands = await sheetLog(fetcher.impl).readCommands();
+    expect(commands).toEqual([
+      { tab: 'live', reference: 'TGS-BBBBBBBBBB', command: 'Envío exitoso', note: '' },
+      { tab: 'live', reference: 'TGS-CCCCCCCCCC', command: 'Pago verificado', note: 'M8F3K2' },
+    ]);
+    expect(ranges(fetcher.calls[3]?.url ?? '')).toEqual(["'Pedidos en vivo'!L2:N"]);
+    expect(ranges(fetcher.calls[4]?.url ?? '')).toEqual(["'Pedidos en vivo'!A2:A"]);
+  });
+
+  it('sin cambios del dueño no lee las referencias (una lectura por pestaña)', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({ valueRanges: [{}] }),
+      json({ valueRanges: [{}] }),
+      json({
+        valueRanges: [
+          {
+            values: [
+              ['Pendiente', 'Pendiente'],
+              ['Envío exitoso', 'Envío exitoso'],
+            ],
+          },
+        ],
+      }),
+    ]);
+    expect(await sheetLog(fetcher.impl).readCommands()).toEqual([]);
+    expect(fetcher.calls).toHaveLength(4);
+  });
+
+  it('al responder deja L y M en el estado real, vacía la referencia y escribe la respuesta en O', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({
+        valueRanges: [
+          { values: [['TGS-AAAAAAAAAA'], ['TGS-BBBBBBBBBB']] },
+          {
+            values: [
+              ['Pendiente', 'Pendiente'],
+              ['Envío exitoso', 'Pendiente', 'M8F3K2'],
+            ],
+          },
+        ],
+      }),
+      json({}),
+    ]);
+    await sheetLog(fetcher.impl).finishCommand(
+      { tab: 'live', reference: 'TGS-BBBBBBBBBB', command: 'Envío exitoso', note: 'M8F3K2' },
+      '✔️ Aplicado: Entregado',
+      'Envío exitoso',
+    );
+    const write = fetcher.calls[2];
+    expect(values(write?.url ?? '')).toBe("'Pedidos en vivo'!L3:O3?valueInputOption=RAW");
+    expect(JSON.parse(write?.init.body as string)).toEqual({
+      values: [['Envío exitoso', 'Envío exitoso', '', '✔️ Aplicado: Entregado']],
+    });
+  });
+
+  it('si el dueño volvió a cambiar el menú mientras tanto, solo responde (su cambio queda para la próxima)', async () => {
+    const fetcher = fakeFetch([
+      json({ access_token: 'token' }),
+      json({
+        valueRanges: [
+          { values: [['TGS-BBBBBBBBBB']] },
+          { values: [['En proceso', 'Pendiente', 'M8F3K2']] },
+        ],
+      }),
+      json({}),
+    ]);
+    await sheetLog(fetcher.impl).finishCommand(
+      { tab: 'live', reference: 'TGS-BBBBBBBBBB', command: 'Envío exitoso', note: 'M8F3K2' },
+      '✖️ No se aplicó',
+      'Pendiente',
+    );
+    const write = fetcher.calls[2];
+    expect(values(write?.url ?? '')).toBe("'Pedidos en vivo'!O2?valueInputOption=RAW");
+    expect(JSON.parse(write?.init.body as string)).toEqual({ values: [['✖️ No se aplicó']] });
   });
 });

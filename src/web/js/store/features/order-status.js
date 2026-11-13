@@ -30,6 +30,15 @@ export function humanStatus(order) {
   return STATUS_TEXT[order.status] || 'Estado pendiente';
 }
 
+/**
+ * «Compra exitosa»: el servidor confirmó el pago con el proveedor, emitió el comprobante y el
+ * pedido sigue su curso (pagado, en entrega o entregado). Un pedido reembolsado o en revisión
+ * conserva su número de comprobante, pero ya no se presenta como compra exitosa.
+ */
+export function purchaseSucceeded(order) {
+  return Boolean(order?.receipt) && ['PAID', 'DELIVERING', 'DELIVERED'].includes(order.status);
+}
+
 export function historyStatusClass(status) {
   if (['PAID', 'DELIVERING', 'DELIVERED'].includes(status)) return 'ok';
   if (['REJECTED', 'EXPIRED', 'REFUNDED'].includes(status)) return 'bad';

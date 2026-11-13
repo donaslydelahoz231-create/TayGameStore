@@ -45,25 +45,14 @@
 /* Capas: la sombra de la izquierda (.hero-art::before, z 1), el letrero (z 2), el contenido de la
    portada (.hero-inner, z 4) y el grafiti (z 5), por encima de la sombra que proyecta el panel: bajo
    ella el grafiti se veía opaco en computador. Para eso ni .hero-art ni .neon-vitrina forman su
-   propio apilamiento, y el paralaje (effects/visual.js) mueve cada capa con --art-x/--art-y en vez
-   de mover .hero-art. El grafiti no tapa el contenido (va bajo el panel o a la derecha de los
+   propio apilamiento. El muro y el grafiti quedan fijos: no se mueven con el puntero (pedido del
+   dueño, 2026-11-12). El grafiti no tapa el contenido (va bajo el panel o a la derecha de los
    botones) y no recibe clics. */
 .neon-vitrina > :not(.grafiti-escena) {
   z-index: 2;
 }
 .neon-vitrina > .grafiti-escena {
   z-index: 5;
-}
-.neon-muro,
-.neon-vitrina > * {
-  translate: var(--art-x, 0) var(--art-y, 0);
-}
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  /* Con puntero fino corre el paralaje: cada capa va aparte en la GPU y moverla no repinta. */
-  .neon-muro,
-  .neon-vitrina > * {
-    will-change: transform;
-  }
 }
 .hero-art:not([data-vitrina]) .neon-vitrina {
   display: none;

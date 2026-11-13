@@ -30,6 +30,24 @@
 }
 
 /*
+ * La tienda tapada por la pantalla de entrada cambia sin transiciones, ella y todo su contenido.
+ * Dos causas medidas en WebKit (CI del 2026-11-11, contraste de #accountName en la entrada):
+ *   - muchos controles llevan `transition: 0.18s` (todas las propiedades, también visibility): al
+ *     aplicarse .store-locked seguían «visibility: visible» 0,18 s detrás de la entrada;
+ *   - con «reducir movimiento», 20-reduced-motion.css da `transition-duration: 0.01ms` a todo y la
+ *     propiedad por defecto es `all`: el propio #app guardaba «visible» hasta el siguiente cuadro
+ *     (CSSTransition de visibility en curso justo después de cargar).
+ * En ese hueco un lector de pantalla podía encontrar la tienda y axe la medía contra el fondo de
+ * la entrada. Al abrir la tienda (.store-ready) vuelven las transiciones.
+ */
+.store-locked,
+.store-locked *,
+.store-locked *::before,
+.store-locked *::after {
+  transition: none !important;
+}
+
+/*
  * Brillo del título: text-shadow de 38px sobre un título con filter: drop-shadow; repintarlo
  * 60 veces por segundo era lo más caro de la página. Es un pulso lento (5 s, alfa 0 → 0,24),
  * así que 30 pasos por sentido se ven continuos y repintan unas 6 veces por segundo.

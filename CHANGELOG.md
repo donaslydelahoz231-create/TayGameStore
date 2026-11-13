@@ -5,6 +5,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Firma TayGameStore y mapa del proyecto (2026-11-12)
+
+- Los cambios del repositorio se firman a nombre de **TayGameStore**, sin la firma del asistente
+  (regla en `CLAUDE.md`).
+- `docs/MAPA-DEL-PROYECTO.md`: qué es lo original frente a los duplicados, cómo funciona una compra,
+  cómo está organizado el código y cómo se publica.
+- Solo documentos: la tienda no cambia.
+
 ### Portada en iPhone Plus y Pro Max, tabletas y Safari (2026-11-08)
 
 - **iPhone 14, 15 y 16 Plus y Pro Max (428–440 px) y Surface Duo (540 px)**: los dos botones de

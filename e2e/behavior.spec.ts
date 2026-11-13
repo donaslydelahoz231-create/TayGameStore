@@ -1240,6 +1240,23 @@ test.describe('comprobante', () => {
     page,
   }) => {
     expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    // Cuenta las imágenes del comprobante que dibuja la tienda (cada una termina en toBlob).
+    await page.addInitScript(() => {
+      const w = window as Window & { __toBlobCalls?: number };
+      type ToBlob = (
+        this: HTMLCanvasElement,
+        ...args: Parameters<HTMLCanvasElement['toBlob']>
+      ) => void;
+      const original = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob')
+        ?.value as ToBlob;
+      w.__toBlobCalls = 0;
+      HTMLCanvasElement.prototype.toBlob = function (this: HTMLCanvasElement, ...args) {
+        w.__toBlobCalls = (w.__toBlobCalls ?? 0) + 1;
+        original.apply(this, args);
+      };
+    });
+    const drawn = () =>
+      page.evaluate(() => (window as Window & { __toBlobCalls?: number }).__toBlobCalls ?? 0);
     try {
       await page.goto('/');
       await enterAsGuest(page);
@@ -1251,6 +1268,8 @@ test.describe('comprobante', () => {
         await expect(page.locator(id)).toBeDisabled();
       // «Compartir» siempre está a la vista (inactivo hasta que hay comprobante).
       await expect(page.locator('#shareBtn')).toBeVisible();
+      // Sin WhatsApp de la tienda configurado no se ofrece «Enviar a TayGameStore».
+      await expect(page.locator('#sendStoreBtn')).toBeHidden();
 
       await page.locator('#playerUid').fill('734567890');
       await page.locator('#verifyBtn').click();
@@ -1268,6 +1287,9 @@ test.describe('comprobante', () => {
       expect(ref).toMatch(/^TGS-[0-9A-Z]{10}$/);
       await expect(page.locator('#invoiceCode')).toContainText(/N\.º \d{6} · V1-/);
       await expect(page.locator('#exportMsg')).toContainText('listo para descargar');
+      // La imagen se prepara sola al aparecer el comprobante: en el celular, «Compartir» abre el
+      // menú dentro del toque del cliente, sin dibujar nada después del toque.
+      await expect.poll(drawn).toBe(1);
 
       const [jpg] = await Promise.all([
         page.waitForEvent('download'),
@@ -1280,6 +1302,8 @@ test.describe('comprobante', () => {
       ]);
       const bytes = await readFile(await pdf.path());
       expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+      // El PDF lleva la imagen con sus medidas reales (760 px de diseño × 2).
+      expect(bytes.toString('latin1')).toContain('/Width 1520 /Height ');
       const code = ((await page.locator('#invoiceCode').textContent()) ?? '').split(' · ')[1];
 
       // Con el menú de compartir del sistema (celular): la imagen va con su texto de verificación.
@@ -1321,6 +1345,327 @@ test.describe('comprobante', () => {
       expect(decodeURIComponent(wa)).toContain(code);
       expect(await page.locator('#shareMail').getAttribute('href')).toMatch(/^mailto:\?subject=/);
       await expect(page.locator('#exportMsg')).toContainText('JPG descargado');
+      // JPG, PDF y los dos «Compartir» usaron la misma imagen preparada.
+      expect(await drawn()).toBe(1);
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
+  test('pagado: «Enviar a TayGameStore» manda imagen y datos por línea; comprobante e historial ordenados', async ({
+    page,
+    context,
+  }) => {
+    // Todo ficticio: número de WhatsApp inexistente (wa.me se responde en local) y nombre largo.
+    const STORE = '570000000000';
+    const LONG_NAME = 'María Fernanda de los Ángeles Rodríguez-Castellanos Villamizar y Ospina';
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { support?: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: { ...body, support: { ...body.support, whatsapp: `+${STORE}` } },
+      });
+    });
+    await context.route('https://wa.me/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<title>WhatsApp (simulado)</title>' }),
+    );
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    try {
+      await page.goto('/');
+      await enterAsGuest(page);
+      // Con WhatsApp de la tienda: el botón se ve, inactivo hasta que hay comprobante.
+      await expect(page.locator('#sendStoreBtn')).toBeVisible();
+      await expect(page.locator('#sendStoreBtn')).toBeDisabled();
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567891');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567891');
+      await page.locator('#confirmUid').click();
+      await expect(page.locator('#playerResult')).toContainText('ID 734567891 confirmado ✓');
+      await page.locator('#customerName').fill(LONG_NAME);
+      await page.locator('#customerEmail').fill('enviar-tienda-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/);
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      const ref = (await page.locator('#invoiceRef').textContent()) ?? '';
+      const code = ((await page.locator('#invoiceCode').textContent()) ?? '').split(' · ')[1];
+      await expect(page.locator('#exportMsg')).toContainText('¡Compra exitosa!');
+      await expect(page.locator('#sendStoreBtn')).toBeEnabled();
+
+      // Celular: el menú de compartir lleva la imagen y el texto, un dato por línea.
+      await page.evaluate(() => {
+        const nav = navigator as Navigator & { __shared?: unknown };
+        nav.canShare = () => true;
+        nav.share = async (data?: ShareData) => {
+          nav.__shared = {
+            text: data?.text,
+            files: (data?.files ?? []).map((f) => `${f.name}|${f.type}`),
+          };
+        };
+      });
+      await page.locator('#sendStoreBtn').click();
+      await expect
+        .poll(() => page.evaluate(() => (navigator as Navigator & { __shared?: unknown }).__shared))
+        .toMatchObject({ files: [`Comprobante-${ref}.jpg|image/jpeg`] });
+      const lines = (
+        await page.evaluate(
+          () => (navigator as Navigator & { __shared?: { text: string } }).__shared?.text ?? '',
+        )
+      ).split('\n');
+      expect(lines).toEqual(
+        expect.arrayContaining([
+          `Pedido: ${ref}`,
+          `Cliente: ${LONG_NAME}`,
+          'ID Free Fire: 734567891',
+          '• 1× 100 + 10 Diamantes',
+          'Pago: Mercado Pago · Pago confirmado',
+          `Código de verificación: ${code}`,
+        ]),
+      );
+      await expect(page.locator('#exportMsg')).toContainText('Elige el chat de TayGameStore');
+
+      // Computador: se descarga la imagen y se abre el chat de la tienda con el texto escrito.
+      await page.evaluate(() => {
+        Object.assign(navigator, { canShare: undefined });
+      });
+      const [image, chat] = await Promise.all([
+        page.waitForEvent('download'),
+        page.waitForEvent('popup'),
+        page.locator('#sendStoreBtn').click(),
+      ]);
+      expect(image.suggestedFilename()).toBe(`Comprobante-${ref}.jpg`);
+      await chat.waitForLoadState();
+      const opened = new URL(chat.url());
+      expect(opened.pathname).toBe(`/${STORE}`);
+      expect(opened.searchParams.get('text')).toContain(`Pedido: ${ref}`);
+      expect(opened.searchParams.get('text')).toContain(`Código de verificación: ${code}`);
+      await chat.close();
+      await expect(page.locator('#sharePanel')).toBeVisible();
+      await expect(page.locator('#shareWaLabel')).toHaveText('WhatsApp de TayGameStore');
+      expect(await page.locator('#shareWa').getAttribute('href')).toMatch(
+        new RegExp(`^https://wa\\.me/${STORE}\\?text=`),
+      );
+      await expect(page.locator('#exportMsg')).toContainText('Se abrió el chat de TayGameStore');
+
+      // Comprobante ordenado: el nombre completo y nada fuera de la tarjeta, en celular y computador.
+      for (const width of [360, 1280]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(page.locator('#invoiceClient')).toHaveText(LONG_NAME);
+        const problems = await page.evaluate(() => {
+          const card = document.getElementById('invoice')!.getBoundingClientRect();
+          const found: string[] = [];
+          for (const el of document.querySelectorAll<HTMLElement>('#invoice *')) {
+            if (el.closest('.invoice-watermark, .invoice-glow')) continue;
+            const r = el.getBoundingClientRect();
+            if (!r.width || !r.height) continue;
+            const clipped =
+              el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible';
+            if (r.left < card.left - 1 || r.right > card.right + 1 || clipped)
+              found.push(`${el.id || el.className || el.tagName}${clipped ? ' (cortado)' : ''}`);
+          }
+          return found;
+        });
+        expect(problems, `comprobante a ${width}px`).toEqual([]);
+      }
+
+      // Historial: la compra pagada dice «Compra exitosa» con su comprobante y lleva a él.
+      await page.evaluate(() => document.getElementById('menuHistory')?.click());
+      const entry = page.locator('#historyList .history-entry', { hasText: ref });
+      await expect(entry).toContainText('Compra exitosa');
+      await expect(entry).toContainText(/Comprobante N\.º \d{6}/);
+      await expect(entry.locator('.history-view')).toHaveText('Ver comprobante');
+      await entry.locator('.history-view').click();
+      await expect(page.locator('#historyModal')).toBeHidden();
+      await expect(page.locator('#invoiceRef')).toHaveText(ref);
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
+  test('historial: un pedido reembolsado o en revisión conserva su comprobante, pero no dice «Compra exitosa»', async ({
+    page,
+  }) => {
+    // El servidor conserva el número de comprobante de un pedido reembolsado (es la prueba del
+    // pago original): el historial debe mostrarlo sin presentarlo como compra exitosa.
+    // Respuestas simuladas con datos ficticios.
+    const base = {
+      createdAt: '2026-11-10T15:00:00.000Z',
+      customerName: 'Cliente Ficticio',
+      playerUid: '734567894',
+      playerServer: 'latam',
+      totalCop: 21800,
+      items: [
+        {
+          sku: 'ff-110',
+          name: '100 + 10 Diamantes',
+          quantity: 2,
+          unitPriceCop: 10900,
+          lineTotalCop: 21800,
+        },
+      ],
+      verification: { status: 'CONFIRMED', nickname: 'JugadorFicticio', region: 'Colombia' },
+      payment: { method: 'mercadopago', status: 'APPROVED', canPay: false },
+    };
+    const code = 'V1-AAAA-BBBB-CCCC-DDDD';
+    const orders = [
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA1',
+        status: 'DELIVERED',
+        receipt: { number: 41, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA2',
+        status: 'REFUNDED',
+        payment: { ...base.payment, status: 'REFUNDED' },
+        receipt: { number: 42, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA3',
+        status: 'NEEDS_REVIEW',
+        receipt: { number: 43, verificationCode: code },
+      },
+      {
+        ...base,
+        reference: 'TGS-AAAAAAAAA4',
+        status: 'AWAITING_PAYMENT',
+        payment: { method: 'mercadopago', status: null, canPay: true },
+        receipt: null,
+      },
+    ];
+    await page.route(/\/api\/orders(\/TGS-[0-9A-Z]{10})?$/, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const ref = /TGS-[0-9A-Z]{10}$/.exec(new URL(route.request().url()).pathname)?.[0];
+      if (!ref) return route.fulfill({ json: { orders } });
+      return route.fulfill({ json: { order: orders.find((o) => o.reference === ref) } });
+    });
+    await page.goto('/');
+    await enterAsGuest(page);
+    await page.evaluate(() => document.getElementById('menuHistory')?.click());
+    const entry = (ref: string) => page.locator('#historyList .history-entry', { hasText: ref });
+
+    await expect(entry('TGS-AAAAAAAAA1')).toContainText('Compra exitosa');
+    await expect(entry('TGS-AAAAAAAAA1')).toContainText('Comprobante N.º 000041');
+    await expect(entry('TGS-AAAAAAAAA1').locator('.history-view')).toHaveText('Ver comprobante');
+    for (const [ref, number, status] of [
+      ['TGS-AAAAAAAAA2', '000042', 'Reembolsado'],
+      ['TGS-AAAAAAAAA3', '000043', 'En revisión'],
+    ] as const) {
+      await expect(entry(ref)).not.toContainText('Compra exitosa');
+      await expect(entry(ref)).not.toHaveClass(/is-paid/);
+      await expect(entry(ref).locator('.history-receipt')).toHaveText(`Comprobante N.º ${number}`);
+      await expect(entry(ref).locator('.history-status')).toHaveText(status);
+      await expect(entry(ref).locator('.history-view')).toHaveText('Ver comprobante');
+    }
+    await expect(entry('TGS-AAAAAAAAA4')).not.toContainText('Comprobante');
+    await expect(entry('TGS-AAAAAAAAA4').locator('.history-view')).toHaveText('Ver');
+
+    // El comprobante del reembolsado se puede abrir y descargar (dice su estado real), pero no
+    // anuncia una compra exitosa.
+    await entry('TGS-AAAAAAAAA2').locator('.history-view').click();
+    await expect(page.locator('#invoiceRef')).toHaveText('TGS-AAAAAAAAA2');
+    await expect(page.locator('#exportMsg')).toHaveText(
+      'Comprobante N.º 000042 listo para descargar · Reembolsado.',
+    );
+    await expect(page.locator('#jpgBtn')).toBeEnabled();
+  });
+});
+
+test.describe('salida al cobro', () => {
+  test('al ir a pagar no deja a medias la consulta del seguimiento (WebKit la registraba como error)', async ({
+    page,
+  }) => {
+    // CI de WebKit (2026-11-11): «Fetch API cannot load …/api/orders/TGS-… due to access control
+    // checks». La consulta periódica del pedido seguía en vuelo cuando la tienda navegó al cobro.
+    // Se fuerza ese momento: /pay tarda 6,5 s (el sondeo sale a los 5 s) y la consulta tarda 2,5 s.
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const poll = /\/api\/orders\/TGS-[0-9A-Z]{10}$/;
+    let pollsStarted = 0;
+    const cut: string[] = [];
+    page.on('requestfailed', (request) => {
+      if (poll.test(new URL(request.url()).pathname)) cut.push(request.failure()?.errorText ?? '?');
+    });
+    try {
+      await page.route('**/api/orders/*/pay', async (route) => {
+        await sleep(6_500);
+        await route.continue().catch(() => {});
+      });
+      await page.route(poll, async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        pollsStarted += 1;
+        await sleep(2_500);
+        await route.continue().catch(() => {});
+      });
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567892');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567892');
+      await page.locator('#confirmUid').click();
+      await page.locator('#customerName').fill('Cliente Ficticio');
+      await page.locator('#customerEmail').fill('salida-cobro-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await page.waitForURL(/\/#seguimiento$/, { timeout: 30_000 });
+      await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
+      expect(pollsStarted, 'el sondeo consultó mientras /pay respondía').toBeGreaterThan(0);
+      expect(cut, 'consultas del seguimiento cortadas por la navegación').toEqual([]);
+    } finally {
+      await operator(page, 'player-verification', { mode: 'operator' });
+    }
+  });
+
+  test('al volver con «Atrás» desde el cobro (página restaurada de memoria) el botón y el seguimiento vuelven a funcionar', async ({
+    page,
+  }) => {
+    // La portada se sirve con no-cache: el navegador puede guardarla en la caché atrás/adelante y
+    // devolverla tal como quedó al irse al cobro («Abriendo Mercado Pago…», seguimiento detenido).
+    // Aquí el cobro responde 204, así que el navegador no sale de la tienda y la página queda en
+    // ese mismo estado; luego llega el «pageshow» restaurado que dispara el navegador.
+    expect((await operator(page, 'player-verification', { mode: 'customer' })).ok()).toBe(true);
+    const poll = /\/api\/orders\/TGS-[0-9A-Z]{10}$/;
+    let checkoutVisits = 0;
+    try {
+      await page.route('**/__e2e__/mercadopago**', (route) => {
+        checkoutVisits += 1;
+        return route.fulfill({ status: 204 });
+      });
+      await page.goto('/');
+      await enterAsGuest(page);
+      await product(page, '100 + 10 Diamantes').locator('.add-btn').click();
+      await page.locator('#playerUid').fill('734567893');
+      await page.locator('#verifyBtn').click();
+      await page.locator('#playerUidConfirm').fill('734567893');
+      await page.locator('#confirmUid').click();
+      await page.locator('#customerName').fill('Cliente Ficticio');
+      await page.locator('#customerEmail').fill('regreso-cobro-e2e@example.com');
+      await page.locator('#payMeansCard').check();
+      await page.locator('#acceptTerms').check();
+      await page.locator('#payBtn').click();
+      await expect.poll(() => checkoutVisits).toBe(1);
+      await expect(page.locator('#payBtn')).toHaveText('Abriendo Mercado Pago…');
+      await expect(page.locator('#payBtn')).toBeDisabled();
+
+      const consult = page.waitForRequest(
+        (r) => r.method() === 'GET' && poll.test(new URL(r.url()).pathname),
+        { timeout: 3_000 },
+      );
+      await page.evaluate(() =>
+        dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })),
+      );
+      // Consulta el pedido al instante (sin esperar los 5 s del sondeo): pudo pagarse en el cobro.
+      await consult;
+      await expect(page.locator('#payBtn')).toHaveText('Pagar con Mercado Pago');
+      await expect(page.locator('#payBtn')).toBeEnabled();
+      await expect(page.locator('#invoiceState')).toHaveText('Pago pendiente');
     } finally {
       await operator(page, 'player-verification', { mode: 'operator' });
     }

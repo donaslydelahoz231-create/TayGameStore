@@ -92,7 +92,44 @@ sin pagar o que vencían en Mercado Pago nunca se veían. El dueño eligió una 
 - Pestaña creada en la copia de prueba y luego en la hoja real (2026-11-03), después de un
   respaldo («Respaldo 2026-11-03 · … (antes de «Pedidos en vivo»)»): encabezados A1:K1, fila 1
   fija, franjas, total en pesos, comprobante como texto, colores por estado y protección «solo
-  aviso». No tiene columnas del dueño.
+  aviso». No tenía columnas del dueño hasta el menú «Estado (tú)» (abajo).
+
+### Menú «Estado (tú)» (2026-11-12)
+
+Pedido del dueño (2026-11-12): «En el excel que está conectado quiero que implemente un interruptor
+para cambiar el estado del pedido», con «los 4 tipos de estados de pedido; si no lo he cambiado,
+los que no he verificado se ponen en pendiente», en «Pedidos en vivo» para todos los pedidos.
+
+- **Columnas nuevas** (la tienda escribe A–M; el dueño, L y N):
+  - **L «Estado (tú)»**: menú con Pendiente · Pago verificado · En proceso · Envío exitoso. La
+    tienda escribe en L el estado actual del pedido en cada cambio; el dueño lo cambia eligiendo
+    otro.
+  - **M «Control (no tocar)»** (oculta): la tienda escribe aquí el mismo estado que en L. Si L es
+    distinta de M, el dueño cambió el menú y eso es una orden.
+  - **N «Referencia Nequi (tú)»**: la referencia del movimiento que el dueño ve en su app Nequi.
+  - **O «Respuesta de la tienda»**: ✔️ si se aplicó o ✖️ con el motivo.
+- **Estado del menú según el pedido**: verificando el ID o esperando el pago → Pendiente; pagado
+  → Pago verificado; en entrega → En proceso; entregado → Envío exitoso. Los vencidos, rechazados,
+  en revisión o reembolsados quedan con L vacía (se gestionan en el panel).
+- **Qué hace cada opción** (cada 30 s, misma tarea que las casillas de «Entregas» y «Pagos
+  pendientes», como el dueño y con `via: google_sheet` en la auditoría):
+  - **Pago verificado**: solo pedidos Nequi y con la referencia en N; confirma la transferencia
+    igual que la casilla de «Pagos pendientes» (comprobante incluido). Si el pedido ya había
+    vencido, el pago queda registrado y el pedido en revisión, y la respuesta lo dice. Mercado Pago
+    nunca se marca pagado desde la hoja: lo confirma Mercado Pago.
+  - **En proceso** y **Envío exitoso**: igual que «Entregas» (manual). Si el pedido Nequi aún no
+    está pagado, primero exige la referencia en N y lo confirma, y luego avanza.
+  - **Pendiente**: no deshace un pago ni reabre un pedido vencido, cerrado o en revisión; en esos
+    casos responde ✖️ y remite al panel.
+- Al aplicar, la tienda escribe L y M con el estado resultante y responde en O; si el dueño cambió
+  L otra vez mientras tanto, solo escribe O y su nuevo cambio se aplica en la siguiente pasada.
+- **Filas anteriores**: los pedidos que ya estaban en la pestaña tienen L y M vacías hasta su
+  próximo cambio. Elegir un estado en una de esas filas funciona igual (L distinta de M vacía).
+- Configuración de la hoja (primero en una copia con datos ficticios, «DEMO menú «Estado (tú)»
+  (copia, datos ficticios) · …», 2026-11-12; en la hoja real el 2026-11-13, después del respaldo
+  «Respaldo 2026-11-13 · … (antes del menú «Estado (tú)»)»): columnas L–O añadidas, encabezados con
+  nota, validación estricta de lista en L2:L1000, M oculta, N con formato de texto (conserva ceros
+  a la izquierda) y protección «solo aviso» de la pestaña con L y N libres.
 
 ## ¿Hace falta Make (o n8n)?
 
@@ -472,10 +509,11 @@ columnas del dueño son casillas (validación «casilla» estricta: no aceptan t
 Cómo funciona (`src/server/services/sheet-commands.ts`, `readCommands`/`finishCommand` en
 `src/server/integrations/sheets/google-sheets.ts`):
 
-- Cada **30 segundos** la tienda lee T2:U de «Entregas» y U2:V de «Pagos pendientes» con
-  `valueRenderOption=UNFORMATTED_VALUE` (una casilla marcada llega como `true`, sin depender del
-  idioma de la hoja). Solo si hay algo marcado o escrito lee las referencias de la columna A y usa
-  la base de datos: el modo reposo de Neon no cambia.
+- Cada **30 segundos** la tienda lee T2:U de «Entregas», U2:V de «Pagos pendientes» y L2:N de
+  «Pedidos en vivo» con `valueRenderOption=UNFORMATTED_VALUE` (una casilla marcada llega como
+  `true`, sin depender del idioma de la hoja). Solo si hay algo marcado o escrito (en «Pedidos en
+  vivo», un menú L distinto de su control M) lee las referencias de la columna A y usa la base de
+  datos: el modo reposo de Neon no cambia.
 - La entrega se aplica con **las mismas reglas y el mismo historial que el panel**
   (`fulfillmentAction`): tomar → iniciar → entregar, recalculando el siguiente paso con el estado
   real (repetir la orden no hace nada más). El pedido pasa a ENTREGADO, el cliente ve «¡Envío
@@ -486,8 +524,9 @@ Cómo funciona (`src/server/services/sheet-commands.ts`, `readCommands`/`finishC
 - Quien actúa es la cuenta de administrador del dueño (primer correo de `ADMIN_EMAILS`); cada
   evento del historial lleva `via: google_sheet`. Si esa cuenta no existe en la base, responde
   «entra una vez al panel con tu cuenta de dueño».
-- Las protecciones con aviso dejan libres T2:U1000 de «Entregas» y U2:V1000 de «Pagos
-  pendientes»; el resto de cada pestaña sigue protegido con aviso.
+- Las protecciones con aviso dejan libres T2:U1000 de «Entregas», U2:V1000 de «Pagos
+  pendientes» y L2:L1000 y N2:N1000 de «Pedidos en vivo»; el resto de cada pestaña sigue protegido
+  con aviso.
 - Si Google falla, avisa en el registro (`sheet_commands_failed`, como mucho cada 10 minutos) y lo
   intenta de nuevo en la siguiente pasada. Si falla la base de datos, la orden queda escrita y se
   reintenta.

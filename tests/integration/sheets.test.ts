@@ -69,12 +69,13 @@ class RecordingSheet implements OrderSheetLog {
   onUpsert: (() => void) | undefined;
   /** Órdenes del dueño en «Entregas» (columna T) y las respuestas de la tienda (columna V). */
   commands: SheetCommand[] = [];
-  responses: { reference: string; response: string }[] = [];
+  /** `state`: en «Pedidos en vivo», el estado que vuelve a mostrar el menú (L y M). */
+  responses: { reference: string; response: string; state?: string | undefined }[] = [];
   async readCommands(): Promise<SheetCommand[]> {
     return [...this.commands];
   }
-  async finishCommand(command: SheetCommand, response: string): Promise<void> {
-    this.responses.push({ reference: command.reference, response });
+  async finishCommand(command: SheetCommand, response: string, state?: string): Promise<void> {
+    this.responses.push({ reference: command.reference, response, state });
     this.commands = this.commands.filter((c) => c !== command);
   }
   async appendRow(tab: SheetTab, values: readonly (string | number)[]): Promise<void> {
@@ -1060,6 +1061,127 @@ describe('pestaña «Pagos pendientes» (Nequi)', () => {
       .from(notifications)
       .where(and(eq(notifications.orderId, paid.id), eq(notifications.channel, 'sheets_delivery')));
     expect(retried).toMatchObject({ status: 'PENDING', attempts: 0, lastError: null });
+  });
+
+  describe('menú «Estado (tú)» de «Pedidos en vivo» (Pendiente, Pago verificado, En proceso, Envío exitoso)', () => {
+    /** El dueño elige un estado en L (y, si quiere, la referencia de su Nequi en N). */
+    const choose = async (o: Ready, state: string, note = '') => {
+      sheet.commands = [{ tab: 'live', reference: o.ref, command: state, note }];
+      sheet.responses = [];
+      expect(await processSheetCommands(hn.deps)).toBe(1);
+      expect(sheet.commands).toEqual([]);
+      await hn.settle();
+      return sheet.responses[0] ?? { reference: '', response: '' };
+    };
+    const menu = (ref: string) => {
+      const row = liveRow(ref);
+      return [row?.[liveColumn('Estado (tú)')], row?.[liveColumn('Control (no tocar)')]];
+    };
+    const statusOf = async (id: string) =>
+      (
+        await hn.database.db.select({ status: orders.status }).from(orders).where(eq(orders.id, id))
+      )[0]?.status;
+
+    it('un pedido nuevo aparece en «Pendiente» (L y su copia M)', async () => {
+      const o = await readyOrder();
+      await hn.settle();
+      expect(menu(o.ref)).toEqual(['Pendiente', 'Pendiente']);
+    });
+
+    it('«Pago verificado» exige la referencia de Nequi y luego confirma por el total, con comprobante', async () => {
+      const o = await readyOrder();
+      expect((await customer(o, '/nequi')).statusCode).toBe(200);
+      expect((await customer(o, '/nequi/report', { senderLast4: '4141' })).statusCode).toBe(200);
+      await hn.settle();
+
+      const missing = await choose(o, 'Pago verificado');
+      expect(missing.response).toContain('columna N');
+      expect(missing.state).toBe('Pendiente');
+      expect(await statusOf(o.id)).toBe('AWAITING_PAYMENT');
+
+      const ok = await choose(o, 'Pago verificado', `MENU${uid}`);
+      expect(ok.response).toMatch(
+        /^✔️ Pago confirmado · Comprobante N\.º \d{6} · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+      );
+      expect(ok.state).toBe('Pago verificado');
+      expect(await statusOf(o.id)).toBe('PAID');
+      expect(menu(o.ref)).toEqual(['Pago verificado', 'Pago verificado']);
+    });
+
+    it('«En proceso» y «Envío exitoso» siguen la entrega como el panel; el cliente ve «DELIVERED»', async () => {
+      const o = await readyOrder();
+      expect((await customer(o, '/nequi')).statusCode).toBe(200);
+      await choose(o, 'Pago verificado', `MENU${uid}`);
+
+      const started = await choose(o, 'En proceso');
+      expect(started.response).toMatch(/^✔️ Aplicado: En proceso/);
+      expect(started.state).toBe('En proceso');
+      expect(await statusOf(o.id)).toBe('DELIVERING');
+
+      const done = await choose(o, 'Envío exitoso');
+      expect(done.response).toMatch(/^✔️ Aplicado: Entregado/);
+      expect(done.state).toBe('Envío exitoso');
+      expect(await statusOf(o.id)).toBe('DELIVERED');
+      expect(menu(o.ref)).toEqual(['Envío exitoso', 'Envío exitoso']);
+      const view = await call({ method: 'GET', url: `/api/orders/${o.ref}`, cookies: o.cookies });
+      expect(view.json<{ order: { status: string } }>().order.status).toBe('DELIVERED');
+    });
+
+    it('«Envío exitoso» directo con la referencia de Nequi: confirma el pago y entrega', async () => {
+      const o = await readyOrder();
+      expect((await customer(o, '/nequi')).statusCode).toBe(200);
+      const done = await choose(o, 'Envío exitoso', `MENU${uid}`);
+      expect(done.response).toMatch(/^✔️ Aplicado: Entregado/);
+      expect(await statusOf(o.id)).toBe('DELIVERED');
+    });
+
+    it('sin pago no entrega; «Pendiente» no deshace un pago; sin método elegido no confirma nada', async () => {
+      const unpaid = await readyOrder();
+      expect((await customer(unpaid, '/nequi')).statusCode).toBe(200);
+      const blocked = await choose(unpaid, 'Envío exitoso');
+      expect(blocked.response).toContain('primero el pago');
+      expect(blocked.state).toBe('Pendiente');
+      expect(await statusOf(unpaid.id)).toBe('AWAITING_PAYMENT');
+
+      await choose(unpaid, 'Pago verificado', `MENU${uid}`);
+      const back = await choose(unpaid, 'Pendiente');
+      expect(back.response).toContain('no vuelve a Pendiente');
+      expect(back.state).toBe('Pago verificado');
+      expect(await statusOf(unpaid.id)).toBe('PAID');
+
+      const fresh = await readyOrder();
+      const noMethod = await choose(fresh, 'Pago verificado', `MENU${uid}`);
+      expect(noMethod.response).toContain('todavía no eligió cómo pagar');
+      expect(await statusOf(fresh.id)).toBe('AWAITING_PAYMENT');
+
+      const unknown = await choose(fresh, 'Cualquier cosa');
+      expect(unknown.response).toContain('elige uno del menú');
+    });
+
+    it('un pedido vencido no vuelve a «Pendiente»; su pago tardío queda en revisión y lo dice', async () => {
+      const o = await readyOrder();
+      expect((await customer(o, '/nequi')).statusCode).toBe(200);
+      const before = hn.clock.now;
+      hn.clock.now = new Date(before.getTime() + 3 * 3_600_000);
+      try {
+        expect(await expireOrders(hn.deps)).toBeGreaterThanOrEqual(1);
+        await deliverNotifications(hn.deps, { orderId: o.id });
+      } finally {
+        hn.clock.now = before;
+      }
+      expect(await statusOf(o.id)).toBe('EXPIRED');
+      expect(menu(o.ref)).toEqual(['', '']);
+
+      const back = await choose(o, 'Pendiente');
+      expect(back.response).toContain('cerrado o en revisión');
+      expect(back.state).toBe('');
+      expect(await statusOf(o.id)).toBe('EXPIRED');
+
+      const late = await choose(o, 'En proceso', `MENU${uid}`);
+      expect(late.response).toContain('quedó en revisión');
+      expect(late.state).toBe('');
+      expect(await statusOf(o.id)).toBe('NEEDS_REVIEW');
+    });
   });
 });
 

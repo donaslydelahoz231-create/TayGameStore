@@ -4,7 +4,7 @@ import { $, esc } from '../dom.js';
 import { money } from '../format.js';
 import { state } from '../state.js';
 import { modal, toast } from '../ui.js';
-import { historyStatusClass, humanStatus } from './order-status.js';
+import { historyStatusClass, humanStatus, purchaseSucceeded } from './order-status.js';
 import { setCurrentOrder, startPolling } from './orders.js';
 
 // Historial de compras: lo devuelve el servidor (órdenes de esta cuenta o de este navegador).
@@ -35,10 +35,24 @@ export function renderHistory() {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-    const items = o.items.map((x) => `${x.quantity}× ${x.name}`).join(' · ');
+    const items = o.items
+      .map((x) => `<li><b>${esc(String(x.quantity))}×</b> ${esc(x.name)}</li>`)
+      .join('');
     const who = o.verification?.nickname || o.playerUid;
-    el.className = 'history-entry';
-    el.innerHTML = `<div><b>${esc(o.reference)}</b><small>${esc(date)} · ${esc(who)} · ${money(o.totalCop)}</small><small>${esc(items)}</small><span class="history-status ${historyStatusClass(o.status)}">${esc(humanStatus(o))}</span><div class="history-source">Registro del servidor</div></div><div class="history-actions"><button class="btn glass history-view" type="button">Ver</button><button class="btn primary history-copy" type="button">Copiar</button></div>`;
+    // «Compra exitosa» solo cuando el servidor confirmó el pago con el proveedor, emitió el
+    // comprobante (número y código) y el pedido sigue su curso: el navegador nunca lo decide.
+    // Reembolsado o en revisión: conserva el número de comprobante, sin esa etiqueta.
+    const paid = purchaseSucceeded(o);
+    const receiptNo = o.receipt
+      ? `Comprobante N.º ${esc(String(o.receipt.number).padStart(6, '0'))}`
+      : '';
+    const success = paid
+      ? `<p class="history-success"><b>Compra exitosa</b><span>${receiptNo}</span></p>`
+      : receiptNo
+        ? `<p class="history-receipt">${receiptNo}</p>`
+        : '';
+    el.className = 'history-entry' + (paid ? ' is-paid' : '');
+    el.innerHTML = `<div class="history-main"><div class="history-head"><b translate="no">${esc(o.reference)}</b><strong>${esc(money(o.totalCop))}</strong></div>${success}<small>${esc(date)} · ${esc(who)}</small><ul class="history-items" aria-label="Paquetes">${items}</ul><span class="history-status ${historyStatusClass(o.status)}">${esc(humanStatus(o))}</span><div class="history-source">Registro del servidor</div></div><div class="history-actions"><button class="btn ${paid ? 'primary' : 'glass'} history-view" type="button">${o.receipt ? 'Ver comprobante' : 'Ver'}</button><button class="btn glass history-copy" type="button">Copiar</button></div>`;
     el.querySelector('.history-view').onclick = () => {
       setCurrentOrder(o);
       startPolling();

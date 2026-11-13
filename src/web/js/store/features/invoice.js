@@ -3,8 +3,9 @@ import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { serverLabel } from '../servers.js';
 import { runtime, state } from '../state.js';
-import { humanStatus, paymentInProgress } from './order-status.js';
+import { humanStatus, paymentInProgress, purchaseSucceeded } from './order-status.js';
 import { chosenPayMeans, PAY_MEANS } from './pay-means.js';
+import { storeWhatsAppDigits } from './receipt-text.js';
 
 // Antes de crear el pedido, la tarjeta es solo un RESUMEN de la compra (no es factura ni se puede
 // descargar). Con pedido muestra exactamente la orden del servidor; el comprobante descargable
@@ -34,9 +35,14 @@ export const invoiceCode = () => {
 function exportState(lines) {
   const order = state.currentOrder;
   if (hasReceipt()) {
+    const number = String(order.receipt.number).padStart(6, '0');
+    // Reembolsado o en revisión: el comprobante sigue siendo real (dice su estado), pero ya no es
+    // una «compra exitosa».
     return {
       enabled: true,
-      text: `Comprobante N.º ${String(order.receipt.number).padStart(6, '0')} listo para descargar.`,
+      text: purchaseSucceeded(order)
+        ? `¡Compra exitosa! Comprobante N.º ${number} listo para descargar.`
+        : `Comprobante N.º ${number} listo para descargar · ${humanStatus(order)}.`,
     };
   }
   if (order) {
@@ -234,9 +240,12 @@ export function renderInvoice() {
   $('paymentState').className = 'payment-state ' + (button.ok ? 'ok' : '');
   $('paymentState').querySelector('span').textContent = button.note;
   const exportInfo = exportState(lines);
-  for (const id of ['jpgBtn', 'pdfBtn', 'shareBtn']) {
+  for (const id of ['jpgBtn', 'pdfBtn', 'shareBtn', 'sendStoreBtn']) {
     if ($(id)) $(id).disabled = !exportInfo.enabled;
   }
+  // «Enviar a TayGameStore» solo existe si la tienda publicó su WhatsApp (SUPPORT_WHATSAPP).
+  if ($('sendStoreBtn'))
+    $('sendStoreBtn').hidden = !storeWhatsAppDigits(state.serverConfig?.support?.whatsapp);
   // Las opciones para compartir solo valen para el comprobante con el que se abrieron.
   const sharePanel = $('sharePanel');
   if (sharePanel && (!exportInfo.enabled || sharePanel.dataset.ref !== order?.reference))

@@ -46,7 +46,15 @@ export const COMMAND_COLUMNS = {
   deliveries: { command: 'T', note: 'U', response: 'V' },
   pending: { command: 'U', note: 'V', response: 'W' },
 } as const;
-export type CommandTab = keyof typeof COMMAND_COLUMNS;
+
+/**
+ * «Pedidos en vivo» (la tienda escribe A–M, ver `LIVE_ORDER_COLUMNS`): L menú «Estado (tú)» con los
+ * 4 estados, M copia del estado que escribió la tienda (oculta), N «Referencia Nequi (tú)» y
+ * O «Respuesta de la tienda». A diferencia de las casillas, L siempre tiene el estado real: hay
+ * una orden solo cuando el dueño lo cambia (L distinta de M).
+ */
+export const LIVE_COMMAND_COLUMNS = { command: 'L', echo: 'M', note: 'N', response: 'O' } as const;
+export type CommandTab = keyof typeof COMMAND_COLUMNS | 'live';
 
 /** Lo que el dueño marcó o escribió en sus columnas de una fila. */
 export interface SheetCommand {
@@ -59,6 +67,13 @@ export interface SheetCommand {
   /** Nota (evidencia o motivo) o, en «Pagos pendientes», la referencia del movimiento Nequi. */
   note: string;
 }
+
+/** Estado del menú de una fila de «Pedidos en vivo» que el dueño cambió (L distinta de M). */
+const liveCommandOf = (row: string[] | undefined) => {
+  const chosen = row?.[0] ?? '';
+  const written = row?.[1] ?? '';
+  return chosen && chosen !== written ? chosen : '';
+};
 
 /** Texto de una celda leída sin formato: casilla marcada = «true»; desmarcada o vacía = «». */
 const cellText = (cell: unknown): string => {
@@ -81,9 +96,10 @@ export interface OrderSheetLog {
   readCommands?(): Promise<SheetCommand[]>;
   /**
    * Escribe la respuesta (columna V) en la fila del pedido y vacía T y U, salvo que el dueño ya
-   * haya escrito otra cosa en T: esa queda para la próxima pasada.
+   * haya escrito otra cosa en T: esa queda para la próxima pasada. En «Pedidos en vivo» deja el
+   * menú (L y su copia M) en `state`, el estado real tras aplicar la orden, y vacía la referencia.
    */
-  finishCommand?(command: SheetCommand, response: string): Promise<void>;
+  finishCommand?(command: SheetCommand, response: string, state?: string): Promise<void>;
 }
 
 export interface GoogleSheetsOptions {
@@ -277,7 +293,7 @@ export class GoogleSheetsLog implements OrderSheetLog {
    */
   async readCommands(): Promise<SheetCommand[]> {
     const commands: SheetCommand[] = [];
-    for (const tab of Object.keys(COMMAND_COLUMNS) as CommandTab[]) {
+    for (const tab of Object.keys(COMMAND_COLUMNS) as (keyof typeof COMMAND_COLUMNS)[]) {
       const { command: c, note: n } = COMMAND_COLUMNS[tab];
       const [rows = []] = await this.readRanges(tab, [`${c}2:${n}`]);
       if (!rows.some((row) => row[0])) continue;
@@ -288,6 +304,19 @@ export class GoogleSheetsLog implements OrderSheetLog {
         if (command && reference) commands.push({ tab, reference, command, note: row[1] ?? '' });
       });
     }
+    // «Pedidos en vivo»: el menú L siempre tiene el estado; es una orden solo si difiere de M.
+    const { command: lc, note: ln } = LIVE_COMMAND_COLUMNS;
+    const [live = []] = await this.readRanges('live', [`${lc}2:${ln}`]);
+    if (live.some((row) => liveCommandOf(row))) {
+      const [references = []] = await this.readRanges('live', ['A2:A']);
+      live.forEach((row, i) => {
+        const command = liveCommandOf(row);
+        const reference = references[i]?.[0] ?? '';
+        if (command && reference) {
+          commands.push({ tab: 'live', reference, command, note: row[2] ?? '' });
+        }
+      });
+    }
     return commands;
   }
 
@@ -296,7 +325,8 @@ export class GoogleSheetsLog implements OrderSheetLog {
    * salvo que el dueño haya cambiado la casilla mientras tanto: entonces solo responde. Busca la
    * fila por la referencia al escribir: el dueño pudo ordenar la pestaña.
    */
-  async finishCommand(command: SheetCommand, response: string): Promise<void> {
+  async finishCommand(command: SheetCommand, response: string, state?: string): Promise<void> {
+    if (command.tab === 'live') return this.finishLiveCommand(command, response, state ?? '');
     const { command: c, note: n, response: r } = COMMAND_COLUMNS[command.tab];
     const [references = [], rows = []] = await this.readRanges(command.tab, ['A2:A', `${c}2:${n}`]);
     const index = references.findIndex((row) => row[0] === command.reference);
@@ -308,6 +338,32 @@ export class GoogleSheetsLog implements OrderSheetLog {
       {
         method: 'PUT',
         body: JSON.stringify({ values: [unchanged ? ['', '', response] : [response]] }),
+      },
+      'Google Sheets no aceptó la respuesta al dueño',
+    );
+  }
+
+  /**
+   * «Pedidos en vivo»: responde en O y, si el dueño no volvió a cambiar el menú mientras tanto,
+   * deja L y M en el estado real (el nuevo si se aplicó, el de antes si no) y vacía N. Si lo cambió
+   * de nuevo, solo responde: ese cambio queda para la próxima pasada.
+   */
+  private async finishLiveCommand(
+    command: SheetCommand,
+    response: string,
+    state: string,
+  ): Promise<void> {
+    const { command: c, note: n, response: r } = LIVE_COMMAND_COLUMNS;
+    const [references = [], rows = []] = await this.readRanges('live', ['A2:A', `${c}2:${n}`]);
+    const index = references.findIndex((row) => row[0] === command.reference);
+    if (index < 0) return;
+    const row = index + 2;
+    const unchanged = (rows[index]?.[0] ?? '') === command.command;
+    await this.request(
+      `${this.valuesUrl('live', unchanged ? `${c}${row}:${r}${row}` : `${r}${row}`)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ values: [unchanged ? [state, state, '', response] : [response]] }),
       },
       'Google Sheets no aceptó la respuesta al dueño',
     );
