@@ -3540,3 +3540,54 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   queda en la misma posición con el puntero en cualquier punto (`translate: none`).
 - **CI de `c383578`**: CodeQL, chequeo de producción y Pages OK; el resultado de la CI completa se
   anota en la entrada siguiente.
+
+## 2026-11-13 · Hoja: menú «Estado (tú)» en «Pedidos en vivo»
+
+- **Pedido y autorización del dueño**: «En el excel que está conectado quiero que implemente un
+  interruptor para cambiar el estado del pedido», con «los 4 tipos de estados de pedido; si no lo
+  he cambiado, los que no he verificado se ponen en pendiente», en «Pedidos en vivo» para todos los
+  pedidos. Tras ver la copia de prueba: «autorizo la hoja y la publicación» (13-11).
+- **Copia de prueba primero** (12-11): «DEMO menú «Estado (tú)» (copia, datos ficticios) · …»,
+  hecha desde la copia «PRUEBA» (sin datos reales), configurada y leída de nuevo.
+- **Cambio de código** (`d1fb20e`, 6 archivos, firmado TayGameStore): `notifications.ts` (columnas L
+  y M en la fila de «Pedidos en vivo» y estado del menú según el pedido), `google-sheets.ts`
+  (lectura de L2:N y respuesta en O), `sheet-commands.ts` (reglas del menú), pruebas unitarias y de
+  integración, y `docs/google-sheets.md`. Antes de publicar se ajustaron dos respuestas del mismo
+  menú: «Pendiente» en un pedido vencido o en revisión responde ✖️ (antes «Ya estaba») y un pago
+  Nequi tardío avisa que el pedido quedó en revisión.
+- **Antes de publicar**: lint, tipos, formato, build, unitarias 420/420, integración 325/325 (6
+  casos nuevos del menú) y escáner 0.
+- **Hoja real** (13-11, 13:03 UTC): respaldo «Respaldo 2026-11-13 · … (antes del menú «Estado
+  (tú)»)» con sus 13 pestañas; luego columnas L–O, encabezados con nota, lista estricta en L2:L1000,
+  M oculta, N como texto y protección «solo aviso» con L y N libres. Leída de nuevo: 15 columnas,
+  validación, M oculta, N texto y los editores de la protección sin cambios.
+- **Publicación**: push sin forzar `f08687a..d1fb20e` a las 13:09 UTC (`git ls-remote` =
+  `d1fb20e`). CI 6/6 (gitleaks, lint/tipos/pruebas/build, integración y e2e en Chromium, Firefox y
+  WebKit), CodeQL y chequeo de producción OK. Tienda en vivo: `/api/ready` 200 y `golive:check`
+  «LISTO para vender».
+
+## 2026-11-13 · Fallos de GitHub Actions: causas y correcciones
+
+- **Pedido del dueño**: «trabaja en tareas que estén fallando … corrige y soluciona efectivamente
+  la causa raíz». Revisadas las ejecuciones del 06-11 al 13-11.
+- **Diagnóstico diario en rojo (11-11, 18:43 UTC)**: la tienda estaba dormida (plan gratuito); la
+  primera petición tardó más de 10 s, el límite de `golive:check` por consulta, y el navegador vio
+  la pantalla de carga de Render. Corrección `2e65595` (`[skip render]`, solo el flujo): un paso
+  previo espera hasta 3 minutos a que `/api/ready` diga «ready» y, si no, avisa y sigue. Probado
+  contra la tienda (despierta al primer intento) y contra un host inexistente (avisa sin romper).
+  Autorizado: «Sí, publica ambos».
+- **CI del PR #32 en rojo (11-11)**: una prueba de WebKit inestable que ya estaba corregida en la
+  rama de la tienda; el PR estaba 25 commits atrás. Se le trajo la versión actual con un merge sin
+  forzar (`742f479..e441804`); su diferencia con la tienda sigue siendo solo `mantenimiento.yml`.
+- **CI del PR #31 en rojo (12-11)**: formato de Prettier en `mantenimiento.yml`. Duplicaba el #32
+  (mismo archivo, versión más corta): cerrado por decisión del dueño («Cerrarlo, queda el #32»),
+  con un comentario; la rama `fix/mantenimiento-automatico` se conserva (`c214e1f`).
+- **Chequeo de producción del PR #31 (11-11)**: el espejo de apt falló al instalar el navegador
+  (código 100); la rama de la tienda ya instala con reintentos (`scripts/ci/instalar-navegador.sh`).
+- **«Tareas programadas» en «skipped»**: no es un fallo. Es un respaldo opcional que solo corre con
+  la variable `ENABLE_SCHEDULED_TASKS=true` y `CRON_SECRET` en GitHub; la tienda ya ejecuta esas
+  tareas sola. Activarlo es decisión del dueño (el secreto lo copia él).
+- **Conectores de Render y Google**: desde las 13:10 UTC responden «Service Unavailable» o no
+  responden. Es un fallo del servicio de conectores, no de la tienda (la tienda y `golive:check`
+  responden bien). Mientras dure, el despliegue de `d1fb20e` en Render y la primera respuesta del
+  menú en la hoja quedan NO VERIFICADOS.
