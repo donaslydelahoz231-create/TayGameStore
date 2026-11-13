@@ -3591,3 +3591,14 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   responden. Es un fallo del servicio de conectores, no de la tienda (la tienda y `golive:check`
   responden bien). Mientras dure, el despliegue de `d1fb20e` en Render y la primera respuesta del
   menú en la hoja quedan NO VERIFICADOS.
+
+## 2026-11-13 · Verificación del menú «Estado (tú)» en Render (antes NO VERIFICADO)
+
+- Con los conectores de nuevo en línea (21:29 UTC): Render `dep-dbrgo5ff3r2c73c1tsn0` con `d1fb20e`
+  quedó `live` a las 13:10 UTC; el arranque registra «hoja de Google conectada» y desde entonces
+  no hubo ningún aviso ni error (niveles 40/50/60, «Error» ni fallos de la hoja), con la tienda
+  leyendo L2:N de «Pedidos en vivo» cada 30 s.
+- Los commits `2e65595` y `3d7b9dc` llevaban `[skip render]` y, como se esperaba, no redesplegaron
+  la tienda.
+- Queda por ver solo la primera vez que el dueño use el menú en la hoja real (su respuesta en la
+  columna O).
