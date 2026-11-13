@@ -34,6 +34,22 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Despertar la tienda (plan gratuito de Render)
+        # Si Render durmió la tienda, la primera petición tarda 30–60 s y mientras tanto sirve su
+        # pantalla de carga. golive:check espera 10 s por consulta y el navegador vería esa
+        # pantalla: el 2026-11-11 el diagnóstico quedó en rojo con la tienda sana. Se espera a que
+        # /api/ready responda «ready» (hasta 3 minutos); si no, sigue y el informe lo muestra.
+        run: |
+          for i in $(seq 1 36); do
+            body=$(curl -sS --max-time 15 "$URL/api/ready" 2>/dev/null || true)
+            if printf '%s' "$body" | grep -q '"status":"ready"'; then
+              echo "Tienda despierta (intento $i)."
+              exit 0
+            fi
+            echo "Intento $i: aún no responde; espero 5 s."
+            sleep 5
+          done
+          echo "::warning::La tienda no respondió en 3 minutos; el diagnóstico sigue y lo informará."
       - name: Verificador de producción (golive:check)
         run: |
           # «Falta» no rompe el flujo (p. ej. pagos aún apagados por decisión del dueño):
