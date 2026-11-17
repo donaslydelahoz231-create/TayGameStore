@@ -1,56 +1,71 @@
 /*
- * Modo claro de TayGameStore (2026-11-17): la tienda «de día». Misma marca que el original
- * oscuro —violeta, azul y cian del diamante, dorado de los precios, el muro con grafiti—, sobre
- * papel lila muy claro, tarjetas blancas con borde violeta suave y tinta azul marino (la del
- * comprobante). Los acentos se oscurecen lo justo para leerse sobre blanco (contraste AA).
- * Todo cuelga de :root[data-theme='light']; sin ese atributo la tienda es la original.
+ * Modo claro de TayGameStore: «Arena esports» (2026-11-17, elegido por el dueño). La tienda de
+ * día con aire de torneo: blanco frío con una retícula tenue de HUD, tinta azul noche, violeta
+ * eléctrico como color principal, cian neón y magenta de acentos y el precio en naranja energía.
+ * Los bloques clave llevan esquinas biseladas con filo neón. Los acentos que van como texto se
+ * oscurecen lo justo para el contraste AA. Todo cuelga de :root[data-theme='light']; sin ese
+ * atributo la tienda es la original (oscura).
  */
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f3f1fa;
-  --bg2: #ebe7f7;
+  --bg: #f5f7fc;
+  --bg2: #eaeef7;
   --panel: #ffffff;
-  --panel2: #f7f5fe;
-  --panel3: #efebfc;
-  --line: #ddd6f2;
-  --ink: #161b4d;
-  --muted: #4f5682;
-  --muted2: #5c6392;
-  --violet: #6b2fe2;
-  --violet2: #6d35e8;
-  --blue: #1d6fe6;
-  --cyan: #07759c;
-  --green: #0b7f48;
-  --gold: #a35f00;
-  --orange: #c25400;
-  --danger: #c93030;
-  --shadow: 0 18px 46px rgba(52, 36, 128, 0.13);
+  --panel2: #f8f9fe;
+  --panel3: #eff2fb;
+  --line: #dde2f0;
+  --ink: #0f1235;
+  --muted: #474d74;
+  --muted2: #565c86;
+  --violet: #6d28ff;
+  --violet2: #5b1ef0;
+  --blue: #2457e6;
+  --cyan: #00799e;
+  --green: #0a7d4b;
+  --gold: #a85a00;
+  --orange: #c24e00;
+  --danger: #c81e4a;
+  --grad: linear-gradient(135deg, #6d28ff, #3b4cf0 55%, #2457e6);
+  --grad2: linear-gradient(135deg, #6d28ff, #00a3d6);
+  --shadow: 0 18px 46px rgba(15, 18, 53, 0.12);
+  /* Neón de la arena (para filos, brillos y fondos; como texto se usan las versiones oscuras). */
+  --neon-cian: #00b8e6;
+  --neon-magenta: #e8338a;
+  --neon-violeta: #6d28ff;
+  --precio: #c24e00;
   /* Superficies y bordes del modo claro, reutilizados abajo. */
   --l-card: #ffffff;
-  --l-card-2: #faf9ff;
-  --l-soft: #f1eefc;
-  --l-border: rgba(107, 47, 226, 0.16);
-  --l-border-2: rgba(107, 47, 226, 0.28);
-  --l-shadow-sm: 0 1px 2px rgba(22, 27, 77, 0.06), 0 6px 18px rgba(52, 36, 128, 0.07);
-  --l-shadow-md: 0 2px 4px rgba(22, 27, 77, 0.05), 0 16px 40px rgba(52, 36, 128, 0.11);
+  --l-card-2: #fafbff;
+  --l-soft: #f0f3fb;
+  --l-border: rgba(15, 18, 53, 0.1);
+  --l-border-2: rgba(109, 40, 255, 0.3);
+  --l-shadow-sm: 0 1px 2px rgba(15, 18, 53, 0.06), 0 6px 18px rgba(15, 18, 53, 0.06);
+  --l-shadow-md: 0 2px 4px rgba(15, 18, 53, 0.05), 0 16px 40px rgba(15, 18, 53, 0.1);
+  /* Tamaños de texto: un punto más en lo pequeño, que sobre blanco se lee más fino. */
+  --fs-2xs: 0.875rem;
+  --fs-label: 0.78125rem;
 }
+/* Fondo de la arena: retícula de HUD muy tenue y destellos de neón en las esquinas. */
 :root[data-theme='light'] body {
   background:
-    radial-gradient(circle at 8% 6%, rgba(139, 61, 255, 0.1), transparent 34%),
-    radial-gradient(circle at 94% 22%, rgba(55, 214, 255, 0.12), transparent 28%),
-    radial-gradient(circle at 50% 110%, rgba(255, 181, 46, 0.08), transparent 40%), var(--bg);
+    linear-gradient(rgba(15, 18, 53, 0.028) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(15, 18, 53, 0.028) 1px, transparent 1px) 0 0 / 44px 44px,
+    radial-gradient(circle at 6% 4%, rgba(109, 40, 255, 0.1), transparent 32%),
+    radial-gradient(circle at 96% 20%, rgba(0, 184, 230, 0.12), transparent 28%),
+    radial-gradient(circle at 10% 96%, rgba(232, 51, 138, 0.07), transparent 34%),
+    var(--bg);
 }
 :root[data-theme='light'] .ambient {
-  opacity: 0.16;
+  opacity: 0.14;
 }
 :root[data-theme='light'] ::selection {
-  background: rgba(107, 47, 226, 0.22);
-  color: #161b4d;
+  background: rgba(109, 40, 255, 0.2);
+  color: #0f1235;
 }
 /* Interruptor sobre fondo claro. */
 :root[data-theme='light'] .theme-switch-track {
   border-color: var(--l-border-2);
-  background: linear-gradient(180deg, #ffffff, #f1eefc);
+  background: linear-gradient(180deg, #ffffff, #f0f3fb);
   box-shadow:
     inset 0 1px 0 #fff,
     0 4px 14px rgba(52, 36, 128, 0.12);
@@ -62,7 +77,7 @@
     radial-gradient(circle at 50% 40%, rgba(139, 61, 255, 0.16), transparent 38%), var(--bg);
 }
 :root[data-theme='light'] .boot-loader {
-  background: #e3dcf6;
+  background: #e1e6f3;
 }
 
 /* ── Cabecera ──────────────────────────────────────────────────────────────────────────── */
@@ -95,7 +110,7 @@
 /* ── Portada: el muro de día ───────────────────────────────────────────────────────────── */
 :root[data-theme='light'] .hero {
   border-bottom-color: var(--l-border);
-  background: linear-gradient(180deg, #f8f6fe, #efeafb);
+  background: linear-gradient(180deg, #f7f9fe, #eef2fa);
 }
 :root[data-theme='light'] .neon-muro {
   background-image: url('/art/muro-ladrillo-dia.svg');
@@ -103,19 +118,19 @@
 :root[data-theme='light'] .hero-art::before {
   background: linear-gradient(
     90deg,
-    rgba(248, 246, 254, 0.97),
-    rgba(248, 246, 254, 0.84) 42%,
-    rgba(248, 246, 254, 0.18) 60%,
-    rgba(248, 246, 254, 0)
+    rgba(246, 248, 253, 0.97),
+    rgba(246, 248, 253, 0.84) 42%,
+    rgba(246, 248, 253, 0.18) 60%,
+    rgba(246, 248, 253, 0)
   );
 }
 @media (max-width: 900px) {
   :root[data-theme='light'] .hero-art::before {
     background: linear-gradient(
       180deg,
-      rgba(248, 246, 254, 0.96),
-      rgba(248, 246, 254, 0.82) 45%,
-      rgba(248, 246, 254, 0.08) 60%
+      rgba(246, 248, 253, 0.96),
+      rgba(246, 248, 253, 0.82) 45%,
+      rgba(246, 248, 253, 0.08) 60%
     );
   }
 }
@@ -123,9 +138,9 @@
   :root[data-theme='light'] .hero-art::before {
     background: linear-gradient(
       180deg,
-      rgba(248, 246, 254, 0.96),
-      rgba(248, 246, 254, 0.9) 52%,
-      rgba(248, 246, 254, 0.14) 62%
+      rgba(246, 248, 253, 0.96),
+      rgba(246, 248, 253, 0.9) 52%,
+      rgba(246, 248, 253, 0.14) 62%
     );
   }
 }
@@ -146,7 +161,7 @@
     0 0 0 1px rgba(107, 47, 226, 0.18);
 }
 :root[data-theme='light'] .meter-list i {
-  background: #e6e0f7;
+  background: #e3e8f4;
 }
 
 /* ── Botones ───────────────────────────────────────────────────────────────────────────── */
@@ -195,7 +210,7 @@
 :root[data-theme='light'] .lab-card.big {
   background:
     radial-gradient(120% 140% at 0% 0%, rgba(139, 61, 255, 0.12), transparent 60%),
-    linear-gradient(145deg, #faf7ff, #fff);
+    linear-gradient(145deg, #f8f9ff, #fff);
 }
 :root[data-theme='light'] .catalog-empty {
   border-style: dashed;
@@ -223,7 +238,7 @@
   background: var(--l-soft);
 }
 :root[data-theme='light'] :is(.cart-entry, .drawer-entry) > span {
-  background: #e9e3fb;
+  background: #e6ebf7;
 }
 :root[data-theme='light'] :is(.service-state, .finder-tag, .game-tab, .tariff-toggle) {
   border-color: var(--l-border);
@@ -236,7 +251,7 @@
 
 /* ── Formularios ───────────────────────────────────────────────────────────────────────── */
 :root[data-theme='light'] :is(input, select, textarea, .review-form textarea) {
-  border-color: #cfc6ea;
+  border-color: #cdd4e6;
   background: #fff;
   color: var(--ink);
 }
@@ -245,7 +260,7 @@
   opacity: 1;
 }
 :root[data-theme='light'] :is(input, select, textarea):hover {
-  border-color: #b9addf;
+  border-color: #b3bdd8;
 }
 :root[data-theme='light'] :is(input, select, textarea):focus {
   border-color: var(--violet);
@@ -279,7 +294,7 @@
 }
 :root[data-theme='light'] .product {
   border-color: var(--l-border);
-  background: linear-gradient(180deg, #fff, #faf8ff);
+  background: linear-gradient(180deg, #fff, #fafbff);
   box-shadow: var(--l-shadow-sm);
 }
 :root[data-theme='light'] .product:hover {
@@ -287,7 +302,7 @@
   box-shadow: var(--l-shadow-md);
 }
 :root[data-theme='light'] .product-visual {
-  background: radial-gradient(circle, rgba(55, 214, 255, 0.16), transparent 68%), #ece7fb;
+  background: radial-gradient(circle, rgba(55, 214, 255, 0.16), transparent 68%), #e9eef8;
 }
 :root[data-theme='light'] :is(.product-actions button, .fav-btn, .favorite-entry button) {
   border-color: var(--l-border-2);
@@ -310,7 +325,7 @@
 }
 :root[data-theme='light'] .smart-cart {
   border-color: var(--l-border-2);
-  background: linear-gradient(180deg, #fff, #f8f5ff);
+  background: linear-gradient(180deg, #fff, #f8faff);
   box-shadow: var(--l-shadow-md);
 }
 :root[data-theme='light'] #app .promo-strip {
@@ -356,7 +371,7 @@
 /* ── Soporte, reseñas y pie ────────────────────────────────────────────────────────────── */
 :root[data-theme='light'] .support-float-btn.email {
   border-color: var(--l-border-2);
-  background: linear-gradient(135deg, #fff, #f1ecff);
+  background: linear-gradient(135deg, #fff, #eef1ff);
   color: var(--violet);
 }
 :root[data-theme='light'] .support-float-btn span {
@@ -367,7 +382,7 @@
 }
 :root[data-theme='light'] .footer {
   border-top-color: var(--l-border);
-  background: #ebe7f7;
+  background: #eaeef7;
 }
 
 /* ── Carrito lateral, ventanas y avisos ────────────────────────────────────────────────── */
@@ -376,12 +391,12 @@
 }
 :root[data-theme='light'] .drawer {
   border-left-color: var(--l-border-2);
-  background: linear-gradient(180deg, #fff, #f7f4fe);
+  background: linear-gradient(180deg, #fff, #f7f9fe);
   box-shadow: -24px 0 70px rgba(22, 27, 77, 0.22);
 }
 :root[data-theme='light'] .modal-box {
   border-color: var(--l-border-2);
-  background: linear-gradient(180deg, #fff, #f8f6fe);
+  background: linear-gradient(180deg, #fff, #f7f9fe);
   box-shadow: 0 30px 80px rgba(22, 27, 77, 0.28);
 }
 :root[data-theme='light'] .toast {
@@ -415,7 +430,7 @@
 }
 :root[data-theme='light'] .result-card {
   border-color: var(--l-border-2);
-  background: linear-gradient(160deg, #fff, #f7f4fe);
+  background: linear-gradient(160deg, #fff, #f7f9fe);
   box-shadow: var(--l-shadow-md);
 }
 :root[data-theme='light'] .result-timeline span {
@@ -429,7 +444,7 @@
     radial-gradient(60% 55% at 12% 8%, rgba(139, 61, 255, 0.16), transparent 70%),
     radial-gradient(50% 50% at 92% 30%, rgba(55, 214, 255, 0.14), transparent 70%),
     radial-gradient(40% 40% at 70% 100%, rgba(255, 181, 46, 0.12), transparent 70%),
-    linear-gradient(180deg, #f8f6fe 0%, #efeafb 100%);
+    linear-gradient(180deg, #f7f9fe 0%, #eef2fa 100%);
 }
 :root[data-theme='light'] #entryExperience .entry-steps li {
   border-color: var(--l-border);
@@ -581,7 +596,7 @@
   background:
     radial-gradient(60% 55% at 50% 42%, rgba(139, 61, 255, 0.18), transparent 70%),
     radial-gradient(45% 40% at 80% 85%, rgba(55, 214, 255, 0.16), transparent 70%),
-    linear-gradient(180deg, #f8f6fe, #efeafb);
+    linear-gradient(180deg, #f7f9fe, #eef2fa);
   color: var(--ink);
 }
 :root[data-theme='light'] .intro-tagline {
@@ -615,4 +630,186 @@
 }
 :root[data-theme='light'] :is(#app .eyebrow, #app .smart-label) {
   color: var(--cyan);
+}
+
+/* ── Retoques de bloques e íconos (2026-11-17, pedido del dueño: sin choques de contraste) ── */
+/* Pasos de la bienvenida: ficha lila con el filo degradado de la marca, en vez del azul noche. */
+:root[data-theme='light'] #entryExperience .entry-step-ico {
+  background:
+    linear-gradient(#f1edff, #f1edff) padding-box,
+    linear-gradient(135deg, #37d6ff, #8b3dff) border-box;
+  color: #5b2bd6;
+  box-shadow: 0 4px 12px rgba(107, 47, 226, 0.12);
+}
+:root[data-theme='light'] #entryExperience .entry-steps li::after {
+  color: rgba(107, 47, 226, 0.38);
+}
+/* Mobile Legends: el ícono lavanda no se veía sobre su ficha clara. */
+:root[data-theme='light'] #app .game-logo.ml svg {
+  color: #3f5fe0;
+}
+/* WhatsApp flotante: el mismo verde, un tono más hondo para que el ícono blanco resalte. */
+:root[data-theme='light'] .support-float-btn.whatsapp {
+  background: radial-gradient(circle at 30% 25%, #3ccf7a, #169c4a 60%, #0f7a36);
+  box-shadow: 0 10px 24px rgba(15, 122, 54, 0.3);
+}
+/* Promo vigente: la foto del cofre trae su fondo de noche; de día va enmarcada como las
+   fotos de los paquetes, en vez de fundirse en un borde oscuro sobre la franja clara. */
+:root[data-theme='light'] #app .promo-strip::after {
+  top: 10px;
+  right: 10px;
+  bottom: 10px;
+  width: 170px;
+  border-radius: 12px;
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-shadow:
+    0 10px 22px rgba(22, 27, 77, 0.2),
+    0 0 0 1px rgba(107, 47, 226, 0.18);
+}
+/* Dentro del margen derecho de la franja (190 px; 120 px en el celular): nunca toca el texto. */
+@media (max-width: 520px) {
+  :root[data-theme='light'] #app .promo-strip::after {
+    width: 100px;
+  }
+}
+
+/* ── Arena esports: estilo de los bloques ──────────────────────────────────────────────── */
+/*
+ * Esquinas biseladas tipo HUD (arriba a la derecha y abajo a la izquierda) con un filo que
+ * nace en cian neón, pasa por un borde neutro y termina en magenta. Se dibuja con dos fondos:
+ * el relleno (padding-box) con las dos esquinas cortadas y el filo (border-box) cortado 1 px
+ * más afuera, así el corte también lleva su línea. La sombra va hacia abajo, sin rodear el corte.
+ */
+:root[data-theme='light']
+  :is(
+    .hero-panel,
+    .trust article,
+    #app .game-tab,
+    .product,
+    .smart-cart,
+    .card,
+    .tracking-card,
+    .lab-card,
+    .smart-band,
+    .support-panel
+  ) {
+  --corte: 14px;
+  --hud-fondo: #fff;
+  --hud-a: var(--neon-cian);
+  --hud-m: rgba(15, 18, 53, 0.11);
+  --hud-b: var(--neon-magenta);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background:
+    linear-gradient(
+        225deg,
+        transparent var(--corte),
+        var(--hud-fondo) var(--corte) calc(100% - var(--corte)),
+        transparent calc(100% - var(--corte))
+      )
+      padding-box,
+    linear-gradient(
+        225deg,
+        transparent calc(var(--corte) + 0.2px),
+        var(--hud-a) calc(var(--corte) + 0.2px),
+        var(--hud-m) 22%,
+        var(--hud-m) 78%,
+        var(--hud-b) calc(100% - var(--corte) - 0.2px),
+        transparent calc(100% - var(--corte) - 0.2px)
+      )
+      border-box;
+  box-shadow: 0 14px 26px -18px rgba(15, 18, 53, 0.35);
+}
+:root[data-theme='light'] :is(.trust article, #app .game-tab) {
+  --corte: 10px;
+}
+/* Las piezas compactas conservan el tamaño de texto del modo oscuro: con el punto de más, sus
+   rótulos cortos se partían en dos líneas («Mobile Legends» a 1280 px, el estado del pago a
+   1280 px, los medios de pago y los sellos a 430 px, la descripción del paquete a 360 px). El
+   punto de más queda para párrafos y ayudas, que es donde se lee mejor sobre blanco. */
+:root[data-theme='light']
+  :is(#app .game-tab, .trust article, #paymentState, .pay-mean, .lab-card, .product-desc) {
+  --fs-2xs: 0.84375rem;
+  --fs-label: 0.75rem;
+}
+:root[data-theme='light'] .hero-panel {
+  --corte: 18px;
+  --hud-fondo: rgba(255, 255, 255, 0.96);
+  --hud-m: rgba(109, 40, 255, 0.22);
+  box-shadow: 0 30px 50px -28px rgba(15, 18, 53, 0.45);
+}
+:root[data-theme='light'] .lab-card.big {
+  --hud-fondo: #f6f2ff;
+}
+:root[data-theme='light'] :is(.smart-band, .support-panel) {
+  --hud-fondo: #f4f1ff;
+  --hud-m: rgba(109, 40, 255, 0.24);
+}
+/* Al pasar el ratón por un paquete y en el juego activo, el filo se enciende entero. */
+:root[data-theme='light'] .product:hover,
+:root[data-theme='light'] #app .game-tab.active {
+  --hud-m: rgba(109, 40, 255, 0.5);
+  box-shadow:
+    0 16px 30px -16px rgba(109, 40, 255, 0.45),
+    0 0 0 1px rgba(0, 184, 230, 0.06);
+}
+:root[data-theme='light'] #app .game-tab.active {
+  --hud-fondo: #f6f2ff;
+}
+
+/* ── Arena esports: tipografía de color, precios, etiquetas y botones ───────────────────── */
+:root[data-theme='light'] :is(.heading h2, .support-panel h2) span {
+  background: linear-gradient(100deg, #6d28ff 0%, #9b2cf0 45%, #d6237f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme='light'] :is(.hero-wordmark, .entry-brand) .wm-store,
+:root[data-theme='light'] :is(.brand-text, .footer-brand b, .boot-title) span {
+  background: linear-gradient(100deg, #0088b8 0%, #6d28ff 52%, #d6237f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme='light'] #entryExperience .entry-shell h1.entry-seo span,
+:root[data-theme='light'] .intro-word .s {
+  background: linear-gradient(100deg, #0088b8, #6d28ff 55%, #d6237f);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+/* Rótulos de sección como marcadores de HUD: cian con el punto en magenta encendido. */
+:root[data-theme='light'] :is(#app .eyebrow, #app .smart-label) {
+  color: var(--cyan);
+  letter-spacing: 0.16em;
+}
+:root[data-theme='light'] #app .eyebrow > span {
+  background: var(--neon-magenta);
+  box-shadow: 0 0 0 3px rgba(232, 51, 138, 0.16);
+}
+/* Precio en naranja energía. */
+:root[data-theme='light'] #products .product-price strong {
+  color: var(--precio);
+}
+/* Etiquetas de los paquetes: chip de neón violeta→magenta con letra blanca. */
+:root[data-theme='light'] .product-tag {
+  background: linear-gradient(120deg, #5b1ef0, #b51d6e);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(91, 30, 240, 0.28);
+}
+/* Botón principal con brillo de neón. */
+:root[data-theme='light'] .btn.primary {
+  box-shadow:
+    0 10px 24px -8px rgba(109, 40, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+:root[data-theme='light'] .btn.primary:hover {
+  box-shadow:
+    0 14px 30px -8px rgba(109, 40, 255, 0.65),
+    0 0 0 3px rgba(0, 184, 230, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+/* El menú de la cabecera: la sección activa con subrayado de neón. */
+:root[data-theme='light'] .nav a.active {
+  box-shadow: inset 0 -2px 0 var(--neon-magenta);
 }

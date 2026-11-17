@@ -4,36 +4,45 @@ import { state } from '../state.js';
 
 /**
  * Presentación de TayGameStore (2026-10-27): al abrir la tienda Tay se arma, aparece el logotipo
- * y la barra avanza con la carga real del catálogo. Al pulsar «Entrar», un diamante crece desde
- * el botón, cubre la pantalla y se abre sobre la ventana de acceso (que no cambia).
+ * y la barra avanza con la carga real del catálogo. Al pulsar «Entrar», dos compuertas de arena
+ * esports (hojas con el corte inclinado y filos de neón) se cierran sobre la línea del botón y se
+ * abren sobre la ventana de acceso (que no cambia). Rediseño del 2026-11-17, más corto y sin
+ * esperas (medido en Chromium): la presentación dura ~2,1 s en total (antes ~3,6 s) y de «Entrar»
+ * al acceso a la vista van ~1,25 s (antes ~1,7 s).
  *
  * Cada paso empieza cuando termina el anterior, sin cruzarse:
- *   presentación → Tay celebra → Tay y el logotipo salen → el diamante se abre → entra la
- *   bienvenida; «Entrar» → la bienvenida sale → el diamante cubre → «Abriendo…» → el diamante se
- *   abre con el acceso ya listo debajo.
+ *   presentación → Tay celebra → Tay y el logotipo salen → las compuertas se abren → entra la
+ *   bienvenida; «Entrar» → la bienvenida sale → las compuertas se cierran → «Abriendo…» → se
+ *   abren con el acceso ya listo debajo.
  *
  * Una vez por sesión (sin JavaScript el elemento sigue `hidden`). Se puede saltar con el botón,
  * Escape, Enter o espacio.
  *
  * Con «reducir movimiento» (en muchos celulares: «Quitar animaciones») hay versión suave: la
  * misma presentación y la misma transición, pero solo con fundidos, sin piezas que vuelan ni
- * diamante que crece.
+ * compuertas que se mueven.
  */
 const SEEN_KEY = 'tgs:presentacion';
-const MIN_MS = 2300;
-const SOFT_MIN_MS = 1500;
-const MAX_MS = 4200;
+const MIN_MS = 1300;
+const SOFT_MIN_MS = 1000;
+const MAX_MS = 3200;
 const FADE_MS = 360;
 const SOFT_COVER_MS = 220;
 const SOFT_REVEAL_MS = 300;
-const CHEER_MS = 260;
-const CORE_OUT_MS = 280;
-const IRIS_MS = 640;
-const LEAVE_MS = 200;
-const COVER_MS = 400;
-const HOLD_MS = 320;
+// Tay guiña y empieza a salir (CSS: 0,16 s + 0,22 s); las compuertas arrancan despacio, así que
+// no se ven abrirse hasta que Tay y el logotipo ya se fueron.
+const CHEER_MS = 180;
+const IRIS_MS = 560;
+const LEAVE_MS = 160;
+const COVER_MS = 340;
+const HOLD_MS = 120;
 const REVEAL_MS = 480;
-const EASE = 'cubic-bezier(0.7, 0, 0.2, 1)';
+// Aceleración de las compuertas (como cubic-bezier(0.7, 0, 0.2, 1)): arrancan suave, cruzan
+// rápido y frenan al final.
+const ease = (t) => (t < 0.5 ? 16 * t ** 5 : 1 - (-2 * t + 2) ** 5 / 2);
+// Compuertas «Arena esports»: el corte de las dos hojas va inclinado 9 grados.
+const SLANT_DEG = 9;
+const SLANT = Math.tan((SLANT_DEG * Math.PI) / 180);
 
 const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // Quien vuelve de pagar o abre su enlace de seguimiento va directo a su pedido.
@@ -67,24 +76,30 @@ function setStatus(intro, text) {
   if (status && status.textContent !== text) status.textContent = text;
 }
 
-/** Distancia (en rombo) desde un punto hasta la esquina más lejana: el diamante la cubre toda. */
-function coverRadius(cx, cy) {
-  const w = innerWidth;
+/** Altura del corte en x: la línea inclinada que pasa por (cx, cy). */
+const seamY = (cx, cy, x) => cy - (x - cx) * SLANT;
+
+/** Semialto de la franja que deja la pantalla entera a la vista (compuertas abiertas del todo). */
+function openGap(cx, cy) {
+  const left = seamY(cx, cy, 0);
+  const right = seamY(cx, cy, innerWidth);
   const h = innerHeight;
-  return Math.max(cx + cy, w - cx + cy, cx + h - cy, w - cx + h - cy) + 8;
+  return Math.max(left, right, h - left, h - right) + 8;
 }
 
-const diamond = (cx, cy, r) =>
-  `polygon(${cx}px ${cy - r}px, ${cx + r}px ${cy}px, ${cx}px ${cy + r}px, ${cx - r}px ${cy}px)`;
-
-/** La pantalla con un agujero en forma de diamante de radio `r` (regla par-impar). */
-function hole(cx, cy, r) {
+/**
+ * Compuertas: la pantalla menos una franja inclinada de semialto `g` que pasa por (cx, cy)
+ * (regla par-impar). Con g = 0 la pantalla está cubierta; con `openGap` está abierta del todo.
+ */
+function gates(cx, cy, g) {
   const w = innerWidth;
   const h = innerHeight;
+  const left = seamY(cx, cy, 0);
+  const right = seamY(cx, cy, w);
   return (
     `polygon(evenodd, 0px 0px, ${w}px 0px, ${w}px ${h}px, 0px ${h}px, 0px 0px, ` +
-    `${cx}px ${cy - r}px, ${cx + r}px ${cy}px, ${cx}px ${cy + r}px, ${cx - r}px ${cy}px, ` +
-    `${cx}px ${cy - r}px)`
+    `0px ${left - g}px, ${w}px ${right - g}px, ${w}px ${right + g}px, 0px ${left + g}px, ` +
+    `0px ${left - g}px)`
   );
 }
 
@@ -99,37 +114,72 @@ function centerOf(el) {
 }
 
 /**
- * Anima el diamante: el recorte de la pantalla y su borde de luz, de radio `from` a `to`, y espera
- * a que termine (con un tope por si el navegador no avisa). `shape` es `diamond` (cubre) o `hole`
- * (se abre).
+ * Mueve las compuertas: el recorte de la pantalla y sus filos de luz, de semialto `from` a `to`, y
+ * espera a que terminen. Cerrar: de `openGap` a 0; abrir: de 0 a `openGap`.
+ *
+ * Recorte y filos se pintan juntos en cada cuadro desde aquí: si el recorte se animara en el hilo
+ * principal y los filos en la tarjeta de video, con la página ocupada los filos se adelantaban al
+ * borde de las hojas (medido en Chromium). Si el navegador deja de pintar (pestaña en segundo
+ * plano), termina igual al tope y deja el estado final.
  */
-async function iris(intro, shape, cx, cy, from, to, duration) {
-  if (typeof intro.animate !== 'function') return;
-  const timing = { duration, easing: EASE, fill: 'forwards' };
-  const ring = (r) => `translate(${cx}px, ${cy}px) scale(${Math.max(r, 0.02) / 50})`;
-  const anims = [
-    intro.animate([{ clipPath: shape(cx, cy, from) }, { clipPath: shape(cx, cy, to) }], timing),
-  ];
-  const rim = intro.querySelector('.intro-rim g');
-  if (rim) anims.push(rim.animate([{ transform: ring(from) }, { transform: ring(to) }], timing));
-  intro.tgsClips = [...(intro.tgsClips ?? []), ...anims];
+function iris(intro, cx, cy, from, to, duration) {
+  const token = (intro.tgsIrisToken ?? 0) + 1;
+  intro.tgsIrisToken = token;
+  const seams = [...intro.querySelectorAll('.intro-seam')];
+  // Filos de neón pegados al borde de cada hoja (cian la de arriba, magenta la de abajo): giran
+  // sobre el punto del corte que queda bajo (cx, cy), así siguen la línea inclinada.
+  seams.forEach((seam, index) => {
+    seam.style.transformOrigin = `${cx + innerWidth * 0.1}px ${index === 0 ? '100%' : '0%'}`;
+  });
+  const paint = (g) => {
+    intro.style.clipPath = gates(cx, cy, g);
+    // Los filos se apagan al juntarse las hojas: no cruzan la cara de Tay al cerrar ni al abrir.
+    intro.style.setProperty('--seam', Math.min(1, g / 28).toFixed(2));
+    seams.forEach((seam, index) => {
+      const y = cy + (index === 0 ? -g : g);
+      seam.style.transform = `translate(0px, ${y.toFixed(1)}px) rotate(${-SLANT_DEG}deg)`;
+    });
+  };
+  paint(from);
   intro.classList.add('is-iris');
-  await Promise.race([anims[0].finished.catch(() => {}), wait(duration + 400)]);
-  intro.classList.remove('is-iris');
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      if (intro.tgsIrisToken === token) {
+        paint(to);
+        intro.classList.remove('is-iris');
+      }
+      resolve();
+    };
+    const start = performance.now();
+    const step = (now) => {
+      if (settled || intro.tgsIrisToken !== token) return settle();
+      const t = Math.min(1, Math.max(0, (now - start) / duration));
+      paint(from + (to - from) * ease(t));
+      if (t < 1) requestAnimationFrame(step);
+      else settle();
+    };
+    requestAnimationFrame(step);
+    setTimeout(settle, duration + 400);
+  });
 }
 
-/** El diamante se abre desde (cx, cy) y la presentación desaparece. */
+/** Las compuertas se abren por la línea que pasa por (cx, cy) y la presentación desaparece. */
 async function openIris(intro, cx, cy, duration) {
-  await iris(intro, hole, cx, cy, 0, coverRadius(cx, cy), duration);
+  await iris(intro, cx, cy, 0, openGap(cx, cy), duration);
   hideIntro(intro);
 }
 
 function hideIntro(intro) {
   intro.hidden = true;
+  intro.tgsIrisToken = (intro.tgsIrisToken ?? 0) + 1;
   intro.classList.remove('is-leaving', 'is-transition', 'is-iris', 'is-soft', 'is-revealing');
   (intro.tgsClips ?? []).forEach((anim) => anim.cancel());
   intro.tgsClips = [];
   intro.style.removeProperty('clip-path');
+  intro.style.removeProperty('--seam');
 }
 
 /** Versión suave: la capa entera aparece o se desvanece (`from` → `to` de opacidad). */
@@ -227,9 +277,9 @@ export function playIntro() {
       hideIntro(intro);
       return;
     }
-    // Tay celebra y sale con el logotipo; después, y no antes, se abre el diamante.
+    // Tay celebra y sale con el logotipo; después, y no antes, se abren las compuertas.
     intro.classList.add('is-leaving');
-    await wait(CHEER_MS + CORE_OUT_MS);
+    await wait(CHEER_MS);
     const { cx, cy } = centerOf(intro.querySelector('.intro-tay'));
     welcomeCue();
     await openIris(intro, cx, cy, IRIS_MS);
@@ -282,7 +332,7 @@ function fillBar(intro, duration) {
 
 /**
  * «Entrar» con movimiento reducido: la marca aparece con un fundido sobre la bienvenida, debajo se
- * abre el acceso mientras avanza la barra y la marca se desvanece (sin diamante ni zoom). Mientras
+ * abre el acceso mientras avanza la barra y la marca se desvanece (sin compuertas ni zoom). Mientras
  * se desvanece ya no intercepta toques: el acceso responde enseguida.
  */
 async function softEnter(intro, entry, next) {
@@ -303,7 +353,8 @@ async function softEnter(intro, entry, next) {
 
 /**
  * Transición al pulsar «Entrar» y luego `next` (abre la ventana de acceso, que no cambia).
- * `origin` es el botón: el diamante nace de él. Con movimiento reducido, la versión suave.
+ * `origin` es el botón: las compuertas se cierran sobre su línea. Con movimiento reducido, la
+ * versión suave.
  */
 export async function playEnterTransition(next, origin) {
   enterCue();
@@ -320,21 +371,21 @@ export async function playEnterTransition(next, origin) {
   // 1. La bienvenida se va.
   entry?.classList.add('entry-leaving');
   await wait(LEAVE_MS);
-  // 2. El diamante nace del tamaño del botón y crece hasta cubrir la pantalla.
-  const { cx, cy, size } = centerOf(origin);
-  const seed = Math.max(24, Math.round(size * 0.75));
+  // 2. Las compuertas se cierran sobre la línea del botón hasta cubrir la pantalla.
+  const { cx, cy } = centerOf(origin);
+  const open = openGap(cx, cy);
   intro.classList.remove('is-leaving');
   intro.classList.add('is-transition');
   setProgress(intro, 0);
   setStatus(intro, 'Abriendo TayGameStore…');
-  intro.style.clipPath = diamond(cx, cy, seed);
+  intro.style.clipPath = gates(cx, cy, open);
   intro.hidden = false;
-  await iris(intro, diamond, cx, cy, seed, coverRadius(cx, cy), COVER_MS);
+  await iris(intro, cx, cy, open, 0, COVER_MS);
   // 3. Cubierta la pantalla, debajo se abre el acceso; aquí solo avanza la barra.
   next();
   entry?.classList.remove('entry-leaving');
   await fillBar(intro, HOLD_MS);
-  // 4. El diamante se abre desde Tay y deja ver el acceso, que llega por partes mientras se abre
+  // 4. Las compuertas se abren por Tay y dejan ver el acceso, que llega por partes mientras se abren
   //    (cabecera, cuentas, invitado): la clase se pone aún tapado, así no se ve ningún salto.
   const login = $('loginModal');
   if (login && !login.hidden) {

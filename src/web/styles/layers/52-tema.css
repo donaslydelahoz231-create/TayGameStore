@@ -96,7 +96,8 @@
   transform: rotate(-30deg);
 }
 :root[data-theme='light'] .theme-switch-track .ts-sun {
-  color: #fff;
+  /* Sol en ámbar oscuro sobre la perilla dorada (en blanco no se distinguía). */
+  color: #6b3a00;
   transform: rotate(90deg);
 }
 
@@ -187,7 +188,7 @@
   color: #8a86b4;
 }
 :root[data-theme='light'] .account-menu button.menu-theme .theme-switch-track .ts-sun {
-  color: #fff;
+  color: #6b3a00;
 }
 @media (max-width: 560px) {
   .header-theme {

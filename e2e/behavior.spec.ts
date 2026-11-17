@@ -2024,10 +2024,10 @@ test.describe('modo claro y oscuro', () => {
       await expect(sw).toHaveAttribute('aria-checked', 'true');
     }
     expect(await page.evaluate(() => localStorage.getItem('tgs_tema'))).toBe('light');
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f3f1fa');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f7fc');
     await expect
       .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
-      .toBe('rgb(243, 241, 250)');
+      .toBe('rgb(245, 247, 252)');
 
     // /tema.js va en <head> antes de la hoja de estilos: el tema guardado se aplica sin destello.
     expect(

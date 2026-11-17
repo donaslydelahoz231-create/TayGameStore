@@ -1,0 +1,254 @@
+/*
+ * Presentación «Arena esports» (2026-11-17). Pedido del dueño: «mejorar la transición de la
+ * presentación … las cortinas … de un estilo ideal para mi tienda, sin delay ni retraso, con buena
+ * experiencia para el cliente y el propietario».
+ *
+ * - Compuertas: en lugar del diamante, la pantalla se abre (y al pulsar «Entrar» se cierra) en dos
+ *   hojas con el corte inclinado 9°, como las puertas de una arena. Cada hoja lleva un filo de
+ *   neón (cian arriba, magenta abajo) que intro.js mueve junto con el recorte.
+ * - Aurora esports (violeta, cian y magenta), esquinas de mira tipo HUD y un barrido de escáner que
+ *   cruza la pantalla una sola vez.
+ * - Más rápida (medido en Chromium): la presentación entera pasa de ~3,6 s a ~2,1 s y de «Entrar»
+ *   al acceso a la vista de ~1,7 s a ~1,25 s. Tay se arma, el logotipo entra y la barra se llena
+ *   en el mismo orden, solo que más juntos.
+ *
+ * Sigue las reglas de 48-inicio-fluido.css: nada se desenfoca ni sombrea con `filter`; los filos y
+ * el barrido son degradados y sombras de caja que se mueven con `transform`. Con «reducir
+ * movimiento» la versión suave (45-inicio.css) no cambia: solo fundidos, sin compuertas.
+ */
+
+/* ── Tiempos: misma coreografía, más compacta ─────────────────────────────────────────── */
+#tgsIntro:not(.is-transition) {
+  animation-duration: 0.2s;
+}
+.intro-tay .f {
+  animation-duration: 0.5s;
+  animation-delay: calc(var(--d) * 0.55);
+}
+.intro-tay .intro-halo {
+  animation: tgsFade 0.7s 0.08s both;
+}
+.intro-tay .intro-detail {
+  animation: tgsFade 0.3s 0.42s both;
+}
+.intro-tay .intro-visor {
+  animation: tgsVisor 0.32s 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.intro-tay .intro-eyes {
+  animation:
+    tgsPop 0.28s 0.58s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    tgsTayBlink 4s 1.2s ease-in-out infinite;
+}
+.intro-tay .intro-smile {
+  animation: tgsFade 0.24s 0.64s both;
+}
+.intro-tay .intro-star {
+  animation: tgsStar 0.42s 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+#tgsIntro:not(.is-transition) .intro-word span {
+  animation:
+    tgsLetter 0.45s cubic-bezier(0.16, 1, 0.3, 1) calc(0.5s + var(--i) * 24ms) both,
+    tgsGlint 0.4s ease-in-out calc(0.95s + var(--i) * 24ms);
+}
+.intro-tagline {
+  animation: tgsFade 0.4s 0.8s both;
+}
+.intro-actions {
+  animation: tgsFade 0.3s 0.25s both;
+}
+/* Salida: Tay guiña y sale con el logotipo en 0,4 s (antes 0,54 s); luego se abren las hojas. */
+#tgsIntro.is-leaving .intro-eyes {
+  animation: tgsSquint 0.18s ease-in-out both;
+}
+#tgsIntro.is-leaving .intro-star {
+  animation: tgsTwinkle 0.36s ease-out both;
+}
+#tgsIntro.is-leaving .intro-core {
+  animation: tgsCoreOut 0.22s 0.16s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+#tgsIntro.is-transition .intro-tay {
+  animation: tgsPulse 0.5s ease-in-out both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #entryExperience.entry-leaving :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer),
+  #entryExperience.entry-leaving .entry-theme {
+    animation-duration: 0.16s;
+  }
+}
+
+/* ── Aurora esports ────────────────────────────────────────────────────────────────────── */
+#tgsIntro {
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(109, 40, 255, 0.4), transparent 70%),
+    radial-gradient(45% 40% at 82% 86%, rgba(232, 51, 138, 0.16), transparent 70%),
+    radial-gradient(40% 36% at 14% 12%, rgba(0, 184, 230, 0.14), transparent 70%), #04060f;
+}
+#tgsIntro.is-transition {
+  background:
+    radial-gradient(60% 55% at 50% 45%, rgba(109, 40, 255, 0.48), transparent 75%),
+    radial-gradient(45% 40% at 82% 86%, rgba(232, 51, 138, 0.14), transparent 70%), #04060f;
+}
+.intro-aurora i:nth-child(1) {
+  background: radial-gradient(
+    closest-side,
+    #6d28ff 0%,
+    #6d28ff 38%,
+    rgba(109, 40, 255, 0.5) 69%,
+    rgba(109, 40, 255, 0) 100%
+  );
+}
+.intro-aurora i:nth-child(2) {
+  background: radial-gradient(
+    closest-side,
+    #00a6e0 0%,
+    #00a6e0 38%,
+    rgba(0, 166, 224, 0.5) 69%,
+    rgba(0, 166, 224, 0) 100%
+  );
+}
+.intro-aurora i:nth-child(3) {
+  background: radial-gradient(
+    closest-side,
+    #e8338a 0%,
+    rgba(232, 51, 138, 0.5) 52%,
+    rgba(232, 51, 138, 0) 100%
+  );
+}
+/* El piso de la arena: rejilla cian y magenta. */
+.intro-floor {
+  background-image:
+    linear-gradient(rgba(0, 184, 230, 0.24) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 51, 138, 0.16) 1px, transparent 1px);
+}
+.intro-bar i {
+  background: linear-gradient(90deg, #6d28ff, #00b8e6 60%, #e8338a);
+  box-shadow: 0 0 16px rgba(0, 184, 230, 0.55);
+}
+
+/* ── Filos de las compuertas (los coloca intro.js; solo se ven mientras se mueven) ─────── */
+.intro-seam {
+  position: absolute;
+  left: -10%;
+  z-index: 5;
+  width: 120%;
+  height: 26px;
+  pointer-events: none;
+  opacity: 0;
+}
+/* Hoja de arriba: el filo es su borde inferior. */
+.intro-seam-a {
+  top: -26px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 184, 230, 0) 0%,
+    rgba(0, 184, 230, 0.16) 55%,
+    rgba(0, 184, 230, 0.55) 86%,
+    #c9f7ff 96%,
+    #ffffff 100%
+  );
+  box-shadow: 0 1px 0 0 #00e0ff;
+}
+/* Hoja de abajo: el filo es su borde superior. */
+.intro-seam-b {
+  top: 0;
+  background: linear-gradient(
+    to top,
+    rgba(232, 51, 138, 0) 0%,
+    rgba(232, 51, 138, 0.16) 55%,
+    rgba(232, 51, 138, 0.55) 86%,
+    #ffd1e8 96%,
+    #ffffff 100%
+  );
+  box-shadow: 0 -1px 0 0 #ff4fa6;
+}
+#tgsIntro.is-iris .intro-seam {
+  opacity: var(--seam, 1);
+}
+
+/* ── Mira HUD en las esquinas y barrido de escáner (una vez) ──────────────────────────── */
+#tgsIntro::before {
+  --hud-a: rgba(0, 184, 230, 0.7);
+  --hud-b: rgba(232, 51, 138, 0.7);
+  content: '';
+  position: absolute;
+  inset: 10px;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--hud-a), var(--hud-a)) left top / 28px 2px,
+    linear-gradient(var(--hud-a), var(--hud-a)) left top / 2px 28px,
+    linear-gradient(var(--hud-b), var(--hud-b)) right top / 28px 2px,
+    linear-gradient(var(--hud-b), var(--hud-b)) right top / 2px 28px,
+    linear-gradient(var(--hud-b), var(--hud-b)) left bottom / 28px 2px,
+    linear-gradient(var(--hud-b), var(--hud-b)) left bottom / 2px 28px,
+    linear-gradient(var(--hud-a), var(--hud-a)) right bottom / 28px 2px,
+    linear-gradient(var(--hud-a), var(--hud-a)) right bottom / 2px 28px;
+  background-repeat: no-repeat;
+  animation: tgsFade 0.35s 0.1s both;
+}
+#tgsIntro::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  height: 28vh;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 184, 230, 0) 0%,
+    rgba(0, 184, 230, 0.06) 70%,
+    rgba(127, 240, 255, 0.32) 97%,
+    rgba(127, 240, 255, 0) 100%
+  );
+  transform: translateY(-28vh);
+  animation: tgsScan 1s 0.12s cubic-bezier(0.45, 0, 0.25, 1) both;
+}
+@keyframes tgsScan {
+  to {
+    transform: translateY(100vh);
+  }
+}
+/* En la transición de «Entrar» la pantalla ya está cubierta: sin barrido, solo la mira. */
+#tgsIntro.is-transition::after,
+#tgsIntro.is-soft::after {
+  display: none;
+}
+
+/* ── Modo claro: la misma arena, de día ──────────────────────────────────────────────── */
+:root[data-theme='light'] #tgsIntro {
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(109, 40, 255, 0.16), transparent 70%),
+    radial-gradient(45% 40% at 82% 86%, rgba(232, 51, 138, 0.12), transparent 70%),
+    radial-gradient(40% 36% at 14% 12%, rgba(0, 184, 230, 0.14), transparent 70%),
+    linear-gradient(180deg, #f7f9fe, #eef2fa);
+}
+:root[data-theme='light'] .intro-aurora i {
+  opacity: 0.22;
+}
+:root[data-theme='light'] .intro-floor {
+  background-image:
+    linear-gradient(rgba(0, 121, 158, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 30, 110, 0.12) 1px, transparent 1px);
+}
+:root[data-theme='light'] #tgsIntro::before {
+  --hud-a: rgba(0, 121, 158, 0.75);
+  --hud-b: rgba(200, 30, 110, 0.7);
+}
+/* De día, el barrido es solo una línea de luz (una franja teñida parecía un fallo de pintado). */
+:root[data-theme='light'] #tgsIntro::after {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 184, 230, 0) 0%,
+    rgba(0, 184, 230, 0) 82%,
+    rgba(0, 150, 200, 0.12) 96%,
+    rgba(0, 150, 200, 0) 100%
+  );
+}
+:root[data-theme='light'] .intro-seam-a {
+  box-shadow: 0 1px 0 0 #00a6d6;
+}
+:root[data-theme='light'] .intro-seam-b {
+  box-shadow: 0 -1px 0 0 #e8338a;
+}

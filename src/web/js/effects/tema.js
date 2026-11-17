@@ -3,7 +3,7 @@
 // pintado; este módulo maneja los interruptores, guarda la elección y la reparte entre pestañas.
 
 const KEY = 'tgs_tema';
-const BAR = { dark: '#050815', light: '#f3f1fa' };
+const BAR = { dark: '#050815', light: '#f5f7fc' };
 const root = document.documentElement;
 
 /** Tema actual: 'light' o 'dark' (el original). */

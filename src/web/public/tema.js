@@ -10,6 +10,6 @@
   }
   document.documentElement.setAttribute('data-theme', theme);
   if (theme === 'light') {
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f3f1fa');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f5f7fc');
   }
 })();

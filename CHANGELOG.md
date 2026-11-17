@@ -5,6 +5,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Modo claro «Arena esports» y presentación con compuertas (2026-11-17)
+
+- **Modo claro «Arena esports»** (el oscuro no cambia): paleta fría y propia de una tienda gamer
+  (blanco azulado, tinta índigo, violeta eléctrico, cian y magenta de neón, precios en naranja),
+  bloques con esquinas biseladas tipo HUD y un filo de neón en diagonal, rejilla de arena en el
+  fondo, títulos con el degradado violeta→magenta y «Store» en cian→violeta→magenta. Textos
+  pequeños un poco más grandes (14 px) y bloques e íconos retocados para que nada choque en
+  contraste.
+- **Presentación con compuertas**: la pantalla se abre en dos hojas con el corte inclinado y filos
+  de neón (cian y magenta), con aurora esports, mira HUD en las esquinas y un barrido de escáner.
+  Al pulsar «Entrar», las hojas se cierran sobre el botón y se abren sobre el acceso. El recorte y
+  los filos se pintan juntos en cada cuadro, así nunca se separan aunque la página esté ocupada.
+- **Más rápida**: la presentación pasa de ~3,6 s a ~2,1 s y «Entrar» → acceso a la vista de ~1,7 s
+  a ~1,25 s (medido en Chromium, escritorio y celular). Saltar, Escape y la versión suave con
+  «reducir movimiento» siguen igual.
+
 ### Modo claro y oscuro, acceso nuevo y transición de entrada (2026-11-17)
 
 - **Modo claro y oscuro**: el oscuro es el diseño original, sin cambios. El claro es la tienda «de

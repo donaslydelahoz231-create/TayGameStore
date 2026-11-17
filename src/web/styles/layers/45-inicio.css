@@ -2,8 +2,8 @@
  * Inicio animado (2026-10-27): presentación al abrir la tienda, bienvenida que entra por partes y
  * reacciona al puntero, y transición antes de la ventana de acceso (que no cambia).
  * Coreografía por fases, sin cruces: cada una empieza cuando la anterior terminó. Las salidas y
- * entradas usan un diamante (la forma de Tay) que se abre o cubre la pantalla; el recorte lo anima
- * js/store/features/intro.js. Con movimiento reducido, versión suave: solo fundidos (al final).
+ * entradas usan dos compuertas con el corte inclinado (rediseño del 2026-11-17, ver
+ * 55-presentacion.css); el recorte lo anima js/store/features/intro.js. Con movimiento reducido, versión suave: solo fundidos (al final).
  */
 
 /* ── Presentación ── */
@@ -293,7 +293,7 @@
   }
 }
 
-/* ── Salida de la presentación: Tay celebra, sale con el logotipo y luego se abre el diamante ── */
+/* ── Salida de la presentación: Tay celebra, sale con el logotipo y luego se abren las compuertas ── */
 #tgsIntro.is-leaving .intro-eyes {
   animation: tgsSquint 0.26s ease-in-out both;
 }
@@ -325,7 +325,7 @@
 }
 
 /*
- * Transición al pulsar «Entrar»: el diamante cubre la pantalla con un fondo opaco (la bienvenida
+ * Transición al pulsar «Entrar»: las compuertas cubren la pantalla con un fondo opaco (la bienvenida
  * ya se fue y no se ve a través) y Tay, ya armado, late una vez.
  */
 #tgsIntro.is-transition {
@@ -335,32 +335,6 @@
 }
 #tgsIntro.is-transition :is(.intro-actions, .intro-floor, .intro-tagline) {
   display: none;
-}
-/* Borde de luz del diamante (lo mueve intro.js junto con el recorte). */
-.intro-rim {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-  opacity: 0;
-}
-#tgsIntro.is-iris .intro-rim {
-  opacity: 1;
-}
-.intro-rim polygon {
-  fill: none;
-  stroke-linejoin: round;
-}
-.intro-rim .rim-glow {
-  stroke: rgba(55, 214, 255, 0.28);
-  stroke-width: 12;
-}
-.intro-rim .rim-line {
-  stroke: #c9f7ff;
-  stroke-width: 2.2;
 }
 #tgsIntro.is-transition
   :is(.f, .intro-detail, .intro-visor, .intro-eyes, .intro-smile, .intro-star),
@@ -401,7 +375,7 @@
   #entryExperience.entry-ready :is(.entry-sound, .entry-bottom, .entry-footer) {
     animation: tgsFade 0.5s 0.45s backwards;
   }
-  /* Al pulsar «Entrar», el contenido se va antes de que llegue el diamante. */
+  /* Al pulsar «Entrar», el contenido se va antes de que lleguen las compuertas. */
   #entryExperience.entry-leaving :is(.entry-shell, .entry-sound, .entry-bottom, .entry-footer) {
     animation: tgsLeave 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
     pointer-events: none;

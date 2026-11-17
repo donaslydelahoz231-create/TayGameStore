@@ -312,7 +312,7 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
   await expect(intro).toBeHidden();
   await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
   await expect(page.locator('#entryExperience')).not.toHaveAttribute('inert', '');
-  // Sin cruces: la bienvenida entra solo cuando la presentación ya se fue (salida → diamante → oculta).
+  // Sin cruces: la bienvenida entra solo cuando la presentación ya se fue (salida → compuertas → oculta).
   const opening = await phases();
   const ready = opening.findIndex((line) => line.includes('entry-ready'));
   expect(ready).toBeGreaterThan(0);
@@ -326,7 +326,7 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
   await expect(page.locator('#entryExperience')).toHaveClass(/entry-ready/);
   await expect(intro).toBeHidden();
 
-  // «Entrar»: la bienvenida sale, el diamante cubre, se abre el acceso y el diamante lo revela.
+  // «Entrar»: la bienvenida sale, las compuertas cubren, se abre el acceso y las compuertas lo revelan.
   await page.locator('#enterStoreBtn').click();
   await expect(intro).toHaveClass(/is-transition/);
   await expect(intro.locator('.intro-status')).toHaveText('Abriendo TayGameStore…');
@@ -337,10 +337,10 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
   const cover = entering.findIndex((line) => line.includes('is-transition'));
   const opened = entering.findIndex((line) => line.includes('acceso:abierto'));
   expect(leaving).toBeGreaterThanOrEqual(0);
-  // El diamante llega cuando la bienvenida ya se fue, y no antes.
+  // Las compuertas llegan cuando la bienvenida ya se fue, y no antes.
   expect(cover).toBeGreaterThan(leaving);
   expect(entering[leaving]).toContain('intro:oculta');
-  // El acceso se abre con la pantalla cubierta (no durante el movimiento del diamante).
+  // El acceso se abre con la pantalla cubierta (no durante el movimiento de las compuertas).
   expect(entering[opened]).toContain('is-transition');
   expect(entering[opened]).not.toContain('is-iris');
   expect(entering[entering.length - 1]).toContain('intro:oculta');
@@ -349,10 +349,10 @@ test('al abrir la tienda hay una presentación; «Entrar» pasa por una transici
 test.describe('con «reducir movimiento» (en muchos celulares, «Quitar animaciones»)', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
-  test('la presentación, la bienvenida y «Entrar» se ven con fundidos, sin diamante ni piezas que vuelan', async ({
+  test('la presentación, la bienvenida y «Entrar» se ven con fundidos, sin compuertas ni piezas que vuelan', async ({
     page,
   }) => {
-    // Si en algún momento aparece el diamante (recorte) o la salida con movimiento, se registra.
+    // Si en algún momento aparecen las compuertas (recorte) o la salida con movimiento, se registra.
     await page.addInitScript(() => {
       const seen: string[] = [];
       (window as unknown as { tgsSoftLog: string[] }).tgsSoftLog = seen;
@@ -402,7 +402,7 @@ test.describe('con «reducir movimiento» (en muchos celulares, «Quitar animaci
     expect(
       await page.evaluate(() => (window as unknown as { tgsSoftLog: string[] }).tgsSoftLog),
     ).toEqual([]);
-    // El recorte en diamante nunca se aplicó.
+    // El recorte de las compuertas nunca se aplicó.
     await expect(intro).toHaveCSS('clip-path', 'none');
   });
 });

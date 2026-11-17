@@ -496,7 +496,7 @@
   background:
     radial-gradient(120% 70% at 50% -10%, rgba(139, 61, 255, 0.16), transparent 60%),
     radial-gradient(60% 40% at 92% 6%, rgba(55, 214, 255, 0.14), transparent 70%),
-    linear-gradient(180deg, #ffffff, #f8f6fe 70%);
+    linear-gradient(180deg, #ffffff, #f7f9fe 70%);
   box-shadow:
     0 30px 80px rgba(22, 27, 77, 0.28),
     inset 0 1px 0 #fff;
@@ -528,7 +528,7 @@
 }
 :root[data-theme='light'] #loginModal .oauth-btn:not(.disabled):hover {
   border-color: rgba(107, 47, 226, 0.45);
-  background: #fbf9ff;
+  background: #fafbff;
   box-shadow: var(--l-shadow-md);
 }
 :root[data-theme='light'] #loginModal .oauth-btn[data-state='off'] small::before {
