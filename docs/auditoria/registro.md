@@ -3602,3 +3602,31 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   la tienda.
 - Queda por ver solo la primera vez que el dueño use el menú en la hoja real (su respuesta en la
   columna O).
+
+## 2026-11-17 · Comprobante tipo ticket y alertas de seguridad de CodeQL
+
+- **Pedido y autorización del dueño**: un comprobante «que no sea básico ni genérico», que no
+  sobrecargue al cliente ni descarte lo importante, sin que nada se salga, se encime ni se deforme
+  (demo en Claude, versiones 1 a 4), y atender las 4 alertas de «Security and quality».
+  Autorización: «autorizo publicar la seguridad y el comprobante» (15-11; el push se hizo el 17-11
+  tras dos reinicios de la sesión que cortaron la confirmación).
+- **Seguridad** (`87edd2a`): `profiles.ts` (código de usuario) y `tools/load/simulate.mjs` usan
+  `crypto.randomInt` en lugar de `byte % 32` y `Math.random()` (alertas 2, 3 y 4). La alerta 1
+  (SHA-256 del verificador PKCE, método S256 del RFC 7636) quedó descartada en GitHub como falso
+  positivo, con la explicación. No había alertas de Dependabot ni de secretos.
+- **Comprobante** (`9d5805a`, `invoice-export.js` y `CHANGELOG.md`): ticket con estado e ícono,
+  total protagonista (gris si se reembolsó), cliente, método, jugador, pedido, detalle y código con
+  sello. Dibujo en dos pasadas: lo largo se parte en líneas y el alto sale del contenido.
+- **Antes de publicar**: formato, lint, tipos, unitarias 420/420, integración 325/325, build,
+  escáner 0; e2e del comprobante 3/3 en Chromium, WebKit y Firefox; comprobación automática de
+  textos (0 encimados, 0 fuera de márgenes, 0 con «…») en 4 casos y 3 navegadores. Los blobs
+  publicados son los probados.
+- **Publicación**: push sin forzar `31be9a8..9d5805a` a las 12:58 UTC; Render
+  `dep-dbu4v1tbedkc73f2bjm0` `live` a las 12:59, «hoja de Google conectada», sin avisos ni
+  errores. La tienda sirve el mismo `main-CiHTFaoF.js` del build local; `golive:check` «LISTO para
+  vender» y la prueba de burbujas a 360 y 1280 px en «sí».
+- **GitHub**: CodeQL y el chequeo de producción de `9d5805a` OK; en la CI ya pasaron gitleaks,
+  lint/tipos/pruebas/build e integración (los e2e seguían corriendo al anotar esto). CodeQL marcó
+  las alertas 2, 3 y 4 como «fixed» (13:00 UTC) y la 1 quedó «dismissed»: 0 alertas abiertas.
+- **NO VERIFICADO**: un comprobante real descargado en producción (necesita un pedido pagado); el
+  dibujo es el mismo código probado en local y en e2e.
