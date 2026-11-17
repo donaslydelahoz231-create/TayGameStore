@@ -3650,3 +3650,46 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   1280 px en «sí».
 - **GitHub**: CodeQL y el chequeo de producción de `4177675` OK; CI 6/6 en verde (gitleaks, lint/tipos/pruebas/build, integración y e2e en Chromium, WebKit y Firefox).
 - Queda abierto solo el PR #32 (mantenimiento automático), que se respeta.
+
+## 2026-11-17 · ¿Render despliega la tienda como debe? Verificación y vigilancia 24/7
+
+- **Pedido del dueño**: «sigue vigilando render y github 24/7 y ademas compruebe que render si
+  despliega la tienda como debe ser en producción». Auditoría de solo lectura (skill
+  `auditoria-segura`).
+- **Configuración de Render** (`get_service`): despliegue automático por commit desde
+  `claude/taygamestore-production-pfctbn`, `npm ci --include=dev && npm run build && npm run
+  db:migrate:prod`, `npm start`, Node, plan gratuito, 1 instancia, sin modo de mantenimiento. Igual
+  que `render.yaml`, salvo el **Health Check Path, que sigue vacío** (pendiente del dueño desde el
+  12-11; valor recomendado `/api/ready`).
+- **Lo desplegado es lo correcto**: el despliegue `live` es `4177675`, el último commit sin
+  `[skip render]` (los 5 commits de documentación con esa marca no redesplegaron). La instancia
+  nueva arrancó a las 13:35:13 y Render la dio por publicada a las 13:35:17; desde entonces todas
+  las peticiones las atiende ella. Lo que sirve la tienda coincide byte a byte con el build local
+  de ese commit hecho con el mismo `PUBLIC_BASE_URL`: los 6 JS/CSS, `index.html` y el resto de
+  archivos enlazados. Las 4 páginas legales solo difieren en los datos que Render rellena al
+  compilar (0 huecos «[COMPLETAR]»; el documento aparece como «terminado en» 4 dígitos, como exige
+  `docs/datos-del-propietario.md`).
+- **Arranques**: desde el 13-11 solo hubo 3 «Server listening» y los 3 son despliegues: 0 reinicios
+  por sueño (UptimeRobot la mantiene despierta). Avisos desde el 15-11: 3 lecturas fallidas pasajeras
+  de la hoja de Google (16-11 y 17-11), reintentadas solas; ningún error de nivel 50/60.
+- **Hallazgo**: el despliegue de `4177675` tardó 9 min (build de 30 s y 8 min hasta que Render
+  arrancó la instancia, cosa del plan gratuito; antes tardaban ~1 min). La tienda no se cayó: la
+  versión anterior atendió mientras tanto.
+- **Hallazgo**: el «Production smoke check» corre en el push, cuando Render aún no ha desplegado, así
+  que prueba la versión anterior. La rama `fix/smoke-deployed-revision-20261013` ya tiene el cambio
+  que expone el commit desplegado (cabecera `x-tgs-revision` en `/api/health`); aplicarlo es un
+  cambio de código y necesita la autorización del dueño.
+- **Hallazgo**: GitHub no cumple los horarios de sus flujos programados: «Vigilancia» (cada 30 min) y
+  «Mantener la tienda activa» (cada 10 min) corrieron cada 4–10 h, todas en verde. La vigilancia
+  continua real es UptimeRobot (cada 5 min); por eso se añade la tarea programada de abajo.
+- **GitHub**: 0 alertas abiertas de CodeQL, Dependabot y secretos; desde el 15-11 ninguna ejecución
+  fallida (1 CI cancelada por un push posterior, como está previsto). Escáner local 0, también con
+  el sufijo del documento (sin mostrarlo).
+- **Hecho (gestión delegada)**: borrada la rama `dependabot/npm_and_yarn/desarrollo-9b9b2fa8ba` del
+  PR #34 (cerrado), cuyo commit `fc8489c` ya está en la historia de la tienda. Quedan 7 ramas: la de
+  producción, las 3 del mantenimiento automático (PR #32 abierto) y las 3 con trabajo propio.
+- **Vigilancia**: tarea programada nueva cada 3 horas (Render, tienda, GitHub y alertas; en una
+  línea si todo está bien) y la revisión diaria de las 7:37 actualizada con las alertas de
+  seguridad y la gestión delegada.
+- **NO VERIFICADO**: la búsqueda del sufijo del documento en los registros de Render (exigiría
+  escribirlo en la consulta); las alertas por correo de UptimeRobot (sin conector).
