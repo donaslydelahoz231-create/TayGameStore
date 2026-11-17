@@ -10,6 +10,7 @@ import {
   invoiceTotal,
 } from './invoice.js';
 import { receiptText, storeWhatsAppDigits } from './receipt-text.js';
+import { humanStatus } from './order-status.js';
 
 // Exportación del comprobante a JPG/PDF, generada íntegramente en el navegador. Solo existe para
 // pedidos pagados: número y código de verificación del servidor (sin borradores ni comprobantes
@@ -36,39 +37,84 @@ function roundRect(c, x, y, w, h, r) {
   else c.rect(x, y, w, h);
 }
 
-/** Recorta el texto con «…» para que no se salga de su columna. */
-function fit(c, text, max) {
-  let t = String(text || '—');
-  while (c.measureText(t).width > max && t.length > 1) t = t.slice(0, -2) + '…';
-  return t;
+/** Divide el texto en grafemas (letras, emojis y símbolos compuestos no se parten por la mitad). */
+const graphemes = (text) =>
+  typeof Intl !== 'undefined' && Intl.Segmenter
+    ? Array.from(
+        new Intl.Segmenter('es', { granularity: 'grapheme' }).segment(text),
+        (s) => s.segment,
+      )
+    : Array.from(text);
+
+/** Recorta con «…» solo como último recurso (texto que supera `maxLines` líneas completas). */
+function ellipsize(c, text, max) {
+  if (c.measureText(text).width <= max) return text;
+  const parts = graphemes(text);
+  let t = text;
+  while (parts.length > 1 && c.measureText(t + '…').width > max) {
+    parts.pop();
+    t = parts.join('').trimEnd();
+  }
+  return t === text ? t : t + '…';
 }
 
 /**
- * Parte el texto en líneas de hasta `max` px, como mucho `maxLines`; lo que sobre va en la última,
- * recortado con «…» solo si aun así no cabe.
+ * Parte el texto en líneas que caben en `max` px con la fuente actual. Las palabras más largas que
+ * la columna (códigos, nicks sin espacios) se parten por letras en vez de salirse. Nunca recorta lo
+ * que cabe en `maxLines` líneas.
  */
-function linesOf(c, text, max, maxLines) {
+function wrap(c, text, max, maxLines = 4) {
   const lines = [];
   let line = '';
-  for (const word of String(text || '—')
-    .trim()
-    .split(/\s+/)) {
+  const push = (word) => {
     const next = line ? `${line} ${word}` : word;
-    if (line && c.measureText(next).width > max) {
-      lines.push(line);
+    if (c.measureText(next).width <= max) {
+      line = next;
+      return;
+    }
+    if (line) lines.push(line);
+    line = '';
+    if (c.measureText(word).width <= max) {
       line = word;
-    } else line = next;
-  }
+      return;
+    }
+    let chunk = '';
+    for (const g of graphemes(word)) {
+      if (chunk && c.measureText(chunk + g).width > max) {
+        lines.push(chunk);
+        chunk = g;
+      } else chunk += g;
+    }
+    line = chunk;
+  };
+  for (const word of String(text ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean))
+    push(word);
   if (line) lines.push(line);
-  if (lines.length > maxLines)
-    lines.splice(maxLines - 1, Infinity, lines.slice(maxLines - 1).join(' '));
-  return lines.map((l) => fit(c, l, max));
+  if (!lines.length) lines.push('—');
+  if (lines.length > maxLines) {
+    const rest = lines.splice(maxLines - 1).join(' ');
+    lines.push(ellipsize(c, rest, max));
+  }
+  return lines;
+}
+
+/** Tamaño de letra más grande (de `size` hacia abajo) con el que el texto cabe en `max` px. */
+function fitSize(c, text, weight, family, size, max, min = 12) {
+  for (let s = size; s > min; s -= 1) {
+    c.font = `${weight} ${s}px ${family}`;
+    if (c.measureText(text).width <= max) return s;
+  }
+  c.font = `${weight} ${min}px ${family}`;
+  return min;
 }
 
 function rule(c, x1, x2, y, dashed = false) {
   c.save();
   c.strokeStyle = RULE;
-  c.lineWidth = dashed ? 1.5 : 1;
+  c.lineWidth = 1;
   if (dashed) c.setLineDash([6, 5]);
   c.beginPath();
   c.moveTo(x1, y);
@@ -77,207 +123,406 @@ function rule(c, x1, x2, y, dashed = false) {
   c.restore();
 }
 
-/** El mismo recibo de la pantalla (44-comprobante.css), dibujado en un lienzo. */
+/** Estado que imprime el comprobante: nunca presenta como exitosa una compra reembolsada. */
+function receiptStatus(order) {
+  const map = {
+    PAID: ['ok', 'Pago confirmado'],
+    DELIVERING: ['ok', 'Pago confirmado · Recarga en proceso'],
+    DELIVERED: ['ok', 'Pago confirmado · Entregado'],
+    NEEDS_REVIEW: ['warn', 'Pago registrado · En revisión'],
+    REFUNDED: ['bad', 'Reembolsado'],
+  };
+  const [tone, text] = map[order?.status] || ['warn', humanStatus(order)];
+  const palette = {
+    ok: { bg: '#e7f8ef', ink: '#0b7a43', dot: '#16a34a' },
+    warn: { bg: '#fff3dd', ink: '#9a4f05', dot: '#f59e0b' },
+    bad: { bg: '#fdeaea', ink: '#b42318', dot: '#e5484d' },
+  };
+  return { text, tone, ...palette[tone] };
+}
+
+/** Fecha y hora del pedido (hora local del cliente, como en la pantalla). */
+function receiptDate(order) {
+  const when = new Date(order?.createdAt || Date.now());
+  const time = when.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
+  return `${$('invoiceDate')?.textContent || ''} · ${time}`;
+}
+
+/** Jugador: el nick en grande y, debajo y en pequeño, su ID y su región (lo que se tenga). */
+function playerField(nick, uid, region) {
+  const known = (v) => v && v !== '—';
+  const details = [known(uid) ? `ID ${uid}` : '', known(region) ? region : ''].filter(Boolean);
+  if (known(nick)) return [nick, details.join(' · ')];
+  return [details[0] || '—', details.slice(1).join(' · ')];
+}
+
+/** Ícono del estado dentro de un círculo: ✓ (confirmado), ! (en revisión) o × (reembolsado). */
+function statusIcon(c, x, y, r, status) {
+  c.save();
+  c.fillStyle = status.dot;
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#fff';
+  c.fillStyle = '#fff';
+  c.lineWidth = 2.4;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.beginPath();
+  if (status.tone === 'ok') {
+    c.moveTo(x - r * 0.42, y + r * 0.02);
+    c.lineTo(x - r * 0.1, y + r * 0.34);
+    c.lineTo(x + r * 0.45, y - r * 0.3);
+    c.stroke();
+  } else if (status.tone === 'bad') {
+    const k = r * 0.34;
+    c.moveTo(x - k, y - k);
+    c.lineTo(x + k, y + k);
+    c.moveTo(x + k, y - k);
+    c.lineTo(x - k, y + k);
+    c.stroke();
+  } else {
+    c.moveTo(x, y - r * 0.45);
+    c.lineTo(x, y + r * 0.1);
+    c.stroke();
+    c.beginPath();
+    c.arc(x, y + r * 0.42, 1.6, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+}
+
+/** Rombos de diamante, apenas visibles, en la banda de la marca. */
+function diamonds(c, W, H) {
+  c.save();
+  c.strokeStyle = 'rgba(160,220,255,.16)';
+  c.lineWidth = 1.2;
+  for (const [x, y, s] of [
+    [W * 0.52, 30, 9],
+    [W * 0.58, 70, 6],
+    [W * 0.63, 22, 5],
+    [W * 0.47, 92, 7],
+    [W * 0.69, 104, 10],
+    [W * 0.9, 128, 8],
+    [W * 0.78, 132, 5],
+  ]) {
+    if (y + s > H) continue;
+    c.beginPath();
+    c.moveTo(x, y - s);
+    c.lineTo(x + s * 0.8, y);
+    c.lineTo(x, y + s);
+    c.lineTo(x - s * 0.8, y);
+    c.closePath();
+    c.stroke();
+  }
+  c.restore();
+}
+
+/**
+ * Dibuja el comprobante en `c` y devuelve sus medidas. Se llama dos veces: primero sobre un lienzo
+ * de 1×1 solo para medir (el alto, el de la tarjeta y la altura de las muescas salen del contenido
+ * real) y luego sobre el lienzo definitivo con esas medidas (`d.geom`). Cada texto se mide antes de
+ * dibujarse: lo largo se parte en líneas y las columnas se calculan con el ancho real de los
+ * importes, así nada se sale, se encima ni se recorta.
+ */
+function paintReceipt(c, d) {
+  const { W } = d;
+  const geom = { perfs: [] };
+  const BAND = 150,
+    CARD_X = 28,
+    CARD_Y = 100,
+    CARD_W = W - CARD_X * 2,
+    PAD = CARD_X + 32,
+    inner = W - PAD * 2;
+
+  // Banda de la marca con rombos discretos; logo y número del comprobante.
+  const band = c.createLinearGradient(0, 0, W, 0);
+  band.addColorStop(0, '#1b1460');
+  band.addColorStop(0.6, '#2a1a8a');
+  band.addColorStop(1, '#1d3a8a');
+  c.fillStyle = band;
+  c.fillRect(0, 0, W, BAND);
+  diamonds(c, W, BAND);
+  let logoRight;
+  if (d.logo) {
+    const h = 30;
+    const ratio =
+      d.logo.naturalWidth && d.logo.naturalHeight
+        ? d.logo.naturalWidth / d.logo.naturalHeight
+        : 999 / 160;
+    c.drawImage(d.logo, CARD_X + 4, 32, h * ratio, h);
+    logoRight = CARD_X + 4 + h * ratio;
+  } else {
+    c.fillStyle = '#fff';
+    c.font = `700 22px ${DISPLAY}`;
+    c.fillText('TayGameStore', CARD_X + 4, 56);
+    logoRight = CARD_X + 4 + c.measureText('TayGameStore').width;
+  }
+  const headMax = W - CARD_X - 4 - logoRight - 28;
+  c.textAlign = 'right';
+  c.fillStyle = '#bff3ff';
+  c.font = `700 11px ${UI}`;
+  c.fillText('COMPROBANTE DE PAGO', W - CARD_X - 4, 38);
+  c.fillStyle = '#fff';
+  fitSize(c, d.number, 700, DISPLAY, 20, headMax);
+  c.fillText(d.number, W - CARD_X - 4, 66);
+  c.textAlign = 'left';
+
+  // Tarjeta tipo ticket (con sombra suave) y sus muescas, con las medidas de la primera pasada.
+  if (d.geom) {
+    c.save();
+    c.shadowColor = 'rgba(20,26,74,.14)';
+    c.shadowBlur = 26;
+    c.shadowOffsetY = 8;
+    c.fillStyle = '#fff';
+    roundRect(c, CARD_X, CARD_Y, CARD_W, d.geom.cardEnd - CARD_Y, 18);
+    c.fill();
+    c.restore();
+    for (const py of d.geom.perfs) {
+      c.fillStyle = d.bg;
+      for (const x of [CARD_X, CARD_X + CARD_W]) {
+        c.beginPath();
+        c.arc(x, py, 11, 0, Math.PI * 2);
+        c.fill();
+      }
+      rule(c, CARD_X + 20, CARD_X + CARD_W - 20, py, true);
+    }
+  }
+  const perforation = (py) => geom.perfs.push(py);
+
+  // 1. Estado con ícono y fecha.
+  let y = CARD_Y + 34;
+  statusIcon(c, PAD + 13, y, 13, d.status);
+  c.font = `700 15px ${UI}`;
+  const statusLines = wrap(c, d.status.text, inner - 40, 2);
+  c.fillStyle = d.status.ink;
+  statusLines.forEach((line, j) => c.fillText(line, PAD + 36, y + 5 + j * 20));
+  y += 5 + (statusLines.length - 1) * 20 + 22;
+  c.fillStyle = INK_2;
+  c.font = `500 13px ${UI}`;
+  for (const line of wrap(c, d.date, inner - 36, 2)) {
+    c.fillText(line, PAD + 36, y);
+    y += 18;
+  }
+
+  // 2. Total, protagonista.
+  y += 18;
+  c.fillStyle = INK_2;
+  c.font = `700 11px ${UI}`;
+  c.fillText(d.refunded ? 'TOTAL (REEMBOLSADO)' : 'TOTAL PAGADO', PAD, y);
+  const size = fitSize(c, d.total, 700, DISPLAY, 36, inner, 16);
+  y += size + 8;
+  const ink = c.createLinearGradient(PAD, 0, PAD + c.measureText(d.total).width, 0);
+  // Reembolsado: el importe en gris, para que no se lea como un pago vigente.
+  ink.addColorStop(0, d.refunded ? '#5b628f' : '#2a1a8a');
+  ink.addColorStop(1, d.refunded ? '#8e93b5' : '#7c3aed');
+  c.fillStyle = ink;
+  c.fillText(d.total, PAD, y);
+  y += 26;
+  perforation(y);
+
+  // 3. Datos: cliente, método de pago, jugador y pedido.
+  y += 28;
+  const GAP = 28;
+  const colW = (inner - GAP) / 2;
+  const rows = [];
+  for (let i = 0; i < d.fields.length; i += 2) rows.push(d.fields.slice(i, i + 2));
+  const LABEL = 18,
+    LINE = 21,
+    SUB = 17,
+    ROW_GAP = 16;
+  const laid = rows.map((row) =>
+    row.map(([label, value, sub]) => {
+      c.font = `700 16px ${UI}`;
+      const lines = wrap(c, value, colW, 3);
+      c.font = `500 12.5px ${UI}`;
+      const subs = sub ? wrap(c, sub, colW, 2) : [];
+      return {
+        label,
+        lines,
+        subs,
+        h: LABEL + 4 + lines.length * LINE + (subs.length ? 2 + subs.length * SUB : 0),
+      };
+    }),
+  );
+  const rowH = laid.map((row) => Math.max(...row.map((f) => f.h)));
+  let ry = y - 12;
+  laid.forEach((row, r) => {
+    row.forEach((f, i) => {
+      const x = PAD + i * (colW + GAP);
+      c.fillStyle = INK_2;
+      c.font = `700 11px ${UI}`;
+      c.fillText(f.label, x, ry + 12);
+      c.fillStyle = INK;
+      c.font = `700 16px ${UI}`;
+      f.lines.forEach((line, j) => c.fillText(line, x, ry + LABEL + 4 + 15 + j * LINE));
+      c.fillStyle = INK_2;
+      c.font = `500 12.5px ${UI}`;
+      const subTop = ry + LABEL + 4 + f.lines.length * LINE + 2;
+      f.subs.forEach((line, j) => c.fillText(line, x, subTop + 13 + j * SUB));
+    });
+    ry += rowH[r] + ROW_GAP;
+  });
+  y = ry - ROW_GAP + 10;
+
+  // 4. Detalle: columnas medidas con el importe más largo; el nombre se parte en líneas.
+  y += 26;
+  c.font = `700 15px ${DISPLAY}`;
+  const valueW = Math.max(...d.items.map((it) => c.measureText(money(it.line)).width), 60);
+  c.font = `600 15px ${UI}`;
+  const qtyW = Math.max(...d.items.map((it) => c.measureText(String(it.qty)).width), 44);
+  const COL_GAP = 22;
+  const nameW = inner - valueW - qtyW - COL_GAP * 2;
+  const qtyX = PAD + nameW + COL_GAP + qtyW / 2;
+  c.fillStyle = INK_2;
+  c.font = `700 11px ${UI}`;
+  c.fillText('DETALLE', PAD, y);
+  c.textAlign = 'center';
+  c.fillText('CANT.', qtyX, y);
+  c.textAlign = 'right';
+  c.fillText('VALOR', W - PAD, y);
+  c.textAlign = 'left';
+  y += 12;
+  rule(c, PAD, W - PAD, y);
+  d.items.forEach((it, index) => {
+    c.font = `700 16px ${UI}`;
+    const name = wrap(c, it.name, nameW, 3);
+    c.font = `500 12.5px ${UI}`;
+    const sub = it.qty > 1 ? wrap(c, `${money(Math.round(it.line / it.qty))} c/u`, nameW, 1) : [];
+    const top = y + 14;
+    c.fillStyle = INK;
+    c.font = `700 16px ${UI}`;
+    name.forEach((line, j) => c.fillText(line, PAD, top + 15 + j * 21));
+    c.fillStyle = INK_2;
+    c.font = `500 12.5px ${UI}`;
+    sub.forEach((line, j) => c.fillText(line, PAD, top + 15 + name.length * 21 + 2 + j * 17));
+    c.fillStyle = INK;
+    c.font = `600 15px ${UI}`;
+    c.textAlign = 'center';
+    c.fillText(String(it.qty), qtyX, top + 15);
+    c.textAlign = 'right';
+    c.font = `700 15px ${DISPLAY}`;
+    c.fillText(money(it.line), W - PAD, top + 15);
+    c.textAlign = 'left';
+    y = top + name.length * 21 + (sub.length ? 2 + sub.length * 17 : 0) + 12;
+    if (index < d.items.length - 1) rule(c, PAD, W - PAD, y);
+  });
+  y += 14;
+  perforation(y);
+
+  // 5. Verificación con el sello de la tienda.
+  y += 32;
+  const SEAL = 34;
+  const textW = inner - SEAL * 2 - 20;
+  const top = y;
+  c.fillStyle = INK_2;
+  c.font = `700 11px ${UI}`;
+  c.fillText('CÓDIGO DE VERIFICACIÓN', PAD, y);
+  c.fillStyle = '#5b21b6';
+  const codeSize = fitSize(c, d.code, 700, DISPLAY, 19, textW, 12);
+  y += codeSize + 10;
+  c.fillText(d.code, PAD, y);
+  c.fillStyle = INK_2;
+  c.font = `500 12.5px ${UI}`;
+  for (const line of wrap(c, `Verifícalo o pide ayuda en ${d.host} → Soporte.`, textW, 2)) {
+    y += 20;
+    c.fillText(line, PAD, y);
+  }
+  const sx = W - PAD - SEAL,
+    sy = Math.max(top - 4 + SEAL / 1.2, (top + y) / 2 - 4);
+  c.save();
+  c.strokeStyle = 'rgba(91,33,182,.55)';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.arc(sx, sy, SEAL, 0, Math.PI * 2);
+  c.stroke();
+  c.setLineDash([3, 3]);
+  c.lineWidth = 1.2;
+  c.beginPath();
+  c.arc(sx, sy, SEAL - 6, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
+  c.fillStyle = 'rgba(91,33,182,.85)';
+  c.textAlign = 'center';
+  c.font = `700 15px ${DISPLAY}`;
+  c.fillText('TGS', sx, sy + 2);
+  c.font = `700 8px ${UI}`;
+  c.fillText('ORIGINAL', sx, sy + 15);
+  c.textAlign = 'left';
+  y = Math.max(y, sy + SEAL) + 28;
+  geom.cardEnd = y;
+
+  // 6. Nota al pie, fuera de la tarjeta.
+  y += 28;
+  c.fillStyle = INK_2;
+  c.font = `500 12px ${UI}`;
+  c.textAlign = 'center';
+  for (const line of wrap(
+    c,
+    'Recarga por ID · Nunca pedimos tu contraseña del juego · No es una factura electrónica',
+    W - CARD_X * 2,
+    2,
+  )) {
+    c.fillText(line, W / 2, y);
+    y += 17;
+  }
+  c.textAlign = 'left';
+  y += 12;
+  const foot = c.createLinearGradient(0, 0, W, 0);
+  foot.addColorStop(0, '#8b3dff');
+  foot.addColorStop(1, '#37d6ff');
+  c.fillStyle = foot;
+  c.fillRect(0, y, W, 4);
+  geom.H = y + 4;
+  return geom;
+}
+
+/** El comprobante del pedido pagado, dibujado en un lienzo del alto justo de su contenido. */
 async function invoiceCanvas() {
   await Promise.all([
     document.fonts?.load(`700 30px ${DISPLAY}`),
     document.fonts?.load(`600 16px ${UI}`),
+    document.fonts?.load(`500 16px ${UI}`),
   ]).catch(() => {});
   const logo = await loadImage(new URL('brand/tay-logo.svg', document.baseURI).href);
   // Desde aquí hasta el final todo es síncrono: la clave describe exactamente lo que se dibuja.
   const key = receiptKey(),
     base = 'Comprobante-' + invoiceReference().replace(/[^A-Za-z0-9_-]/g, '_');
-  const items = invoiceLines(),
-    W = 760,
-    PAD = 40,
-    colW = (W - PAD * 2) / 2,
-    client = $('invoiceClient').textContent;
-  // Un nombre que no cabe en media columna va en su propia fila (hasta dos líneas) en vez de
-  // cortarse con «…»; el alto de la imagen crece lo justo.
-  const measure = document.createElement('canvas').getContext('2d');
-  measure.font = `700 18px ${UI}`;
-  const clientLines =
-    measure.measureText(client).width > colW - 24 ? linesOf(measure, client, W - PAD * 2, 2) : null;
-  const clientRow = clientLines ? 62 + (clientLines.length - 1) * 22 : 0;
-  const H = 760 + items.length * 64 + clientRow,
-    S = 2,
+  const order = state.currentOrder;
+  const text = (id) => $(id)?.textContent?.trim() || '—';
+  const d = {
+    W: 760,
+    bg: '#eef0f9',
+    geom: null,
+    logo,
+    number: `N.º ${String(order.receipt.number).padStart(6, '0')}`,
+    code: order.receipt.verificationCode,
+    date: receiptDate(order),
+    status: receiptStatus(order),
+    refunded: order.status === 'REFUNDED',
+    host: location.host || 'TayGameStore',
+    fields: [
+      ['CLIENTE', text('invoiceClient')],
+      ['MÉTODO DE PAGO', text('invoiceMethod')],
+      ['JUGADOR', ...playerField(text('invoiceNick'), text('invoiceUid'), text('invoiceRegion'))],
+      ['PEDIDO', invoiceReference()],
+    ],
+    items: invoiceLines(),
+    total: money(invoiceTotal()),
+  };
+  const probe = document.createElement('canvas');
+  probe.width = probe.height = 1;
+  d.geom = paintReceipt(probe.getContext('2d'), d);
+  const H = Math.ceil(d.geom.H);
+  const S = 2,
     cv = document.createElement('canvas');
-  cv.width = W * S;
+  cv.width = d.W * S;
   cv.height = H * S;
   const c = cv.getContext('2d');
   c.scale(S, S);
-  c.fillStyle = '#fbfbff';
-  c.fillRect(0, 0, W, H);
-
-  // Banda de marca
-  const band = c.createLinearGradient(0, 0, W, 0);
-  band.addColorStop(0, '#1b1460');
-  band.addColorStop(0.55, '#2a1a8a');
-  band.addColorStop(1, '#163a86');
-  c.fillStyle = band;
-  c.fillRect(0, 0, W, 128);
-  const glow = c.createRadialGradient(W, 0, 0, W, 0, 340);
-  glow.addColorStop(0, 'rgba(55,214,255,.32)');
-  glow.addColorStop(1, 'rgba(55,214,255,0)');
-  c.fillStyle = glow;
-  c.fillRect(0, 0, W, 128);
-  if (logo) {
-    const ratio =
-      logo.naturalWidth && logo.naturalHeight ? logo.naturalWidth / logo.naturalHeight : 999 / 160;
-    c.drawImage(logo, PAD, 42, 44 * ratio, 44);
-  } else {
-    c.fillStyle = '#fff';
-    c.font = `700 30px ${DISPLAY}`;
-    c.fillText('TayGameStore', PAD, 76);
-  }
-  c.textAlign = 'right';
-  c.fillStyle = '#bff3ff';
-  c.font = `700 12px ${UI}`;
-  c.fillText('COMPROBANTE', W - PAD, 48);
-  c.fillStyle = '#fff';
-  c.font = `700 20px ${DISPLAY}`;
-  c.fillText(fit(c, $('invoiceRef').textContent, 300), W - PAD, 78);
-  c.fillStyle = 'rgba(225,230,255,.85)';
-  c.font = `500 14px ${UI}`;
-  c.fillText($('invoiceDate').textContent, W - PAD, 102);
-  c.textAlign = 'left';
-
-  // Datos del jugador
-  let y = 128;
-  if (clientLines) {
-    c.fillStyle = INK_2;
-    c.font = `600 12px ${UI}`;
-    c.fillText('CLIENTE', PAD, y + 36);
-    c.fillStyle = INK;
-    c.font = `700 18px ${UI}`;
-    clientLines.forEach((line, i) => c.fillText(line, PAD, y + 62 + i * 22));
-    y += clientRow;
-  }
-  const fields = [
-    ...(clientLines ? [] : [['CLIENTE', client]]),
-    ['UID', $('invoiceUid').textContent],
-    ['NICKNAME', $('invoiceNick').textContent],
-    ['REGIÓN', $('invoiceRegion').textContent],
-  ];
-  fields.forEach(([label, value], i) => {
-    const x = PAD + (i % 2) * colW,
-      top = y + 36 + Math.floor(i / 2) * 62;
-    c.fillStyle = INK_2;
-    c.font = `600 12px ${UI}`;
-    c.fillText(label, x, top);
-    c.fillStyle = INK;
-    c.font = `700 18px ${UI}`;
-    c.fillText(fit(c, value, colW - 24), x, top + 26);
-  });
-  y += 168;
-  rule(c, PAD, W - PAD, y, true);
-
-  // Detalle
-  y += 34;
-  c.fillStyle = INK_2;
-  c.font = `600 12px ${UI}`;
-  c.fillText('DETALLE', PAD, y);
-  c.textAlign = 'center';
-  c.fillText('CANT.', W - 230, y);
-  c.textAlign = 'right';
-  c.fillText('TOTAL', W - PAD, y);
-  c.textAlign = 'left';
-  y += 12;
-  items.forEach((it) => {
-    c.fillStyle = INK;
-    c.font = `700 17px ${UI}`;
-    c.fillText(fit(c, it.name, W - 340), PAD, y + 28);
-    c.fillStyle = INK_2;
-    c.font = `500 13px ${UI}`;
-    c.fillText(fit(c, it.desc, W - 340), PAD, y + 48);
-    c.fillStyle = INK;
-    c.font = `600 16px ${UI}`;
-    c.textAlign = 'center';
-    c.fillText(String(it.qty), W - 230, y + 36);
-    c.textAlign = 'right';
-    c.font = `700 16px ${DISPLAY}`;
-    c.fillText(money(it.line), W - PAD, y + 36);
-    c.textAlign = 'left';
-    y += 64;
-    rule(c, PAD, W - PAD, y);
-  });
-
-  // Total
-  y += 22;
-  const dark = c.createLinearGradient(PAD, 0, W - PAD, 0);
-  dark.addColorStop(0, '#141a4a');
-  dark.addColorStop(1, '#221a6b');
-  c.fillStyle = dark;
-  roundRect(c, PAD, y, W - PAD * 2, 78, 16);
-  c.fill();
-  const accent = c.createLinearGradient(0, y, 0, y + 78);
-  accent.addColorStop(0, '#8b3dff');
-  accent.addColorStop(1, '#2f8bff');
-  c.save();
-  roundRect(c, PAD, y, W - PAD * 2, 78, 16);
-  c.clip();
-  c.fillStyle = accent;
-  c.fillRect(PAD, y, 7, 78);
-  c.restore();
-  c.fillStyle = '#c9cff5';
-  c.font = `700 13px ${UI}`;
-  c.fillText('TOTAL', PAD + 28, y + 45);
-  c.textAlign = 'right';
-  c.fillStyle = '#fff';
-  c.font = `700 30px ${DISPLAY}`;
-  c.fillText(money(invoiceTotal()), W - PAD - 26, y + 50);
-  c.textAlign = 'left';
-
-  // Método y moneda
-  y += 116;
-  for (const [i, [label, value]] of [
-    ['MÉTODO', $('invoiceMethod').textContent],
-    ['MONEDA', 'COP'],
-  ].entries()) {
-    const x = PAD + i * colW;
-    c.fillStyle = INK_2;
-    c.font = `600 12px ${UI}`;
-    c.fillText(label, x, y);
-    c.fillStyle = INK;
-    c.font = `700 17px ${UI}`;
-    c.fillText(fit(c, value, colW - 24), x, y + 25);
-  }
-
-  // Verificación
-  y += 52;
-  c.fillStyle = '#f1eeff';
-  c.strokeStyle = '#d9d2ff';
-  c.lineWidth = 1;
-  roundRect(c, PAD, y, W - PAD * 2, 92, 16);
-  c.fill();
-  c.stroke();
-  c.fillStyle = '#5b21b6';
-  c.font = `700 12px ${UI}`;
-  c.fillText(
-    invoiceCode().startsWith('N.º') ? 'COMPROBANTE Y CÓDIGO DE VERIFICACIÓN' : 'CÓDIGO',
-    PAD + 22,
-    y + 32,
-  );
-  c.font = `700 ${invoiceCode().length > 12 ? 19 : 24}px ${DISPLAY}`;
-  c.fillText(fit(c, invoiceCode(), W - PAD * 2 - 44), PAD + 22, y + 68);
-
-  // Notas
-  y += 128;
-  c.fillStyle = INK_2;
-  c.font = `500 13px ${UI}`;
-  for (const line of [
-    'Recarga por ID. Nunca solicita contraseña del juego.',
-    'Estado confirmado por el servidor de TayGameStore. No es una factura electrónica.',
-    'Verifícalo en TayGameStore → Soporte → «Verificar comprobante».',
-  ]) {
-    c.fillText(line, PAD, y);
-    y += 21;
-  }
-  const foot = c.createLinearGradient(0, 0, W, 0);
-  foot.addColorStop(0, '#8b3dff');
-  foot.addColorStop(1, '#37d6ff');
-  c.fillStyle = foot;
-  c.fillRect(0, H - 6, W, 6);
+  c.fillStyle = d.bg;
+  c.fillRect(0, 0, d.W, H);
+  paintReceipt(c, d);
   return { cv, key, base };
 }
 
@@ -394,14 +639,22 @@ function receiptKey() {
     'invoiceRegion',
     'invoiceMethod',
   ].map((id) => $(id)?.textContent ?? '');
-  return JSON.stringify([shown, invoiceCode(), invoiceLines(), invoiceTotal()]);
+  const order = state.currentOrder;
+  return JSON.stringify([
+    shown,
+    invoiceCode(),
+    invoiceLines(),
+    invoiceTotal(),
+    order?.status,
+    order?.createdAt,
+  ]);
 }
 
 /** Dibuja el comprobante y lo pasa a JPG. Guarda solo el JPG y sus medidas, no el lienzo. */
 async function drawReceiptJpg() {
   const { cv, key, base } = await invoiceCanvas();
   const jpg = await new Promise((res, rej) =>
-    cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.94),
+    cv.toBlob((b) => (b ? res(b) : rej(new Error('JPG_FAIL'))), 'image/jpeg', 0.9),
   );
   const { width, height } = cv;
   // Safari libera la memoria del lienzo (unos 15 MB) en cuanto mide 0.

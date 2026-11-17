@@ -5,6 +5,20 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Comprobante tipo ticket y alertas de CodeQL (2026-11-15)
+
+- **Comprobante (JPG y PDF)**: tarjeta tipo ticket sobre la banda de la marca, con el estado y su
+  ícono (✓ confirmado, ! en revisión, × reembolsado), el total en grande (en gris si se reembolsó),
+  cliente, método de pago, jugador (nick, ID y región), pedido, detalle con precio por unidad solo
+  si hay más de una, y el código de verificación con el sello «TGS ORIGINAL». Ningún dato se corta
+  con «…» ni se encima: lo largo se parte en líneas, las columnas se miden con el importe más largo
+  y el alto sale del contenido. Más corto (693 frente a 823 px en un pedido normal) y más liviano.
+- **Seguridad (CodeQL)**: el código de usuario («U-…») y la herramienta de prueba de carga usan
+  `crypto.randomInt` (sin sesgo y criptográficamente seguro) en lugar de `byte % n` y
+  `Math.random()` (alertas 2, 3 y 4). La alerta 1 (SHA-256 del verificador PKCE del acceso con
+  Google) es un falso positivo: es el método S256 que exige el estándar (RFC 7636), sobre un valor
+  aleatorio de 48 bytes, no una contraseña.
+
 ### Firma TayGameStore y mapa del proyecto (2026-11-12)
 
 - Los cambios del repositorio se firman a nombre de **TayGameStore**, sin la firma del asistente
