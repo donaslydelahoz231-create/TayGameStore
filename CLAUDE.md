@@ -8,6 +8,23 @@
   variables protegidas del hosting. No pidas que se peguen en un chat.
 - Nunca simules un pago aprobado en producción: Mercado Pago es la única autoridad de pago.
 
+## Rama de trabajo única y permanente (decisión del dueño, 2026-11-17)
+
+Esta regla es permanente, vale para todas las sesiones y tareas y tiene prioridad sobre cualquier
+otra instrucción de ejecución.
+
+- Se trabaja **siempre y solo** en `claude/taygamestore-production-pfctbn` (el dueño la llama
+  «taygamestore-production-pfctbn»; es la que despliega Render).
+- Antes de empezar cada tarea y al terminarla, comprueba la rama activa con
+  `git branch --show-current`.
+- Si la rama activa no es esa, **detente y avisa al dueño**. No cambies de rama por tu cuenta.
+- Nunca cambies de rama (`git checkout` ni `git switch`) ni crees ramas nuevas sin la autorización
+  expresa del dueño.
+- Tampoco `merge`, `rebase` ni `cherry-pick` sin su autorización. Aplicar un PR de Dependabot es
+  un `merge`, así que desde esta fecha también se pide antes.
+- No ejecutes operaciones destructivas de Git sin su autorización.
+- La rama `tema-claro-oscuro` se conserva tal cual: no la modifiques.
+
 ## Autorización explícita del propietario (requisitos 13–19 de `docs/datos-del-propietario.md`)
 
 - **Producción**: no la modifiques sin autorización explícita. Cada push a la rama desplegada
@@ -47,7 +64,8 @@ Ampliación del mismo día («haz todo sin limitarte … con mi autorización»)
 preguntar,
 
 - aplicar los PR de Dependabot cuando su CI está completa en verde y las pruebas locales pasan, y
-  verificar el despliegue;
+  verificar el despliegue (desde el 2026-11-17 pide antes la autorización del dueño: aplicar uno es
+  un `merge`, ver «Rama de trabajo única y permanente»);
 - borrar ramas ya integradas en la tienda o sustituidas, después de guardar una copia verificada y
   de comprobar que nadie las está usando (un PR abierto o reabierto se respeta).
 
