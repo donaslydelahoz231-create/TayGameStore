@@ -3630,3 +3630,23 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   las alertas 2, 3 y 4 como «fixed» (13:00 UTC) y la 1 quedó «dismissed»: 0 alertas abiertas.
 - **NO VERIFICADO**: un comprobante real descargado en producción (necesita un pedido pagado); el
   dibujo es el mismo código probado en local y en e2e.
+
+## 2026-11-17 · Dependencias: PR #35 y #36 de Dependabot aplicados
+
+- **Autorización del dueño**: «sí, aplica los PR #35 y #36» (también cubierto por la gestión
+  delegada: PR de Dependabot con la CI en verde y pruebas locales que pasan).
+- **Cambios** (solo `package.json` y `package-lock.json`): producción, `mercadopago` 3.6.2 y
+  `nodemailer` 10.5.0 (`e026715`, PR #35); desarrollo, `prettier` 3.10.1, `smtp-server` 3.21.4 y
+  `vite` 8.3.8 (`4177675`, PR #36). Unión `--no-ff` firmada TayGameStore sobre `fdb8c7a`, sin
+  conflictos.
+- **Antes de publicar** (árbol unido, `npm ci`): formato, lint, tipos, unitarias 420/420,
+  integración 325/325, build, `npm audit` 0 vulnerabilidades (producción y todo), escáner 0; e2e
+  del comprobante 3/3 en Chromium.
+- **Publicación**: push sin forzar `fdb8c7a..4177675` a las 13:26 UTC. GitHub marcó los PR #35 y
+  #36 como «merged». Render `dep-dbu5bvbbc2fs73fs58k0`: build y migraciones OK en 30 s, pero la
+  instancia nueva tardó en arrancar (plan gratuito) y quedó `live` a las 13:35; mientras tanto la
+  instancia anterior siguió atendiendo, sin caída. Arranque con «hoja de Google conectada» y sin
+  avisos ni errores (niveles 40/50/60). `golive:check` «LISTO para vender» y burbujas a 360 y
+  1280 px en «sí».
+- **GitHub**: CodeQL y el chequeo de producción de `4177675` OK; CI 6/6 en verde (gitleaks, lint/tipos/pruebas/build, integración y e2e en Chromium, WebKit y Firefox).
+- Queda abierto solo el PR #32 (mantenimiento automático), que se respeta.
