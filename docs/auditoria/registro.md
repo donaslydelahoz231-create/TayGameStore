@@ -3693,3 +3693,27 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   seguridad y la gestión delegada.
 - **NO VERIFICADO**: la búsqueda del sufijo del documento en los registros de Render (exigiría
   escribirlo en la consulta); las alertas por correo de UptimeRobot (sin conector).
+
+## 2026-11-17 · Modo claro y oscuro, acceso nuevo y regla de la rama: publicados
+
+- **Autorización del dueño**: «autorizo publicar el modo claro y el acceso», tras revisar la demo
+  en Claude. La regla de la rama la pidió él: «añade las reglas permanentes para trabajar
+  exclusivamente en la rama taygamestore-production-pfctbn. No cambies de rama».
+- **Rama**: todo el trabajo en `claude/taygamestore-production-pfctbn`, comprobada antes y después
+  de cada paso. La rama local `tema-claro-oscuro` (creada antes de la regla, sin commits propios)
+  se conserva intacta.
+- **Commits** (firmados TayGameStore): `0e6f109` modo claro y oscuro, acceso y transición (16
+  archivos) y `8a6d6bc` regla de la rama en `CLAUDE.md` (también deja escrito que aplicar un PR de
+  Dependabot, por ser un `merge`, necesita ahora autorización).
+- **Antes de publicar**: e2e Chromium 172/172, WebKit 170/170 y Firefox 169/169 (5 omitidas por
+  límites del navegador, como antes); unitarias 420/420; integración 325/325; ESLint, TypeScript y
+  Prettier sin errores; build, `npm audit` 0 y escáner 0. Modo oscuro comparado píxel a píxel con
+  el anterior: igual salvo el interruptor de la cabecera.
+- **Publicación**: push sin forzar `1f7f905..8a6d6bc`; Render `dep-dbu91ft9el5s739her40` `live` a
+  las 17:39 UTC (2 min 27 s), con «hoja de Google conectada» y sin avisos ni errores. En la tienda
+  real: el interruptor pasa a claro, se recuerda al recargar y vuelve a oscuro; el logotipo de
+  tinta se ve; el acceso nuevo muestra Google «Disponible» y Facebook «No configurado» (su estado
+  real). `golive:check` «LISTO para vender» y burbujas a 360 y 1280 px en «sí».
+- **GitHub**: CI 6/6, CodeQL y chequeo de producción de `8a6d6bc` en verde.
+- **NO VERIFICADO**: el acceso completo con Google en producción (no se inició sesión para no crear
+  datos); en el celular real del dueño.
