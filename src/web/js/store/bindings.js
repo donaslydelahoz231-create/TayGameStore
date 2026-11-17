@@ -192,8 +192,11 @@ function bindEntryAndAccount() {
       const label = $(provider + 'State');
       if (label)
         label.textContent = provider === 'google' ? 'Abriendo Google…' : 'Abriendo Facebook…';
+      // Solo se guarda cuál de los dos proveedores fijos se usó, como texto fijo (nunca un dato de
+      // la cuenta ni algo leído de la página; CodeQL marcaba el valor del botón como sensible).
+      const remembered = provider === 'facebook' ? 'facebook' : 'google';
       try {
-        localStorage.setItem(LAST_PROVIDER_KEY, provider);
+        localStorage.setItem(LAST_PROVIDER_KEY, remembered);
       } catch {
         // Sin almacenamiento: solo no se marca «Último usado».
       }
