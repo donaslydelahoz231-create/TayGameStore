@@ -1,4 +1,4 @@
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { customerProfiles, userIdentities, users, type CustomerProfileKind } from '../db/schema.js';
@@ -107,9 +107,9 @@ export const HANDLE_WORDS = { nouns: NOUNS, adjectives: ADJECTIVES } as const;
 /** Base32 de Crockford (sin I, L, O ni U): el código no se confunde al leerlo. */
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 function randomCode(): string {
-  const bytes = randomBytes(8);
+  // randomInt es uniforme por diseño (sin el sesgo de «byte % n»; alerta 4 de CodeQL).
   let code = 'U-';
-  for (const byte of bytes) code += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+  for (let i = 0; i < 8; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return code;
 }
 

@@ -20,7 +20,7 @@
  * Por seguridad solo acepta localhost; otro destino exige --i-own-this-target (y nunca se debe
  * usar contra sistemas ajenos ni contra producción sin aviso: los límites bloquearán la IP).
  */
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const args = new Map(
@@ -71,7 +71,7 @@ const rss = () => {
 // ---------- cliente con su IP y sus cookies ----------
 // Prefijo aleatorio por ejecución: repetir la simulación no reutiliza IPs que el escudo
 // bloqueó en la anterior (los bloqueos duran 15 min, como deben).
-const RUN_PREFIX = 1 + Math.floor(Math.random() * 254);
+const RUN_PREFIX = 1 + randomInt(254);
 let ipSeq = 0;
 class Client {
   constructor(kind) {
@@ -134,11 +134,11 @@ async function customerJourney() {
   const catalog = await c.req('GET', '/api/catalog');
   if (!expect(catalog.status === 200, `catálogo ${catalog.status}`)) return;
   catalogCache ??= catalog.json.products;
-  const product = catalog.json.products[Math.floor(Math.random() * catalog.json.products.length)];
-  const qty = 1 + Math.floor(Math.random() * 2);
+  const product = catalog.json.products[randomInt(catalog.json.products.length)];
+  const qty = 1 + randomInt(2);
 
   // UID que el proveedor de pruebas encuentra (empieza por 9).
-  const uid = '9' + String(Math.floor(Math.random() * 1e8)).padStart(8, '0');
+  const uid = '9' + String(randomInt(1e8)).padStart(8, '0');
   const lookup = await c.req('POST', '/api/player/lookup', { body: { game: 'freefire', uid } });
   if (!expect(lookup.status === 200, `consulta ID ${lookup.status}`)) return;
 
@@ -167,7 +167,7 @@ async function customerJourney() {
   )
     return;
 
-  if (NEQUI_SHARE && Math.random() < NEQUI_SHARE) {
+  if (NEQUI_SHARE && randomInt(1e6) / 1e6 < NEQUI_SHARE) {
     // Nequi: elegir, transferir (fuera de la tienda) y avisar «Ya transferí». Nunca paga solo.
     const chosen = await c.req('POST', `/api/orders/${ref}/nequi`, {
       headers: token,
@@ -188,7 +188,7 @@ async function customerJourney() {
   const pay = await c.req('POST', `/api/orders/${ref}/pay`, { headers: token, label: 'POST /pay' });
   if (!expect(pay.status === 200 && pay.json?.checkoutUrl, `pago ${pay.status}`)) return;
   // Mitad de los clientes paga (el doble de Mercado Pago envía el webhook firmado).
-  if (Math.random() < 0.5) {
+  if (randomInt(2) === 0) {
     const mp = new URL(pay.json.checkoutUrl);
     await c.req('GET', mp.pathname + mp.search, { label: 'GET pasarela (doble MP)' });
     const synced = await c.req('POST', `/api/orders/${ref}/sync`, {
@@ -340,7 +340,7 @@ async function doubleSubmit() {
     checkoutKey: randomUUID(),
     game: 'freefire',
     // Datos únicos por ejecución: el servidor limita los pedidos sin pagar por cliente.
-    playerUid: `7${String(RUN_PREFIX).padStart(3, '0')}${String(Math.floor(Math.random() * 1e5)).padStart(5, '0')}`,
+    playerUid: `7${String(RUN_PREFIX).padStart(3, '0')}${String(randomInt(1e5)).padStart(5, '0')}`,
     customerName: 'Doble Clic',
     customerEmail: `doble-${RUN_PREFIX}-${randomUUID().slice(0, 8)}@example.com`,
     acceptTerms: true,
