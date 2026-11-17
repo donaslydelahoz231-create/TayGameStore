@@ -772,6 +772,31 @@
   background-clip: text;
   color: transparent;
 }
+/*
+ * Insignia de Tay junto al nombre, en la cabecera y el pie. Su fondo de noche es un degradado
+ * semitransparente que acaba en azul marino opaco: sobre blanco quedaba un centro lila desvaído con
+ * las esquinas negras. De día es una ficha clara de arena: blanco a lila con un toque de luz cian y
+ * el filo de neón de «Store» (cian → violeta → magenta). La insignia grande de la pantalla de carga
+ * se queda como está (decisión del dueño, 2026-11-17) y el comprobante conserva la suya (su
+ * cabecera es oscura en los dos temas).
+ */
+:root[data-theme='light'] :is(.header .brand, .footer-brand) .brand-mark {
+  border: 1.5px solid transparent;
+  background:
+    radial-gradient(120% 90% at 28% 18%, rgba(0, 184, 230, 0.2), transparent 58%) padding-box,
+    linear-gradient(150deg, #ffffff 0%, #f3eeff 55%, #e7ddff 100%) padding-box,
+    linear-gradient(135deg, #00b8e6, #6d28ff 55%, #e8338a) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 6px 16px -6px rgba(109, 40, 255, 0.45),
+    0 0 0 3px rgba(109, 40, 255, 0.06);
+}
+:root[data-theme='light'] .header .brand:hover .brand-mark {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 8px 20px -6px rgba(109, 40, 255, 0.55),
+    0 0 0 4px rgba(0, 184, 230, 0.1);
+}
 :root[data-theme='light'] #entryExperience .entry-shell h1.entry-seo span,
 :root[data-theme='light'] .intro-word .s {
   background: linear-gradient(100deg, #0088b8, #6d28ff 55%, #d6237f);
