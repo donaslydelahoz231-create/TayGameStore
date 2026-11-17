@@ -203,9 +203,10 @@
     rgba(127, 240, 255, 0) 100%
   );
   transform: translateY(-28vh);
-  animation: tgsScan 1s 0.12s cubic-bezier(0.45, 0, 0.25, 1) both;
+  animation: tgsBarrido 1s 0.12s cubic-bezier(0.45, 0, 0.25, 1) both;
 }
-@keyframes tgsScan {
+/* Nombre propio: «tgsScan» ya es el destello de las tarjetas de paquetes (28-cinematic-v4.css). */
+@keyframes tgsBarrido {
   to {
     transform: translateY(100vh);
   }
