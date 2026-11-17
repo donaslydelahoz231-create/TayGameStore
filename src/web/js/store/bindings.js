@@ -6,14 +6,16 @@ import { errorMessage } from './api.js';
 import { DEFAULT_SERVER, isServer } from './servers.js';
 import { state } from './state.js';
 import { rememberOrder, saveLocal } from './storage.js';
-import { closeAllModals, closeMenus, modal, toast } from './ui.js';
+import { closeAllModals, closeMenus, modal, toast, trapModalFocus } from './ui.js';
 import {
+  LAST_PROVIDER_KEY,
   loadProfile,
   logout,
   openAccountMenu,
   openAdminPanel,
   openProfileEditor,
   saveProfile,
+  updateOAuthUI,
 } from './features/account.js';
 import { clearCart, closeDrawer, openDrawer, watchBuyBar } from './features/cart.js';
 import { loadCatalog, selectTariff } from './features/catalog.js';
@@ -176,9 +178,36 @@ function bindEntryAndAccount() {
         e.preventDefault();
         if (state.serverConfig) toast('Este acceso no está disponible por ahora.', 'bad');
         else toast('Comprobando el acceso… inténtalo en un momento.');
+        return;
+      }
+      // Mientras el navegador va a Google o Facebook, el botón queda ocupado (sin doble clic) y
+      // se recuerda el proveedor para marcarlo «Último usado» la próxima vez.
+      if (a.classList.contains('is-loading')) {
+        e.preventDefault();
+        return;
+      }
+      const provider = a.dataset.provider;
+      a.classList.add('is-loading');
+      a.setAttribute('aria-busy', 'true');
+      const label = $(provider + 'State');
+      if (label)
+        label.textContent = provider === 'google' ? 'Abriendo Google…' : 'Abriendo Facebook…';
+      try {
+        localStorage.setItem(LAST_PROVIDER_KEY, provider);
+      } catch {
+        // Sin almacenamiento: solo no se marca «Último usado».
       }
     }),
   );
+  // Si el cliente vuelve atrás desde Google o Facebook, la página puede volver de la caché del
+  // navegador con el botón ocupado: se restablece.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    document
+      .querySelectorAll('.oauth-btn[aria-busy]')
+      .forEach((a) => a.removeAttribute('aria-busy'));
+    updateOAuthUI();
+  });
 }
 
 function bindCatalogAndCart() {
@@ -288,6 +317,7 @@ function bindInvoiceAndCheckout() {
 }
 
 function bindGlobal() {
+  trapModalFocus();
   $('searchBtn').onclick = () => {
     closeMenus();
     openSearch();

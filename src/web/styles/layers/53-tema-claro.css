@@ -1,0 +1,618 @@
+/*
+ * Modo claro de TayGameStore (2026-11-17): la tienda «de día». Misma marca que el original
+ * oscuro —violeta, azul y cian del diamante, dorado de los precios, el muro con grafiti—, sobre
+ * papel lila muy claro, tarjetas blancas con borde violeta suave y tinta azul marino (la del
+ * comprobante). Los acentos se oscurecen lo justo para leerse sobre blanco (contraste AA).
+ * Todo cuelga de :root[data-theme='light']; sin ese atributo la tienda es la original.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f3f1fa;
+  --bg2: #ebe7f7;
+  --panel: #ffffff;
+  --panel2: #f7f5fe;
+  --panel3: #efebfc;
+  --line: #ddd6f2;
+  --ink: #161b4d;
+  --muted: #4f5682;
+  --muted2: #5c6392;
+  --violet: #6b2fe2;
+  --violet2: #6d35e8;
+  --blue: #1d6fe6;
+  --cyan: #07759c;
+  --green: #0b7f48;
+  --gold: #a35f00;
+  --orange: #c25400;
+  --danger: #c93030;
+  --shadow: 0 18px 46px rgba(52, 36, 128, 0.13);
+  /* Superficies y bordes del modo claro, reutilizados abajo. */
+  --l-card: #ffffff;
+  --l-card-2: #faf9ff;
+  --l-soft: #f1eefc;
+  --l-border: rgba(107, 47, 226, 0.16);
+  --l-border-2: rgba(107, 47, 226, 0.28);
+  --l-shadow-sm: 0 1px 2px rgba(22, 27, 77, 0.06), 0 6px 18px rgba(52, 36, 128, 0.07);
+  --l-shadow-md: 0 2px 4px rgba(22, 27, 77, 0.05), 0 16px 40px rgba(52, 36, 128, 0.11);
+}
+:root[data-theme='light'] body {
+  background:
+    radial-gradient(circle at 8% 6%, rgba(139, 61, 255, 0.1), transparent 34%),
+    radial-gradient(circle at 94% 22%, rgba(55, 214, 255, 0.12), transparent 28%),
+    radial-gradient(circle at 50% 110%, rgba(255, 181, 46, 0.08), transparent 40%), var(--bg);
+}
+:root[data-theme='light'] .ambient {
+  opacity: 0.16;
+}
+:root[data-theme='light'] ::selection {
+  background: rgba(107, 47, 226, 0.22);
+  color: #161b4d;
+}
+/* Interruptor sobre fondo claro. */
+:root[data-theme='light'] .theme-switch-track {
+  border-color: var(--l-border-2);
+  background: linear-gradient(180deg, #ffffff, #f1eefc);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 4px 14px rgba(52, 36, 128, 0.12);
+}
+
+/* ── Pantallas de carga y respaldo ─────────────────────────────────────────────────────── */
+:root[data-theme='light'] .boot-screen {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(139, 61, 255, 0.16), transparent 38%), var(--bg);
+}
+:root[data-theme='light'] .boot-loader {
+  background: #e3dcf6;
+}
+
+/* ── Cabecera ──────────────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .header {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: var(--l-border);
+  box-shadow: 0 8px 30px rgba(52, 36, 128, 0.08);
+}
+:root[data-theme='light'] :is(.header-icon, .account-btn, .cart-btn) {
+  border-color: var(--l-border);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] :is(.header-icon, .account-btn, .cart-btn):hover {
+  border-color: var(--l-border-2);
+  background: var(--l-card-2);
+}
+:root[data-theme='light'] :is(.account-menu, .search-panel) {
+  border-color: var(--l-border);
+  background: #fff;
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] .search-result {
+  border-color: var(--line);
+  background: var(--l-card-2);
+  color: var(--ink);
+}
+
+/* ── Portada: el muro de día ───────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .hero {
+  border-bottom-color: var(--l-border);
+  background: linear-gradient(180deg, #f8f6fe, #efeafb);
+}
+:root[data-theme='light'] .neon-muro {
+  background-image: url('/art/muro-ladrillo-dia.svg');
+}
+:root[data-theme='light'] .hero-art::before {
+  background: linear-gradient(
+    90deg,
+    rgba(248, 246, 254, 0.97),
+    rgba(248, 246, 254, 0.84) 42%,
+    rgba(248, 246, 254, 0.18) 60%,
+    rgba(248, 246, 254, 0)
+  );
+}
+@media (max-width: 900px) {
+  :root[data-theme='light'] .hero-art::before {
+    background: linear-gradient(
+      180deg,
+      rgba(248, 246, 254, 0.96),
+      rgba(248, 246, 254, 0.82) 45%,
+      rgba(248, 246, 254, 0.08) 60%
+    );
+  }
+}
+@media (max-width: 650px) {
+  :root[data-theme='light'] .hero-art::before {
+    background: linear-gradient(
+      180deg,
+      rgba(248, 246, 254, 0.96),
+      rgba(248, 246, 254, 0.9) 52%,
+      rgba(248, 246, 254, 0.14) 62%
+    );
+  }
+}
+/* El letrero de neón y su cable siguen siendo metal oscuro: de día también es una caja. */
+:root[data-theme='light'] .neon-letrero {
+  box-shadow: 0 12px 26px rgba(22, 27, 77, 0.28);
+}
+:root[data-theme='light'] .hero-panel {
+  border-color: var(--l-border-2);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(246, 243, 254, 0.95));
+  box-shadow:
+    0 26px 60px rgba(52, 36, 128, 0.16),
+    inset 0 1px 0 #fff;
+}
+:root[data-theme='light'] .hero-vault {
+  box-shadow:
+    0 18px 36px -16px rgba(22, 27, 77, 0.45),
+    0 0 0 1px rgba(107, 47, 226, 0.18);
+}
+:root[data-theme='light'] .meter-list i {
+  background: #e6e0f7;
+}
+
+/* ── Botones ───────────────────────────────────────────────────────────────────────────── */
+/* Solo los botones neutros: «primary», «payment» y «whatsapp» conservan su color de marca. */
+:root[data-theme='light'] .btn:not(.primary, .payment, .whatsapp) {
+  border-color: var(--l-border-2);
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] .btn.glass {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] .btn:is(.glass, .ghost):hover {
+  border-color: rgba(107, 47, 226, 0.45);
+  background: #fff;
+}
+:root[data-theme='light'] :is(.intro-skip, .sound-toggle) {
+  border-color: var(--l-border-2);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] :is(.intro-skip, .sound-toggle):hover,
+:root[data-theme='light'] .sound-toggle.is-on {
+  border-color: rgba(7, 117, 156, 0.5);
+  color: var(--ink);
+}
+
+/* ── Tarjetas y superficies ────────────────────────────────────────────────────────────── */
+:root[data-theme='light']
+  :is(
+    .card,
+    .trust article,
+    .tracking-card,
+    .faq-grid details,
+    .review-card,
+    .finder-result,
+    .lab-card,
+    .catalog-empty
+  ) {
+  border-color: var(--l-border);
+  background: var(--l-card);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] .lab-card.big {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(139, 61, 255, 0.12), transparent 60%),
+    linear-gradient(145deg, #faf7ff, #fff);
+}
+:root[data-theme='light'] .catalog-empty {
+  border-style: dashed;
+  border-color: var(--l-border-2);
+}
+/* Superficies hundidas dentro de una tarjeta. */
+:root[data-theme='light']
+  :is(
+    .cart-entry,
+    .drawer-entry,
+    .route-list div,
+    .security-grid article,
+    .payment-grid,
+    .payment-status,
+    .payment-state,
+    .promo-list div,
+    .favorite-entry,
+    .support-readonly,
+    .nequi-box,
+    .result-ref,
+    .check,
+    .lab-card kbd
+  ) {
+  border-color: var(--line);
+  background: var(--l-soft);
+}
+:root[data-theme='light'] :is(.cart-entry, .drawer-entry) > span {
+  background: #e9e3fb;
+}
+:root[data-theme='light'] :is(.service-state, .finder-tag, .game-tab, .tariff-toggle) {
+  border-color: var(--l-border);
+  background: #fff;
+}
+:root[data-theme='light'] .support-readonly-icon {
+  border-color: var(--line);
+  background: #fff;
+}
+
+/* ── Formularios ───────────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] :is(input, select, textarea, .review-form textarea) {
+  border-color: #cfc6ea;
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(input, textarea)::placeholder {
+  color: #8a8fb3;
+  opacity: 1;
+}
+:root[data-theme='light'] :is(input, select, textarea):hover {
+  border-color: #b9addf;
+}
+:root[data-theme='light'] :is(input, select, textarea):focus {
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(107, 47, 226, 0.16);
+}
+:root[data-theme='light'] input[type='checkbox'],
+:root[data-theme='light'] input[type='radio'] {
+  accent-color: var(--violet);
+}
+
+/* ── Catálogo ──────────────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .game-logo {
+  border-color: var(--line);
+  background: var(--l-soft);
+}
+:root[data-theme='light'] #app .game-logo.ff {
+  border-color: rgba(230, 110, 30, 0.4);
+  background: radial-gradient(circle at 50% 35%, rgba(255, 122, 43, 0.22), #fff6ef);
+}
+:root[data-theme='light'] #app .game-logo.roblox {
+  border-color: rgba(90, 100, 160, 0.3);
+  background: radial-gradient(circle at 50% 35%, rgba(160, 172, 230, 0.3), #f6f7ff);
+}
+:root[data-theme='light'] #app .game-logo.pubg {
+  border-color: rgba(200, 140, 30, 0.4);
+  background: radial-gradient(circle at 50% 35%, rgba(244, 185, 66, 0.28), #fffaf0);
+}
+:root[data-theme='light'] #app .game-logo.ml {
+  border-color: rgba(90, 120, 255, 0.4);
+  background: radial-gradient(circle at 50% 35%, rgba(90, 120, 255, 0.22), #f4f6ff);
+}
+:root[data-theme='light'] .product {
+  border-color: var(--l-border);
+  background: linear-gradient(180deg, #fff, #faf8ff);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] .product:hover {
+  border-color: var(--l-border-2);
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] .product-visual {
+  background: radial-gradient(circle, rgba(55, 214, 255, 0.16), transparent 68%), #ece7fb;
+}
+:root[data-theme='light'] :is(.product-actions button, .fav-btn, .favorite-entry button) {
+  border-color: var(--l-border-2);
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.qty, .qty button) {
+  border-color: var(--l-border-2);
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.cart-controls button, .drawer-controls button) {
+  border-color: var(--l-border-2);
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.cart-controls button, .drawer-controls button):hover {
+  border-color: var(--violet);
+  background: var(--l-soft);
+}
+:root[data-theme='light'] .smart-cart {
+  border-color: var(--l-border-2);
+  background: linear-gradient(180deg, #fff, #f8f5ff);
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] #app .promo-strip {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 181, 46, 0.22),
+    rgba(139, 61, 255, 0.12) 55%,
+    #fff 85%
+  );
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] .buy-bar:not([hidden]) {
+  border-top-color: var(--l-border);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -10px 28px rgba(52, 36, 128, 0.14);
+}
+
+/* ── Pedido, pago y seguimiento ────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .invoice {
+  border-color: var(--l-border-2);
+  box-shadow: var(--l-shadow-md);
+}
+/* Muescas del comprobante: «recortan» el papel con el color del fondo de la página. */
+:root[data-theme='light'] #invoice .invoice-foot::after {
+  background: radial-gradient(circle at 8px 10px, var(--bg) 6px, transparent 6.5px) 0 0 / 16px 10px
+    repeat-x;
+}
+:root[data-theme='light'] .pay-mean span {
+  border-color: var(--l-border);
+  background: #fff;
+  color: var(--ink);
+}
+:root[data-theme='light'] .pay-mean input:checked + span {
+  border-color: var(--violet);
+  background: linear-gradient(135deg, rgba(139, 61, 255, 0.1), rgba(47, 139, 255, 0.06)), #fff;
+  box-shadow: 0 0 0 1px rgba(107, 47, 226, 0.35);
+}
+:root[data-theme='light'] .track:not(.active, .done) > span {
+  border-color: var(--l-border-2);
+  background: #fff;
+}
+
+/* ── Soporte, reseñas y pie ────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .support-float-btn.email {
+  border-color: var(--l-border-2);
+  background: linear-gradient(135deg, #fff, #f1ecff);
+  color: var(--violet);
+}
+:root[data-theme='light'] .support-float-btn span {
+  border-color: var(--l-border);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] .footer {
+  border-top-color: var(--l-border);
+  background: #ebe7f7;
+}
+
+/* ── Carrito lateral, ventanas y avisos ────────────────────────────────────────────────── */
+:root[data-theme='light'] :is(.drawer-overlay, .modal) {
+  background: rgba(22, 27, 77, 0.36);
+}
+:root[data-theme='light'] .drawer {
+  border-left-color: var(--l-border-2);
+  background: linear-gradient(180deg, #fff, #f7f4fe);
+  box-shadow: -24px 0 70px rgba(22, 27, 77, 0.22);
+}
+:root[data-theme='light'] .modal-box {
+  border-color: var(--l-border-2);
+  background: linear-gradient(180deg, #fff, #f8f6fe);
+  box-shadow: 0 30px 80px rgba(22, 27, 77, 0.28);
+}
+:root[data-theme='light'] .toast {
+  border-color: var(--l-border-2);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 16px 36px rgba(22, 27, 77, 0.2);
+}
+:root[data-theme='light'] .tgs-demo-badge {
+  border-color: var(--l-border);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+  box-shadow: var(--l-shadow-sm);
+}
+
+/* ── Acceso con Google o Facebook ──────────────────────────────────────────────────────── */
+:root[data-theme='light'] .oauth-btn {
+  border-color: var(--l-border);
+  background: #fff;
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] .oauth-btn .oauth-brand {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+/* ── Resultado del pago ────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] .result-body {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(139, 61, 255, 0.12), transparent 36%), var(--bg);
+}
+:root[data-theme='light'] .result-card {
+  border-color: var(--l-border-2);
+  background: linear-gradient(160deg, #fff, #f7f4fe);
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] .result-timeline span {
+  border-color: var(--line);
+  background: #fff;
+}
+
+/* ── Bienvenida (portada de entrada) ───────────────────────────────────────────────────── */
+:root[data-theme='light'] :is(.entry-experience, #entryExperience) {
+  background:
+    radial-gradient(60% 55% at 12% 8%, rgba(139, 61, 255, 0.16), transparent 70%),
+    radial-gradient(50% 50% at 92% 30%, rgba(55, 214, 255, 0.14), transparent 70%),
+    radial-gradient(40% 40% at 70% 100%, rgba(255, 181, 46, 0.12), transparent 70%),
+    linear-gradient(180deg, #f8f6fe 0%, #efeafb 100%);
+}
+:root[data-theme='light'] #entryExperience .entry-steps li {
+  border-color: var(--l-border);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] #entryExperience .entry-tile {
+  box-shadow:
+    0 22px 44px -18px rgba(22, 27, 77, 0.45),
+    0 0 0 1px rgba(107, 47, 226, 0.16);
+}
+
+/* ── Logotipos y textos de marca ───────────────────────────────────────────────────────── */
+/* La bienvenida usa la imagen del logotipo: en claro, la versión de tinta (tay-logo-tinta.svg). */
+#entryExperience .entry-logo-tinta,
+:root[data-theme='light'] #entryExperience .entry-logo:not(.entry-logo-tinta) {
+  display: none;
+}
+:root[data-theme='light'] #entryExperience .entry-logo-tinta {
+  display: block;
+}
+/* «TayGame» en tinta azul marino con un filo violeta; «Store» conserva el degradado de la marca. */
+:root[data-theme='light'] :is(.hero-wordmark, .entry-brand) .wm-game {
+  background: linear-gradient(180deg, #23286a 0%, #161b4d 70%, #2b2378 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:root[data-theme='light'] :is(.hero-wordmark, .entry-brand) .wm-store {
+  background: linear-gradient(100deg, #0893c2 0%, #5b5cf0 48%, #8a3df0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:root[data-theme='light'] .hero-wordmark {
+  filter: drop-shadow(0 6px 18px rgba(107, 47, 226, 0.18));
+}
+:root[data-theme='light'] .intro-word .s,
+:root[data-theme='light'] #entryExperience .entry-shell h1.entry-seo span {
+  background: linear-gradient(100deg, #0893c2, #5b5cf0 55%, #8a3df0);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ── Textos que el original fija en blanco o lila claro ───────────────────────────────── */
+:root[data-theme='light'] :is(.nav a:hover, .nav a.active) {
+  color: var(--violet);
+}
+:root[data-theme='light'] :is(.hero-left > p, .hero-left > p.hero-tagline, #app .heading p) {
+  color: var(--muted);
+}
+:root[data-theme='light'] .hero-left > p.hero-tagline {
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.hero-panel-copy p, .meter-list dt, .security-box) {
+  color: var(--muted);
+}
+:root[data-theme='light'] .hero-panel-foot :is(a, button):is(:hover, :focus-visible) {
+  color: var(--violet);
+}
+:root[data-theme='light'] #products .product-price strong {
+  color: var(--ink);
+}
+:root[data-theme='light'] .game-logo.roblox {
+  color: #2a2f5c;
+}
+:root[data-theme='light'] :is(.fav-btn:hover, .fav-btn.on) {
+  color: #b57900;
+}
+:root[data-theme='light'] .favorite-entry button {
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.error, .finder-error) {
+  color: #b42318;
+}
+:root[data-theme='light']
+  :is(
+    .account-menu button.danger,
+    .cart-controls .cart-remove,
+    .drawer-controls .drawer-remove,
+    .favorite-actions [data-fav-op='remove']
+  ) {
+  color: #c02c3c;
+}
+:root[data-theme='light'] .support-backend-state.ok,
+:root[data-theme='light'] .menu-link.linked {
+  color: #0b7f48;
+}
+:root[data-theme='light']
+  :is(.history-entry .history-status.ok, .history-success b, .drawer-saving) {
+  color: #0b7f48;
+}
+:root[data-theme='light'] .history-entry .history-status.warn {
+  color: #9a5b00;
+}
+:root[data-theme='light'] .consent a {
+  color: var(--violet);
+}
+:root[data-theme='light'] .menu-link {
+  color: var(--ink);
+}
+:root[data-theme='light'] .entry-noscript {
+  color: #8a4b00;
+}
+
+/* ── Bienvenida: textos ─────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] #entryExperience .entry-kicker {
+  color: var(--cyan);
+}
+:root[data-theme='light']
+  :is(#entryExperience .entry-shell h1.entry-seo, .entry-experience .entry-shell h1.entry-seo) {
+  color: var(--ink);
+}
+:root[data-theme='light'] #entryExperience :is(.entry-copy, .entry-steps small) {
+  color: var(--muted);
+}
+:root[data-theme='light'] #entryExperience .entry-offer b {
+  color: #9a5b00;
+}
+:root[data-theme='light'] #entryExperience .entry-offer span {
+  color: var(--ink);
+}
+:root[data-theme='light'] #entryExperience .entry-steps b {
+  color: var(--ink);
+}
+:root[data-theme='light'] #entryExperience .entry-step-ico {
+  color: var(--violet);
+}
+
+/* ── Insignias doradas: el dorado vivo del original como fondo, con tinta encima ──────── */
+:root[data-theme='light'] .product-tag {
+  background: #ffbf47;
+  color: #3a2300;
+}
+
+/* ── El nombre «TayGameStore» en todas partes ──────────────────────────────────────────── */
+/* Cabecera, pie y pantalla de carga: «TayGame» en tinta y «Store» con el degradado de la marca,
+   igual que el logotipo grande de la portada (el del comprobante va sobre su banda oscura). */
+:root[data-theme='light'] :is(.brand-text, .footer-brand b, .boot-title) {
+  color: var(--ink);
+}
+:root[data-theme='light'] :is(.brand-text, .footer-brand b, .boot-title) span {
+  background: linear-gradient(100deg, #0a7fae 0%, #5b4ff0 50%, #7a35e6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Presentación al abrir la tienda (una vez por sesión) ──────────────────────────────── */
+:root[data-theme='light'] #tgsIntro {
+  background:
+    radial-gradient(60% 55% at 50% 42%, rgba(139, 61, 255, 0.18), transparent 70%),
+    radial-gradient(45% 40% at 80% 85%, rgba(55, 214, 255, 0.16), transparent 70%),
+    linear-gradient(180deg, #f8f6fe, #efeafb);
+  color: var(--ink);
+}
+:root[data-theme='light'] .intro-tagline {
+  color: var(--muted);
+}
+:root[data-theme='light'] .intro-status {
+  color: var(--muted2);
+}
+
+/* ── Franjas «Compra guiada» y «¿Necesitas ayuda?» ─────────────────────────────────────── */
+:root[data-theme='light'] :is(.smart-band, .support-panel) {
+  border-color: var(--l-border-2);
+  background: linear-gradient(90deg, rgba(139, 61, 255, 0.1), rgba(47, 139, 255, 0.06)), #fff;
+  box-shadow: var(--l-shadow-sm);
+}
+
+/* ── Comprobante en pantalla: papel sobre la mesa, sin sombra de noche ─────────────────── */
+:root[data-theme='light'] #invoice {
+  box-shadow:
+    0 26px 56px -26px rgba(22, 27, 77, 0.38),
+    0 0 0 1px rgba(107, 47, 226, 0.14);
+}
+
+/* ── Tipografía de color: la palabra destacada de cada título ─────────────────────────── */
+/* En oscuro es lavanda; de día, el degradado violeta→azul del diamante (legible sobre blanco). */
+:root[data-theme='light'] :is(.heading h2, .support-panel h2) span {
+  background: linear-gradient(100deg, #6b2fe2 0%, #4f46e5 55%, #1d6fe6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme='light'] :is(#app .eyebrow, #app .smart-label) {
+  color: var(--cyan);
+}

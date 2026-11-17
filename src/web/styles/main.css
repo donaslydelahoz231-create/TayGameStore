@@ -55,3 +55,6 @@
 @import './layers/49-fondo-muro.css';
 @import './layers/50-dispositivos.css';
 @import './layers/51-comprobante-ordenado.css';
+@import './layers/52-tema.css';
+@import './layers/53-tema-claro.css';
+@import './layers/54-acceso.css';

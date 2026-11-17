@@ -93,23 +93,53 @@ export function openAccountMenu() {
   $('accountBtn').setAttribute('aria-expanded', String(open));
 }
 
+/** Último proveedor con el que entró este navegador (solo «google» o «facebook»). */
+export const LAST_PROVIDER_KEY = 'tgs_ultimo_acceso';
+
+function lastProvider() {
+  try {
+    return localStorage.getItem(LAST_PROVIDER_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function updateOAuthUI() {
   const auth = state.serverConfig?.auth || {};
+  const known = !!state.serverConfig || state.previewOnly;
+  const last = lastProvider();
+  let available = 0;
   for (const prov of OAUTH_PROVIDERS) {
     const el = $(prov + 'State'),
       link = document.querySelector(`[data-provider="${prov}"]`);
     const ok = !!auth[prov];
+    if (ok) available++;
     if (el)
       el.textContent = state.previewOnly
         ? 'Servidor requerido'
         : ok
           ? 'Disponible'
-          : 'No configurado';
+          : known
+            ? 'No configurado'
+            : 'Comprobando…';
     if (link) {
       link.classList.toggle('disabled', !ok);
+      link.classList.remove('is-loading');
       link.setAttribute('aria-disabled', String(!ok));
+      // Un proveedor no disponible no recibe el foco con Tab (sigue leyéndose en la ventana).
+      if (ok) link.removeAttribute('tabindex');
+      else link.tabIndex = -1;
+      // Punto de color del estado: disponible, comprobando (aún sin respuesta) o no disponible.
+      link.dataset.state = ok ? 'ok' : known ? 'off' : 'checking';
+      const badge = link.querySelector('.oauth-last');
+      if (badge) badge.hidden = !(ok && last === prov);
     }
   }
+  // Ningún proveedor disponible: el invitado pasa a ser la opción principal y se dice por qué.
+  const solo = known && available === 0;
+  document.querySelector('#loginModal .auth-box')?.classList.toggle('solo-invitado', solo);
+  const note = $('authUnavailable');
+  if (note) note.hidden = !solo;
 }
 
 export async function bootstrapSession() {

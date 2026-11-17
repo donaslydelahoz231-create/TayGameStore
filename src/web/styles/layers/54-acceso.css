@@ -1,0 +1,560 @@
+/*
+ * Acceso a la cuenta (2026-11-17, pedido del dueño: «mejorar la funcionalidad y lo visual del
+ * acceso»). Reemplaza a 21-auth.css en la ventana #loginModal y usa la letra de la marca.
+ *
+ * Arriba Tay y lo que gana el cliente con su cuenta; luego Google y Facebook a todo el ancho
+ * (estado con un punto de color: disponible, comprobando o no disponible), el invitado como
+ * segunda opción clara y la nota de seguridad. Si ningún proveedor está disponible, el invitado
+ * pasa a ser el botón principal. Funciona igual en el tema oscuro (original) y en el claro.
+ */
+#loginModal {
+  --display: var(--font-ui);
+  --body: var(--font-ui);
+  font-family: var(--font-ui);
+}
+#loginModal .auth-box {
+  position: relative;
+  overflow: hidden;
+  width: min(440px, 100%);
+  max-width: 440px;
+  padding: 26px 22px 18px;
+  border: 1px solid rgba(139, 61, 255, 0.38);
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(139, 61, 255, 0.34), transparent 60%),
+    radial-gradient(60% 40% at 92% 6%, rgba(55, 214, 255, 0.16), transparent 70%),
+    linear-gradient(180deg, #111a44, #070c25 70%);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+/* Retícula tenue detrás de Tay: el «laboratorio» de la marca, sin cargar la ventana. */
+#loginModal .auth-box::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 190px;
+  background:
+    linear-gradient(rgba(160, 175, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(160, 175, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px;
+  mask-image: radial-gradient(70% 90% at 50% 0%, #000, transparent 75%);
+  pointer-events: none;
+}
+#loginModal .auth-box > * {
+  position: relative;
+}
+/* La caja recibe el foco al abrirse (anuncia el título); el anillo de foco va en los controles. */
+#loginModal .auth-box:focus {
+  outline: none;
+}
+
+/* Cerrar */
+#loginModal .auth-close {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.18s,
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.25s;
+}
+#loginModal .auth-close svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+#loginModal .auth-close:hover {
+  border-color: rgba(55, 214, 255, 0.5);
+  color: var(--ink);
+  transform: rotate(90deg);
+}
+
+/* Cabecera con Tay */
+#loginModal .auth-head {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+#loginModal .auth-mascot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  margin-bottom: 6px;
+}
+#loginModal .auth-mascot::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(55, 214, 255, 0.45),
+    rgba(139, 61, 255, 0.18) 55%,
+    transparent 72%
+  );
+  filter: blur(8px);
+}
+#loginModal .auth-mascot img {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  filter: drop-shadow(0 10px 18px rgba(20, 10, 70, 0.45));
+}
+/* Tay saluda una vez al abrirse la ventana (animación que termina: nada se mueve sin parar). */
+@media (prefers-reduced-motion: no-preference) {
+  #loginModal:not([hidden]) .auth-mascot img {
+    animation: accesoSaluda 0.9s 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+}
+@keyframes accesoSaluda {
+  0% {
+    transform: translateY(8px) scale(0.86) rotate(-8deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-4px) scale(1.04) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+#loginModal .auth-head .eyebrow {
+  justify-content: center;
+  margin: 0;
+  color: var(--cyan);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+#loginModal .auth-head h3 {
+  margin: 6px 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(1.12rem, 0.9rem + 1.1vw, 1.32rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+#loginModal .auth-head p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+#loginModal .auth-perks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+#loginModal .auth-perks li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid rgba(160, 175, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+#loginModal .auth-perks svg {
+  width: 14px;
+  height: 14px;
+  color: var(--cyan);
+}
+
+/* Proveedores */
+#loginModal .oauth-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 9px;
+  margin-top: 18px;
+}
+#loginModal .oauth-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid rgba(160, 175, 255, 0.18);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+#loginModal .oauth-btn .oauth-brand {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+#loginModal .oauth-text {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+}
+#loginModal .oauth-btn b {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+#loginModal .oauth-btn small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+#loginModal .oauth-btn small::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #f5b84a;
+}
+#loginModal .oauth-btn[data-state='ok'] small::before {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(57, 224, 138, 0.18);
+}
+#loginModal .oauth-btn[data-state='off'] small::before {
+  background: #7a83ad;
+}
+#loginModal .oauth-go {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  transition:
+    transform 0.2s,
+    color 0.2s;
+}
+#loginModal .oauth-last {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 181, 46, 0.16);
+  color: #ffcf73;
+  font-size: 0.6875rem;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#loginModal .oauth-btn:not(.disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 61, 255, 0.6);
+  background: rgba(139, 61, 255, 0.1);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+}
+#loginModal .oauth-btn:not(.disabled):hover .oauth-go {
+  transform: translateX(3px);
+  color: var(--ink);
+}
+#loginModal .oauth-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+#loginModal .oauth-btn:focus-visible,
+#loginModal .auth-guest:focus-visible,
+#loginModal .auth-close:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+/* Abriendo Google o Facebook: el botón queda ocupado y gira un indicador. */
+#loginModal .oauth-btn.is-loading {
+  pointer-events: none;
+  border-color: rgba(139, 61, 255, 0.6);
+}
+#loginModal .oauth-btn.is-loading .oauth-go {
+  display: none;
+}
+#loginModal .oauth-btn.is-loading::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--violet2);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: accesoGira 0.7s linear infinite;
+}
+@keyframes accesoGira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+#loginModal .auth-unavailable {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 181, 46, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 181, 46, 0.08);
+  color: #ffd27a;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/* «o» */
+#loginModal .auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+#loginModal .auth-divider::before,
+#loginModal .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(160, 175, 255, 0.25), transparent);
+}
+
+/* Invitado */
+#loginModal .auth-guest {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 16px;
+  border: 1px solid rgba(55, 214, 255, 0.28);
+  border-radius: 15px;
+  background: rgba(55, 214, 255, 0.05);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+#loginModal .auth-guest-text {
+  display: grid;
+}
+#loginModal .auth-guest b {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+#loginModal .auth-guest small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+#loginModal .auth-guest svg {
+  width: 18px;
+  height: 18px;
+  color: var(--cyan);
+  transition: transform 0.2s;
+}
+#loginModal .auth-guest:hover {
+  transform: translateY(-1px);
+  border-color: rgba(55, 214, 255, 0.6);
+  background: rgba(55, 214, 255, 0.1);
+}
+#loginModal .auth-guest:hover svg {
+  transform: translateX(3px);
+}
+/* Sin proveedores disponibles: el invitado es la opción principal. */
+#loginModal .auth-box.solo-invitado .auth-guest {
+  border-color: transparent;
+  background: linear-gradient(135deg, #8b3dff, #2f8bff);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(139, 61, 255, 0.35);
+}
+#loginModal .auth-box.solo-invitado .auth-guest :is(small, svg) {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Nota de seguridad */
+#loginModal .auth-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+#loginModal .auth-note svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--green);
+}
+
+/* Entrada: la caja sube y su contenido llega por partes (cabecera, cuentas, invitado, nota). */
+@media (prefers-reduced-motion: no-preference) {
+  #loginModal:not([hidden]) .auth-box {
+    animation: accesoCaja 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  #loginModal:not([hidden])
+    .auth-box
+    > :is(.auth-head, .oauth-grid, .auth-divider, .auth-guest, .auth-note) {
+    animation: accesoParte 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  #loginModal:not([hidden]) .auth-box > .oauth-grid {
+    animation-delay: 0.06s;
+  }
+  #loginModal:not([hidden]) .auth-box > .auth-divider {
+    animation-delay: 0.1s;
+  }
+  #loginModal:not([hidden]) .auth-box > .auth-guest {
+    animation-delay: 0.13s;
+  }
+  #loginModal:not([hidden]) .auth-box > .auth-note {
+    animation-delay: 0.16s;
+  }
+  /* Al llegar desde «Entrar», el contenido entra cuando el diamante se abre. */
+  #loginModal.acceso-llega .auth-box {
+    animation: accesoCaja 0.5s 0.08s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  #loginModal.acceso-llega
+    .auth-box
+    > :is(.auth-head, .oauth-grid, .auth-divider, .auth-guest, .auth-note) {
+    animation-duration: 0.55s;
+  }
+  #loginModal.acceso-llega .auth-box > .auth-head {
+    animation-delay: 0.16s;
+  }
+  #loginModal.acceso-llega .auth-box > .oauth-grid {
+    animation-delay: 0.26s;
+  }
+  #loginModal.acceso-llega .auth-box > .auth-divider {
+    animation-delay: 0.32s;
+  }
+  #loginModal.acceso-llega .auth-box > .auth-guest {
+    animation-delay: 0.36s;
+  }
+  #loginModal.acceso-llega .auth-box > .auth-note {
+    animation-delay: 0.42s;
+  }
+}
+@keyframes accesoCaja {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+@keyframes accesoParte {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (max-width: 420px) {
+  #loginModal .auth-box {
+    padding: 22px 16px 16px;
+    border-radius: 20px;
+  }
+  #loginModal .oauth-btn {
+    gap: 10px;
+    padding-right: 12px;
+  }
+}
+
+/* ── Modo claro ─────────────────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] #loginModal .auth-box {
+  border-color: var(--l-border-2);
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(139, 61, 255, 0.16), transparent 60%),
+    radial-gradient(60% 40% at 92% 6%, rgba(55, 214, 255, 0.14), transparent 70%),
+    linear-gradient(180deg, #ffffff, #f8f6fe 70%);
+  box-shadow:
+    0 30px 80px rgba(22, 27, 77, 0.28),
+    inset 0 1px 0 #fff;
+}
+:root[data-theme='light'] #loginModal .auth-box::before {
+  background:
+    linear-gradient(rgba(107, 47, 226, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(90deg, rgba(107, 47, 226, 0.07) 1px, transparent 1px) 0 0 / 22px 22px;
+}
+:root[data-theme='light'] #loginModal .auth-close {
+  border-color: var(--l-border);
+  background: #fff;
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] #loginModal .auth-mascot img {
+  filter: drop-shadow(0 10px 16px rgba(52, 36, 128, 0.25));
+}
+:root[data-theme='light'] #loginModal .auth-perks li {
+  border-color: var(--l-border);
+  background: #fff;
+}
+:root[data-theme='light'] #loginModal .oauth-btn {
+  border-color: var(--l-border);
+  background: #fff;
+  box-shadow: var(--l-shadow-sm);
+}
+:root[data-theme='light'] #loginModal .oauth-btn .oauth-brand {
+  box-shadow: 0 0 0 1px var(--line);
+}
+:root[data-theme='light'] #loginModal .oauth-btn:not(.disabled):hover {
+  border-color: rgba(107, 47, 226, 0.45);
+  background: #fbf9ff;
+  box-shadow: var(--l-shadow-md);
+}
+:root[data-theme='light'] #loginModal .oauth-btn[data-state='off'] small::before {
+  background: #a9adc8;
+}
+:root[data-theme='light'] #loginModal .oauth-last {
+  background: #fff1d6;
+  color: #8a4b00;
+}
+:root[data-theme='light'] #loginModal .auth-unavailable {
+  border-color: rgba(181, 110, 0, 0.3);
+  background: #fff7e8;
+  color: #7a4300;
+}
+:root[data-theme='light'] #loginModal .auth-divider::before,
+:root[data-theme='light'] #loginModal .auth-divider::after {
+  background: linear-gradient(90deg, transparent, rgba(107, 47, 226, 0.22), transparent);
+}
+:root[data-theme='light'] #loginModal .auth-guest {
+  border-color: rgba(7, 117, 156, 0.3);
+  background: #f2fbfe;
+}
+:root[data-theme='light'] #loginModal .auth-guest:hover {
+  border-color: rgba(7, 117, 156, 0.6);
+  background: #e8f7fc;
+}
+:root[data-theme='light'] #loginModal .auth-box.solo-invitado .auth-guest {
+  background: linear-gradient(135deg, #7c3aed, #2f6fe6);
+}

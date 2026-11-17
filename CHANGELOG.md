@@ -5,6 +5,31 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Modo claro y oscuro, acceso nuevo y transición de entrada (2026-11-17)
+
+- **Modo claro y oscuro**: el oscuro es el diseño original, sin cambios. El claro es la tienda «de
+  día»: la misma marca sobre papel lila, tarjetas blancas y tinta azul marino, con los acentos
+  oscurecidos lo justo para leerse sobre blanco. El muro de la portada se ve encalado
+  (`art/muro-ladrillo-dia.svg`), con el letrero de neón y el grafiti intactos. El nombre
+  TayGameStore va en tinta con «Store» en el degradado de la marca (la bienvenida usa
+  `brand/tay-logo-tinta.svg`), y las palabras de color de los títulos llevan el degradado
+  violeta→azul.
+- **Interruptor** luna/sol (`role="switch"`): en la bienvenida y en la cabecera; en el celular, en
+  el menú de la cuenta y en el pie (en la cabecera no cabe). La elección se guarda en el navegador
+  (`tgs_tema`), se sincroniza entre pestañas y `/tema.js` la aplica en `<head>` antes de pintar:
+  nunca se ve el otro tema un instante. Al cambiar, el nuevo tema se abre en círculo desde el
+  interruptor (View Transitions; sin animación con «reducir movimiento»).
+- **Acceso**: Tay arriba con lo que gana el cliente con su cuenta (historial, comprobantes y
+  favoritos); «Continuar con Google / Facebook» a todo el ancho con un punto de estado (disponible,
+  comprobando, no disponible); el botón queda ocupado mientras abre el proveedor (sin doble clic) y
+  la próxima vez se marca «Último usado»; «Continuar como invitado» como segunda opción clara, que
+  pasa a ser la principal si no hay proveedores. «Cerrar» tiene nombre accesible, el foco empieza
+  en la ventana y Tab no se escapa a la tienda de detrás (en todas las ventanas).
+- **Transición de entrada**: cuando el diamante se abre, el acceso llega por partes (Tay, cuentas,
+  invitado y nota) en vez de aparecer de golpe. La presentación también tiene versión de día.
+- **Pruebas**: e2e nuevas del tema (cambio, recuerdo, aplicación antes de pintar y logotipo de
+  tinta) y del acceso (foco, Tab, Escape, sin proveedores, botón ocupado y «Último usado»).
+
 ### Comprobante tipo ticket y alertas de CodeQL (2026-11-15)
 
 - **Comprobante (JPG y PDF)**: tarjeta tipo ticket sobre la banda de la marca, con el estado y su

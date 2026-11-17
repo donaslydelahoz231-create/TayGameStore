@@ -334,7 +334,13 @@ export async function playEnterTransition(next, origin) {
   next();
   entry?.classList.remove('entry-leaving');
   await fillBar(intro, HOLD_MS);
-  // 4. El diamante se abre desde Tay y deja ver el acceso ya en su sitio.
+  // 4. El diamante se abre desde Tay y deja ver el acceso, que llega por partes mientras se abre
+  //    (cabecera, cuentas, invitado): la clase se pone aún tapado, así no se ve ningún salto.
+  const login = $('loginModal');
+  if (login && !login.hidden) {
+    login.classList.add('acceso-llega');
+    setTimeout(() => login.classList.remove('acceso-llega'), REVEAL_MS + 1200);
+  }
   const center = centerOf(intro.querySelector('.intro-tay'));
   await openIris(intro, center.cx, center.cy, REVEAL_MS);
 }

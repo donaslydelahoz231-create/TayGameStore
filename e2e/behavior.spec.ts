@@ -505,7 +505,8 @@ test.describe('carrito y favoritos (mejoras)', () => {
     await expect(first.locator('figcaption b')).toHaveText('110');
     await expect(first.locator('figcaption em')).toHaveText(/3\.800/);
     // El logotipo es la imagen vectorial de la marca y tiene nombre para lectores de pantalla.
-    await expect(page.locator('#entryExperience .entry-logo')).toHaveAttribute(
+    // (Hay dos: la clara del modo oscuro y la de tinta del modo claro; se ve una sola.)
+    await expect(page.locator('#entryExperience .entry-logo:visible')).toHaveAttribute(
       'alt',
       'TayGameStore',
     );
@@ -2001,5 +2002,145 @@ test.describe('panel de administración', () => {
       await operator(page, 'nequi', { enabled: false });
       await operator(page, 'player-verification', { mode: 'operator' });
     }
+  });
+});
+
+test.describe('modo claro y oscuro', () => {
+  test('el interruptor cambia el tema, se recuerda al volver y se aplica antes de pintar', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const html = page.locator('html');
+    // El oscuro es el original.
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    const entrySwitch = page.locator('#entryExperience .entry-theme');
+    await expect(entrySwitch).toHaveAttribute('role', 'switch');
+    await expect(entrySwitch).toHaveAttribute('aria-checked', 'false');
+
+    await entrySwitch.click();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+    // Todos los interruptores (bienvenida y cabecera) dicen lo mismo.
+    for (const sw of await page.locator('[data-theme-toggle]').all()) {
+      await expect(sw).toHaveAttribute('aria-checked', 'true');
+    }
+    expect(await page.evaluate(() => localStorage.getItem('tgs_tema'))).toBe('light');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f3f1fa');
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+      .toBe('rgb(243, 241, 250)');
+
+    // /tema.js va en <head> antes de la hoja de estilos: el tema guardado se aplica sin destello.
+    expect(
+      await page.evaluate(() => {
+        const nodes = [...document.head.children];
+        const script = nodes.findIndex((n) => n.getAttribute('src') === '/tema.js');
+        const css = nodes.findIndex((n) => n.matches('link[rel="stylesheet"]'));
+        return script >= 0 && css >= 0 && script < css;
+      }),
+    ).toBe(true);
+    await page.reload();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+
+    // Dentro de la tienda, el de la cabecera vuelve al original y lo olvida.
+    await enterAsGuest(page);
+    const headerSwitch = page.locator('.header .header-theme');
+    await expect(headerSwitch).toHaveAttribute('aria-checked', 'true');
+    await headerSwitch.click();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
+    await expect(headerSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(await page.evaluate(() => localStorage.getItem('tgs_tema'))).toBeNull();
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#050815');
+  });
+
+  test('en modo claro, el logotipo de la bienvenida es el de tinta', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('tgs_tema', 'light'));
+    await page.goto('/');
+    await expect(page.locator('#entryExperience .entry-logo-tinta')).toBeVisible();
+    await expect(page.locator('#entryExperience .entry-logo:not(.entry-logo-tinta)')).toBeHidden();
+  });
+});
+
+test.describe('acceso a la cuenta', () => {
+  test('el foco empieza en la ventana, Tab da la vuelta dentro y Escape vuelve a la bienvenida', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#tgsIntro')).toBeHidden();
+    await expect(page.locator('#loginModal')).toBeVisible();
+    await expect(page.locator('#loginModal .auth-box')).toBeFocused();
+    await expect(page.locator('#loginModal .auth-close')).toHaveAttribute(
+      'aria-label',
+      'Cerrar el acceso',
+    );
+    // Facebook está disponible en el servidor de pruebas: el primer Tab llega a él (Google no).
+    await expect(page.locator('#facebookState')).toHaveText('Disponible');
+    await expect(page.locator('[data-provider="facebook"]')).toHaveAttribute('data-state', 'ok');
+    await expect(page.locator('[data-provider="google"]')).toHaveAttribute('data-state', 'off');
+    await page.keyboard.press('Tab');
+    await expect(page.locator('[data-provider="facebook"]')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#guestBtn')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#loginModal .auth-close')).toBeFocused();
+    // El foco no se escapa a la tienda de detrás.
+    await page.keyboard.press('Tab');
+    await expect(page.locator('[data-provider="facebook"]')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('#loginModal .auth-close')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#loginModal')).toBeHidden();
+    await expect(page.locator('#entryExperience')).toBeVisible();
+  });
+
+  test('sin proveedores disponibles, el invitado es la opción principal y se explica', async ({
+    page,
+  }) => {
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch();
+      // json() devuelve `any`: se recibe como `unknown` y se comprueba que sea un objeto.
+      const config: unknown = await response.json();
+      if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+        throw new Error('/api/config no devolvió un objeto JSON');
+      }
+      await route.fulfill({
+        response,
+        json: { ...config, auth: { google: false, facebook: false } },
+      });
+    });
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#loginModal')).toBeVisible();
+    await expect(page.locator('#loginModal .auth-box')).toHaveClass(/solo-invitado/);
+    await expect(page.locator('#authUnavailable')).toBeVisible();
+    await page.locator('#guestBtn').click();
+    await expect(page.locator('#loginModal')).toBeHidden();
+  });
+
+  test('al elegir Facebook el botón queda ocupado y la próxima vez se marca «Último usado»', async ({
+    page,
+  }) => {
+    // 204 = el navegador no cambia de página: el botón queda como lo ve quien espera a Facebook.
+    await page.route('**/auth/facebook', (route) => route.fulfill({ status: 204 }));
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#tgsIntro')).toBeHidden();
+    const facebook = page.locator('[data-provider="facebook"]');
+    await expect(facebook).toHaveAttribute('aria-disabled', 'false');
+    await facebook.click();
+    await expect(facebook).toHaveClass(/is-loading/);
+    await expect(facebook).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#facebookState')).toHaveText('Abriendo Facebook…');
+    expect(await page.evaluate(() => localStorage.getItem('tgs_ultimo_acceso'))).toBe('facebook');
+    // Un segundo clic mientras está ocupado no hace nada.
+    await facebook.click({ force: true });
+    await expect(facebook).toHaveClass(/is-loading/);
+
+    await page.goto('/');
+    await page.locator('#enterStoreBtn').click();
+    await expect(page.locator('#tgsIntro')).toBeHidden();
+    await expect(facebook).not.toHaveClass(/is-loading/);
+    await expect(facebook.locator('.oauth-last')).toBeVisible();
+    await expect(page.locator('[data-provider="google"] .oauth-last')).toBeHidden();
   });
 });

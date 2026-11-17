@@ -1,0 +1,199 @@
+/*
+ * Interruptor de tema claro / oscuro (2026-11-17). El oscuro es el diseño original; el claro, su
+ * versión de día (53-tema-claro.css). Un riel con luna y sol y una perilla que se desliza: en
+ * oscuro, perilla violeta sobre la luna; en claro, perilla dorada sobre el sol. Es role="switch"
+ * con aria-checked (claro = activado) y área táctil de 44 px.
+ */
+.theme-switch {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.theme-switch-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 58px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(14, 20, 54, 0.95), rgba(8, 12, 32, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.28);
+  transition:
+    background 0.35s ease,
+    border-color 0.25s ease,
+    box-shadow 0.35s ease;
+}
+.theme-switch-track svg {
+  position: relative;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  color: #7f8bbd;
+  transition:
+    color 0.3s ease,
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.theme-switch-track .ts-moon {
+  color: #fff;
+}
+.theme-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b3dff, #2f8bff);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 3px 12px rgba(139, 61, 255, 0.6);
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.35s ease,
+    box-shadow 0.35s ease;
+}
+:is(.theme-switch, .menu-theme):hover .theme-switch-track {
+  border-color: rgba(55, 214, 255, 0.55);
+}
+:is(.theme-switch, .menu-theme):active .theme-switch-knob {
+  width: 26px;
+}
+.theme-switch:focus-visible {
+  outline: none;
+}
+.theme-switch:focus-visible .theme-switch-track,
+.menu-theme:focus-visible .theme-switch-track {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+:root[data-theme='light'] .theme-switch-knob {
+  transform: translateX(28px);
+  background: linear-gradient(135deg, #ffc247, #ff8a2a);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 3px 12px rgba(255, 138, 42, 0.55);
+}
+:root[data-theme='light'] :is(.theme-switch, .menu-theme):active .theme-switch-knob {
+  transform: translateX(24px);
+}
+:root[data-theme='light'] .theme-switch-track .ts-moon {
+  color: #8a86b4;
+  transform: rotate(-30deg);
+}
+:root[data-theme='light'] .theme-switch-track .ts-sun {
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+/* En la bienvenida: debajo del botón de sonido, y aparece y se va con él. */
+.entry-theme {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 50px);
+  right: 14px;
+  z-index: 4;
+}
+#entryExperience:not(.entry-ready) .entry-theme {
+  opacity: 0;
+  animation: tgsShow 0.3s 2.5s forwards;
+}
+#entryExperience.entry-hold .entry-theme {
+  animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #entryExperience.entry-ready .entry-theme {
+    animation: tgsFade 0.5s 0.5s backwards;
+  }
+  #entryExperience.entry-leaving .entry-theme {
+    animation: tgsLeave 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+}
+
+/* Cambio de tema: el nuevo se abre en círculo desde el interruptor (View Transitions). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.tema-cambiando::view-transition-new(root) {
+  animation: temaRevela 0.62s cubic-bezier(0.65, 0, 0.35, 1);
+}
+@keyframes temaRevela {
+  from {
+    clip-path: circle(0 at var(--tema-x, 100%) var(--tema-y, 0));
+  }
+  to {
+    clip-path: circle(var(--tema-r, 150vmax) at var(--tema-x, 100%) var(--tema-y, 0));
+  }
+}
+
+/* En el celular la cabecera no tiene sitio (el carrito se saldría de la pantalla): allí el
+   interruptor vive en el menú de la cuenta y en el pie. */
+.footer-theme {
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+.footer-theme > span {
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+/* Menú de la cuenta: la fila «Modo claro» entera es el interruptor (a lo ancho como las demás
+   opciones; en pantallas diminutas un botón pegado al borde quedaba bajo el de WhatsApp). */
+.account-menu button.menu-theme .menu-theme-label {
+  flex: 1;
+}
+.account-menu button.menu-theme .theme-switch-track {
+  flex: none;
+  width: 50px;
+  height: 26px;
+  padding: 0 6px;
+}
+.account-menu button.menu-theme .theme-switch-track svg {
+  width: 13px;
+  height: 13px;
+  color: #7f8bbd;
+}
+.account-menu button.menu-theme .theme-switch-track .ts-moon {
+  color: #fff;
+}
+.account-menu button.menu-theme .theme-switch-knob {
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+}
+:root[data-theme='light'] .account-menu button.menu-theme .theme-switch-knob {
+  transform: translateX(24px);
+}
+:root[data-theme='light'] .account-menu button.menu-theme .theme-switch-track .ts-moon {
+  color: #8a86b4;
+}
+:root[data-theme='light'] .account-menu button.menu-theme .theme-switch-track .ts-sun {
+  color: #fff;
+}
+@media (max-width: 560px) {
+  .header-theme {
+    display: none;
+  }
+  .footer-theme {
+    display: flex;
+  }
+}

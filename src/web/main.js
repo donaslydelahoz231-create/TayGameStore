@@ -10,8 +10,10 @@ import { initVisualEffects } from './js/effects/visual.js';
 import { pauseOffscreenAnimations } from './js/effects/offscreen.js';
 import { animateWelcome } from './js/effects/bienvenida.js';
 import { followHeroPanel } from './js/effects/vitrina.js';
+import { initTheme } from './js/effects/tema.js';
 
 guardStyles();
+initTheme();
 startStore();
 initVisualEffects();
 initCinematicEffects();

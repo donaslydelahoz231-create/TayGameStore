@@ -5,8 +5,8 @@
  *          su eje de ancho da los rótulos estrechos). Fuentes en styles/fonts.css.
  * Escala:  --t-* para texto (fluida con clamp: crece con la pantalla sin saltos) y --ctl-* para
  *          la altura de los controles (botones y campos), mayor en el celular para el dedo.
- * Acceso:  la ventana de acceso (#loginModal) no cambia: conserva sus fuentes, tamaños e íconos.
- *          Por eso las reglas de componentes llevan :not(#loginModal *).
+ * Acceso:  las reglas de componentes llevan :not(#loginModal *): la ventana de acceso tiene su
+ *          propio diseño (54-acceso.css, 2026-11-17, con la letra de la marca).
  */
 :root {
   --font-display: 'Unbounded', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

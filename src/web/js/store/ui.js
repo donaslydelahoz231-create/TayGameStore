@@ -48,7 +48,11 @@ export function modal(id, open) {
     // Foco dentro del diálogo (el primer control), sin desplazar la página.
     requestAnimationFrame(() => {
       if (el.hidden || el.contains(document.activeElement)) return;
-      el.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
+      // Una ventana puede marcar dónde empieza el foco (el acceso: la propia caja, que anuncia su
+      // título; así un Enter de más no abre Google ni Facebook sin querer).
+      (el.querySelector('[data-focus-start]') || el.querySelector(FOCUSABLE))?.focus({
+        preventScroll: true,
+      });
     });
   } else if (!open && wasOpen) {
     const opener = openers.get(id);
@@ -57,6 +61,36 @@ export function modal(id, open) {
       opener.focus({ preventScroll: true });
     }
   }
+}
+
+/**
+ * Con una ventana abierta (aria-modal), Tab y Mayús+Tab dan la vuelta dentro de ella: el foco no
+ * se escapa a la tienda que queda detrás.
+ */
+export function trapModalFocus() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const open = [...document.querySelectorAll('.modal:not([hidden])')].pop();
+    if (!open) return;
+    const items = [...open.querySelectorAll(FOCUSABLE)].filter(
+      (n) => n.getClientRects().length && n.getAttribute('aria-disabled') !== 'true',
+    );
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    const atStart = active === first || active?.hasAttribute?.('data-focus-start');
+    if (!open.contains(active)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && atStart) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
 }
 
 /** Cierra todos los modales abiertos (Escape), devolviendo el foco. */
