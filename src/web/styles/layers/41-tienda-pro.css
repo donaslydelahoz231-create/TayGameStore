@@ -46,6 +46,30 @@
   font-family: var(--display);
   font-size: 1.02rem;
 }
+/*
+ * Todas las tarjetas del mismo tamaño (pedido del dueño, 2026-11-18). En pantallas angostas,
+ * «520 + 52 Diamantes» o «1.060 + 106 Diamantes» ocupan dos líneas y su fila quedaba más alta
+ * (en un celular de 360 px, tarjetas de 324 y de 368 px). Ahora cada fila mide lo que la tarjeta
+ * más alta y, dentro de cada tarjeta, el precio y los botones quedan abajo, alineados entre todas.
+ */
+#products {
+  grid-auto-rows: 1fr;
+}
+#products .product {
+  display: flex;
+  flex-direction: column;
+}
+#products .product-desc {
+  margin-bottom: auto;
+}
+/* El precio también queda a la misma altura: «Disponible» (o «Ahorra …» en la tarifa promo) va
+   siempre debajo del precio. Antes bajaba en unas tarjetas sí y en otras no, según el ancho de cada
+   cifra, y con eso el precio de cada tarjeta quedaba a distinta altura; así queda igual con
+   cualquier precio, tarifa o pantalla. */
+#products .product-price {
+  flex-direction: column;
+  align-items: flex-start;
+}
 
 /* Promoción como banner con imagen: el cofre se funde con el fondo y el texto queda a la izquierda. */
 #app .promo-strip {
