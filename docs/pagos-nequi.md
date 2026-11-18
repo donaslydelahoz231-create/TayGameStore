@@ -92,8 +92,17 @@ Tres capas; cada una basta por sí sola para impedir una confirmación cruzada.
      el asunto del correo «¡Envío exitoso! · Pedido TGS-…»).
 
 La llave y el celular del dueño solo los ve el comprador de **su propio** pedido Nequi y solo
-mientras espera pago. No aparecen en `/api/config`, en el código, en los correos ni en la hoja de
-Google. La llave se valida al arrancar: alfanumérica con `@`. Una llave hecha solo de números se
+mientras espera pago. No aparecen en el código, en los correos ni en la hoja de Google, y con el
+pago en línea (`ORDER_CHANNEL=checkout`) tampoco en `/api/config`.
+
+**Excepción, decisión del dueño (2026-11-11, confirmada el 2026-11-18: «Mostrarla en la
+página»):** con el pedido por WhatsApp (`ORDER_CHANNEL` `whatsapp` o `ambos`) ese canal no crea
+pedidos, así que el cliente paga antes de enviar el mensaje: `/api/config` publica en
+`orderPayment.nequi` la llave, el celular y el titular que estén configurados (solo esos; lo que
+falte va como `null`), y la tienda los muestra en «Paga tu pedido». Cualquiera que abra ese paso
+puede verlos. Para dejar de publicarlos basta con volver a `ORDER_CHANNEL=checkout` o apagar Nequi.
+
+La llave se valida al arrancar: alfanumérica con `@`. Una llave hecha solo de números se
 rechaza porque podría ser un número de documento (`docs/datos-del-propietario.md`), salvo `@` más
 un celular (10 dígitos que empiezan por 3): ninguna cédula colombiana tiene esa forma.
 

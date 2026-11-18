@@ -20,6 +20,7 @@ import { consumeAccessFragment, renderTrackAccess } from './features/order-acces
 import { renderPins } from './features/pins.js';
 import { loadReviews, renderDeliveryTime, renderReviewBox } from './features/reviews.js';
 import { renderPayMeansHint } from './features/pay-means.js';
+import { renderWhatsAppOrder } from './features/whatsapp-order.js';
 import { renderNequi } from './features/nequi.js';
 import { renderPlayer, renderPlayerMode } from './features/player.js';
 import { bootstrapConfig, renderService } from './features/service.js';
@@ -40,6 +41,7 @@ registerRenderers([
   renderDrawer,
   renderInvoice,
   renderPayMeansHint,
+  renderWhatsAppOrder,
   renderNequi,
   renderChecks,
   renderTrackAccess,

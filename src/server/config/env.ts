@@ -289,6 +289,12 @@ const envSchema = z
      */
     PLAYER_VERIFICATION: z.enum(['customer', 'operator']).default('customer'),
     /**
+     * Cómo cierra el cliente su pedido: `checkout` (pago en línea, como siempre), `whatsapp` (envía
+     * el pedido armado al WhatsApp de SUPPORT_WHATSAPP; la tienda no crea ni cobra nada) o `ambos`.
+     * Por defecto `checkout`: la tienda no cambia mientras el dueño no elija otro canal.
+     */
+    ORDER_CHANNEL: z.enum(['checkout', 'whatsapp', 'ambos']).default('checkout'),
+    /**
      * Entrega automática con el inventario: al aprobarse el pago, si hay PIN para todas las
      * unidades, el pedido queda entregado y el cliente ve sus PIN (pedido y correo) para
      * canjearlos en el sitio oficial (pagostore.com). Si falta alguno, se entrega a mano.
@@ -493,6 +499,10 @@ const envSchema = z
         'el acceso de administración requiere Google OAuth o PUBLIC_BASE_URL (huella/llave)',
       );
     }
+    // Los pedidos por WhatsApp llegan al número oficial: nunca a uno inventado ni vacío.
+    if (env.ORDER_CHANNEL !== 'checkout' && !env.SUPPORT_WHATSAPP) {
+      issue('SUPPORT_WHATSAPP', `obligatoria con ORDER_CHANNEL=${env.ORDER_CHANNEL}`);
+    }
     if (env.PAYMENTS_ENABLED) {
       if (!env.MP_ACCESS_TOKEN) issue('MP_ACCESS_TOKEN', 'obligatoria con PAYMENTS_ENABLED');
       if (!env.MP_WEBHOOK_SECRET) issue('MP_WEBHOOK_SECRET', 'obligatoria con PAYMENTS_ENABLED');
@@ -621,6 +631,8 @@ export interface AppConfig {
     maxOpenOrdersPerUid: number;
     termsVersion: string;
     playerVerification: 'customer' | 'operator';
+    /** Canal para cerrar el pedido (ORDER_CHANNEL). */
+    orderChannel: 'checkout' | 'whatsapp' | 'ambos';
     pinAutoDelivery: boolean;
     sellOnlyWithStock: boolean;
   };
@@ -811,6 +823,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       maxOpenOrdersPerUid: env.LIMIT_MAX_OPEN_ORDERS_PER_UID,
       termsVersion: env.TERMS_VERSION,
       playerVerification: env.PLAYER_VERIFICATION,
+      orderChannel: env.ORDER_CHANNEL,
       pinAutoDelivery: env.PIN_AUTO_DELIVERY,
       sellOnlyWithStock: env.SELL_ONLY_WITH_STOCK,
     },

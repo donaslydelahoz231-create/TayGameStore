@@ -28,8 +28,17 @@ if (wa && !/^\d{8,15}$/.test(wa))
   throw new Error('PREVIEW_SUPPORT_WHATSAPP no es un número válido');
 if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail))
   throw new Error('PREVIEW_SUPPORT_EMAIL no es un correo válido');
+// Canal para cerrar el pedido en la vista previa (ORDER_CHANNEL del servidor): checkout por defecto.
+const channel = (process.env.PREVIEW_ORDER_CHANNEL || 'checkout').trim();
+if (!['checkout', 'whatsapp', 'ambos'].includes(channel))
+  throw new Error('PREVIEW_ORDER_CHANNEL debe ser checkout, whatsapp o ambos');
 let shim = await readFile(join(import.meta.dirname, 'shim.js'), 'utf8');
-if (wa || mail) {
+const channelMark = /\/\*__PREVIEW_ORDER_CHANNEL__\*\/ '[a-z]+'/;
+if (!channelMark.test(shim)) throw new Error('No se encontró el marcador del canal en shim.js');
+shim = shim.replace(channelMark, JSON.stringify(channel));
+// Con pedidos por WhatsApp el destino es solo el número real (PREVIEW_SUPPORT_WHATSAPP): sin él
+// queda vacío, nunca el número ficticio de la vista previa.
+if (wa || mail || channel !== 'checkout') {
   const marked = /\/\*__PREVIEW_SUPPORT__\*\/ \{[^}]*\}/;
   if (!marked.test(shim)) throw new Error('No se encontró el marcador de soporte en shim.js');
   shim = shim.replace(

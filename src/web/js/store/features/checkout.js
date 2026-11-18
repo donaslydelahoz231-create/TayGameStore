@@ -13,6 +13,7 @@ import { chosenMethod, chosenMpMeans, chosenPayMeans } from './pay-means.js';
 import { changePaymentMethod, startNequi } from './nequi.js';
 import { lookupExpired, verifyPlayer } from './player.js';
 import { isFinalOrderStatus, setCurrentOrder, settlePolling, startPolling } from './orders.js';
+import { orderChannel } from './whatsapp-message.js';
 
 // Checkout: el pedido sigue SOLO el flujo del método elegido.
 //   1. "Pagar": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
@@ -168,6 +169,8 @@ export function goToNextStep() {
     scrollToSection(order.status === 'AWAITING_VERIFICATION' ? 'verificacion' : 'factura');
     return;
   }
+  // Con el pedido por WhatsApp el último paso es su botón (revisar, pagar y enviar).
+  const channel = orderChannel(state.serverConfig);
   const steps = [
     ['verificacion', 'playerUid', () => state.uidAccepted],
     ['factura', 'customerName', () => state.customerName.trim().length > 0],
@@ -176,7 +179,7 @@ export function goToNextStep() {
     ['factura', 'acceptTerms', () => $('acceptTerms').checked],
   ];
   const missing = steps.find(([, , done]) => !done());
-  const [section, field] = missing ?? ['factura', 'payBtn'];
+  const [section, field] = missing ?? ['factura', channel === 'checkout' ? 'payBtn' : 'waOrderBtn'];
   scrollToSection(section);
   setTimeout(() => $(field)?.focus({ preventScroll: true }), 450);
 }

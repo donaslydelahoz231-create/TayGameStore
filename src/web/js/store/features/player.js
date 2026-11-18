@@ -396,10 +396,24 @@ export async function finderSearch() {
   $('finderUseBtn').onclick = () => useFinderId(id, found);
 }
 
+/**
+ * Línea «Lista antes de pagar»: con nickname (consulta o equipo) dice «Nickname confirmado»; cuando
+ * el cliente confirma su propio ID (escrito dos veces) dice eso, que es lo que de verdad se comprueba.
+ */
+function setPlayerCheckLabel(selfConfirm) {
+  const line = $('nickState')?.closest('.check-line');
+  if (!line) return;
+  const b = line.querySelector('b');
+  const small = line.querySelector('small');
+  if (b) b.textContent = selfConfirm ? 'ID confirmado' : 'Nickname confirmado';
+  if (small) small.textContent = selfConfirm ? 'Lo escribiste dos veces' : 'Jugador identificado';
+}
+
 /** Textos de ayuda según el modo de verificación que ofrece el servidor. */
 export function renderPlayerMode() {
   // Otros juegos: el texto lo pone renderGames (aún no están a la venta).
   if (state.game !== 'freefire') return;
+  setPlayerCheckLabel(!lookupEnabled() && selfConfirmMode());
   if (!lookupEnabled()) {
     if (!selfConfirmMode()) {
       setText(

@@ -26,6 +26,13 @@
     whatsapp: '570000000000',
     email: 'soporte@example.com',
   };
+  // Canal para cerrar el pedido en la vista previa: build.mjs lo reemplaza con
+  // PREVIEW_ORDER_CHANNEL (checkout, whatsapp o ambos). Sin variable, la tienda de siempre.
+  var PREVIEW_ORDER_CHANNEL = /*__PREVIEW_ORDER_CHANNEL__*/ 'checkout';
+  // El pedido por WhatsApp abre el chat solo con el número real del dueño (PREVIEW_SUPPORT_WHATSAPP
+  // al construir). Con el número ficticio, o sin número, nunca se abre WhatsApp.
+  var FICTITIOUS_WHATSAPP = '570000000000';
+  var WHATSAPP_DEMO = PREVIEW_ORDER_CHANNEL !== 'checkout';
   // Cuenta Nequi FICTICIA de la vista previa: nunca la real del dueño (esa solo vive en Render).
   var PREVIEW_NEQUI = { brebKey: '@tay-demo', phone: null, holder: 'Titular de ejemplo' };
   var NEQUI_REVIEW_HOURS = 24;
@@ -150,12 +157,37 @@
   }
 
   // ── Catálogo ──
-  function promoActive(p) {
+  // Promo de fin de semana como en producción (PROMO_SCHEDULE=weekends, domain/pricing.ts): de
+  // sábado 00:00 a lunes 00:00, hora de Colombia (UTC-5 todo el año). La vista previa muestra y
+  // calcula los mismos precios que la tienda ese día.
+  var COLOMBIA_OFFSET_MS = -5 * 60 * 60 * 1000;
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  function weekendWindow(nowMs) {
+    var local = new Date(nowMs + COLOMBIA_OFFSET_MS);
+    var midnight = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+    var daysSinceSaturday = (local.getUTCDay() + 1) % 7; // sábado 0, domingo 1, lunes 2…
+    var start = midnight - daysSinceSaturday * DAY_MS;
+    if (daysSinceSaturday >= 2) start += 7 * DAY_MS; // ya pasó: el próximo sábado
+    var startsAt = start - COLOMBIA_OFFSET_MS;
+    return { startsAt: startsAt, endsAt: startsAt + 2 * DAY_MS, active: false };
+  }
+  function promoWindow() {
+    var now = Date.now();
+    var w = weekendWindow(now);
+    w.active = now >= w.startsAt && now < w.endsAt;
+    return w;
+  }
+  /** Promo configurada y vigente (sin contar el horario de fin de semana). */
+  function promoConfigured(p) {
     return (
       p.promoPriceCop !== null &&
       p.promoPriceCop !== undefined &&
+      p.promoPriceCop < p.priceCop &&
       (!p.promoEndsAt || new Date(p.promoEndsAt).getTime() > Date.now())
     );
+  }
+  function promoActive(p) {
+    return promoConfigured(p) && promoWindow().active;
   }
   function unitPrice(p) {
     return promoActive(p) ? p.promoPriceCop : p.priceCop;
@@ -169,9 +201,17 @@
       units: p.units,
       listPriceCop: p.priceCop,
       priceCop: unitPrice(p),
-      promoEndsAt: promoActive(p) ? p.promoEndsAt : null,
-      // Igual que el servidor: la promo configurada, para la tabla de tarifas.
-      promoPriceCop: promoActive(p) && p.promoPriceCop < p.priceCop ? p.promoPriceCop : null,
+      promoEndsAt: promoActive(p)
+        ? new Date(
+            Math.min(
+              promoWindow().endsAt,
+              p.promoEndsAt ? new Date(p.promoEndsAt).getTime() : Infinity,
+            ),
+          ).toISOString()
+        : null,
+      // Igual que el servidor: la promo configurada (rija hoy o el próximo fin de semana), para la
+      // tabla de tarifas. Lo que se cobra es `priceCop`.
+      promoPriceCop: promoConfigured(p) ? p.promoPriceCop : null,
     };
   }
   function activeProducts(db) {
@@ -668,10 +708,38 @@
         paymentMethod: 'mercadopago',
         paymentMethods: { mercadopago: true, nequiManual: true, nequiPush: false },
         auth: { google: true, discord: true, facebook: true },
-        playerLookup: true,
+        // Pedido por WhatsApp: el ID como en producción (el cliente lo escribe dos veces y lo
+        // confirma, sin proveedor de consulta). La tienda de siempre conserva su simulación.
+        playerLookup: !WHATSAPP_DEMO,
+        playerVerification: WHATSAPP_DEMO ? 'customer' : undefined,
+        // Cuenta Nequi para transferir en el pedido por WhatsApp: siempre la FICTICIA de la vista
+        // previa (nunca la del dueño, que solo vive en Render).
+        orderPayment: WHATSAPP_DEMO
+          ? {
+              nequi: {
+                brebKey: PREVIEW_NEQUI.brebKey,
+                phone: PREVIEW_NEQUI.phone,
+                holder: PREVIEW_NEQUI.holder,
+              },
+            }
+          : undefined,
         support: PREVIEW_SUPPORT,
         termsVersion: TERMS_VERSION,
         limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },
+        // Demostración del pedido por WhatsApp (ORDER_CHANNEL en el servidor). `demo` marca el
+        // pedido y el mensaje como DEMO: no se cobra ni se registra nada.
+        orderChannel: PREVIEW_ORDER_CHANNEL,
+        demo: true,
+        promo: (function () {
+          var w = promoWindow();
+          return {
+            schedule: 'weekends',
+            timeZone: 'America/Bogota',
+            active: w.active,
+            startsAt: new Date(w.startsAt).toISOString(),
+            endsAt: new Date(w.endsAt).toISOString(),
+          };
+        })(),
       });
     if (path === '/api/catalog' && method === 'GET')
       return json(200, { game: 'freefire', products: activeProducts(db).map(publicProduct) });
@@ -1122,6 +1190,14 @@
         event.target.closest &&
         event.target.closest('a[href^="https://wa.me/"]:not([href^="https://wa.me/?"])');
       if (!link) return;
+      // «Enviar pedido por WhatsApp» con el número real configurado al construir: se abre el chat
+      // con el mensaje listo (el cliente lo revisa y lo envía él mismo).
+      if (
+        link.id === 'waOrderSend' &&
+        PREVIEW_SUPPORT.whatsapp &&
+        PREVIEW_SUPPORT.whatsapp !== FICTITIOUS_WHATSAPP
+      )
+        return;
       event.preventDefault();
       note(
         'Vista previa: aquí se abriría WhatsApp con el mensaje listo. En tu tienda real abre tu número oficial; en esta prueba el número es ficticio y no se contacta a nadie.',
@@ -1137,7 +1213,11 @@
     box.innerHTML =
       '<div class="tgsp-card"><div class="tgsp-eyebrow">ENTORNO DE PRUEBA</div><h2>Cómo probar tu tienda</h2>' +
       '<p>Es tu tienda real (misma interfaz y mismas reglas de pedido), funcionando dentro de tu navegador. No hay servidor, dinero ni cuentas reales; los datos se guardan solo en este navegador.</p>' +
-      '<ul><li>ID de jugador que empieza por <code>9</code>: aparece nickname y región. Por <code>8</code>: "no existe". Otro: verificación manual por el equipo.</li>' +
+      (WHATSAPP_DEMO
+        ? '<ul><li><b>Pedido por WhatsApp (DEMO):</b> eliges paquetes, escribes tu ID dos veces y pulsas «Sí, es mi ID», completas tus datos y eliges cómo pagar.</li>' +
+          '<li>«Revisar, pagar y enviar» muestra el resumen. Con <b>Nequi</b> ves una cuenta <b>ficticia</b>: escribe 4 dígitos cualquiera, marca «Ya hice la transferencia» y envía. Con tarjeta, PSE, Efecty o saldo se pide el enlace de pago por WhatsApp.</li>' +
+          '<li>Nada se cobra ni se registra: el mensaje lleva una referencia <b>DEMO</b>.</li>'
+        : '<ul><li>ID de jugador que empieza por <code>9</code>: aparece nickname y región. Por <code>8</code>: "no existe". Otro: verificación manual por el equipo.</li>') +
       '<li>El pago abre una <b>pasarela de prueba</b> (no es Mercado Pago): eliges aprobar o rechazar.</li>' +
       '<li><b>Nequi</b> muestra una llave <b>ficticia</b>. Tras «Ya transferí» simulas la revisión del dueño: confirmar, rechazar o revisar después.</li>' +
       '<li>WhatsApp no se abre: el número es ficticio y verás un aviso. En tu tienda abre tu canal oficial.</li>' +

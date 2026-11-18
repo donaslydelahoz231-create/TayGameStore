@@ -103,6 +103,18 @@ describe('loadConfig', () => {
     );
   });
 
+  it('ORDER_CHANNEL: checkout por defecto; whatsapp y ambos exigen SUPPORT_WHATSAPP', () => {
+    expect(loadConfig({}).orders.orderChannel).toBe('checkout');
+    for (const channel of ['whatsapp', 'ambos']) {
+      expect(configError({ ORDER_CHANNEL: channel }).issues.join()).toContain('SUPPORT_WHATSAPP');
+      // Número ficticio de prueba (57 + diez ceros no existe en Colombia).
+      const config = loadConfig({ ORDER_CHANNEL: channel, SUPPORT_WHATSAPP: '+570000000000' });
+      expect(config.orders.orderChannel).toBe(channel);
+      expect(config.support.whatsapp).toBe('570000000000');
+    }
+    expect(configError({ ORDER_CHANNEL: 'telegram' }).issues.join()).toContain('ORDER_CHANNEL');
+  });
+
   it('no permite límites antifraude por encima de los fijados por el propietario', () => {
     expect(configError({ LIMIT_MAX_UNITS_PER_PRODUCT: '6' }).issues.join()).toContain(
       'LIMIT_MAX_UNITS_PER_PRODUCT',

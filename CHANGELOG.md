@@ -5,6 +5,26 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Pedido por WhatsApp y tarjetas del catálogo del mismo tamaño (2026-11-18)
+
+- **Pedido por WhatsApp** (versión 1, elegida por el dueño; canal «WhatsApp + pago en línea» con
+  `ORDER_CHANNEL=ambos`): debajo del botón de pagar aparece «Revisar, pagar y enviar». El cliente
+  revisa su pedido (cliente, ID, productos, descuentos y total con una referencia `WA-XXXXXX`),
+  ve cómo pagar y lo envía a WhatsApp con un mensaje ordenado. Con Nequi ve el total, la cuenta y
+  la referencia, y debe escribir los 4 últimos dígitos de su cuenta y marcar «Ya hice la
+  transferencia» antes de enviar; con tarjeta, PSE, Efecty o saldo pide el enlace de pago seguro.
+  Este canal no crea pedidos ni cobra: el dueño confirma por WhatsApp. El pago en línea sigue
+  igual. Con `ORDER_CHANNEL=checkout` (por defecto) la tienda no cambia.
+- La cuenta Nequi (llave, celular y titular configurados) se publica en `/api/config` solo con
+  `ORDER_CHANNEL` `whatsapp` o `ambos` y Nequi activo (decisión del dueño, docs/pagos-nequi.md).
+- El pedido por WhatsApp tiene versión de día: fichas claras y avisos en ámbar legible.
+- **Tarjetas del catálogo**: todas miden lo mismo en cada pantalla (antes, en un celular de
+  360 px, unas medían 324 px y otras 368 px porque algunos nombres ocupan dos líneas). El precio y
+  los botones quedan a la misma altura en todas, y «Disponible» (o «Ahorra …») va siempre debajo
+  del precio.
+- **Pruebas**: unitarias del mensaje y del canal, de API para la cuenta Nequi y e2e del flujo por
+  WhatsApp (sin contactar a nadie: número y cuenta ficticios y wa.me respondido en local).
+
 ### Modo claro «Arena esports» y presentación con compuertas (2026-11-17)
 
 - **Modo claro «Arena esports»** (el oscuro no cambia): paleta fría y propia de una tienda gamer
