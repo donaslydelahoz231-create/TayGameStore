@@ -3717,3 +3717,51 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
 - **GitHub**: CI 6/6, CodeQL y chequeo de producción de `8a6d6bc` en verde.
 - **NO VERIFICADO**: el acceso completo con Google en producción (no se inició sesión para no crear
   datos); en el celular real del dueño.
+
+## 2026-11-17 · Presentación con compuertas, modo claro «Arena esports», insignia y alerta de CodeQL: publicados
+
+- **Autorización del dueño**: «autorizo publicar la presentación y el modo claro arena», tras
+  revisar la demo en Claude (videos de la presentación en oscuro, claro y celular, cuadros de las
+  compuertas y capturas del modo claro). Aparte: «autorizo publicar la corrección de CodeQL».
+- **Rama**: `claude/taygamestore-production-pfctbn`, comprobada antes y después de cada paso.
+- **Commits** (firmados TayGameStore): `b9348f3` presentación con compuertas y modo claro «Arena
+  esports» (14 archivos, uno nuevo: `55-presentacion.css`) y `7ef4eb0` «Último usado» del acceso
+  guardado como texto fijo (alerta 5 de CodeQL, `js/clear-text-storage-of-sensitive-data`, que
+  marcaba como sensible el nombre del proveedor: era solo «google» o «facebook»).
+- **Antes de publicar**: e2e Chromium 172/172, WebKit 170/170 (+2 omitidas) y Firefox 169/169 (+3
+  omitidas); unitarias 420/420; ESLint, TypeScript, Prettier y build sin errores; escáner 0. Los 15
+  archivos se compararon con su huella (`git hash-object`) justo antes del commit: iguales a los
+  aprobados. Modo claro: 0 textos con poco contraste (bienvenida, tienda y acceso) y ningún texto
+  fuera de la pantalla de 360 a 1440 px.
+- **Publicación**: push sin forzar `398187d..7ef4eb0`; Render `dep-dbua42tg1s2s73ap3s8g` `live` a
+  las 18:52 UTC (1 min 37 s), con «hoja de Google conectada» y sin avisos ni errores. La tienda
+  sirve el HTML con las compuertas (sin el diamante) y el CSS del build del commit; `/api/health` y
+  `/api/ready` 200. Tiempos medidos en la tienda real (Chromium): presentación ~2,1 s (antes
+  ~3,55 s) y de «Entrar» al acceso a la vista ~1,25 s (antes ~1,7 s). Modo claro en la tienda real:
+  sin rótulos cortos partidos a 1280 y 390 px.
+- **GitHub**: CodeQL y chequeo de producción de `7ef4eb0` en verde; alerta 5 cerrada (0 alertas
+  abiertas de CodeQL y de secretos). La CI de `7ef4eb0` se canceló sola al subir `912f57a` (el flujo
+  cancela la ejecución anterior de la rama); lo que alcanzó a correr pasó.
+- **Insignia de Tay en modo claro** (pedido del dueño, «autorizo publicar la insignia»): `226c829`
+  cambia solo la insignia de la cabecera y el pie a una ficha clara con el filo de neón de «Store»
+  (sobre blanco quedaba un centro lila con las esquinas casi negras). La insignia grande de la
+  pantalla de carga se queda como estaba, por decisión del dueño; la del comprobante y el modo
+  oscuro, también (estilos comparados con la tienda publicada y capturas idénticas byte a byte).
+  Antes de subir: unitarias 421/421, e2e del tema, el logotipo y la accesibilidad 11/11, escáner 0.
+  Push `912f57a..226c829`; Render `dep-dbuad2d9el5s739jvacg` `live` a las 19:11 UTC (1 min 4 s),
+  sin avisos ni errores. En la tienda real, los estilos computados de las cuatro insignias
+  (cabecera, pie, pantalla de carga y comprobante) coinciden con los del commit, y la de la
+  cabecera y el pie se ve como ficha clara.
+- **CI de `226c829`** (incluye los cuatro commits; la de `912f57a` se cancela sola al subir el
+  siguiente): 6/6 en verde (lint, tipos, unitarias y build; integración con PostgreSQL; e2e
+  Chromium, WebKit y Firefox; gitleaks), más CodeQL, chequeo de producción y Pages.
+- **Encontrado después de publicar y corregido**: el barrido nuevo usaba el nombre de animación
+  `tgsScan`, que ya existía (destello de las tarjetas de paquetes, `28-cinematic-v4.css`). No
+  cambiaba nada visible (ese destello está desactivado en las tarjetas con imagen,
+  `41-tienda-pro.css`, y todos los paquetes la tienen), pero habría roto el de un paquete futuro
+  sin imagen. Con «autorizo publicar la corrección del nombre de animación»: `912f57a` lo renombra a
+  `tgsBarrido` y añade `tests/unit/css-keyframes.test.ts` (ningún `@keyframes` repite nombre).
+  Unitarias 421/421 y e2e de movimiento 7/7 antes de subir; push `7ef4eb0..912f57a`; Render
+  `dep-dbua7vtg1s2s73apafq0` `live` a las 19:00 UTC (1 min 15 s), sin avisos ni errores; en la tienda
+  real la presentación usa `tgsBarrido` y mantiene los tiempos.
+- **NO VERIFICADO**: en el celular real del dueño.
