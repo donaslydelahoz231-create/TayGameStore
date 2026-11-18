@@ -5,6 +5,41 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### El pedido le llega solo al dueño, «Compra exitosa» y preguntas con un clic (2026-11-18)
+
+- **El cliente ya no abre WhatsApp** (pedido del dueño: «que solo mediante mi tienda me llegue el
+  pedido»). Con Nequi, «Revisar, pagar y enviar» crea el pedido real antes de mostrar la cuenta;
+  el cliente transfiere, escribe los 4 últimos dígitos, marca «Ya hice la transferencia» y pulsa
+  «Confirmar pago y enviar». El pedido queda en el panel y en la hoja como siempre. Con tarjeta,
+  PSE, Efecty o saldo, el mismo botón lleva al pago en línea (Mercado Pago), como «Pagar».
+- **Pestaña flotante «Compra exitosa»** con el mensaje de espera debajo: «Tu recarga llegará al ID
+  … en un máximo de 30 minutos, apenas verifiquemos tu pago». Sale al pulsar el botón que confirma
+  el pago, tanto «Confirmar pago y enviar» como «Ya transferí» (pago Nequi con «Pagar»), y en ese
+  mismo momento el servidor le escribe al dueño. Pequeña, abajo a la derecha (en el celular, a lo
+  ancho y sobre la barra de compra); se cierra sola o con su ×. No marca nada como pagado: el
+  pedido sigue «por verificar» hasta que el dueño confirma la transferencia.
+- **Aviso al WhatsApp del dueño con CallMeBot** (opcional, `CALLMEBOT_APIKEY`; sin la API de
+  WhatsApp Business): un solo mensaje, «Pedido pagado en TayGameStore», cuando el cliente paga por
+  Nequi y lo confirma (nunca al crear el pedido), en texto plano, sin asteriscos, con datos mínimos
+  autorizados (referencia, ID, servidor, recargas, total y pago;
+  nunca el nombre ni el correo del cliente). Cola con reintentos; si CallMeBot falla, el pedido
+  igual queda en el panel. Migración 0026 (solo amplía la lista de canales de avisos).
+- **Solo Nequi por ahora** (decisión del dueño; más adelante, link de pago): con
+  `MERCADOPAGO_NEW_PAYMENTS=false` la tienda no ofrece Mercado Pago ni abre cobros nuevos, y
+  oculta sus preguntas frecuentes; los pagos de Mercado Pago ya iniciados, los reembolsos y los
+  contracargos se siguen procesando. Por defecto `true`: sin la variable nada cambia.
+- **Titular de Nequi enmascarado** (pedido del dueño: «mantener la privacidad»): en el pedido se
+  ve «Tie*** de Pru***», no el nombre completo, que nunca sale del servidor.
+- **Menos exposición**: la cuenta Nequi ya no se publica en `/api/config`; solo la ve quien tiene
+  un pedido Nequi abierto, como antes del 2026-11-11.
+- **Preguntas frecuentes**: se abren con un solo clic en cualquier parte. Antes, junto a una
+  respuesta abierta, la pregunta cerrada se estiraba (101 px) y solo su título (45 px) respondía.
+  Ahora cada una mide lo suyo y lleva una flecha que indica que se despliega.
+- **Pruebas**: unitarias del envío a CallMeBot (sin red) y de la configuración; integración con la
+  base real (aviso con datos mínimos, reintento, sin repetir al corregir, sin aviso sin clave);
+  e2e del flujo completo en Chromium, WebKit y Firefox (sin abrir WhatsApp, con el aviso al dueño
+  simulado) y de las preguntas frecuentes.
+
 ### Pedido por WhatsApp y tarjetas del catálogo del mismo tamaño (2026-11-18)
 
 - **Pedido por WhatsApp** (versión 1, elegida por el dueño; canal «WhatsApp + pago en línea» con

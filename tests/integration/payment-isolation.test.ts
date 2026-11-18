@@ -699,7 +699,8 @@ describe('8. la entrega sigue protegida contra pagos falsos, duplicados e incons
     const o = await order();
     expect((await customer(h, o, '/nequi')).statusCode).toBe(200);
     expect((await view(h, o)).payment.nequi).toMatchObject({
-      account: { brebKey: '@tiendaprueba', phone: '3001234567', holder: 'Tienda de Prueba' },
+      // El titular va enmascarado: el nombre completo del dueño nunca sale del servidor.
+      account: { brebKey: '@tiendaprueba', phone: '3001234567', holder: 'Tie*** de Pru***' },
       amountCop: o.total,
       reference: o.ref,
     });

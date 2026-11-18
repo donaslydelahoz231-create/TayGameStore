@@ -897,7 +897,9 @@ test.describe('compra completa (invitado)', () => {
       await expect(page.locator('#nequiKey')).toHaveText('@tiendapruebas');
       await expect(page.locator('#nequiCopyKey')).toBeVisible();
       await expect(page.locator('#nequiPhone')).toHaveText('3001234567');
-      await expect(page.locator('#nequiHolder')).toHaveText('Tienda de Pruebas');
+      // Titular enmascarado: el nombre completo del dueño nunca llega al navegador.
+      await expect(page.locator('#nequiHolder')).toHaveText('Tie*** de Pru***');
+      await expect(page.locator('#nequiBox')).not.toContainText('Tienda de Pruebas');
       await expect(page.locator('#nequiHolderCheck')).toBeVisible();
       await expect(page.locator('#nequiRef')).toHaveText(ref);
       await expect(page.locator('#nequiBox')).toContainText('pendiente');
@@ -908,6 +910,10 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#nequiLast4').fill('4321');
       await page.locator('#nequiCustomerRef').fill('M0000PRUEBA');
       await page.locator('#nequiReportBtn').click();
+      // «Ya transferí» muestra la pestaña «Compra exitosa» con la espera (el pedido no queda pagado).
+      await expect(page.locator('#orderSent')).toBeVisible();
+      await expect(page.locator('#orderSentTitle')).toHaveText('Compra exitosa');
+      await expect(page.locator('#orderSentWait')).toContainText('en un máximo de 30 minutos');
       await expect(page.locator('#nequiStatus')).toContainText('Recibimos tu aviso');
       await expect(page.locator('#invoiceState')).toHaveText('Transferencia Nequi por verificar');
       await expect(page.locator('#trackingMessage')).toContainText('Sigue pendiente');

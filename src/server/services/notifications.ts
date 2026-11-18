@@ -16,6 +16,10 @@ import {
   type VerificationStatus,
 } from '../db/schema.js';
 import { paidOrderText } from '../integrations/notify/owner.js';
+import {
+  nequiReportedWhatsApp,
+  type OwnerWhatsAppOrder,
+} from '../integrations/notify/whatsapp-owner.js';
 import type { MailMessage } from '../integrations/notify/email.js';
 import type { OrderEventName, OrderEventPayload } from '../integrations/notify/events.js';
 import { SheetsError } from '../integrations/sheets/google-sheets.js';
@@ -323,7 +327,7 @@ export async function enqueueOrderNotifications(
 
 // ── Contenido ────────────────────────────────────────────────────────────────
 
-interface OrderSnapshot {
+export interface OrderSnapshot {
   reference: string;
   status: string;
   expiresAt: Date | null;
@@ -1320,11 +1324,35 @@ async function sendOne(
       .where(eq(fulfillments.orderId, row.orderId));
     order.topup = fulfillment?.mode === 'provider';
   }
+  if (row.channel === 'whatsapp') {
+    if (!deps.ownerWhatsApp) throw new Error('el WhatsApp del dueño no está configurado');
+    const text = ownerWhatsAppText(row.kind, order);
+    if (text) await deps.ownerWhatsApp.send(text);
+    return;
+  }
   if (row.channel !== 'email') throw new Error('canal inválido para un correo');
   if (!deps.mailer) throw new Error('el correo no está configurado');
   const message = renderEmail(deps, row.kind, order);
   if (!message.to.length) throw new Error('sin destinatarios');
   await deps.mailer.send(message);
+}
+
+/**
+ * Texto del WhatsApp del dueño. Un solo mensaje (pedido del dueño, 2026-11-18: «solo un mensaje,
+ * el más necesario»): «Pedido pagado», cuando el cliente paga por Nequi y lo confirma en la tienda.
+ * Solo datos del pedido, nunca el nombre ni el correo del cliente. `null`: ya no hay nada que avisar.
+ */
+export function ownerWhatsAppText(kind: NotificationKind, order: OrderSnapshot): string | null {
+  if (kind !== 'nequi_reported_owner') throw new Error('canal inválido para este aviso');
+  if (!order.nequiReport) return null;
+  const brief: OwnerWhatsAppOrder = {
+    reference: order.reference,
+    totalCop: order.totalCop,
+    playerUid: order.playerUid,
+    server: order.server,
+    items: order.items.map(({ name, quantity }) => ({ name, quantity })),
+  };
+  return nequiReportedWhatsApp(brief, order.nequiReport);
 }
 
 type ClaimedRow = {

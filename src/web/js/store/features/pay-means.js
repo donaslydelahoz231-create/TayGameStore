@@ -77,6 +77,12 @@ export function renderPayMeansHint() {
   if (nequiOrder && nequiInput) nequiInput.checked = true;
   const faq = $('faqNequi');
   if (faq) faq.hidden = !showNequi;
+  // Con Mercado Pago apagado para pagos nuevos (MERCADOPAGO_NEW_PAYMENTS=false), sus preguntas no
+  // se muestran: dirían que se paga con Mercado Pago.
+  for (const id of ['faqMpPay', 'faqMpPending']) {
+    const item = $(id);
+    if (item) item.hidden = !showMp;
+  }
   const none = showNequi ? (showMp ? NONE_HINTS.both : NONE_HINTS.nequi) : NONE_HINTS.mp;
   const means = chosenPayMeans();
   setText('payMeansHint', means ? HINTS[means] : none);

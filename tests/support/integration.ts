@@ -12,6 +12,7 @@ import type { ServiceDeps } from '../../src/server/services/context.js';
 import { FakePaymentGateway } from './fake-gateway.js';
 import { RecordingEventSink } from './fake-event-sink.js';
 import { RecordingMailer } from './fake-mailer.js';
+import { RecordingOwnerWhatsApp } from './fake-owner-whatsapp.js';
 import { FakePlayerVerifier } from './fake-player-verifier.js';
 import { FakeSocialClient } from './fake-social.js';
 import { FakeTopupProvider } from './fake-topup.js';
@@ -105,6 +106,8 @@ export interface Harness {
   mailer: RecordingMailer;
   /** Webhook de eventos (n8n); solo conectado con `{ events: true }`. */
   events: RecordingEventSink;
+  /** WhatsApp del dueño (CallMeBot simulado); solo conectado con `{ ownerWhatsApp: true }`. */
+  ownerWhatsApp: RecordingOwnerWhatsApp;
   google: FakeGoogle;
   verifier: FakePlayerVerifier;
   shield: AbuseShield;
@@ -122,13 +125,19 @@ export const ADMIN_EMAIL = 'admin@example.com';
 
 export async function createHarness(
   env: Record<string, string> = {},
-  options: { playerVerifier?: boolean; events?: boolean; sheets?: OrderSheetLog } = {},
+  options: {
+    playerVerifier?: boolean;
+    events?: boolean;
+    sheets?: OrderSheetLog;
+    ownerWhatsApp?: boolean;
+  } = {},
 ): Promise<Harness> {
   const url = testAppDatabaseUrl() ?? testDatabaseUrl();
   const database = createDatabase({ url, poolMax: 10 });
   const gateway = new FakePaymentGateway();
   const mailer = new RecordingMailer();
   const events = new RecordingEventSink();
+  const ownerWhatsApp = new RecordingOwnerWhatsApp();
   const google = new FakeGoogle();
   const verifier = new FakePlayerVerifier();
   const facebook = new FakeSocialClient('facebook');
@@ -163,6 +172,7 @@ export async function createHarness(
     playerVerifier: options.playerVerifier === false ? undefined : verifier,
     mailer,
     eventSink: options.events ? events : undefined,
+    ownerWhatsApp: options.ownerWhatsApp ? ownerWhatsApp : undefined,
     orderSheet: options.sheets,
     topupProvider: topup,
     background: (task) => pending.push(task),
@@ -176,6 +186,7 @@ export async function createHarness(
     gateway,
     mailer,
     events,
+    ownerWhatsApp,
     google,
     verifier,
     shield,

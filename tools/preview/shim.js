@@ -29,12 +29,12 @@
   // Canal para cerrar el pedido en la vista previa: build.mjs lo reemplaza con
   // PREVIEW_ORDER_CHANNEL (checkout, whatsapp o ambos). Sin variable, la tienda de siempre.
   var PREVIEW_ORDER_CHANNEL = /*__PREVIEW_ORDER_CHANNEL__*/ 'checkout';
-  // El pedido por WhatsApp abre el chat solo con el número real del dueño (PREVIEW_SUPPORT_WHATSAPP
-  // al construir). Con el número ficticio, o sin número, nunca se abre WhatsApp.
-  var FICTITIOUS_WHATSAPP = '570000000000';
   var WHATSAPP_DEMO = PREVIEW_ORDER_CHANNEL !== 'checkout';
+  // Mercado Pago para pagos nuevos: build.mjs lo apaga con PREVIEW_MERCADOPAGO=off (solo Nequi).
+  var PREVIEW_MERCADOPAGO = /*__PREVIEW_MERCADOPAGO__*/ true;
   // Cuenta Nequi FICTICIA de la vista previa: nunca la real del dueño (esa solo vive en Render).
-  var PREVIEW_NEQUI = { brebKey: '@tay-demo', phone: null, holder: 'Titular de ejemplo' };
+  // El titular ya va enmascarado, como lo entrega el servidor (nequi-view.ts → maskHolder).
+  var PREVIEW_NEQUI = { brebKey: '@tay-demo', phone: null, holder: 'Tit*** de eje***' };
   var NEQUI_REVIEW_HOURS = 24;
   var IS_ADMIN_PAGE = /admin\.html$/.test(location.pathname);
 
@@ -373,13 +373,18 @@
       lookup.uid === body.playerUid &&
       lookup.nickname === body.playerLookup.nickname &&
       new Date(lookup.expiresAt).getTime() > Date.now();
+    // Como el servidor con PLAYER_VERIFICATION=customer (el de la tienda real): el cliente
+    // escribió su ID dos veces y lo confirmó, así que el pedido queda listo para pagar.
+    var selfConfirmed =
+      WHATSAPP_DEMO && !lookupOk && String(body.confirmedPlayerUid || '') === body.playerUid;
+    var ready = lookupOk || selfConfirmed;
     var created = now();
     var order = {
       id: uuid(),
       reference: 'TGS-' + randomChars('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 10),
-      status: lookupOk ? 'AWAITING_PAYMENT' : 'AWAITING_VERIFICATION',
+      status: ready ? 'AWAITING_PAYMENT' : 'AWAITING_VERIFICATION',
       createdAt: created,
-      expiresAt: new Date(Date.now() + (lookupOk ? PAY_TTL_MS : VERIFY_TTL_MS)).toISOString(),
+      expiresAt: new Date(Date.now() + (ready ? PAY_TTL_MS : VERIFY_TTL_MS)).toISOString(),
       game: 'freefire',
       playerUid: body.playerUid,
       customerName: name,
@@ -399,14 +404,23 @@
             verifiedAt: created,
             confirmedAt: created,
           }
-        : {
-            status: 'PENDING',
-            nickname: null,
-            region: null,
-            note: null,
-            verifiedAt: null,
-            confirmedAt: null,
-          },
+        : selfConfirmed
+          ? {
+              status: 'CONFIRMED',
+              nickname: null,
+              region: null,
+              note: 'cliente',
+              verifiedAt: created,
+              confirmedAt: created,
+            }
+          : {
+              status: 'PENDING',
+              nickname: null,
+              region: null,
+              note: null,
+              verifiedAt: null,
+              confirmedAt: null,
+            },
       payment: { status: null, id: null, approvedAt: null, method: null },
       nequiTransfers: [],
       attempts: [],
@@ -706,28 +720,17 @@
         paymentsEnabled: true,
         paymentsMode: 'sandbox',
         paymentMethod: 'mercadopago',
-        paymentMethods: { mercadopago: true, nequiManual: true, nequiPush: false },
+        paymentMethods: { mercadopago: PREVIEW_MERCADOPAGO, nequiManual: true, nequiPush: false },
         auth: { google: true, discord: true, facebook: true },
         // Pedido por WhatsApp: el ID como en producción (el cliente lo escribe dos veces y lo
         // confirma, sin proveedor de consulta). La tienda de siempre conserva su simulación.
         playerLookup: !WHATSAPP_DEMO,
         playerVerification: WHATSAPP_DEMO ? 'customer' : undefined,
-        // Cuenta Nequi para transferir en el pedido por WhatsApp: siempre la FICTICIA de la vista
-        // previa (nunca la del dueño, que solo vive en Render).
-        orderPayment: WHATSAPP_DEMO
-          ? {
-              nequi: {
-                brebKey: PREVIEW_NEQUI.brebKey,
-                phone: PREVIEW_NEQUI.phone,
-                holder: PREVIEW_NEQUI.holder,
-              },
-            }
-          : undefined,
         support: PREVIEW_SUPPORT,
         termsVersion: TERMS_VERSION,
         limits: { maxUnitsPerProduct: 5, maxOrderTotalCop: 1000000 },
-        // Demostración del pedido por WhatsApp (ORDER_CHANNEL en el servidor). `demo` marca el
-        // pedido y el mensaje como DEMO: no se cobra ni se registra nada.
+        // Demostración del envío del pedido desde la tienda (ORDER_CHANNEL en el servidor). `demo`
+        // marca el pedido como DEMO: la cuenta Nequi es la ficticia y no se cobra nada.
         orderChannel: PREVIEW_ORDER_CHANNEL,
         demo: true,
         promo: (function () {
@@ -1190,14 +1193,6 @@
         event.target.closest &&
         event.target.closest('a[href^="https://wa.me/"]:not([href^="https://wa.me/?"])');
       if (!link) return;
-      // «Enviar pedido por WhatsApp» con el número real configurado al construir: se abre el chat
-      // con el mensaje listo (el cliente lo revisa y lo envía él mismo).
-      if (
-        link.id === 'waOrderSend' &&
-        PREVIEW_SUPPORT.whatsapp &&
-        PREVIEW_SUPPORT.whatsapp !== FICTITIOUS_WHATSAPP
-      )
-        return;
       event.preventDefault();
       note(
         'Vista previa: aquí se abriría WhatsApp con el mensaje listo. En tu tienda real abre tu número oficial; en esta prueba el número es ficticio y no se contacta a nadie.',
@@ -1214,9 +1209,9 @@
       '<div class="tgsp-card"><div class="tgsp-eyebrow">ENTORNO DE PRUEBA</div><h2>Cómo probar tu tienda</h2>' +
       '<p>Es tu tienda real (misma interfaz y mismas reglas de pedido), funcionando dentro de tu navegador. No hay servidor, dinero ni cuentas reales; los datos se guardan solo en este navegador.</p>' +
       (WHATSAPP_DEMO
-        ? '<ul><li><b>Pedido por WhatsApp (DEMO):</b> eliges paquetes, escribes tu ID dos veces y pulsas «Sí, es mi ID», completas tus datos y eliges cómo pagar.</li>' +
-          '<li>«Revisar, pagar y enviar» muestra el resumen. Con <b>Nequi</b> ves una cuenta <b>ficticia</b>: escribe 4 dígitos cualquiera, marca «Ya hice la transferencia» y envía. Con tarjeta, PSE, Efecty o saldo se pide el enlace de pago por WhatsApp.</li>' +
-          '<li>Nada se cobra ni se registra: el mensaje lleva una referencia <b>DEMO</b>.</li>'
+        ? '<ul><li><b>Envío del pedido desde la tienda (DEMO):</b> eliges paquetes, escribes tu ID dos veces y pulsas «Sí, es mi ID», completas tus datos y eliges cómo pagar.</li>' +
+          '<li>«Revisar, pagar y enviar» con <b>Nequi</b>: se crea el pedido y ves una cuenta <b>ficticia</b>. Escribe 4 dígitos cualquiera, marca «Ya hice la transferencia» y pulsa «Confirmar pago y enviar»: aparece «Compra exitosa» con la espera. El cliente no abre WhatsApp; en tu tienda real el pedido te llega a tu WhatsApp, a tu panel y a tu hoja.</li>' +
+          '<li>Con tarjeta, PSE, Efecty o saldo se paga en línea, como con «Pagar». Nada se cobra: todo es de prueba.</li>'
         : '<ul><li>ID de jugador que empieza por <code>9</code>: aparece nickname y región. Por <code>8</code>: "no existe". Otro: verificación manual por el equipo.</li>') +
       '<li>El pago abre una <b>pasarela de prueba</b> (no es Mercado Pago): eliges aprobar o rechazar.</li>' +
       '<li><b>Nequi</b> muestra una llave <b>ficticia</b>. Tras «Ya transferí» simulas la revisión del dueño: confirmar, rechazar o revisar después.</li>' +

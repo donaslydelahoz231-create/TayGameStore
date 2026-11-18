@@ -38,6 +38,8 @@ describe('loadConfig', () => {
       maintenanceMode: false,
       checkoutEnabled: false,
       paymentsEnabled: false,
+      // Con PAYMENTS_ENABLED, Mercado Pago acepta pagos nuevos salvo MERCADOPAGO_NEW_PAYMENTS=false.
+      mercadoPagoNewPayments: true,
       fulfillmentEnabled: true,
     });
     expect(config.secrets.ephemeral).toBe(true);
@@ -113,6 +115,45 @@ describe('loadConfig', () => {
       expect(config.support.whatsapp).toBe('570000000000');
     }
     expect(configError({ ORDER_CHANNEL: 'telegram' }).issues.join()).toContain('ORDER_CHANNEL');
+  });
+
+  it('MERCADOPAGO_NEW_PAYMENTS: encendido por defecto; apagado solo vale con Nequi activo', () => {
+    expect(loadConfig({}).flags.mercadoPagoNewPayments).toBe(true);
+    expect(loadConfig({ MERCADOPAGO_NEW_PAYMENTS: 'false' }).flags.mercadoPagoNewPayments).toBe(
+      false,
+    );
+    // En producción, el checkout necesita un método para pagos nuevos: sin Nequi no se acepta.
+    const prod = {
+      NODE_ENV: 'production',
+      CHECKOUT_ENABLED: 'true',
+      PAYMENTS_ENABLED: 'true',
+      MERCADOPAGO_NEW_PAYMENTS: 'false',
+    };
+    expect(configError(prod).issues.join()).toContain('MERCADOPAGO_NEW_PAYMENTS');
+  });
+
+  it('WhatsApp del dueño (CallMeBot): apagado sin clave; con clave exige un número', () => {
+    // Clave y números ficticios (57 + diez ceros no existe en Colombia).
+    expect(loadConfig({}).ownerWhatsApp).toBeUndefined();
+    expect(loadConfig({ SUPPORT_WHATSAPP: '+570000000000' }).ownerWhatsApp).toBeUndefined();
+    const issues = configError({ CALLMEBOT_APIKEY: 'clavefalsa123' }).issues.join();
+    expect(issues).toContain('OWNER_WHATSAPP');
+    expect(issues).not.toContain('clavefalsa123');
+    expect(
+      loadConfig({ CALLMEBOT_APIKEY: 'clavefalsa123', SUPPORT_WHATSAPP: '+570000000000' })
+        .ownerWhatsApp,
+    ).toEqual({ phone: '570000000000', apiKey: 'clavefalsa123' });
+    // OWNER_WHATSAPP (el número que activó CallMeBot) manda sobre el de soporte.
+    expect(
+      loadConfig({
+        CALLMEBOT_APIKEY: 'clavefalsa123',
+        SUPPORT_WHATSAPP: '+570000000000',
+        OWNER_WHATSAPP: '+579990000000',
+      }).ownerWhatsApp?.phone,
+    ).toBe('579990000000');
+    expect(configError({ CALLMEBOT_APIKEY: 'no válida!' }).issues.join()).toContain(
+      'CALLMEBOT_APIKEY',
+    );
   });
 
   it('no permite límites antifraude por encima de los fijados por el propietario', () => {

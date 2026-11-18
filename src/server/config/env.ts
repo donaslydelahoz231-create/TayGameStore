@@ -186,6 +186,15 @@ const envSchema = z
     MAINTENANCE_MODE: z.stringbool().default(false),
     CHECKOUT_ENABLED: z.stringbool().default(false),
     PAYMENTS_ENABLED: z.stringbool().default(false),
+    /**
+     * Pagos NUEVOS con Mercado Pago (pedido del dueño, 2026-11-18: «por ahora inhabilitado; el que
+     * está habilitado es Nequi»; más adelante se reemplazará por un link de pago). Con `false`, la
+     * tienda no ofrece Mercado Pago ni abre cobros nuevos, pero sigue confirmando por su webhook y
+     * su conciliación los pagos ya iniciados (PSE o Efecty pueden tardar días), reembolsos y
+     * contracargos de pedidos anteriores. Por eso no basta PAYMENTS_ENABLED=false, que lo apaga
+     * todo.
+     */
+    MERCADOPAGO_NEW_PAYMENTS: z.stringbool().default(true),
     FULFILLMENT_ENABLED: z.stringbool().default(true),
     FULFILLMENT_MODE: z.enum(['manual']).default('manual'),
     JOBS_ENABLED: z.stringbool().optional(),
@@ -289,9 +298,10 @@ const envSchema = z
      */
     PLAYER_VERIFICATION: z.enum(['customer', 'operator']).default('customer'),
     /**
-     * Cómo cierra el cliente su pedido: `checkout` (pago en línea, como siempre), `whatsapp` (envía
-     * el pedido armado al WhatsApp de SUPPORT_WHATSAPP; la tienda no crea ni cobra nada) o `ambos`.
-     * Por defecto `checkout`: la tienda no cambia mientras el dueño no elija otro canal.
+     * Cómo cierra el cliente su pedido: `checkout` (solo «Pagar», como siempre), `whatsapp` (solo
+     * «Revisar, pagar y enviar»: el cliente envía el pedido desde la tienda, sin abrir WhatsApp, y
+     * le llega al dueño; ver CALLMEBOT_APIKEY) o `ambos`. Por defecto `checkout`: la tienda no
+     * cambia mientras el dueño no elija otro canal.
      */
     ORDER_CHANNEL: z.enum(['checkout', 'whatsapp', 'ambos']).default('checkout'),
     /**
@@ -364,6 +374,22 @@ const envSchema = z
     LEGAL_RESPONSE_TIME: legalText(160),
     LEGAL_TAX_NOTE: legalText(200),
     LEGAL_RETENTION: legalText(160),
+
+    /**
+     * Aviso al WhatsApp del dueño con CallMeBot (opcional; pedido del dueño, 2026-11-18): un solo
+     * mensaje, «Pedido pagado», cuando el cliente paga por Nequi y lo confirma en la tienda, con
+     * datos mínimos (sin nombre ni correo del cliente). La clave la entrega CallMeBot al activar el número; va
+     * solo en el hosting. OWNER_WHATSAPP es el número que activó CallMeBot (por defecto,
+     * SUPPORT_WHATSAPP).
+     */
+    CALLMEBOT_APIKEY: z
+      .string()
+      .regex(/^[A-Za-z0-9]{4,64}$/, 'la clave que CallMeBot envió por WhatsApp (letras y números)')
+      .optional(),
+    OWNER_WHATSAPP: z
+      .string()
+      .regex(/^\+?\d{8,15}$/)
+      .optional(),
 
     /**
      * Correo por SMTP (opcional): avisos al cliente (pago confirmado, entrega, reembolso) y al
@@ -499,7 +525,11 @@ const envSchema = z
         'el acceso de administración requiere Google OAuth o PUBLIC_BASE_URL (huella/llave)',
       );
     }
-    // Los pedidos por WhatsApp llegan al número oficial: nunca a uno inventado ni vacío.
+    if (env.CALLMEBOT_APIKEY && !env.OWNER_WHATSAPP && !env.SUPPORT_WHATSAPP) {
+      issue('OWNER_WHATSAPP', 'obligatoria con CALLMEBOT_APIKEY (o SUPPORT_WHATSAPP)');
+    }
+    // Con el envío desde la tienda, el número oficial de soporte es obligatorio (y es el WhatsApp
+    // que recibe los avisos de CallMeBot si no se indica OWNER_WHATSAPP).
     if (env.ORDER_CHANNEL !== 'checkout' && !env.SUPPORT_WHATSAPP) {
       issue('SUPPORT_WHATSAPP', `obligatoria con ORDER_CHANNEL=${env.ORDER_CHANNEL}`);
     }
@@ -546,10 +576,11 @@ const envSchema = z
     }
     // No se aceptan órdenes que no se puedan pagar: hace falta al menos un método activo, sea
     // Mercado Pago o Nequi por transferencia (ninguno depende del otro).
-    if (env.CHECKOUT_ENABLED && !env.PAYMENTS_ENABLED && !nequiSettings(env).manual) {
+    const mercadoPagoNew = env.PAYMENTS_ENABLED && env.MERCADOPAGO_NEW_PAYMENTS;
+    if (env.CHECKOUT_ENABLED && !mercadoPagoNew && !nequiSettings(env).manual) {
       issue(
         'CHECKOUT_ENABLED',
-        'en producción requiere un método de pago activo: PAYMENTS_ENABLED=true (Mercado Pago) o Nequi por transferencia (NEQUI_MANUAL_*)',
+        'en producción requiere un método de pago activo: PAYMENTS_ENABLED=true (Mercado Pago, con MERCADOPAGO_NEW_PAYMENTS) o Nequi por transferencia (NEQUI_MANUAL_*)',
       );
     }
   });
@@ -563,6 +594,8 @@ export interface FeatureFlags {
   maintenanceMode: boolean;
   checkoutEnabled: boolean;
   paymentsEnabled: boolean;
+  /** Pagos nuevos con Mercado Pago (MERCADOPAGO_NEW_PAYMENTS); los ya iniciados se confirman igual. */
+  mercadoPagoNewPayments: boolean;
   fulfillmentEnabled: boolean;
 }
 
@@ -681,6 +714,8 @@ export interface AppConfig {
   sheetsProblem: string | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
+  /** Aviso al WhatsApp del dueño por CallMeBot. Sin él, el dueño ve los pedidos en el panel. */
+  ownerWhatsApp: { phone: string; apiKey: string } | undefined;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
   smtp:
     | {
@@ -715,6 +750,16 @@ function passkeyConfig(
   const isIp = /^[\d.]+$/.test(rpId) || rpId.includes(':');
   const matches = url.hostname === rpId || url.hostname.endsWith(`.${rpId}`);
   return isIp || !matches ? undefined : { rpId, origin: url.origin };
+}
+
+/** CallMeBot avisa al número que lo activó: OWNER_WHATSAPP o, si falta, el de soporte. */
+function ownerWhatsAppSettings(env: {
+  CALLMEBOT_APIKEY?: string | undefined;
+  OWNER_WHATSAPP?: string | undefined;
+  SUPPORT_WHATSAPP?: string | undefined;
+}): { phone: string; apiKey: string } | undefined {
+  const phone = (env.OWNER_WHATSAPP ?? env.SUPPORT_WHATSAPP)?.replace(/\D/g, '');
+  return env.CALLMEBOT_APIKEY && phone ? { phone, apiKey: env.CALLMEBOT_APIKEY } : undefined;
 }
 
 function withoutEmptyValues(source: NodeJS.ProcessEnv): Record<string, string> {
@@ -763,6 +808,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       maintenanceMode: env.MAINTENANCE_MODE,
       checkoutEnabled: env.CHECKOUT_ENABLED,
       paymentsEnabled: env.PAYMENTS_ENABLED,
+      mercadoPagoNewPayments: env.MERCADOPAGO_NEW_PAYMENTS,
       fulfillmentEnabled: env.FULFILLMENT_ENABLED,
     },
     fulfillmentMode: env.FULFILLMENT_MODE,
@@ -876,6 +922,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       env.EVENTS_WEBHOOK_ENABLED && env.EVENTS_WEBHOOK_URL && env.EVENTS_WEBHOOK_SECRET
         ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }
         : undefined,
+    ownerWhatsApp: ownerWhatsAppSettings(env),
     smtp:
       env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
         ? {

@@ -183,6 +183,13 @@
       "when": 1793673097439,
       "tag": "0025_hoja_pedidos_en_vivo",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795014277463,
+      "tag": "0026_aviso_whatsapp_dueno",
+      "breakpoints": true
     }
   ]
 }

@@ -41,8 +41,8 @@ import { verifyReceipt } from './features/receipt-verify.js';
 import { copyTrackLink, lookupOrder } from './features/order-access.js';
 import { finderSearch, onPlayerUidInput, resetPlayer, verifyPlayer } from './features/player.js';
 import { closeSearch, openSearch, search } from './features/search.js';
+import { hideOrderSent } from './features/order-sent.js';
 import {
-  copyWhatsAppMessage,
   onPayInfoClick,
   onWhatsAppSend,
   openWhatsAppReview,
@@ -316,14 +316,14 @@ function bindInvoiceAndCheckout() {
   $('waOrderBtn').onclick = openWhatsAppReview;
   $('waOrderSend').onclick = onWhatsAppSend;
   $('waPayInfo').onclick = onPayInfoClick;
-  // Datos del pago (Nequi): solo dígitos en la cuenta y el mensaje se actualiza al escribir.
+  // Datos del pago (Nequi): solo dígitos en la cuenta; el botón «Confirmar pago y enviar» dice qué falta.
   $('waPayLast4').oninput = (e) => {
     e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
     refreshWhatsAppSend();
   };
   $('waPayRef').oninput = refreshWhatsAppSend;
   $('waPayDone').onchange = refreshWhatsAppSend;
-  $('waOrderCopy').onclick = copyWhatsAppMessage;
+  $('orderSentClose').onclick = hideOrderSent;
   $('nequiReportForm').onsubmit = reportNequi;
   $('nequiCopyKey').onclick = copyNequiKey;
   $('nequiLast4').oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4));

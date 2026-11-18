@@ -54,6 +54,25 @@ export async function nequiTransfersFor(
  * mientras el pedido espera pago y Nequi está activo: después ya no hace falta mostrarlos
  * (minimización).
  */
+/**
+ * Nombre del titular de la cuenta Nequi, enmascarado (pedido del dueño, 2026-11-18: «mantener la
+ * privacidad del nombre de Nequi del propietario»). Cada palabra deja ver solo su inicio (3 letras;
+ * 1 si es corta) y el resto va oculto, como lo muestra la app Nequi al transferir: el cliente aún
+ * puede comprobar que el destino coincide, pero el nombre completo nunca sale del servidor. Los
+ * conectores de 1 o 2 letras («de», «la») quedan igual: no identifican a nadie.
+ */
+export function maskHolder(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => {
+      const letters = [...word];
+      if (letters.length <= 2) return word;
+      return letters.slice(0, letters.length <= 4 ? 1 : 3).join('') + '***';
+    })
+    .join(' ');
+}
+
 export function nequiCustomerView(
   deps: ServiceDeps,
   order: Pick<OrderRow, 'paymentMethod' | 'status' | 'expiresAt' | 'totalCop' | 'publicRef'>,
@@ -66,7 +85,11 @@ export function nequiCustomerView(
   return {
     account:
       awaiting && cfg
-        ? { brebKey: cfg.brebKey ?? null, phone: cfg.phone ?? null, holder: cfg.holder ?? null }
+        ? {
+            brebKey: cfg.brebKey ?? null,
+            phone: cfg.phone ?? null,
+            holder: cfg.holder ? maskHolder(cfg.holder) : null,
+          }
         : null,
     amountCop: order.totalCop,
     /** Lo que el cliente escribe en el mensaje de la transferencia. */

@@ -1,0 +1,46 @@
+/*
+ * Preguntas frecuentes: se abren con un solo clic en cualquier parte (pedido del dueño,
+ * 2026-11-18: «que no tenga que dar doble clic; doy uno y no me despliega la información»).
+ *
+ * Causa (medida en Chromium, Firefox y WebKit): en la cuadrícula de dos columnas, una pregunta
+ * cerrada junto a una abierta se estiraba a la altura de su vecina (101 px) y solo su título
+ * (45 px) respondía al clic: el resto era una caja vacía que no hacía nada. Ahora cada pregunta
+ * mide lo suyo, así la caja cerrada es su título entero, y una flecha indica que se despliega.
+ */
+.faq-grid {
+  align-items: start;
+}
+.faq-grid summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  user-select: none;
+}
+/* Flecha: apunta abajo cerrada y arriba abierta. */
+.faq-grid summary::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: -4px 4px 0 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.7;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.faq-grid details[open] > summary::after {
+  margin-top: 4px;
+  transform: rotate(-135deg);
+}
+.faq-grid summary:focus-visible {
+  outline: 2px solid var(--cyan, #37d6ff);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .faq-grid summary::after {
+    transition: none;
+  }
+}

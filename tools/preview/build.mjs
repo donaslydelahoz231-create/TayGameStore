@@ -36,6 +36,11 @@ let shim = await readFile(join(import.meta.dirname, 'shim.js'), 'utf8');
 const channelMark = /\/\*__PREVIEW_ORDER_CHANNEL__\*\/ '[a-z]+'/;
 if (!channelMark.test(shim)) throw new Error('No se encontró el marcador del canal en shim.js');
 shim = shim.replace(channelMark, JSON.stringify(channel));
+// Mercado Pago para pagos nuevos (MERCADOPAGO_NEW_PAYMENTS del servidor): `off` muestra la tienda
+// solo con Nequi, como la decidió el dueño el 2026-11-18. Por defecto encendido.
+const mpMark = /\/\*__PREVIEW_MERCADOPAGO__\*\/ (true|false)/;
+if (!mpMark.test(shim)) throw new Error('No se encontró el marcador de Mercado Pago en shim.js');
+shim = shim.replace(mpMark, String(process.env.PREVIEW_MERCADOPAGO !== 'off'));
 // Con pedidos por WhatsApp el destino es solo el número real (PREVIEW_SUPPORT_WHATSAPP): sin él
 // queda vacío, nunca el número ficticio de la vista previa.
 if (wa || mail || channel !== 'checkout') {

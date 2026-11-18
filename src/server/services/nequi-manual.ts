@@ -162,13 +162,26 @@ export async function reportNequiTransfer(
   return order;
 }
 
-/** Aviso al dueño por correo (si hay correo configurado), uno por cada aviso nuevo del cliente. */
+/**
+ * Aviso al dueño, uno por cada aviso nuevo del cliente: por correo (si hay correo configurado) y
+ * a su WhatsApp por CallMeBot (si está configurado), con datos mínimos del pedido.
+ */
 async function enqueueOwnerAlert(deps: ServiceDeps, tx: Tx, orderId: string): Promise<void> {
-  if (!deps.mailer || !deps.config.adminEmails.length) return;
+  const channels: ('email' | 'whatsapp')[] = [];
+  if (deps.mailer && deps.config.adminEmails.length) channels.push('email');
+  if (deps.ownerWhatsApp) channels.push('whatsapp');
+  if (!channels.length) return;
   const now = deps.now();
   await tx
     .insert(notifications)
-    .values({ kind: 'nequi_reported_owner', channel: 'email', orderId, nextAttemptAt: now })
+    .values(
+      channels.map((channel) => ({
+        kind: 'nequi_reported_owner' as const,
+        channel,
+        orderId,
+        nextAttemptAt: now,
+      })),
+    )
     .onConflictDoUpdate({
       target: [notifications.orderId, notifications.kind, notifications.channel],
       set: { status: 'PENDING', attempts: 0, lastError: null, sentAt: null, nextAttemptAt: now },

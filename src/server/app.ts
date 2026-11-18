@@ -18,6 +18,7 @@ import type { GoogleClient } from './integrations/google/oidc.js';
 import type { SocialClient } from './integrations/social/providers.js';
 import type { Mailer } from './integrations/notify/email.js';
 import type { OrderEventSink } from './integrations/notify/events.js';
+import type { OwnerWhatsApp } from './integrations/notify/whatsapp-owner.js';
 import type { PaymentGateway } from './integrations/payments/gateway.js';
 import type { PlayerVerifier } from './integrations/player/verifier.js';
 import { adminRoutes } from './modules/admin/routes.js';
@@ -55,6 +56,8 @@ export interface AppDependencies {
   playerVerifier?: PlayerVerifier | undefined;
   /** Correo saliente para avisos a clientes y dueño (SMTP si está configurado). */
   mailer?: Mailer | undefined;
+  /** WhatsApp del dueño para avisos de pedidos (CallMeBot si está configurado). */
+  ownerWhatsApp?: OwnerWhatsApp | undefined;
   /** Eventos de pedidos hacia una automatización externa (webhook de n8n si está configurado). */
   eventSink?: OrderEventSink | undefined;
   /** Recarga directa al ID con el distribuidor (UniPin si está configurado). */
@@ -150,6 +153,7 @@ export async function buildAppWithDeps(input: AppDependencies): Promise<BuiltApp
         gateway: config.flags.paymentsEnabled ? input.paymentGateway : undefined,
         log: app.log,
         mailer: input.mailer,
+        ownerWhatsApp: input.ownerWhatsApp,
         events: input.eventSink,
         sheets: input.orderSheet,
         topup: config.topup ? input.topupProvider : undefined,

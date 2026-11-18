@@ -28,6 +28,7 @@ import {
   enqueueSheetSync,
 } from './notifications.js';
 import { loadOrderForAccess, transitionOrder, type OrderAccess } from './orders.js';
+import { requirePaymentMethod } from './payment-methods.js';
 
 const unavailable = () =>
   new AppError(
@@ -53,6 +54,8 @@ export async function startPayment(
   payMeans?: MpPayMeans,
 ): Promise<{ checkoutUrl: string }> {
   const gateway = requireGateway(deps);
+  // Pagos nuevos con Mercado Pago apagados (MERCADOPAGO_NEW_PAYMENTS=false): no se abre ninguno.
+  requirePaymentMethod(deps, 'mercadopago');
   const base = deps.config.publicBaseUrl;
   if (!base) throw new AppError('PAYMENTS_DISABLED', 503, 'Falta PUBLIC_BASE_URL.');
   const now = deps.now();

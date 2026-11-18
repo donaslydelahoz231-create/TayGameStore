@@ -1,33 +1,34 @@
+import { api, errorMessage } from '../api.js';
 import { cartItems } from '../cart-model.js';
 import { $, esc, setText } from '../dom.js';
 import { EMAIL_PATTERN, money, validUid } from '../format.js';
+import { renderAll } from '../render.js';
+import { scrollToSection } from '../scroll.js';
 import { serverLabel } from '../servers.js';
-import { state } from '../state.js';
+import { runtime, state } from '../state.js';
 import { modal, toast } from '../ui.js';
-import { goToNextStep } from './checkout.js';
-import { PAY_MEANS, chosenPayMeans } from './pay-means.js';
-import {
-  orderChannel,
-  orderReference,
-  orderSummary,
-  whatsappDigits,
-  whatsappMessage,
-  whatsappUrl,
-} from './whatsapp-message.js';
+import { goToNextStep, preparePayment, submitCheckout } from './checkout.js';
+import { changePaymentMethod } from './nequi.js';
+import { orderChannel } from './order-channel.js';
+import { showOrderSent } from './order-sent.js';
+import { isFinalOrderStatus, setCurrentOrder } from './orders.js';
+import { chosenPayMeans } from './pay-means.js';
 
 /**
- * Pedido por WhatsApp (ORDER_CHANNEL `whatsapp` o `ambos`). El cliente:
- *   1. elige paquetes y completa los datos que pide la tienda (ID confirmado, nombre, correo,
- *      cómo pagar y términos);
- *   2. revisa el pedido y paga: con Nequi ve la cuenta y el total exacto, transfiere e informa el
- *      pago (4 últimos dígitos y referencia); con tarjeta, PSE, Efecty o saldo pide el enlace de pago;
- *   3. abre WhatsApp con el pedido y el pago en un mensaje hacia el número oficial
- *      (SUPPORT_WHATSAPP) y lo envía él mismo.
+ * Envío del pedido desde la tienda (ORDER_CHANNEL `whatsapp` o `ambos`). Pedido del dueño,
+ * 2026-11-18: «que el cliente no tenga que entrar a WhatsApp y enviar manualmente; que solo
+ * mediante mi tienda me llegue el pedido» y, al cliente, una pestaña flotante «Compra exitosa»
+ * con un mensaje de espera (order-sent.js).
  *
- * Aislado de los pedidos reales: no llama a /api/checkout ni a /pay, no crea pedidos, no cobra ni
- * confirma pagos (el dueño verifica el movimiento antes de entregar). Los datos de la cuenta Nequi
- * llegan en /api/config → `orderPayment.nequi`; sin ellos, se piden por WhatsApp. Con la
- * demostración (`demo` en /api/config) todo dice DEMO y la cuenta es de ejemplo.
+ * Con Nequi: «Revisar, pagar y enviar» crea el pedido real ANTES de mostrar la cuenta (así nadie
+ * paga un pedido que no quedó guardado), el cliente transfiere, escribe los 4 últimos dígitos de su
+ * cuenta y pulsa «Confirmar pago y enviar». Eso es el aviso «Ya transferí» de siempre: el pedido queda en el
+ * panel y en la hoja del dueño, y el servidor le escribe a su WhatsApp (CallMeBot, si está
+ * configurado). Con tarjeta, PSE, Efecty o saldo: el pago en línea de siempre (Mercado Pago);
+ * al confirmarse el pago, el pedido también le llega al dueño.
+ *
+ * El navegador nunca decide que algo está pagado: «Compra exitosa» dice que el pedido llegó a la
+ * tienda; el pago lo confirma el dueño al ver la transferencia en su app Nequi.
  */
 
 const SHORT_PAY_MEANS = {
@@ -38,35 +39,32 @@ const SHORT_PAY_MEANS = {
   nequi_manual: 'Nequi',
 };
 
-/** Ayuda de «Elige cómo pagar» cuando la tienda solo recibe pedidos por WhatsApp. */
-const WA_PAY_HINTS = {
-  none: 'Elige cómo pagar. Con Nequi te mostramos la cuenta y el total exacto antes de enviar tu pedido; con tarjeta, PSE, Efecty o saldo te enviamos el enlace de pago seguro por WhatsApp.',
+/** Ayuda de «Elige cómo pagar» cuando la tienda solo recibe pedidos con este botón. */
+const PAY_HINTS = {
+  none: 'Elige cómo pagar. Con Nequi te mostramos la cuenta y el total exacto antes de enviar tu pedido; con tarjeta, PSE, Efecty o saldo pagas en línea con Mercado Pago.',
+  nequiOnly:
+    'Elige Nequi: te mostramos la cuenta y el total exacto antes de enviar tu pedido, y nos llega al instante.',
   transfer:
-    'Al revisar tu pedido verás la cuenta Nequi y el total exacto: transfieres y nos informas el pago en el mismo paso, antes de enviarlo por WhatsApp.',
-  link: 'Envías tu pedido por WhatsApp y te respondemos con el enlace de pago seguro. En esta página no se cobra nada.',
+    'Al revisar tu pedido verás la cuenta Nequi y el total exacto: transfieres, nos informas el pago y tu pedido nos llega al instante.',
+  link: 'Pagas en línea con Mercado Pago. Cuando se confirma el pago, tu pedido nos llega solo.',
 };
 
 const isDemo = () => state.serverConfig?.demo === true;
-const storeNumber = () => whatsappDigits(state.serverConfig?.support?.whatsapp);
+const nequiOn = () => state.serverConfig?.paymentMethods?.nequiManual === true;
+const orderPath = (order, suffix) => '/api/orders/' + encodeURIComponent(order.reference) + suffix;
 
-/** Cuenta Nequi para transferir (solo si la tienda la publica para este canal). */
-function nequiAccount() {
-  const n = state.serverConfig?.orderPayment?.nequi;
-  if (!n || (!n.brebKey && !n.phone)) return null;
-  return { brebKey: n.brebKey || '', phone: n.phone || '', holder: n.holder || '' };
-}
-
-/** `transfer`: el cliente paga antes de enviar (Nequi con cuenta publicada); `link`: se le envía. */
+/** `transfer`: Nequi (el cliente paga antes de enviar); `link`: pago en línea con Mercado Pago. */
 function payKind(means) {
   if (!means) return null;
-  return means === 'nequi_manual' && nequiAccount() ? 'transfer' : 'link';
+  return means === 'nequi_manual' && nequiOn() ? 'transfer' : 'link';
 }
 
-/** Lo que falta para revisar el pedido (mismas reglas que el pago en línea). */
-function missingForWhatsApp() {
+/** Lo que falta para revisar el pedido (mismas reglas que «Pagar»). */
+function missingForOrder() {
   const cfg = state.serverConfig;
   if (!cfg) return ['Sin conexión con la tienda. Inténtalo de nuevo.', false];
   if (cfg.maintenanceMode) return ['La tienda está en mantenimiento. Inténtalo más tarde.', false];
+  if (!cfg.checkoutEnabled) return ['Las compras no están habilitadas en este momento.', false];
   const items = cartItems();
   if (!items.length) return ['Agrega una recarga.', true];
   const max = cfg.limits?.maxOrderTotalCop;
@@ -86,204 +84,234 @@ function missingForWhatsApp() {
   return null;
 }
 
-/** La referencia se mantiene mientras el pedido no cambie (reabrir o informar el pago no la cambia). */
-let lastSignature = '';
-let lastReference = '';
-
-function paymentFields() {
-  return {
-    last4: String($('waPayLast4')?.value || '').replace(/\D/g, ''),
-    reference: String($('waPayRef')?.value || ''),
-    paid: Boolean($('waPayDone')?.checked),
-  };
-}
-
-function currentSummary() {
-  const items = cartItems();
-  const means = chosenPayMeans();
-  const kind = payKind(means);
-  const label = means ? SHORT_PAY_MEANS[means] || PAY_MEANS[means] : null;
-  const base = {
-    items,
-    customer: { name: state.customerName, email: state.customerEmail },
-    player: { uid: state.playerUid, server: serverLabel(state.playerServer) },
-  };
-  const signature = JSON.stringify([
-    items.map((x) => [x.p.id, x.qty, x.p.price]),
-    base.customer,
-    base.player,
-    label,
-    isDemo(),
-  ]);
-  if (signature !== lastSignature || !lastReference) {
-    lastSignature = signature;
-    lastReference = orderReference(isDemo(), (bytes) => crypto.getRandomValues(bytes));
-    // Pedido distinto: los datos del pago de antes no sirven.
-    for (const id of ['waPayLast4', 'waPayRef']) if ($(id)) $(id).value = '';
-    if ($('waPayDone')) $('waPayDone').checked = false;
+/**
+ * Pedido real listo para pagar por Nequi: el que ya está abierto (si espera pago) o uno nuevo.
+ * Devuelve null si no se puede seguir (el cliente ya vio por qué).
+ */
+async function nequiOrder() {
+  let order = state.currentOrder;
+  if (order && !isFinalOrderStatus(order.status) && order.status !== 'AWAITING_PAYMENT') {
+    if (order.status === 'AWAITING_VERIFICATION') {
+      toast('Estamos verificando el jugador. Te avisamos aquí para que pagues.');
+      scrollToSection('verificacion');
+    } else {
+      toast('Este pedido ya está en curso. Para otra recarga, pulsa «Nuevo pedido».');
+      scrollToSection('seguimiento');
+    }
+    return null;
   }
-  return orderSummary({
-    ...base,
-    payment: { kind, label, ...(kind === 'transfer' ? paymentFields() : {}) },
-    reference: lastReference,
-    demo: isDemo(),
-    createdAt: new Date(),
-  });
+  if (!order || isFinalOrderStatus(order.status)) {
+    if (order) setCurrentOrder(null);
+    order = await submitCheckout();
+    if (!order) return null;
+    if (order.status === 'AWAITING_VERIFICATION') {
+      toast('Pedido creado. Estamos verificando el jugador.', 'good');
+      scrollToSection('verificacion');
+      return null;
+    }
+  }
+  if (order.payment?.method === 'mercadopago') {
+    // Pedido que ya iba por Mercado Pago: cambia a Nequi solo si el cliente confirma.
+    if (!(await changePaymentMethod(order))) return null;
+    order = state.currentOrder;
+  }
+  if (order.payment?.method !== 'nequi_manual') {
+    runtime.paymentBusy = 'nequi';
+    renderAll();
+    try {
+      const j = await api(orderPath(order, '/nequi'), { method: 'POST' });
+      setCurrentOrder(j.order);
+      order = j.order;
+    } catch (err) {
+      toast(errorMessage(err, 'Nequi no está disponible ahora. Tu pedido sigue guardado.'), 'bad');
+      return null;
+    } finally {
+      runtime.paymentBusy = false;
+      renderAll();
+    }
+  }
+  return order;
 }
 
-function summaryHtml(summary) {
+/** Resumen del pedido tal como lo guardó el servidor (precios, descuentos y total reales). */
+function summaryHtml(order) {
   const facts = [
-    ['Cliente', summary.customer.name],
-    ['Correo', summary.customer.email],
-    ['ID Free Fire', summary.player.uid],
-    ['Servidor', summary.player.server || 'Sin indicar'],
-    ['Pago', summary.payment.label || 'Por acordar por WhatsApp'],
+    ['Cliente', order.customerName],
+    ['Correo', order.customerEmail],
+    ['ID Free Fire', order.playerUid],
+    ['Servidor', serverLabel(order.playerServer ?? state.playerServer) || 'Sin indicar'],
+    ['Pago', SHORT_PAY_MEANS.nequi_manual],
   ]
     .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
     .join('');
-  const lines = summary.lines
-    .map(
-      (line) =>
-        `<li><div class="wa-line-name"><b>${esc(line.name)}</b><small>${esc(
-          line.diamonds.toLocaleString('es-CO'),
-        )} 💎</small></div><div class="wa-line-math"><span>${line.qty} × ${esc(money(line.unitPrice))}</span>${
-          line.unitDiscount > 0 ? `<s>${esc(money(line.unitList))}</s>` : ''
-        }<strong>${esc(money(line.total))}</strong></div>${
-          line.discount > 0
-            ? `<small class="wa-line-off">Descuento promo −${esc(money(line.discount))}</small>`
-            : ''
-        }</li>`,
-    )
+  const lines = order.items
+    .map((item) => {
+      const off = Math.max(0, (item.listPriceCop - item.unitPriceCop) * item.quantity);
+      return `<li><div class="wa-line-name"><b>${esc(item.name)}</b></div><div class="wa-line-math"><span>${item.quantity} × ${esc(money(item.unitPriceCop))}</span>${
+        item.listPriceCop > item.unitPriceCop ? `<s>${esc(money(item.listPriceCop))}</s>` : ''
+      }<strong>${esc(money(item.lineTotalCop))}</strong></div>${
+        off > 0 ? `<small class="wa-line-off">Descuento promo −${esc(money(off))}</small>` : ''
+      }</li>`;
+    })
     .join('');
   const totals = [
-    ...(summary.discount > 0
+    ...(order.discountCop > 0
       ? [
-          ['Subtotal', money(summary.subtotal), ''],
-          ['Descuentos', '−' + money(summary.discount), 'wa-off'],
+          ['Subtotal', money(order.subtotalCop), ''],
+          ['Descuentos', '−' + money(order.discountCop), 'wa-off'],
         ]
       : []),
-    ['Total', money(summary.total), 'wa-total'],
+    ['Total', money(order.totalCop), 'wa-total'],
   ]
     .map(
       ([k, v, cls]) =>
         `<div${cls ? ` class="${cls}"` : ''}><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`,
     )
     .join('');
-  return `<div class="wa-ref"><span>Referencia</span><b translate="no">${esc(summary.reference)}</b></div><dl class="wa-facts">${facts}</dl><ul class="wa-lines" aria-label="Productos del pedido">${lines}</ul><dl class="wa-totals">${totals}</dl>`;
+  return `<div class="wa-ref"><span>Pedido</span><b translate="no">${esc(order.reference)}</b></div><dl class="wa-facts">${facts}</dl><ul class="wa-lines" aria-label="Productos del pedido">${lines}</ul><dl class="wa-totals">${totals}</dl>`;
 }
 
-/** Instrucciones de pago según el medio elegido. */
-function payInfoHtml(summary) {
-  const pay = summary.payment;
-  if (pay.kind === 'transfer') {
-    const n = nequiAccount();
-    const rows = [
-      ['Total exacto', `<strong>${esc(money(summary.total))}</strong>`],
-      ...(n.brebKey
-        ? [
-            [
-              'Llave Bre-B',
-              `<strong translate="no">${esc(n.brebKey)}</strong><button class="nequi-copy" type="button" data-copy="${esc(n.brebKey)}">Copiar</button>`,
-            ],
-          ]
-        : []),
-      ...(n.phone ? [['Celular Nequi', `<strong translate="no">${esc(n.phone)}</strong>`]] : []),
-      ...(n.holder ? [['Titular', `<strong>${esc(n.holder)}</strong>`]] : []),
-      [
-        'Referencia del pedido',
-        `<strong translate="no">${esc(summary.reference)}</strong><button class="nequi-copy" type="button" data-copy="${esc(summary.reference)}">Copiar</button>`,
-      ],
-    ]
-      .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`)
-      .join('');
-    return `<ol class="wa-pay-steps"><li>Desde tu app Nequi o la de tu banco, envía el <b>total exacto</b> a la cuenta de abajo${n.holder ? ' (revisa que el titular coincida)' : ''}.</li><li>En el mensaje de la transferencia escribe la <b>referencia del pedido</b>.</li><li>Escribe los 4 últimos dígitos de tu cuenta, marca «Ya hice la transferencia» y envía tu pedido por WhatsApp.</li></ol><dl class="nequi-pay wa-pay-data">${rows}</dl>${
-      summary.demo
-        ? '<p class="wa-pay-demo"><b>DEMO:</b> cuenta de ejemplo. No transfieras dinero real.</p>'
-        : ''
-    }`;
+/** Instrucciones de pago con la cuenta que el servidor muestra para ESTE pedido. */
+function payInfoHtml(order) {
+  const nequi = order.payment?.nequi;
+  const account = nequi?.account;
+  if (!account || (!account.brebKey && !account.phone)) {
+    return '<p class="wa-pay-lead">Nequi no está disponible ahora. Tu pedido quedó guardado: inténtalo más tarde o escríbenos por soporte.</p>';
   }
-  if (pay.kind === 'link') {
-    return `<p class="wa-pay-lead">Elegiste <b>${esc(pay.label)}</b>. Envía tu pedido por WhatsApp y te respondemos con ${
-      pay.label === 'Nequi' ? 'los datos para pagar' : 'el enlace de pago seguro'
-    }. En esta página no se cobra nada.</p>`;
-  }
-  return '<p class="wa-pay-lead">Elige cómo pagar en tu pedido.</p>';
+  const rows = [
+    ['Total exacto', `<strong>${esc(money(nequi.amountCop ?? order.totalCop))}</strong>`],
+    ...(account.brebKey
+      ? [
+          [
+            'Llave Bre-B',
+            `<strong translate="no">${esc(account.brebKey)}</strong><button class="nequi-copy" type="button" data-copy="${esc(account.brebKey)}">Copiar</button>`,
+          ],
+        ]
+      : []),
+    ...(account.phone
+      ? [['Celular Nequi', `<strong translate="no">${esc(account.phone)}</strong>`]]
+      : []),
+    ...(account.holder ? [['Titular', `<strong>${esc(account.holder)}</strong>`]] : []),
+    [
+      'Referencia',
+      `<strong translate="no">${esc(order.reference)}</strong><button class="nequi-copy" type="button" data-copy="${esc(order.reference)}">Copiar</button>`,
+    ],
+  ]
+    .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`)
+    .join('');
+  return `<ol class="wa-pay-steps"><li>Desde tu app Nequi o la de tu banco, envía el <b>total exacto</b> a la cuenta de abajo${account.holder ? ' (revisa que el titular coincida)' : ''}.</li><li>En el mensaje de la transferencia escribe la <b>referencia</b> de tu pedido.</li><li>Escribe los 4 últimos dígitos de tu cuenta, marca «Ya hice la transferencia» y pulsa «Confirmar pago y enviar».</li></ol><dl class="nequi-pay wa-pay-data">${rows}</dl>${
+    isDemo()
+      ? '<p class="wa-pay-demo"><b>DEMO:</b> cuenta de ejemplo. No transfieras dinero real.</p>'
+      : ''
+  }`;
 }
 
-/** Lo que falta del pago antes de enviar (solo con transferencia: el cliente ya pagó). */
-function missingPayment(summary) {
-  if (summary.payment.kind !== 'transfer') return null;
-  if (summary.payment.last4.length !== 4)
+function paymentFields() {
+  return {
+    last4: String($('waPayLast4')?.value || '').replace(/\D/g, ''),
+    reference: String($('waPayRef')?.value || '').trim(),
+    paid: Boolean($('waPayDone')?.checked),
+  };
+}
+
+/** Lo que falta del pago antes de enviar (el cliente ya transfirió). */
+function missingPayment(fields) {
+  if (fields.last4.length !== 4)
     return ['Escribe los 4 últimos dígitos de la cuenta desde la que pagaste.', 'waPayLast4'];
-  if (!summary.payment.paid)
-    return ['Marca «Ya hice la transferencia» cuando hayas pagado.', 'waPayDone'];
+  if (fields.reference && !/^[A-Za-z0-9-]{4,40}$/.test(fields.reference))
+    return ['La referencia solo lleva letras, números o guiones (4 a 40).', 'waPayRef'];
+  if (!fields.paid) return ['Marca «Ya hice la transferencia» cuando hayas pagado.', 'waPayDone'];
   return null;
 }
 
-/** Recalcula el mensaje y el enlace con lo que el cliente informa del pago. */
+/** Estado del botón «Confirmar pago y enviar» según lo que el cliente informó del pago. */
 export function refreshWhatsAppSend() {
   if ($('waOrderModal')?.hidden !== false) return;
-  const summary = currentSummary();
-  const message = whatsappMessage(summary);
-  const url = whatsappUrl(storeNumber(), message);
-  setText('waOrderMessage', message);
-  const missing = missingPayment(summary);
+  const missing = missingPayment(paymentFields());
   const send = $('waOrderSend');
-  send.href = url || '#';
-  send.hidden = !url;
   send.classList.toggle('is-blocked', Boolean(missing));
-  send.setAttribute('aria-disabled', missing ? 'true' : 'false');
-  setText(
-    'waOrderSendLabel',
-    summary.payment.kind === 'transfer'
-      ? 'Enviar pedido y pago por WhatsApp'
-      : 'Enviar pedido por WhatsApp',
-  );
-  $('waNoNumber').hidden = Boolean(url);
-  // Lo que falta del pago se dice siempre (también sin número), para que el paso se entienda.
+  send.setAttribute('aria-disabled', missing || runtime.paymentBusy ? 'true' : 'false');
   setText(
     'waOrderStatus',
     missing
       ? 'Para enviar falta: ' + missing[0].charAt(0).toLowerCase() + missing[0].slice(1)
-      : url
-        ? 'Al pulsar el botón se abre WhatsApp con tu pedido listo: revísalo y envíalo tú.'
-        : '',
+      : 'Al pulsar «Confirmar pago y enviar», tu pedido y tu pago nos llegan al instante.',
   );
 }
 
-/** «Revisar y pagar»: valida, arma el resumen y las instrucciones de pago. */
-export function openWhatsAppReview() {
-  const missing = missingForWhatsApp();
+/** Pedido al que pertenecen los datos del pago escritos en el formulario. */
+let fieldsFor = '';
+
+/** «Revisar, pagar y enviar»: valida y sigue el camino del medio de pago elegido. */
+export async function openWhatsAppReview() {
+  const missing = missingForOrder();
   if (missing) {
     toast(missing[0], 'bad');
     if (missing[1]) goToNextStep();
     return;
   }
-  const summary = currentSummary();
-  $('waOrderSummary').innerHTML = summaryHtml(summary);
-  $('waPayInfo').innerHTML = payInfoHtml(summary);
-  $('waPayFields').hidden = summary.payment.kind !== 'transfer';
-  $('waDemoBadge').hidden = !summary.demo;
-  $('waDemoNote').hidden = !summary.demo;
+  if (runtime.orderBusy || runtime.paymentBusy) return;
+  // Tarjeta, PSE, Efecty o saldo: el pago en línea de siempre (Mercado Pago confirma solo).
+  if (payKind(chosenPayMeans()) !== 'transfer') {
+    await preparePayment();
+    return;
+  }
+  const order = await nequiOrder();
+  if (!order) return;
+  if (order.reference !== fieldsFor) {
+    // Pedido distinto: los datos del pago de otro pedido no sirven.
+    fieldsFor = order.reference;
+    for (const id of ['waPayLast4', 'waPayRef']) if ($(id)) $(id).value = '';
+    if ($('waPayDone')) $('waPayDone').checked = false;
+  }
+  $('waOrderSummary').innerHTML = summaryHtml(order);
+  $('waPayInfo').innerHTML = payInfoHtml(order);
+  const reported = order.payment?.nequi?.transfer?.status === 'REPORTED';
+  setText('waOrderTitle', reported ? 'Ya enviaste este pedido' : 'Revisa, paga y envía tu pedido');
+  setText('waOrderSendLabel', reported ? 'Corregir y reenviar' : 'Confirmar pago y enviar');
+  $('waDemoBadge').hidden = !isDemo();
+  $('waDemoNote').hidden = !isDemo();
   modal('waOrderModal', true);
   refreshWhatsAppSend();
 }
 
-/** Botón de envío: sin el pago informado no abre WhatsApp; nada se envía solo. */
-export function onWhatsAppSend(event) {
-  const summary = currentSummary();
-  const missing = missingPayment(summary);
+/** «Confirmar pago y enviar»: informa la transferencia; el pedido le llega al dueño solo. */
+export async function onWhatsAppSend() {
+  const order = state.currentOrder;
+  if (!order || runtime.paymentBusy) return;
+  const fields = paymentFields();
+  const missing = missingPayment(fields);
   if (missing) {
-    event.preventDefault();
     toast(missing[0], 'bad');
     $(missing[1])?.focus();
     return;
   }
-  setText(
-    'waOrderStatus',
-    'Se abrió WhatsApp con tu pedido. Revisa el mensaje y pulsa enviar en WhatsApp.',
-  );
-  toast('Se abrió WhatsApp: revisa el mensaje y envíalo.', 'good');
+  runtime.paymentBusy = 'nequi';
+  const send = $('waOrderSend');
+  const label = $('waOrderSendLabel')?.textContent || 'Confirmar pago y enviar';
+  send.setAttribute('aria-disabled', 'true');
+  send.classList.add('is-busy');
+  setText('waOrderSendLabel', 'Enviando…');
+  try {
+    const j = await api(orderPath(order, '/nequi/report'), {
+      method: 'POST',
+      body: {
+        senderLast4: fields.last4,
+        ...(fields.reference ? { reference: fields.reference } : {}),
+      },
+    });
+    setCurrentOrder(j.order);
+    modal('waOrderModal', false);
+    showOrderSent(j.order);
+  } catch (err) {
+    toast(errorMessage(err, 'No se pudo enviar tu pedido. Inténtalo de nuevo.'), 'bad');
+    setText('waOrderSendLabel', label);
+  } finally {
+    runtime.paymentBusy = false;
+    send.classList.remove('is-busy');
+    renderAll();
+    refreshWhatsAppSend();
+  }
 }
 
 async function copyText(text, done) {
@@ -295,42 +323,38 @@ async function copyText(text, done) {
   }
 }
 
-export function copyWhatsAppMessage() {
-  return copyText($('waOrderMessage')?.textContent || '', 'Mensaje copiado.');
-}
-
 /** Botones «Copiar» de la llave y la referencia (dentro de las instrucciones de pago). */
 export function onPayInfoClick(event) {
   const button = event.target.closest?.('[data-copy]');
   if (button) void copyText(button.dataset.copy || '', 'Copiado.');
 }
 
-/** Muestra el pedido por WhatsApp según el canal; el pago en línea no se borra, solo se oculta. */
+/** Muestra el envío desde la tienda según el canal; el pago en línea no se borra, solo se oculta. */
 export function renderWhatsAppOrder() {
   const channel = orderChannel(state.serverConfig);
   const box = $('waOrderBox');
   if (!box) return;
   const on = channel !== 'checkout';
-  const onlyWhatsApp = channel === 'whatsapp';
+  const onlyThisButton = channel === 'whatsapp';
   box.hidden = !on;
-  $('payBtn').hidden = onlyWhatsApp;
-  $('paymentState').hidden = onlyWhatsApp;
+  $('payBtn').hidden = onlyThisButton;
+  $('paymentState').hidden = onlyThisButton;
   document.body.classList.toggle('order-whatsapp', on);
   if (!on) return;
   $('waOrderDemo').hidden = !isDemo();
-  if (onlyWhatsApp) {
-    const kind = payKind(chosenPayMeans());
-    setText('payMeansHint', WA_PAY_HINTS[kind || 'none']);
+  if (onlyThisButton) {
+    const mpOn = state.serverConfig?.paymentMethods?.mercadopago !== false;
+    setText('payMeansHint', PAY_HINTS[payKind(chosenPayMeans()) || (mpOn ? 'none' : 'nequiOnly')]);
   }
-  const missing = missingForWhatsApp();
+  const missing = missingForOrder();
   const ready = !missing;
-  $('waOrderBox').classList.toggle('is-ready', ready);
+  box.classList.toggle('is-ready', ready);
   setText(
     'waOrderHint',
     !ready
       ? 'Para continuar falta: ' + missing[0].charAt(0).toLowerCase() + missing[0].slice(1)
-      : storeNumber()
-        ? 'Todo listo: revisa tu pedido, paga y envíalo por WhatsApp.'
-        : 'Todo listo para revisar. El envío se activa cuando la tienda configure su WhatsApp.',
+      : payKind(chosenPayMeans()) === 'transfer'
+        ? 'Todo listo: revisa tu pedido, paga por Nequi y envíalo. Nos llega al instante.'
+        : 'Todo listo: pagas en línea con Mercado Pago y tu pedido nos llega solo.',
   );
 }

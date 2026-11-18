@@ -5,6 +5,7 @@ import { auditEvents } from '../db/schema.js';
 import { AppError } from '../plugins/errors.js';
 import type { Mailer } from '../integrations/notify/email.js';
 import type { OrderEventSink } from '../integrations/notify/events.js';
+import type { OwnerWhatsApp } from '../integrations/notify/whatsapp-owner.js';
 import type { PaymentGateway } from '../integrations/payments/gateway.js';
 import type { TopupProvider } from '../integrations/topup/provider.js';
 import type { OrderSheetLog } from '../integrations/sheets/google-sheets.js';
@@ -21,6 +22,11 @@ export interface ServiceDeps {
    * avisa el panel abierto.
    */
   mailer?: Mailer | undefined;
+  /**
+   * WhatsApp del dueño (CallMeBot): un solo mensaje, «Pedido pagado», cuando el cliente paga por
+   * Nequi. Opcional: sin él, el pedido le llega por correo (si hay) y siempre al panel y la hoja.
+   */
+  ownerWhatsApp?: OwnerWhatsApp | undefined;
   /** Eventos de pedidos hacia la automatización del dueño (n8n). Opcional. */
   events?: OrderEventSink | undefined;
   /** Registro auxiliar de pedidos en Google Sheets. Opcional; nunca decide nada. */

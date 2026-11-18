@@ -92,15 +92,60 @@ Tres capas; cada una basta por sí sola para impedir una confirmación cruzada.
      el asunto del correo «¡Envío exitoso! · Pedido TGS-…»).
 
 La llave y el celular del dueño solo los ve el comprador de **su propio** pedido Nequi y solo
-mientras espera pago. No aparecen en el código, en los correos ni en la hoja de Google, y con el
-pago en línea (`ORDER_CHANNEL=checkout`) tampoco en `/api/config`.
+mientras espera pago. El **titular** se muestra enmascarado («Tie*** de Pru***»; pedido del dueño,
+2026-11-18, «mantener la privacidad»): el nombre completo nunca sale del servidor. No aparecen en el código, en los correos, en la hoja de Google ni en
+`/api/config`, con cualquier `ORDER_CHANNEL`.
 
-**Excepción, decisión del dueño (2026-11-11, confirmada el 2026-11-18: «Mostrarla en la
-página»):** con el pedido por WhatsApp (`ORDER_CHANNEL` `whatsapp` o `ambos`) ese canal no crea
-pedidos, así que el cliente paga antes de enviar el mensaje: `/api/config` publica en
-`orderPayment.nequi` la llave, el celular y el titular que estén configurados (solo esos; lo que
-falte va como `null`), y la tienda los muestra en «Paga tu pedido». Cualquiera que abra ese paso
-puede verlos. Para dejar de publicarlos basta con volver a `ORDER_CHANNEL=checkout` o apagar Nequi.
+**Envío del pedido desde la tienda (2026-11-18, pedido del dueño: «que el cliente no tenga que
+entrar a WhatsApp; que solo mediante mi tienda me llegue el pedido»).** Con `ORDER_CHANNEL`
+`whatsapp` o `ambos`, el botón «Revisar, pagar y enviar» con Nequi crea el pedido real **antes**
+de mostrar la cuenta (así nadie paga un pedido que no quedó guardado). El cliente transfiere,
+escribe los 4 últimos dígitos y marca «Ya hice la transferencia». Al pulsar «Confirmar pago y
+enviar» se hace el mismo aviso «Ya transferí» de siempre, y el cliente ve la pestaña flotante
+«Compra exitosa» con la espera de hasta 30 minutos (también al pulsar «Ya transferí» en el pago
+con «Pagar»). El cliente nunca abre WhatsApp. Con tarjeta, PSE,
+Efecty o saldo, el mismo botón lleva al pago en línea (Mercado Pago), como «Pagar».
+
+Desde ese día la cuenta ya no se publica en `/api/config` (antes, entre el 2026-11-11 y el
+2026-11-18, el pedido por WhatsApp la publicaba en `orderPayment` porque no creaba pedidos). Esto
+reduce la exposición de los datos del dueño.
+
+### Solo Nequi por ahora (`MERCADOPAGO_NEW_PAYMENTS=false`)
+
+Decisión del dueño (2026-11-18): «Mercado Pago por ahora inhabilitado; el que está habilitado es
+Nequi» (más adelante se podrá reemplazar por un link de pago). Con `MERCADOPAGO_NEW_PAYMENTS=false`
+la tienda no ofrece Mercado Pago (ni sus opciones ni sus preguntas frecuentes) y no abre cobros
+nuevos (`/pay` responde «no disponible»). El webhook y la conciliación de Mercado Pago siguen
+activos: un PSE o un Efecty ya iniciado, un reembolso o un contracargo de un pedido anterior se
+procesan igual. No se usa `PAYMENTS_ENABLED=false` porque apagaría también esos avisos. Para
+volver a ofrecer Mercado Pago basta con quitar la variable o ponerla en `true`.
+
+### Aviso al WhatsApp del dueño (CallMeBot)
+
+Con `CALLMEBOT_APIKEY` (y `OWNER_WHATSAPP`, o por defecto `SUPPORT_WHATSAPP`), al dueño le llega
+un solo mensaje, «Pedido pagado en TayGameStore», cuando el cliente paga por Nequi y lo confirma en
+la tienda («Confirmar pago y enviar» o «Ya transferí»); nunca al crear el pedido, y nada por
+Mercado Pago («solo un mensaje, el más necesario», 2026-11-18). El
+servicio es CallMeBot, gratuito y para «uso personal» según su página
+(https://www.callmebot.com/blog/free-api-whatsapp-messages/, revisada el 2026-11-18). El mensaje
+llega desde el contacto de CallMeBot, no desde el cliente.
+
+- **Datos mínimos** (autorizados por el dueño el 2026-11-18): referencia, ID de Free Fire,
+  servidor, recargas, total y pago (Nequi: 4 últimos dígitos y comprobante). Nunca el nombre ni
+  el correo del cliente: esos quedan en el panel. Texto plano, sin asteriscos.
+- **Cola con reintentos**: el aviso se guarda con el pedido (canal `whatsapp`, migración 0026) y,
+  si CallMeBot falla o no confirma «Message queued», se reintenta (1, 5, 15 y 60 min). El pedido
+  igual queda en el panel y en la hoja.
+- **Sin la clave** no se envía nada por WhatsApp y todo sigue como antes.
+- **Activación** (la hace el dueño desde su celular; la clave nunca pasa por un chat):
+  1. Abre la página de CallMeBot de arriba, agrega su contacto en tu celular y envíale por
+     WhatsApp el mensaje que indica.
+  2. Te responde con tu clave (apikey).
+  3. En Render → servicio → Environment, crea `CALLMEBOT_APIKEY` con esa clave (y
+     `OWNER_WHATSAPP` solo si el número que activó CallMeBot no es el de `SUPPORT_WHATSAPP`).
+     Guardar reinicia el servicio.
+- **NO VERIFICADO**: el envío real a tu WhatsApp (se prueba con tu clave en producción; las
+  pruebas usan un CallMeBot simulado) y los límites de envío del plan gratuito.
 
 La llave se valida al arrancar: alfanumérica con `@`. Una llave hecha solo de números se
 rechaza porque podría ser un número de documento (`docs/datos-del-propietario.md`), salvo `@` más

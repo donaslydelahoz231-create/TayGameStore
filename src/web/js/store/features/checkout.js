@@ -13,7 +13,7 @@ import { chosenMethod, chosenMpMeans, chosenPayMeans } from './pay-means.js';
 import { changePaymentMethod, startNequi } from './nequi.js';
 import { lookupExpired, verifyPlayer } from './player.js';
 import { isFinalOrderStatus, setCurrentOrder, settlePolling, startPolling } from './orders.js';
-import { orderChannel } from './whatsapp-message.js';
+import { orderChannel } from './order-channel.js';
 
 // Checkout: el pedido sigue SOLO el flujo del método elegido.
 //   1. "Pagar": el servidor recalcula todo y crea la orden (idempotente por checkoutKey).
@@ -89,14 +89,19 @@ function confirmedLookup() {
   return {};
 }
 
-async function createOrder() {
+/**
+ * Crea el pedido en el servidor (idempotente por checkoutKey): el servidor recalcula precios,
+ * límites y jugador. Devuelve el pedido, o null si falta algo o falló (el cliente ya vio el aviso).
+ * Lo usan «Pagar» y el envío del pedido a la tienda (whatsapp-order.js).
+ */
+export async function submitCheckout() {
   const missing = missingRequirement();
   if (missing) {
     toast(missing[0], 'bad');
     if (missing[1]) scrollToSection(missing[1]);
-    return;
+    return null;
   }
-  if (runtime.orderBusy) return;
+  if (runtime.orderBusy) return null;
   runtime.orderBusy = true;
   $('payBtn').disabled = true;
   try {
@@ -120,21 +125,7 @@ async function createOrder() {
     resetCheckoutKey();
     setCurrentOrder(j.order);
     startPolling();
-    if (j.order.status === 'AWAITING_PAYMENT' && chosenMethod() === 'nequi_manual') {
-      runtime.orderBusy = false;
-      await startNequi(j.order);
-    } else if (j.order.status === 'AWAITING_PAYMENT' && j.order.payment?.canPay) {
-      // Como en las tiendas de recargas: un solo paso, del pedido directo al cobro.
-      toast('Pedido creado. Te llevamos a Mercado Pago para pagar…', 'good');
-      runtime.orderBusy = false;
-      await goToCheckout(j.order);
-    } else if (j.order.status === 'AWAITING_PAYMENT') {
-      toast('Pedido guardado. Los pagos no están disponibles ahora; inténtalo más tarde.', 'bad');
-      scrollToSection('factura');
-    } else {
-      toast('Pedido creado. Estamos verificando el jugador.', 'good');
-      scrollToSection('verificacion');
-    }
+    return j.order;
   } catch (err) {
     if (
       err instanceof ApiError &&
@@ -153,9 +144,28 @@ async function createOrder() {
       scrollToSection('verificacion');
     }
     toast(errorMessage(err, 'No se pudo crear el pedido.'), 'bad');
+    return null;
   } finally {
     runtime.orderBusy = false;
     renderAll();
+  }
+}
+
+async function createOrder() {
+  const order = await submitCheckout();
+  if (!order) return;
+  if (order.status === 'AWAITING_PAYMENT' && chosenMethod() === 'nequi_manual') {
+    await startNequi(order);
+  } else if (order.status === 'AWAITING_PAYMENT' && order.payment?.canPay) {
+    // Como en las tiendas de recargas: un solo paso, del pedido directo al cobro.
+    toast('Pedido creado. Te llevamos a Mercado Pago para pagar…', 'good');
+    await goToCheckout(order);
+  } else if (order.status === 'AWAITING_PAYMENT') {
+    toast('Pedido guardado. Los pagos no están disponibles ahora; inténtalo más tarde.', 'bad');
+    scrollToSection('factura');
+  } else {
+    toast('Pedido creado. Estamos verificando el jugador.', 'good');
+    scrollToSection('verificacion');
   }
 }
 

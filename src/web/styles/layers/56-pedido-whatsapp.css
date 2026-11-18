@@ -1,28 +1,28 @@
-/* ── Pedido por WhatsApp (ORDER_CHANNEL whatsapp o ambos; features/whatsapp-order.js) ──
-   Mismos tokens de la tienda: paneles azul noche, borde --line, Oxanium para cifras y rótulos y
-   el verde de WhatsApp que ya usan las burbujas de soporte (.whatsapp, 12-support.css). */
+/* ── Envío del pedido desde la tienda (ORDER_CHANNEL whatsapp o ambos; whatsapp-order.js) ──
+   Mismos tokens de la tienda: paneles azul noche, borde --line y Oxanium para cifras y rótulos.
+   Desde el 2026-11-18 el cliente ya no abre WhatsApp: el pedido le llega al dueño desde la tienda
+   y al cliente le aparece la pestaña flotante «Compra exitosa» (al final de esta capa). */
 
 .wa-order {
   display: grid;
   gap: 2px;
   margin-top: 10px;
 }
-.wa-order .btn.whatsapp {
+.wa-order #waOrderBtn {
   min-height: var(--ctl-md, 44px);
   font-weight: 800;
 }
-.wa-order .btn.whatsapp svg {
+.wa-order #waOrderBtn svg {
   width: 18px;
   height: 18px;
 }
-.wa-order.is-ready .btn.whatsapp {
+.wa-order.is-ready #waOrderBtn {
   box-shadow:
-    0 0 0 1px rgba(37, 211, 102, 0.45),
-    0 10px 26px rgba(37, 211, 102, 0.22);
+    0 0 0 1px rgba(139, 61, 255, 0.5),
+    0 10px 26px rgba(139, 61, 255, 0.28);
 }
 .wa-order-demo,
-.wa-demo-note,
-.wa-no-number {
+.wa-demo-note {
   margin: 0 0 6px;
   padding: 7px 10px;
   border: 1px dashed rgba(255, 181, 46, 0.55);
@@ -170,38 +170,13 @@
   font-size: 1.05rem;
   font-weight: 800;
 }
-.wa-preview {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(5, 8, 21, 0.6);
-}
-.wa-preview summary {
-  padding: 10px 12px;
-  cursor: pointer;
-  color: var(--cyan);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-}
-.wa-message {
-  max-height: 220px;
-  margin: 0;
-  padding: 0 12px 12px;
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  font-family: var(--body);
-  font-size: var(--fs-2xs);
-  line-height: 1.5;
-}
 .wa-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 14px;
 }
-.wa-actions .btn.whatsapp {
+.wa-actions #waOrderSend {
   grid-column: 1 / -1;
   min-height: var(--ctl-md, 44px);
   justify-content: center;
@@ -215,10 +190,6 @@
     grid-template-columns: 1fr;
   }
 }
-.wa-no-number {
-  margin: 12px 0 0;
-}
-
 /* ── Paso «Paga tu pedido» (dentro del diálogo) ── */
 .wa-pay {
   margin-top: 12px;
@@ -269,11 +240,15 @@
 .wa-pay-fields input:not([type='checkbox']) {
   width: 100%;
 }
-/* Sin el pago informado, el envío se ve inactivo (el clic explica qué falta). */
-.wa-actions .btn.whatsapp.is-blocked {
+/* Sin el pago informado, el envío se ve inactivo (el clic explica qué falta); enviando, espera. */
+.wa-actions #waOrderSend.is-blocked {
   opacity: 0.55;
   filter: saturate(0.6);
   cursor: not-allowed;
+}
+.wa-actions #waOrderSend.is-busy {
+  opacity: 0.75;
+  cursor: progress;
 }
 
 /*
@@ -282,7 +257,7 @@
  * claras de la arena (blanco y lila con el borde suave del tema) y los avisos ámbar usan un ámbar
  * oscuro que se lee sobre crema.
  */
-:root[data-theme='light'] :is(.wa-order-demo, .wa-demo-note, .wa-no-number) {
+:root[data-theme='light'] :is(.wa-order-demo, .wa-demo-note) {
   border-color: rgba(168, 90, 0, 0.45);
   background: #fff6e6;
   color: #7a4100;
@@ -308,7 +283,115 @@
   border: 1px solid var(--l-border);
   background: var(--l-card);
 }
-:root[data-theme='light'] .wa-preview {
-  border-color: var(--l-border);
-  background: var(--l-card-2);
+
+/*
+ * Pestaña flotante «Compra exitosa» (pedido del dueño, 2026-11-18): pequeña, abajo a la derecha
+ * (en el celular, abajo y a lo ancho, encima de la barra de compra), con el mensaje de espera
+ * debajo del título. Se cierra sola a los 15 s o con su ×.
+ */
+.order-sent {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 860;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: min(360px, calc(100vw - 24px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid rgba(57, 224, 138, 0.5);
+  border-radius: 14px;
+  background: rgba(9, 16, 40, 0.97);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(57, 224, 138, 0.12);
+  color: var(--ink);
+}
+.order-sent[hidden] {
+  display: none;
+}
+.order-sent.is-in {
+  animation: orderSentIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.order-sent-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--green, #39e08a);
+}
+.order-sent-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: #04140b;
+  stroke-width: 2.8;
+}
+.order-sent-text {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+.order-sent-text b {
+  font-family: var(--display);
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.order-sent-text span {
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+}
+.order-sent-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: -4px -4px 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.order-sent-close:hover,
+.order-sent-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+@keyframes orderSentIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+@media (max-width: 760px) {
+  .order-sent {
+    right: 12px;
+    left: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: auto;
+  }
+  body.has-buy-bar:not(.in-checkout):not(.entry-locked) .order-sent {
+    bottom: 88px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .order-sent.is-in {
+    animation: none;
+  }
+}
+:root[data-theme='light'] .order-sent {
+  border-color: rgba(10, 125, 75, 0.4);
+  background: #fff;
+  box-shadow: 0 18px 44px rgba(20, 22, 60, 0.18);
+}
+:root[data-theme='light'] .order-sent-close:hover,
+:root[data-theme='light'] .order-sent-close:focus-visible {
+  background: var(--l-soft);
 }

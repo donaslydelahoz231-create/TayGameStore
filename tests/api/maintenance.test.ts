@@ -89,8 +89,6 @@ describe('GET /api/config', () => {
       playerVerification: 'customer',
       // Sin ORDER_CHANNEL, el pedido se paga en línea como siempre (pedidos por WhatsApp apagados).
       orderChannel: 'checkout',
-      // Sin pedido por WhatsApp no se publica ninguna cuenta de pago.
-      orderPayment: null,
       emailUpdates: false,
       support: { whatsapp: null, email: null },
       termsVersion: '2026-10-05',
@@ -110,7 +108,7 @@ describe('GET /api/config', () => {
   });
 });
 
-describe('GET /api/config · cuenta Nequi del pedido por WhatsApp', () => {
+describe('GET /api/config · la cuenta Nequi nunca se publica', () => {
   // Valores ficticios: celular de 3 y nueve ceros, llave y titular de ejemplo.
   const NEQUI = {
     NEQUI_MANUAL_ENABLED: 'true',
@@ -119,46 +117,21 @@ describe('GET /api/config · cuenta Nequi del pedido por WhatsApp', () => {
     NEQUI_MANUAL_HOLDER: 'Titular Ficticio',
   };
   const WHATSAPP = { SUPPORT_WHATSAPP: '+570000000000' };
-  const configWith = async (env: Record<string, string>) => {
-    app = await buildTestApp({ env });
-    const res = await app.inject({ method: 'GET', url: '/api/config' });
-    expect(res.statusCode).toBe(200);
-    return res.json<{ orderChannel: string; orderPayment: unknown }>();
-  };
 
-  it('con el pago en línea (checkout) no publica la cuenta aunque Nequi esté activo', async () => {
-    const body = await configWith({ ...NEQUI, ...WHATSAPP });
-    expect(body.orderChannel).toBe('checkout');
-    expect(body.orderPayment).toBeNull();
-    expect(JSON.stringify(body)).not.toContain('@tienda-prueba');
-    expect(JSON.stringify(body)).not.toContain('3000000000');
-  });
-
-  it('con «ambos» o «whatsapp» publica llave, celular y titular para el paso de pago', async () => {
-    for (const channel of ['ambos', 'whatsapp']) {
+  // Desde el 2026-11-18 el pedido se envía desde la tienda: la cuenta Nequi solo aparece dentro
+  // del pedido de cada cliente (también con «ambos» o «whatsapp»), nunca en la configuración.
+  it('con cualquier canal la configuración pública no lleva llave, celular ni titular', async () => {
+    for (const channel of ['checkout', 'ambos', 'whatsapp']) {
       await app?.close();
-      const body = await configWith({ ...NEQUI, ...WHATSAPP, ORDER_CHANNEL: channel });
+      app = await buildTestApp({ env: { ...NEQUI, ...WHATSAPP, ORDER_CHANNEL: channel } });
+      const res = await app.inject({ method: 'GET', url: '/api/config' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json<Record<string, unknown>>();
       expect(body.orderChannel).toBe(channel);
-      expect(body.orderPayment).toEqual({
-        nequi: { brebKey: '@tienda-prueba', phone: '3000000000', holder: 'Titular Ficticio' },
-      });
+      expect(body).not.toHaveProperty('orderPayment');
+      for (const value of ['@tienda-prueba', '3000000000', 'Titular Ficticio']) {
+        expect(res.body).not.toContain(value);
+      }
     }
-  });
-
-  it('solo publica lo que el dueño configuró (sin celular ni titular, solo la llave)', async () => {
-    const body = await configWith({
-      NEQUI_MANUAL_ENABLED: 'true',
-      NEQUI_MANUAL_BREB_KEY: '@tienda-prueba',
-      ...WHATSAPP,
-      ORDER_CHANNEL: 'ambos',
-    });
-    expect(body.orderPayment).toEqual({
-      nequi: { brebKey: '@tienda-prueba', phone: null, holder: null },
-    });
-  });
-
-  it('con WhatsApp pero sin Nequi activo no hay cuenta (el cliente la pide por el chat)', async () => {
-    const body = await configWith({ ...WHATSAPP, ORDER_CHANNEL: 'ambos' });
-    expect(body.orderPayment).toBeNull();
   });
 });

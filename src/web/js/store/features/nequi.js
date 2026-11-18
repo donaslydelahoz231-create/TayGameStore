@@ -5,6 +5,7 @@ import { renderAll } from '../render.js';
 import { scrollToSection } from '../scroll.js';
 import { runtime, state } from '../state.js';
 import { toast } from '../ui.js';
+import { showOrderSent } from './order-sent.js';
 import { setCurrentOrder } from './orders.js';
 
 /**
@@ -79,7 +80,10 @@ export async function copyNequiKey() {
   }
 }
 
-/** «Ya transferí»: avisa al dueño para que verifique (no confirma ningún pago). */
+/**
+ * «Ya transferí»: avisa al dueño para que verifique (no confirma ningún pago). El servidor le
+ * escribe a su WhatsApp en ese momento y el cliente ve la pestaña «Compra exitosa» con la espera.
+ */
 export async function reportNequi(event) {
   event.preventDefault();
   const order = state.currentOrder;
@@ -103,7 +107,7 @@ export async function reportNequi(event) {
       body: { senderLast4: last4, ...(reference ? { reference } : {}) },
     });
     setCurrentOrder(j.order);
-    toast('Aviso enviado. Verificamos la transferencia y te confirmamos aquí.', 'good');
+    showOrderSent(j.order);
   } catch (err) {
     toast(errorMessage(err, 'No se pudo enviar el aviso. Inténtalo de nuevo.'), 'bad');
   } finally {

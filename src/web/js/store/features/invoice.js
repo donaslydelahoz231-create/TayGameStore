@@ -156,6 +156,20 @@ function payButtonState() {
       ok: false,
     };
   }
+  if (
+    order.status === 'AWAITING_PAYMENT' &&
+    !order.payment.method &&
+    chosenPayMeans() === 'nequi_manual'
+  ) {
+    // Pedido recién creado que el cliente pagará por Nequi (aún sin método): el botón nunca habla
+    // de Mercado Pago; pulsarlo sigue con Nequi (preparePayment → startNequi).
+    return {
+      text: 'Pagar por Nequi ' + money(order.totalCop),
+      enabled: !runtime.paymentBusy,
+      note: 'Te mostramos a dónde transferir, el total y tu ID; no pasa por Mercado Pago',
+      ok: true,
+    };
+  }
   if (order.status === 'AWAITING_PAYMENT') {
     return {
       text: order.payment.canPay ? BUTTON_TEXT.AWAITING_PAYMENT : 'Pagos no disponibles',

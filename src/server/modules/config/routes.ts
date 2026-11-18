@@ -28,11 +28,15 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
           : null,
       /**
        * Métodos de pago, cada uno según su propia configuración (ninguno depende del otro). Sin
-       * datos de cuentas: con el pago en línea, el celular de Nequi solo lo ve quien elige Nequi en
-       * su propio pedido (la excepción es `orderPayment`, solo con el pedido por WhatsApp).
+       * datos de cuentas: la llave y el celular de Nequi solo los ve quien elige Nequi en su propio
+       * pedido, también al enviar el pedido desde la tienda (ORDER_CHANNEL `whatsapp` o `ambos`).
        */
       paymentMethods: {
-        mercadopago: config.flags.paymentsEnabled && options.paymentsAvailable,
+        // Con MERCADOPAGO_NEW_PAYMENTS=false la tienda no ofrece Mercado Pago (solo Nequi).
+        mercadopago:
+          config.flags.paymentsEnabled &&
+          config.flags.mercadoPagoNewPayments &&
+          options.paymentsAvailable,
         nequiManual: config.nequi.manual !== undefined,
         nequiPush: false,
       },
@@ -41,11 +45,11 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
       /** Sin consulta de proveedor: `customer` (el cliente confirma su ID) u `operator`. */
       playerVerification: config.orders.playerVerification,
       /**
-       * `checkout`, `whatsapp` o `ambos`: con WhatsApp, la tienda arma el pedido y abre el chat con
-       * el número de `support.whatsapp`; no crea pedidos ni cobra (el dueño confirma por WhatsApp).
+       * `checkout`, `whatsapp` o `ambos`: con `whatsapp` o `ambos` la tienda muestra «Revisar, pagar
+       * y enviar»: el cliente envía su pedido desde la tienda (sin abrir WhatsApp) y el pedido le
+       * llega al dueño (panel, hoja y, si está configurado, su WhatsApp por CallMeBot).
        */
       orderChannel: config.orders.orderChannel,
-      orderPayment: orderPayment(config),
       /** El cliente recibe por correo el pago confirmado y la entrega (SMTP configurado). */
       emailUpdates: options.emailUpdatesAvailable,
       support: { whatsapp: config.support.whatsapp ?? null, email: config.support.email ?? null },
@@ -60,25 +64,6 @@ export const configRoutes: FastifyPluginAsync<ConfigRoutesOptions> = async (app,
     };
   });
 };
-
-/**
- * Cuenta Nequi para el paso «Paga tu pedido» del pedido por WhatsApp: el cliente transfiere e
- * informa el pago antes de enviar el pedido, porque ese canal no crea pedidos en la tienda.
- * Publicarla así fue decisión del dueño (2026-11-11; docs/datos-del-propietario.md, requisito
- * 19). Solo con ORDER_CHANNEL `whatsapp` o `ambos` y Nequi por transferencia activo; con
- * `checkout` la cuenta sigue apareciendo solo dentro del pedido Nequi de cada cliente.
- */
-function orderPayment(config: AppConfig) {
-  const nequi = config.nequi.manual;
-  if (config.orders.orderChannel === 'checkout' || !nequi) return null;
-  return {
-    nequi: {
-      brebKey: nequi.brebKey ?? null,
-      phone: nequi.phone ?? null,
-      holder: nequi.holder ?? null,
-    },
-  };
-}
 
 /** Horario de la promo para que la tienda lo muestre (en hora de Colombia y del visitante). */
 function promoInfo(config: AppConfig, now: Date) {

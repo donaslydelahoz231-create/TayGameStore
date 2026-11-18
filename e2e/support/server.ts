@@ -28,6 +28,7 @@ import { listReviewsForAdmin, moderateReview } from '../../src/server/services/r
 import { FakePaymentGateway } from '../../tests/support/fake-gateway.js';
 import { FakePlayerVerifier } from '../../tests/support/fake-player-verifier.js';
 import { FakeSocialClient } from '../../tests/support/fake-social.js';
+import { RecordingOwnerWhatsApp } from '../../tests/support/fake-owner-whatsapp.js';
 import { resetDatabase } from '../../tests/support/integration.js';
 import { ADMIN_PATH } from './admin-path.js';
 
@@ -154,10 +155,13 @@ const config = loadConfig({
   ADMIN_SETUP_CODE: 'frase-de-activacion-e2e-del-dueno',
   ADMIN_PATH,
 });
+/** WhatsApp del dueño simulado (CallMeBot): guarda los textos, nada sale a la red. */
+const ownerWhatsApp = new RecordingOwnerWhatsApp();
 const { app, deps } = await buildAppWithDeps({
   config,
   database,
   db: database.db,
+  ownerWhatsApp,
   paymentGateway: gateway,
   // Doble del proveedor: UID 9… encontrado, 8… inexistente, otro → caído (flujo manual).
   playerVerifier: new FakePlayerVerifier(),
@@ -166,6 +170,9 @@ const { app, deps } = await buildAppWithDeps({
   mailer: slowMailer,
 });
 if (!deps) throw new Error('sin dependencias');
+
+/** Textos que recibió el WhatsApp simulado del dueño (el más reciente al final). */
+app.get('/__e2e__/owner-whatsapp', async () => ({ sent: ownerWhatsApp.sent }));
 
 /** Una pasada de la tarea programada que reenvía la cola de avisos (solo carga). */
 app.post('/__e2e__/run-notifications', async () => {

@@ -5,6 +5,7 @@ import { createDatabase, type Database } from './db/client.js';
 import { HttpGoogleClient } from './integrations/google/oidc.js';
 import { SmtpMailer } from './integrations/notify/email.js';
 import { WebhookEventSink } from './integrations/notify/events.js';
+import { CallMeBotWhatsApp } from './integrations/notify/whatsapp-owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
 import { UniPinTopupProvider } from './integrations/topup/unipin.js';
 import { GoogleSheetsLog } from './integrations/sheets/google-sheets.js';
@@ -38,6 +39,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       ? new MercadoPagoPaymentGateway(config.mercadoPago)
       : undefined,
     mailer: config.smtp ? new SmtpMailer(config.smtp) : undefined,
+    ownerWhatsApp: config.ownerWhatsApp ? new CallMeBotWhatsApp(config.ownerWhatsApp) : undefined,
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
     orderSheet: config.sheets ? new GoogleSheetsLog(config.sheets) : undefined,
     topupProvider: config.topup ? new UniPinTopupProvider(config.topup) : undefined,
@@ -66,6 +68,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
   built.app.log.info(
     {
       correo: Boolean(config.smtp),
+      whatsappDueno: Boolean(config.ownerWhatsApp),
       eventosExternos: Boolean(config.eventsWebhook),
       hojaGoogle: Boolean(config.sheets),
       cronExterno: Boolean(config.cronSecret),

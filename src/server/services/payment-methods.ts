@@ -10,7 +10,12 @@ import { NEQUI_PUSH_UNAVAILABLE_REASON } from '../integrations/payments/nequi-pu
  */
 export function paymentMethodAvailability(deps: ServiceDeps): Record<PaymentMethod, boolean> {
   return {
-    mercadopago: deps.config.flags.paymentsEnabled && deps.gateway !== undefined,
+    // Ofrecer y abrir pagos NUEVOS. Con MERCADOPAGO_NEW_PAYMENTS=false no se ofrece, pero el
+    // webhook y la conciliación siguen confirmando los pagos ya iniciados (usan deps.gateway).
+    mercadopago:
+      deps.config.flags.paymentsEnabled &&
+      deps.config.flags.mercadoPagoNewPayments &&
+      deps.gateway !== undefined,
     nequi_manual: deps.config.nequi.manual !== undefined,
     // Sin acceso oficial a la API de Nequi no hay implementación (integrations/payments/nequi-push.ts).
     nequi_push: false,

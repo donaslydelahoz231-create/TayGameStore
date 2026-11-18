@@ -1003,6 +1003,7 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
  * `sheets_live`: pestaña «Pedidos en vivo», una fila por pedido de cualquier método desde que se
  * crea, sin datos personales; se reescribe con cada cambio (migración 0025).
  * `telegram` se quitó en la migración 0018: el dueño decidió no usarlo (sin filas guardadas).
+ * `whatsapp`: el WhatsApp del dueño por CallMeBot, con datos mínimos del pedido (migración 0026).
  */
 export const NOTIFICATION_CHANNELS = [
   'email',
@@ -1011,6 +1012,7 @@ export const NOTIFICATION_CHANNELS = [
   'sheets_delivery',
   'sheets_pending',
   'sheets_live',
+  'whatsapp',
 ] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 export const NOTIFICATION_STATUSES = ['PENDING', 'SENT', 'FAILED'] as const;
