@@ -3765,3 +3765,43 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   `dep-dbua7vtg1s2s73apafq0` `live` a las 19:00 UTC (1 min 15 s), sin avisos ni errores; en la tienda
   real la presentación usa `tgsBarrido` y mantiene los tiempos.
 - **NO VERIFICADO**: en el celular real del dueño.
+
+## 2026-11-18 · «Tema» en el menú, tarjetas del mismo tamaño y pedido por WhatsApp: publicados
+
+- **«Tema»** (`2d14870`, «autorizo publicar el texto Tema»): la fila del interruptor del menú del
+  perfil dice «Tema» (antes «Modo claro»); el interruptor conserva su nombre accesible «Tema: modo
+  claro». e2e del tema, el menú, la accesibilidad y los dispositivos 37/37. Render
+  `dep-dbup893bc2fs73am93dg` `live` a las 12:04 UTC.
+- **Tarjetas del catálogo** (`bf46c5f`, «autorizo publicar las tarjetas»): todas del mismo alto
+  en cada pantalla (antes, a 360 px, de 324 y de 368 px) y precio y botones a la misma altura;
+  «Disponible» o «Ahorra …» van siempre debajo del precio. Medido de 360 a 1440 px, en oscuro y
+  claro y con tarifa normal y promo; e2e 163/163.
+- **Pedido por WhatsApp** (`83383a8`, «autorizo publicar el pedido por WhatsApp y poner
+  ORDER_CHANNEL=ambos en Render»). El dueño eligió la versión 1, el canal «WhatsApp + pago en
+  línea» y mostrar la cuenta Nequi en la página (requisito 19 de `docs/datos-del-propietario.md`;
+  ver `docs/pagos-nequi.md`). Código de `demo/pedidos-whatsapp-20261112` (`e8f5915` y `357cb0d`)
+  aplicado como parche sin cambiar de rama, con la capa de estilos renombrada a
+  `56-pedido-whatsapp.css` y versión de modo claro. No crea pedidos ni cobra.
+- **Antes de publicar**: unitarias y API 437/437 (16 nuevas), integración 325/325, e2e con el
+  pedido por WhatsApp en Chromium 180/180, Firefox 177/177 (+3 omitidas) y WebKit 177/178 (+2
+  omitidas). La de WebKit que falló (validación del correo) coincidió con grabaciones en paralelo
+  que cargaban la máquina; repetida sola pasó 4 de 4 y las 8 de WhatsApp 32/32. Lint, tipos,
+  formato, build y escáner 0. Los 23 archivos se compararon con su huella antes del commit.
+- **Publicación**: push sin forzar `2d14870..83383a8`; Render `dep-dbuq20mi0phs73bcj4ag` `live` a
+  las 12:59 UTC con `orderChannel: checkout` (sin cambio visible para WhatsApp). Luego
+  `ORDER_CHANNEL=ambos` añadida en Render (solo esa variable, sin tocar las demás), que desplegó
+  `dep-dbuq3cmc6qcc73b336tg` `live` a las 13:03 UTC. Registros sin avisos ni errores y la hoja de
+  Google conectada.
+- **En la tienda real** (computador y celular, oscuro y claro): `orderChannel: ambos`; el pago en
+  línea sigue y aparece «Revisar, pagar y enviar»; referencia `WA-XXXXXX` sin «DEMO»; el envío se
+  bloquea hasta los 4 dígitos y «Ya hice la transferencia»; se publican la llave y el titular de
+  Nequi (el celular no está configurado). En el recorrido de prueba: 0 pedidos creados, WhatsApp
+  bloqueado en el navegador (no se envió nada) y 0 errores de JavaScript; las 6 tarjetas del mismo
+  alto.
+- **GitHub**: CI de `83383a8` 6/6 en verde (e2e de Chromium, WebKit y Firefox incluidas), CodeQL,
+  chequeo de producción y Pages.
+- **Demo**: a pedido del dueño queda una sola demo del pedido por WhatsApp (la de hoy); la del
+  12-11 se borró.
+- **Para apagarlo**: `ORDER_CHANNEL=checkout` en Render (también deja de publicar la cuenta Nequi).
+- **NO VERIFICADO**: el envío real del mensaje a WhatsApp (no se envió ningún pedido para no
+  escribirle al dueño) y en el celular real del dueño.
