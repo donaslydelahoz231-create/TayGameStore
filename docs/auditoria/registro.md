@@ -3805,3 +3805,37 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
 - **Para apagarlo**: `ORDER_CHANNEL=checkout` en Render (también deja de publicar la cuenta Nequi).
 - **NO VERIFICADO**: el envío real del mensaje a WhatsApp (no se envió ningún pedido para no
   escribirle al dueño) y en el celular real del dueño.
+
+## 2026-11-18 · Pedido desde la tienda, «Compra exitosa», aviso al WhatsApp del dueño y solo Nequi: publicados
+
+- **Pedidos del dueño**: que el cliente no abra WhatsApp ni envíe nada a mano; que al confirmar el
+  pago salga «Compra exitosa» con la espera de 30 minutos y a la vez le llegue el pedido al dueño
+  por WhatsApp (un solo mensaje, «Pedido pagado», con el ID de Free Fire en su propio renglón);
+  Mercado Pago inhabilitado por ahora (solo Nequi; más adelante, link de pago); el titular de
+  Nequi protegido; y las preguntas frecuentes que necesitaban dos clics.
+- **Decisiones del dueño** (autorizadas en la conversación): aviso por CallMeBot sin la API de
+  WhatsApp Business, con **datos mínimos** (referencia, ID, servidor, recargas, total y pago; nunca
+  el nombre ni el correo del cliente); sin pedir el celular del cliente por ahora.
+- **Menos exposición**: `/api/config` deja de publicar la cuenta Nequi (publicada desde `83383a8`) y
+  el titular se muestra enmascarado en el pedido; el nombre completo no sale del servidor.
+- **Antes de publicar**: ESLint, TypeScript y Prettier sin errores; unitarias 431/431; integración
+  333/333; e2e Chromium 181/181, WebKit 179/179 (+2 omitidas) y Firefox 178/178 (+3 omitidas); tras
+  los últimos ajustes, comportamiento y envío Chromium 72/72 y WebKit 71/71 (+1 omitida); escáner 0.
+  Un fallo real atrapado por las pruebas (el botón decía un instante «Pagar con Mercado Pago» en un
+  pedido Nequi) se corrigió antes del commit.
+- **Publicación** («perfecto autorizo commit y push»): `406e5ea..3202613` sin forzar; Render
+  `dep-dbutdcjtqb8s739fh5d0` `live` a las 16:48 UTC con la migración 0026 aplicada («Migraciones
+  aplicadas.»). CI, CodeQL, chequeo de producción y diagnóstico de `3202613` en verde.
+- **Solo Nequi** (pedido del dueño: «Mercado Pago… lo dejas inhabilitado; el que está habilitado es
+  Nequi»): `MERCADOPAGO_NEW_PAYMENTS=false` añadida en Render (solo esa variable, sin tocar las
+  demás), que desplegó `dep-dbuvvnt6e07s73aa0jjg` `live` a las 19:44 UTC. No se usó
+  `PAYMENTS_ENABLED=false`, que apagaría también los avisos de pagos ya iniciados.
+- **En la tienda real** (computador y celular, solo lectura): `paymentMethods.mercadopago: false`,
+  `nequiManual: true`, `orderChannel: ambos`; solo la opción Nequi; las preguntas de Mercado Pago
+  ocultas; «Revisar, pagar y enviar» visible; preguntas frecuentes con un clic; 0 pedidos creados y
+  0 errores de JavaScript. Registros sin avisos ni errores y sin reinicios fuera de los despliegues.
+- **Pendiente del dueño**: activar CallMeBot y poner `CALLMEBOT_APIKEY` en Render (el arranque dice
+  `whatsappDueno: false`). Mientras tanto, los pagos Nequi informados le llegan a la hoja («Pagos
+  pendientes») y al panel; el correo no está configurado (`correo: false`).
+- **NO VERIFICADO**: el envío real a WhatsApp por CallMeBot (sin clave todavía) y el flujo completo
+  con un pedido real en producción (no se creó ninguno para no generar pedidos falsos).
