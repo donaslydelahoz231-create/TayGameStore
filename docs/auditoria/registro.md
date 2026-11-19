@@ -3839,3 +3839,34 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   pendientes») y al panel; el correo no está configurado (`correo: false`).
 - **NO VERIFICADO**: el envío real a WhatsApp por CallMeBot (sin clave todavía) y el flujo completo
   con un pedido real en producción (no se creó ninguno para no generar pedidos falsos).
+
+## 2026-11-19 · Comprobante de «Tu pedido» ligero y limpio: publicado; aviso por WhatsApp sin activar
+
+- **Pedidos del dueño** (2026-11-18): «que no se visualice exagerado para todos los dispositivos y
+  que encajen todos los datos del pedido»; «ligero y no demasiado grande o estirado»; «limpio,
+  atractivo, no genérico y no exagerado». Demo en el artefacto de siempre antes de publicar.
+- **Cambio**: capa nueva `58-comprobante-compacto.css` y ajustes en `invoice.js` e `index.html`.
+  Ancho de recibo (máximo 560 px, centrado), etiquetas sin mayúsculas, datos sin cajas, total en
+  franja lila clara, solo el ID de Free Fire resaltado; cada paquete con su descripción; el código
+  del comprobante pagado nunca se sale del papel. Alto antes → ahora: 1.137 → 661 px a 360 px y
+  790 → 579 en escritorio. La descarga JPG/PDF no cambia.
+- **Antes de publicar**: medido de 320 a 1.440 px en oscuro y claro (0 elementos fuera, 0
+  desbordes); ESLint, TypeScript y Prettier sin errores; unitarias 431/431; integración 333/333;
+  e2e Chromium 181/181, WebKit 179/179 (+2 omitidas) y Firefox 178/178 (+3 omitidas); escáner 0.
+  Fallo atrapado antes del commit: a 320 px el código largo del comprobante pagado se salía del
+  papel (una regla perdía por especificidad).
+- **Publicación** («Autorización permitida y activación»): `448670b..6309097` sin forzar, firmado
+  TayGameStore. Render `dep-dbv534brjlhs73e4c5lg` `live` a las 01:33 UTC; sin avisos ni errores en
+  los registros desde el despliegue. CI completa (lint, tipos, pruebas, integración, e2e en
+  Chromium, WebKit y Firefox, y gitleaks), CodeQL, chequeo de producción y Pages en verde.
+- **En la tienda real** (solo lectura, sin crear pedidos): comprobante de 318 px a 360 px y de
+  560 px en escritorio, 0 elementos fuera, etiquetas sin mayúsculas, «Total» en la franja; 0
+  errores de JavaScript; `/api/health` ok y `/api/ready` con la base de datos ok.
+- **Aviso por WhatsApp** (el dueño: «No me llega el pedido en WhatsApp»): el arranque de
+  producción dice `whatsappDueno: false` (falta `CALLMEBOT_APIKEY` en Render). En los últimos 3
+  días hubo 3 pedidos Nequi con el pago informado por el cliente y 0 avisos por WhatsApp creados;
+  sí llegaron a la hoja («Pagos pendientes»). Se le dieron al dueño los pasos de activación
+  (contacto de CallMeBot según su página del 2026-11-19); la clave la pone el dueño en Render, nunca
+  por el chat. A las 01:30 UTC aún no se había activado (sin reinicio ni despliegue nuevo).
+- **NO VERIFICADO**: el envío real a WhatsApp (sin clave todavía); los 3 avisos anteriores no se
+  reenvían solos (el aviso se crea al confirmar el cliente).
