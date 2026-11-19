@@ -1,0 +1,296 @@
+/*
+ * Comprobante de «Tu pedido»: ligero, limpio y con todos los datos (pedidos del dueño,
+ * 2026-11-18: «que no se visualice exagerado para todos los dispositivos y que encajen todos los
+ * datos del pedido»; «ligero y no demasiado grande o estirado»; «limpio, atractivo, no genérico y
+ * no exagerado»).
+ *
+ * Medido antes (pedido de 3 paquetes y un nombre largo): 1.137 px de alto en un celular de
+ * 360 px y, en escritorio, 793 px de ancho (se estiraba a toda la columna). Etiquetas en
+ * mayúsculas espaciadas, datos encerrados en celdas con líneas y una banda oscura pesada para el
+ * total: se leía como una tabla genérica.
+ *
+ * Ahora es un recibo de recarga: ancho de recibo (máximo 560 px, centrado), etiquetas en letra
+ * normal y suave, sin cajas (aire en vez de líneas; la línea punteada de ticket solo separa
+ * secciones). Lo único que resalta es el ID de Free Fire, en la letra de la marca y en violeta:
+ * es adonde llegan los diamantes y lo que el cliente debe revisar. El total va en una franja lila
+ * clara con la cifra en la letra de la marca. Todo lo demás, discreto.
+ */
+
+#invoice {
+  --tag: #4a5185;
+  --violet-ink: #3b1fb8;
+  --lilac: #f1edff;
+  max-width: 560px;
+  margin-inline: auto;
+  border-radius: 18px;
+  box-shadow:
+    0 18px 44px -26px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* Banda de marca baja. */
+#invoice .invoice-head {
+  gap: 12px;
+  padding: 12px 18px;
+}
+#invoice .invoice-brand {
+  gap: 10px;
+}
+#invoice .invoice-brand .brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+#invoice .invoice-brand .brand-mark svg {
+  width: 22px;
+  height: 22px;
+}
+#invoice .invoice-brand b {
+  font-size: 0.92rem;
+}
+#invoice .invoice-brand small,
+#invoice .invoice-ref span {
+  font-size: 0.72rem;
+}
+#invoice .invoice-ref {
+  gap: 3px;
+}
+#invoice .invoice-ref strong {
+  padding: 4px 9px;
+  font-size: 0.72rem;
+}
+
+/* Etiquetas: letra normal, suave y sin mayúsculas espaciadas. */
+#invoice :is(.invoice-grid, .invoice-meta-row) small,
+#invoice .invoice-table-head > * {
+  color: var(--tag);
+  font: 500 0.74rem / 1.3 var(--font-ui);
+  font-stretch: 100%;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Datos sin cajas: el cliente en su renglón; debajo, ID, servidor y estado, separados por aire. */
+#invoice .invoice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 18px;
+  padding: 12px 18px 14px;
+}
+#invoice .invoice-grid > div,
+#invoice .invoice-grid > div + div {
+  gap: 2px;
+  padding: 0;
+  border: 0;
+}
+#invoice .invoice-grid > div:first-child {
+  grid-column: 1 / -1;
+}
+#invoice :is(.invoice-grid, .invoice-meta-row) b {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+/* Lo que resalta: el ID que recibe los diamantes, en la letra de la marca. */
+#invoice #invoiceUid {
+  color: var(--violet-ink);
+  font: 600 0.98rem / 1.25 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+#invoice .invoice-nick {
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+#invoice .invoice-nick[hidden] {
+  display: none;
+}
+/* El estado cabe en una línea («Pago pendiente» se partía en dos en el celular). */
+#invoice #invoiceState {
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+/* Detalle: renglones bajos; las cifras en la letra de la marca, del tamaño del texto. */
+#invoice .invoice-table-head {
+  padding: 12px 18px 2px;
+}
+#invoice #invoiceRows {
+  padding: 0 18px;
+}
+#invoice .invoice-line {
+  padding: 8px 0;
+  border-bottom-color: #eceef8;
+}
+#invoice .invoice-line:last-child {
+  border-bottom: 0;
+}
+#invoice .invoice-line span {
+  font-size: 0.9rem;
+}
+#invoice .invoice-line span:first-child {
+  font-weight: 600;
+}
+#invoice .invoice-line small {
+  font-size: 0.74rem;
+}
+#invoice .invoice-line strong {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+/* La columna del precio mide lo mismo en cada renglón y en el encabezado (antes dependía de cada
+   cifra y la cantidad quedaba desalineada bajo «Cant.»). En rem: el encabezado usa otra letra. */
+@media (min-width: 521px) {
+  #invoice :is(.invoice-line, .invoice-table-head) > :last-child {
+    min-width: 8.2rem;
+  }
+}
+
+/* Total: franja lila clara en vez de la banda oscura; la cifra manda por tamaño, no por peso. */
+#invoice .invoice-total {
+  margin: 8px 18px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--lilac);
+  color: var(--ink);
+}
+#invoice .invoice-total span {
+  color: var(--tag);
+  font: 600 0.82rem / 1 var(--font-ui);
+  font-stretch: 100%;
+  letter-spacing: 0;
+}
+#invoice .invoice-total strong {
+  color: var(--ink);
+  font: 600 clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem) / 1.1 var(--font-display);
+}
+
+/* Método de pago y código: una fila, sin caja. */
+#invoice .invoice-meta-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+  padding: 12px 18px 14px;
+}
+#invoice .invoice-meta-row > div {
+  gap: 2px;
+  min-width: 0;
+}
+#invoice .invoice-meta-row b {
+  margin-top: 0;
+}
+#invoice .invoice-meta-row > div:nth-child(2) {
+  order: 0;
+  grid-column: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+#invoice .invoice-code[hidden] {
+  display: none;
+}
+/* Comprobante pagado: «N.º 000123 · V1-…» es largo; va en su propio renglón completo y, si no
+   cabe, el código de verificación baja entero tras el «·» (nunca se sale del papel). */
+#invoice .invoice-meta-row > .invoice-code.is-wide {
+  grid-column: 1 / -1;
+}
+/* El código es dato de consulta: letra de texto, sin competir con el ID ni con el total. */
+#invoice #invoiceCode {
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Solo se parte si no cabe ni en un renglón propio. */
+#invoice .invoice-code-value {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Pie de dos frases, discreto. */
+#invoice .invoice-foot {
+  padding: 10px 18px 22px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* Celular y tableta angosta: márgenes más justos. 44-comprobante.css pasa los datos a dos
+   columnas con líneas en este ancho; aquí siguen en tres, sin líneas, mientras quepan. */
+@media (max-width: 640px) {
+  #invoice .invoice-head {
+    padding: 10px 14px;
+  }
+  /* La banda baja de línea: la referencia y la fecha van alineadas a la izquierda, juntas si
+     caben (antes la fecha quedaba corrida a la derecha bajo la referencia). */
+  #invoice .invoice-ref {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    text-align: left;
+  }
+  #invoice .invoice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 14px;
+    padding: 10px 14px 12px;
+  }
+  #invoice .invoice-grid > div:nth-child(n) {
+    padding: 0;
+    border: 0;
+  }
+  /* Con el mismo selector de 44-comprobante.css (que cuenta como id), si no, gana su margen. */
+  #invoice :is(.invoice-table-head, #invoiceRows) {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  #invoice .invoice-total {
+    margin: 6px 14px 0;
+    padding: 9px 12px;
+  }
+  #invoice .invoice-meta-row {
+    gap: 8px 10px;
+    padding: 10px 14px 12px;
+  }
+  /* «V1-ABCD-EFGH-JKMN-PQRS» cabe entero en un celular de 320 px. */
+  #invoice #invoiceCode {
+    font-size: 0.86rem;
+  }
+  #invoice .invoice-foot {
+    padding: 9px 14px 20px;
+  }
+}
+
+/* Celular: cliente arriba; ID y servidor lado a lado; el estado en un renglón bajo, con su
+   etiqueta a la izquierda y la insignia a la derecha. */
+@media (max-width: 480px) {
+  #invoice .invoice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #invoice .invoice-grid > div:nth-child(4) {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+}
+
+/* Celulares muy angostos (hasta 340 px): el paquete usa todo el ancho y debajo van «Cant. 1» a la
+   izquierda y el precio a la derecha (antes el precio le quitaba media fila al nombre, que se
+   partía en cuatro o cinco renglones). */
+@media (max-width: 340px) {
+  #invoice .invoice-line {
+    grid-template-areas:
+      'name name'
+      'qty total';
+    align-items: baseline;
+    row-gap: 4px;
+  }
+  #invoice .invoice-line > :nth-child(2) {
+    text-align: left;
+  }
+}

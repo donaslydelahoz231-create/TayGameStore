@@ -925,7 +925,8 @@ test.describe('compra completa (invitado)', () => {
       await page.locator('#refreshOrderBtn').click();
       await expect(page.locator('#invoiceState')).toHaveText('Pago confirmado');
       await expect(page.locator('#nequiBox')).toBeHidden();
-      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi · Pago confirmado');
+      // El medio, sin repetir el estado (que tiene su propia celda).
+      await expect(page.locator('#invoiceMethod')).toHaveText('Nequi');
       await expect(page.locator('#trackingMessage')).toHaveText(
         'Pago verificado en nuestra cuenta Nequi. Preparando tu recarga.',
       );

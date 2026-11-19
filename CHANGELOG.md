@@ -5,6 +5,30 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Comprobante de «Tu pedido» ligero, limpio y completo en todas las pantallas (2026-11-18)
+
+- **Ni grande ni estirado** (pedidos del dueño): en pantallas anchas el comprobante tiene ancho de
+  recibo (máximo 560 px, centrado) en vez de estirarse a toda la columna (793 px en escritorio).
+  Pedido de 3 paquetes con nombre largo, alto antes → ahora: 1.137 → 661 px en un celular de
+  360 px, 1.093 → 640 en 390 px y 790 → 579 en escritorio.
+- **Limpio y propio, sin exagerar**: etiquetas en letra normal y suave en vez de mayúsculas
+  espaciadas; los datos sin cajas ni líneas (la línea punteada de ticket solo separa secciones);
+  el total en una franja lila clara con la cifra en la letra de la marca, en lugar de la banda
+  oscura; banda de marca más baja y sombra más suave. Lo único que resalta es el ID de Free Fire,
+  en la letra de la marca y en violeta: es adonde llegan los diamantes.
+- **Todos los datos encajados**: el cliente va en su propio renglón (un nombre largo ya no se apila
+  en tres líneas) y debajo el ID Free Fire (con el nickname solo si existe), el servidor y el
+  estado; luego el método de pago y el código. Cada paquete muestra su descripción («110
+  diamantes totales») en vez del código interno; la celda «Nickname» vacía y la de «Moneda»
+  desaparecen; el método ya no repite el estado; «Pago pendiente» cabe en un renglón; la cantidad
+  queda alineada bajo «Cant.» en todos los renglones.
+- **El código del comprobante pagado nunca se sale del papel**: «N.º 000123 · V1-…» ocupa su
+  renglón (desde 360 px, en una sola línea) y, si no cabe, el código de verificación baja entero
+  tras el «·» en vez de partirse en un guion. En celulares de hasta 340 px cada paquete usa todo
+  el ancho y debajo van la cantidad y el precio.
+- Medido de 320 a 1.440 px en modo oscuro y claro: 0 elementos fuera del comprobante y 0
+  desbordes. La descarga JPG/PDF no cambia.
+
 ### El pedido le llega solo al dueño, «Compra exitosa» y preguntas con un clic (2026-11-18)
 
 - **El cliente ya no abre WhatsApp** (pedido del dueño: «que solo mediante mi tienda me llegue el

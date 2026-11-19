@@ -1,4 +1,4 @@
-import { cartItems, total } from '../cart-model.js';
+import { cartItems, productById, total } from '../cart-model.js';
 import { $, esc, setText } from '../dom.js';
 import { money } from '../format.js';
 import { serverLabel } from '../servers.js';
@@ -31,6 +31,25 @@ export const invoiceCode = () => {
   return order?.receiptCode || '—';
 };
 
+/**
+ * Pinta el código en «Tu pedido». En el comprobante pagado, el código de verificación va en su
+ * propio bloque: si no cabe tras el número, baja entero al renglón siguiente en vez de partirse en
+ * un guion (es lo que la persona copia en «Verificar comprobante»). Solo nodos de texto, sin HTML.
+ */
+function renderInvoiceCode() {
+  const el = $('invoiceCode');
+  if (!el) return;
+  const receipt = state.currentOrder?.receipt;
+  if (!receipt) {
+    el.textContent = invoiceCode();
+    return;
+  }
+  const value = document.createElement('span');
+  value.className = 'invoice-code-value';
+  value.textContent = receipt.verificationCode;
+  el.replaceChildren(`N.º ${String(receipt.number).padStart(6, '0')} · `, value);
+}
+
 /** Estado de la descarga del comprobante (JPG, PDF, compartir). */
 function exportState(lines) {
   const order = state.currentOrder;
@@ -48,24 +67,27 @@ function exportState(lines) {
   if (order) {
     return {
       enabled: false,
-      text: `Pedido ${order.reference} registrado. El comprobante se emite cuando Mercado Pago confirma el pago.`,
+      text: `Pedido ${order.reference} registrado. El comprobante se emite cuando se confirma tu pago.`,
     };
   }
   return {
     enabled: false,
     text: lines.length
-      ? 'Esto es un resumen, no una factura. El comprobante se emite cuando Mercado Pago confirma el pago.'
+      ? 'Esto es un resumen, no una factura. El comprobante se emite cuando se confirma tu pago.'
       : 'Agrega una recarga para empezar tu compra.',
   };
 }
 
-/** Líneas del comprobante: las de la orden si existe, si no las del carrito. */
+/**
+ * Líneas del comprobante: las de la orden si existe, si no las del carrito. Debajo de cada paquete
+ * van sus diamantes («110 diamantes totales»), nunca el código interno del paquete (ff-110).
+ */
 export function invoiceLines() {
   const order = state.currentOrder;
   if (order) {
     return order.items.map((i) => ({
       name: i.name,
-      desc: i.sku,
+      desc: productById(i.sku)?.desc || '',
       qty: i.quantity,
       line: i.lineTotalCop,
     }));
@@ -207,7 +229,10 @@ export function renderInvoice() {
   );
   setText('invoiceClient', order?.customerName || state.customerName.trim() || '—');
   setText('invoiceUid', order?.playerUid || (state.uidAccepted ? state.playerUid : '—'));
-  setText('invoiceNick', showPlayer ? verification.nickname : lookup ? lookup.nickname : '—');
+  // Nickname solo si lo hay (consulta del proveedor o verificación del equipo): va bajo el ID.
+  const nickname = (showPlayer ? verification.nickname : lookup?.nickname) || '';
+  setText('invoiceNick', nickname || '—');
+  if ($('invoiceNick')) $('invoiceNick').hidden = !nickname;
   // Región verificada (operador o proveedor) o, si aún no la hay, el servidor que eligió el cliente.
   const chosenServer = serverLabel(order ? order.playerServer : state.playerServer);
   setText(
@@ -215,7 +240,14 @@ export function renderInvoice() {
     (showPlayer ? verification.region : lookup ? lookup.region : '') || chosenServer || '—',
   );
   setText('invoiceTotal', money(invoiceTotal()));
-  setText('invoiceCode', invoiceCode());
+  renderInvoiceCode();
+  // Sin pedido no hay código: la fila no ocupa espacio vacío. El del comprobante pagado es largo
+  // («N.º 000123 · V1-…») y ocupa su propio renglón.
+  const codeRow = $('invoiceCodeRow');
+  if (codeRow) {
+    codeRow.hidden = invoiceCode() === '—';
+    codeRow.classList.toggle('is-wide', Boolean(order?.receipt));
+  }
   setText('invoiceState', order ? humanStatus(order) : 'Sin pedido');
   const stateEl = $('invoiceState');
   if (stateEl) stateEl.className = order ? 'ready' : 'pending';
@@ -226,13 +258,10 @@ export function renderInvoice() {
       : order?.payment?.method === 'mercadopago' || !means || means !== 'nequi_manual'
         ? 'Mercado Pago'
         : 'Nequi';
+  // Solo el medio: el estado ya está en su propia celda (antes se repetía aquí).
   setText(
     'invoiceMethod',
-    order
-      ? orderMethod + ' · ' + humanStatus(order)
-      : means
-        ? PAY_MEANS[means].split(' (')[0]
-        : 'Pendiente',
+    order ? orderMethod : means ? PAY_MEANS[means].split(' (')[0] : 'Pendiente',
   );
   // Sin paquetes ni pedido, en celular solo se ve la cabecera y el total (ver 40-ux-pulido.css).
   $('invoice')?.classList.toggle('is-empty', !lines.length && !order);
@@ -245,7 +274,8 @@ export function renderInvoice() {
     lines.forEach((x) => {
       const el = document.createElement('div');
       el.className = 'invoice-line';
-      el.innerHTML = `<span>${esc(x.name)}<small>${esc(x.desc)}</small></span><span>${x.qty}</span><strong>${money(x.line)}</strong>`;
+      const desc = x.desc ? `<small>${esc(x.desc)}</small>` : '';
+      el.innerHTML = `<span>${esc(x.name)}${desc}</span><span>${x.qty}</span><strong>${money(x.line)}</strong>`;
       rows.appendChild(el);
     });
   const button = payButtonState();
