@@ -5,7 +5,8 @@ import { createDatabase, type Database } from './db/client.js';
 import { HttpGoogleClient } from './integrations/google/oidc.js';
 import { SmtpMailer } from './integrations/notify/email.js';
 import { WebhookEventSink } from './integrations/notify/events.js';
-import { CallMeBotWhatsApp } from './integrations/notify/whatsapp-owner.js';
+import { GreenApiWhatsApp } from './integrations/notify/whatsapp-greenapi.js';
+import { CallMeBotWhatsApp, type OwnerWhatsApp } from './integrations/notify/whatsapp-owner.js';
 import { MercadoPagoPaymentGateway } from './integrations/payments/mercadopago.js';
 import { UniPinTopupProvider } from './integrations/topup/unipin.js';
 import { GoogleSheetsLog } from './integrations/sheets/google-sheets.js';
@@ -13,6 +14,14 @@ import { FacebookClient } from './integrations/social/providers.js';
 
 export interface Server extends BuiltApp {
   database: Database | undefined;
+}
+
+/** Green-API (número de la tienda) o CallMeBot, según lo que esté configurado en el hosting. */
+function ownerWhatsAppSender(settings: AppConfig['ownerWhatsApp']): OwnerWhatsApp | undefined {
+  if (!settings) return undefined;
+  return settings.provider === 'greenapi'
+    ? new GreenApiWhatsApp(settings)
+    : new CallMeBotWhatsApp(settings);
 }
 
 /**
@@ -39,7 +48,7 @@ export async function buildServer(config: AppConfig): Promise<Server> {
       ? new MercadoPagoPaymentGateway(config.mercadoPago)
       : undefined,
     mailer: config.smtp ? new SmtpMailer(config.smtp) : undefined,
-    ownerWhatsApp: config.ownerWhatsApp ? new CallMeBotWhatsApp(config.ownerWhatsApp) : undefined,
+    ownerWhatsApp: ownerWhatsAppSender(config.ownerWhatsApp),
     eventSink: config.eventsWebhook ? new WebhookEventSink(config.eventsWebhook) : undefined,
     orderSheet: config.sheets ? new GoogleSheetsLog(config.sheets) : undefined,
     topupProvider: config.topup ? new UniPinTopupProvider(config.topup) : undefined,
@@ -68,7 +77,9 @@ export async function buildServer(config: AppConfig): Promise<Server> {
   built.app.log.info(
     {
       correo: Boolean(config.smtp),
-      whatsappDueno: Boolean(config.ownerWhatsApp),
+      // Solo el nombre del servicio (greenapi o callmebot), nunca el número, el id ni el token.
+      whatsappDueno: config.ownerWhatsApp?.provider ?? false,
+      whatsappTopePorHora: config.ownerWhatsAppMaxPerHour,
       eventosExternos: Boolean(config.eventsWebhook),
       hojaGoogle: Boolean(config.sheets),
       cronExterno: Boolean(config.cronSecret),

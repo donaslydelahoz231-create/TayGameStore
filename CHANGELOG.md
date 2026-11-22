@@ -5,6 +5,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/). Versiones:
 
 ## [Sin publicar]
 
+### Aviso al WhatsApp del dueño con Green-API, protegido contra spam y fugas (2026-11-19)
+
+- **Disponible otra vez** (pedido del dueño: «que esté disponible y que me llegue»): CallMeBot no
+  acepta usuarios nuevos, así que el aviso «Pedido pagado» puede salir desde un número propio de
+  la tienda con Green-API (`GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN` y, si hace falta,
+  `GREENAPI_API_URL`). Si está configurado, se usa en vez de CallMeBot; sin él, todo sigue igual.
+- **Contra spam**: como máximo `OWNER_WHATSAPP_MAX_PER_HOUR` avisos por hora (20 por defecto,
+  hasta 60). Los que pasan del tope no se pierden ni gastan intentos: esperan su turno en la cola
+  (alerta `whatsapp_capped` en el registro). Si el tope no se puede contar, no se envía.
+- **Contra fugas del token y de datos**: el token solo puede ir a los dominios oficiales de
+  Green-API, por HTTPS, sin redirecciones, y nunca aparece en errores ni registros. El
+  destinatario es fijo (`OWNER_WHATSAPP`), el mensaje lleva datos mínimos (nunca nombre, correo
+  ni teléfono del cliente) y el arranque solo registra el nombre del servicio.
+- **Contra malware**: solo texto, sin archivos, sin enlaces y sin vista previa; la tienda no
+  recibe mensajes de Green-API (no hay webhook).
+- Política de privacidad: Green-API y WhatsApp figuran como encargados del aviso interno, con los
+  datos exactos que lleva.
+
 ### Comprobante de «Tu pedido» ligero, limpio y completo en todas las pantallas (2026-11-18)
 
 - **Ni grande ni estirado** (pedidos del dueño): en pantallas anchas el comprobante tiene ancho de

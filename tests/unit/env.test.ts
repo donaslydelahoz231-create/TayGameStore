@@ -142,7 +142,7 @@ describe('loadConfig', () => {
     expect(
       loadConfig({ CALLMEBOT_APIKEY: 'clavefalsa123', SUPPORT_WHATSAPP: '+570000000000' })
         .ownerWhatsApp,
-    ).toEqual({ phone: '570000000000', apiKey: 'clavefalsa123' });
+    ).toEqual({ provider: 'callmebot', phone: '570000000000', apiKey: 'clavefalsa123' });
     // OWNER_WHATSAPP (el número que activó CallMeBot) manda sobre el de soporte.
     expect(
       loadConfig({
@@ -153,6 +153,64 @@ describe('loadConfig', () => {
     ).toBe('579990000000');
     expect(configError({ CALLMEBOT_APIKEY: 'no válida!' }).issues.join()).toContain(
       'CALLMEBOT_APIKEY',
+    );
+  });
+
+  it('WhatsApp del dueño (Green-API): id y token juntos, un número y solo dominios de Green-API', () => {
+    // Id, token y números ficticios.
+    const id = '1103000000';
+    const token = 'tokenficticio0000000000000000000000000000000000000';
+    const owner = { OWNER_WHATSAPP: '+579990000000' };
+    expect(
+      loadConfig({ ...owner, GREENAPI_ID_INSTANCE: id, GREENAPI_API_TOKEN: token }).ownerWhatsApp,
+    ).toEqual({
+      provider: 'greenapi',
+      phone: '579990000000',
+      apiUrl: 'https://api.green-api.com',
+      idInstance: id,
+      apiToken: token,
+    });
+    // La apiUrl de la consola (servidor numerado) se respeta; manda sobre CallMeBot.
+    expect(
+      loadConfig({
+        ...owner,
+        GREENAPI_ID_INSTANCE: id,
+        GREENAPI_API_TOKEN: token,
+        GREENAPI_API_URL: 'https://1103.api.green-api.com/',
+        CALLMEBOT_APIKEY: 'clavefalsa123',
+      }).ownerWhatsApp,
+    ).toMatchObject({ provider: 'greenapi', apiUrl: 'https://1103.api.green-api.com' });
+    // Faltan piezas: se informa sin mostrar los valores.
+    const half = configError({ ...owner, GREENAPI_API_TOKEN: token }).issues.join();
+    expect(half).toContain('GREENAPI_ID_INSTANCE');
+    expect(half).not.toContain(token);
+    expect(
+      configError({ GREENAPI_ID_INSTANCE: id, GREENAPI_API_TOKEN: token }).issues.join(),
+    ).toContain('OWNER_WHATSAPP');
+    // Otro dominio (el token iría a un tercero), http o un token con símbolos: no arranca.
+    for (const url of ['https://evil.example.com', 'http://api.green-api.com']) {
+      const issues = configError({
+        ...owner,
+        GREENAPI_ID_INSTANCE: id,
+        GREENAPI_API_TOKEN: token,
+        GREENAPI_API_URL: url,
+      }).issues.join();
+      expect(issues).toContain('GREENAPI_API_URL');
+      expect(issues).not.toContain(token);
+    }
+    expect(
+      configError({ ...owner, GREENAPI_ID_INSTANCE: id, GREENAPI_API_TOKEN: 'a/b' }).issues.join(),
+    ).toContain('GREENAPI_API_TOKEN');
+  });
+
+  it('antispam: el tope de avisos por WhatsApp por hora es 20 y no pasa de 60', () => {
+    expect(loadConfig({}).ownerWhatsAppMaxPerHour).toBe(20);
+    expect(loadConfig({ OWNER_WHATSAPP_MAX_PER_HOUR: '5' }).ownerWhatsAppMaxPerHour).toBe(5);
+    expect(configError({ OWNER_WHATSAPP_MAX_PER_HOUR: '61' }).issues.join()).toContain(
+      'OWNER_WHATSAPP_MAX_PER_HOUR',
+    );
+    expect(configError({ OWNER_WHATSAPP_MAX_PER_HOUR: '0' }).issues.join()).toContain(
+      'OWNER_WHATSAPP_MAX_PER_HOUR',
     );
   });
 

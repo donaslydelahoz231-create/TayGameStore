@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { FREE_FIRE_SERVERS, type FreeFireServer } from '../db/schema.js';
 import { nequiSettings, type NequiSettings } from './nequi.js';
 import { sheetsSettings } from './sheets.js';
+import { DEFAULT_GREEN_API_URL, greenApiOrigin } from '../integrations/notify/whatsapp-greenapi.js';
 
 /**
  * Configuración del servidor, validada al arrancar.
@@ -390,6 +391,28 @@ const envSchema = z
       .string()
       .regex(/^\+?\d{8,15}$/)
       .optional(),
+    /**
+     * Aviso al WhatsApp del dueño con Green-API, desde un número propio de la tienda (pedido del
+     * dueño, 2026-11-19; CallMeBot no acepta usuarios nuevos). Si está configurado, se usa en vez
+     * de CallMeBot. El id y el token los muestra la consola de Green-API; van solo en el hosting.
+     * GREENAPI_API_URL, solo si la consola muestra otra dirección (debe ser de Green-API).
+     */
+    GREENAPI_ID_INSTANCE: z
+      .string()
+      .regex(/^\d{4,20}$/, 'el idInstance de la consola de Green-API (solo números)')
+      .optional(),
+    GREENAPI_API_TOKEN: z
+      .string()
+      .regex(/^[A-Za-z0-9]{20,128}$/, 'el apiTokenInstance de la consola de Green-API')
+      .optional(),
+    GREENAPI_API_URL: z
+      .string()
+      .refine((value) => greenApiOrigin(value) !== undefined, {
+        message: 'la apiUrl de la consola de Green-API (https://…api.green-api.com)',
+      })
+      .optional(),
+    /** Antispam: avisos por WhatsApp al dueño por hora como máximo; los demás esperan su turno. */
+    OWNER_WHATSAPP_MAX_PER_HOUR: z.coerce.number().int().min(1).max(60).default(20),
 
     /**
      * Correo por SMTP (opcional): avisos al cliente (pago confirmado, entrega, reembolso) y al
@@ -527,6 +550,15 @@ const envSchema = z
     }
     if (env.CALLMEBOT_APIKEY && !env.OWNER_WHATSAPP && !env.SUPPORT_WHATSAPP) {
       issue('OWNER_WHATSAPP', 'obligatoria con CALLMEBOT_APIKEY (o SUPPORT_WHATSAPP)');
+    }
+    if (Boolean(env.GREENAPI_ID_INSTANCE) !== Boolean(env.GREENAPI_API_TOKEN)) {
+      issue(
+        env.GREENAPI_ID_INSTANCE ? 'GREENAPI_API_TOKEN' : 'GREENAPI_ID_INSTANCE',
+        'Green-API necesita GREENAPI_ID_INSTANCE y GREENAPI_API_TOKEN juntos',
+      );
+    }
+    if (env.GREENAPI_API_TOKEN && !env.OWNER_WHATSAPP && !env.SUPPORT_WHATSAPP) {
+      issue('OWNER_WHATSAPP', 'obligatoria con GREENAPI_API_TOKEN (o SUPPORT_WHATSAPP)');
     }
     // Con el envío desde la tienda, el número oficial de soporte es obligatorio (y es el WhatsApp
     // que recibe los avisos de CallMeBot si no se indica OWNER_WHATSAPP).
@@ -714,8 +746,13 @@ export interface AppConfig {
   sheetsProblem: string | undefined;
   /** Llave de /api/internal/jobs; sin ella la ruta no existe. */
   cronSecret: string | undefined;
-  /** Aviso al WhatsApp del dueño por CallMeBot. Sin él, el dueño ve los pedidos en el panel. */
-  ownerWhatsApp: { phone: string; apiKey: string } | undefined;
+  /**
+   * Aviso al WhatsApp del dueño: Green-API (número de la tienda) o CallMeBot. Sin él, el dueño ve
+   * los pedidos en el panel, la hoja y el correo.
+   */
+  ownerWhatsApp: OwnerWhatsAppConfig | undefined;
+  /** Antispam: tope de avisos por WhatsApp al dueño por hora (los demás esperan su turno). */
+  ownerWhatsAppMaxPerHour: number;
   /** Correo saliente por SMTP. Sin él no se envían correos (el panel sigue avisando). */
   smtp:
     | {
@@ -752,14 +789,44 @@ function passkeyConfig(
   return isIp || !matches ? undefined : { rpId, origin: url.origin };
 }
 
-/** CallMeBot avisa al número que lo activó: OWNER_WHATSAPP o, si falta, el de soporte. */
+export type OwnerWhatsAppConfig =
+  | {
+      provider: 'greenapi';
+      phone: string;
+      apiUrl: string;
+      idInstance: string;
+      apiToken: string;
+    }
+  | { provider: 'callmebot'; phone: string; apiKey: string };
+
+/**
+ * El aviso llega a OWNER_WHATSAPP o, si falta, al número de soporte. Green-API (número de la
+ * tienda) manda sobre CallMeBot si los dos están configurados.
+ */
 function ownerWhatsAppSettings(env: {
+  GREENAPI_ID_INSTANCE?: string | undefined;
+  GREENAPI_API_TOKEN?: string | undefined;
+  GREENAPI_API_URL?: string | undefined;
   CALLMEBOT_APIKEY?: string | undefined;
   OWNER_WHATSAPP?: string | undefined;
   SUPPORT_WHATSAPP?: string | undefined;
-}): { phone: string; apiKey: string } | undefined {
+}): OwnerWhatsAppConfig | undefined {
   const phone = (env.OWNER_WHATSAPP ?? env.SUPPORT_WHATSAPP)?.replace(/\D/g, '');
-  return env.CALLMEBOT_APIKEY && phone ? { phone, apiKey: env.CALLMEBOT_APIKEY } : undefined;
+  if (!phone) return undefined;
+  if (env.GREENAPI_ID_INSTANCE && env.GREENAPI_API_TOKEN) {
+    const apiUrl = greenApiOrigin(env.GREENAPI_API_URL ?? DEFAULT_GREEN_API_URL);
+    if (!apiUrl) return undefined;
+    return {
+      provider: 'greenapi',
+      phone,
+      apiUrl,
+      idInstance: env.GREENAPI_ID_INSTANCE,
+      apiToken: env.GREENAPI_API_TOKEN,
+    };
+  }
+  return env.CALLMEBOT_APIKEY
+    ? { provider: 'callmebot', phone, apiKey: env.CALLMEBOT_APIKEY }
+    : undefined;
 }
 
 function withoutEmptyValues(source: NodeJS.ProcessEnv): Record<string, string> {
@@ -923,6 +990,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
         ? { url: env.EVENTS_WEBHOOK_URL, secret: env.EVENTS_WEBHOOK_SECRET }
         : undefined,
     ownerWhatsApp: ownerWhatsAppSettings(env),
+    ownerWhatsAppMaxPerHour: env.OWNER_WHATSAPP_MAX_PER_HOUR,
     smtp:
       env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
         ? {

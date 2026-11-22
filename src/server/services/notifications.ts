@@ -94,6 +94,14 @@ const RATE_LIMIT_JITTER_MS = 120_000;
  * alcanza queda para la pasada siguiente, sin gastar un intento.
  */
 const SHEET_PASS_BUDGET_MS = 40_000;
+/**
+ * Antispam del WhatsApp del dueño (pedido del dueño, 2026-11-19): en una hora salen como máximo
+ * `ownerWhatsAppMaxPerHour` avisos. Los demás no se pierden ni gastan intentos: vuelven a la cola
+ * y salen cuando la hora deja espacio. Así, aunque alguien cree pedidos en masa, su WhatsApp no se
+ * llena de mensajes (los pedidos siguen completos en el panel, la hoja y el correo).
+ */
+const WHATSAPP_CAP_WAIT_MS = 5 * 60_000;
+const WHATSAPP_CAP_WINDOW_MS = 60 * 60_000;
 
 const SHEET_CHANNELS: NotificationChannel[] = [
   'sheets',
@@ -1408,6 +1416,32 @@ export async function deliverNotifications(
   return rearmed ? sent + (await deliverPass(deps, options)).sent : sent;
 }
 
+/**
+ * Avisos de WhatsApp reservados que no caben en el tope por hora (los más nuevos esperan). Si no
+ * se puede contar, ninguno sale en esta pasada: ante la duda, no se envía de más.
+ */
+async function whatsappOverCap(
+  deps: ServiceDeps,
+  claimed: readonly ClaimedRow[],
+  now: Date,
+): Promise<Set<string>> {
+  const rows = claimed.filter((r) => r.channel === 'whatsapp');
+  if (!rows.length) return new Set();
+  let sentLastHour: number;
+  try {
+    const since = new Date(now.getTime() - WHATSAPP_CAP_WINDOW_MS);
+    const result = await deps.db.execute<{ n: number }>(sql`
+      select count(*)::int as n from notifications
+       where channel = 'whatsapp' and status = 'SENT' and sent_at > ${since}`);
+    sentLastHour = Number(result.rows[0]?.n ?? 0);
+  } catch (error) {
+    deps.log.error({ err: error }, 'notifications: no se pudo contar el tope de WhatsApp');
+    return new Set(rows.map((r) => r.id));
+  }
+  const allowance = Math.max(0, deps.config.ownerWhatsAppMaxPerHour - sentLastHour);
+  return new Set(rows.slice(allowance).map((r) => r.id));
+}
+
 async function deliverPass(
   deps: ServiceDeps,
   options: { orderId?: string; limit?: number },
@@ -1444,8 +1478,15 @@ async function deliverPass(
   // Correo y webhook, en paralelo. La hoja, de a una fila y en orden (cuota de Google por minuto
   // y orden de los eventos en «Pedidos»); si Google pide esperar, el resto de filas de la hoja de
   // esta pasada se aplaza sin llamarlo.
-  const others = Promise.allSettled(claimed.filter((r) => !isSheetChannel(r.channel)).map(send));
-  const outcome = new Map<string, PromiseSettledResult<void> | 'rate_limited' | 'later'>();
+  // WhatsApp del dueño: solo los que caben en el tope por hora; el resto espera su turno.
+  const capped = await whatsappOverCap(deps, claimed, now);
+  const parallel = claimed.filter((r) => !isSheetChannel(r.channel) && !capped.has(r.id));
+  const others = Promise.allSettled(parallel.map(send));
+  const outcome = new Map<
+    string,
+    PromiseSettledResult<void> | 'rate_limited' | 'later' | 'capped'
+  >();
+  for (const id of capped) outcome.set(id, 'capped');
   let throttled = false;
   const sheetsStarted = Date.now();
   for (const row of claimed.filter((r) => isSheetChannel(r.channel))) {
@@ -1461,7 +1502,6 @@ async function deliverPass(
     throttled = result?.status === 'rejected' && isRateLimited(result.reason);
     outcome.set(row.id, throttled || !result ? 'rate_limited' : result);
   }
-  const parallel = claimed.filter((r) => !isSheetChannel(r.channel));
   for (const [index, result] of (await others).entries()) {
     const row = parallel[index];
     if (row) outcome.set(row.id, result);
@@ -1470,6 +1510,16 @@ async function deliverPass(
     deps.log.warn(
       { alert: 'sheets_rate_limited' },
       'Google Sheets pidió esperar (cuota por minuto): filas aplazadas',
+    );
+  }
+  if (capped.size) {
+    deps.log.warn(
+      {
+        alert: 'whatsapp_capped',
+        aplazados: capped.size,
+        topePorHora: deps.config.ownerWhatsAppMaxPerHour,
+      },
+      'WhatsApp del dueño: tope antispam por hora alcanzado, avisos aplazados',
     );
   }
   let sent = 0;
@@ -1495,20 +1545,27 @@ async function deliverPass(
     const result = outcome.get(row.id);
     if (!result) continue;
     try {
-      if (result === 'rate_limited' || result === 'later') {
-        // No cuenta como intento: la cuota de Google se renueva cada minuto, y una fila que no
-        // alcanzó a salir en esta pasada sale en la siguiente.
+      if (result === 'rate_limited' || result === 'later' || result === 'capped') {
+        // No cuenta como intento: la cuota de Google se renueva cada minuto, una fila que no
+        // alcanzó a salir en esta pasada sale en la siguiente y un WhatsApp sobre el tope por
+        // hora sale cuando la hora deja espacio.
         const wait =
           result === 'later'
             ? 0
-            : RATE_LIMIT_WAIT_MS + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+            : result === 'capped'
+              ? WHATSAPP_CAP_WAIT_MS
+              : RATE_LIMIT_WAIT_MS + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS);
+        const lastError =
+          result === 'rate_limited'
+            ? 'Google Sheets pidió esperar (cuota por minuto)'
+            : result === 'capped'
+              ? 'Tope antispam de WhatsApp por hora: espera su turno'
+              : undefined;
         const saved = await deps.db
           .update(notifications)
           .set({
             attempts: row.attempts - 1,
-            ...(result === 'rate_limited'
-              ? { lastError: 'Google Sheets pidió esperar (cuota por minuto)' }
-              : {}),
+            ...(lastError ? { lastError } : {}),
             nextAttemptAt: new Date(deps.now().getTime() + wait),
           })
           .where(stillClaimed(row))

@@ -120,6 +120,55 @@ activos: un PSE o un Efecty ya iniciado, un reembolso o un contracargo de un ped
 procesan igual. No se usa `PAYMENTS_ENABLED=false` porque apagaría también esos avisos. Para
 volver a ofrecer Mercado Pago basta con quitar la variable o ponerla en `true`.
 
+### Aviso al WhatsApp del dueño con Green-API (número de la tienda)
+
+CallMeBot no acepta usuarios nuevos («The bot is currently full», revisado el 2026-11-19). Por eso
+el aviso «Pedido pagado» puede salir desde **un número propio de la tienda** (otra SIM con
+WhatsApp) hacia el WhatsApp personal del dueño, con Green-API
+(https://green-api.com/en/docs/api/sending/SendMessage/, revisada el 2026-11-19). Si
+`GREENAPI_ID_INSTANCE` y `GREENAPI_API_TOKEN` están configurados, se usa Green-API en vez de
+CallMeBot. El mensaje, los datos mínimos y la cola con reintentos son los mismos de abajo.
+
+Protección (pedido del dueño, 2026-11-19: «contra spam, malware o revelación de datos»):
+
+- **Antispam**: como máximo `OWNER_WHATSAPP_MAX_PER_HOUR` avisos por hora (20 por defecto, hasta
+  60). Los demás no se pierden ni gastan intentos: esperan su turno en la cola y el registro
+  muestra la alerta `whatsapp_capped`. Además, solo hay un aviso por pedido, y crear e informar
+  pedidos ya tiene sus propios límites (por IP y 3 pedidos abiertos por correo).
+- **El token solo va a Green-API**: la dirección se valida contra sus dominios oficiales
+  (`api.green-api.com`, `api.greenapi.com` y sus servidores numerados), solo por HTTPS; una
+  redirección cuenta como fallo. Los errores guardados nunca llevan la URL ni el token.
+- **Destinatario fijo**: siempre `OWNER_WHATSAPP` (o `SUPPORT_WHATSAPP`); nada de lo que envía el
+  cliente decide a quién se escribe.
+- **Sin malware**: solo texto, sin archivos, sin enlaces y sin vista previa de enlaces. Lo que el
+  cliente escribe y llega al mensaje está limitado a números, letras y guiones (ID, 4 últimos
+  dígitos, comprobante). La tienda **no recibe** mensajes de Green-API (no hay webhook): lo que
+  alguien escriba al número de la tienda nunca entra al servidor.
+- **Datos mínimos**: nunca el nombre, el correo ni el teléfono del cliente.
+- **Número aparte**: si WhatsApp limitara el número de la tienda por usar una API no oficial, tu
+  WhatsApp personal no se ve afectado. El aviso por correo, el panel y la hoja siguen igual.
+
+Activación (la hace el dueño; el token nunca pasa por un chat):
+
+1. Consigue una SIM para la tienda e instala WhatsApp (o WhatsApp Business) con ese número.
+2. Crea una cuenta en https://console.green-api.com y una instancia (plan Developer, gratuito).
+3. En la instancia, «Escanear código QR»: desde el WhatsApp de la tienda, Ajustes →
+   Dispositivos vinculados → Vincular un dispositivo.
+4. En la configuración de la instancia, deja **vacía** la URL de webhook (la tienda no la usa).
+5. En Render → servicio → Environment, crea `GREENAPI_ID_INSTANCE` (idInstance) y
+   `GREENAPI_API_TOKEN` (apiTokenInstance); `GREENAPI_API_URL` solo si la consola muestra una
+   apiUrl distinta de `https://api.green-api.com`, y `OWNER_WHATSAPP` con tu número personal si no
+   es el de `SUPPORT_WHATSAPP`. Guardar reinicia el servicio.
+6. En el registro de arranque, «avisos y automatización» debe decir `whatsappDueno: "greenapi"`.
+
+En el WhatsApp de la tienda: no abras enlaces ni archivos de desconocidos y activa «Silenciar
+llamadas de desconocidos». Ese número solo envía avisos.
+
+- **NO VERIFICADO**: el envío real (se prueba con tu instancia en producción; las pruebas usan un
+  WhatsApp simulado), los límites y condiciones del plan Developer (la página de precios indicaba
+  1 instancia y 3 chats al mes gratis; Business, 12 US$/mes) y la postura de WhatsApp frente a
+  números conectados por API no oficial.
+
 ### Aviso al WhatsApp del dueño (CallMeBot)
 
 Con `CALLMEBOT_APIKEY` (y `OWNER_WHATSAPP`, o por defecto `SUPPORT_WHATSAPP`), al dueño le llega
