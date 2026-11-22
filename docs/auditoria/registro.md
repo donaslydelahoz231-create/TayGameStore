@@ -3870,3 +3870,35 @@ no de las pruebas. Ninguna aserción se quitó ni se relajó.
   por el chat. A las 01:30 UTC aún no se había activado (sin reinicio ni despliegue nuevo).
 - **NO VERIFICADO**: el envío real a WhatsApp (sin clave todavía); los 3 avisos anteriores no se
   reenvían solos (el aviso se crea al confirmar el cliente).
+
+## 2026-11-22 · Aviso al WhatsApp del dueño con Green-API, antispam y sin fugas: publicado
+
+- **Pedido del dueño** (2026-11-19): «que esté disponible y además que me llegue y sea contra spam
+  y malware o virus o revelación de datos sensibles del propietario y de los usuarios». CallMeBot
+  no acepta usuarios nuevos («The bot is currently full»). Demo en el artefacto de siempre antes de
+  publicar.
+- **Cambio**: `whatsapp-greenapi.ts` (envío por Green-API desde un número propio de la tienda),
+  variables `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN`, `GREENAPI_API_URL` (solo dominios
+  oficiales de Green-API) y `OWNER_WHATSAPP_MAX_PER_HOUR` (antispam, 20 por defecto); tope por
+  hora en la cola de avisos (los que pasan esperan su turno, sin gastar intentos); arranque con
+  `whatsappDueno` = nombre del servicio; política de privacidad con Green-API y WhatsApp como
+  encargados del aviso interno; guía en `docs/pagos-nequi.md`.
+- **Antes de publicar**: ESLint, TypeScript y Prettier sin errores; unitarias y API 438/438;
+  integración 334/334 (incluye el tope por hora con base de datos real); e2e Chromium 181/181;
+  escáner 0.
+- **Publicación** («autorizo publicar el aviso por Green-API»): `dc4bd91..a4f789b` sin forzar,
+  firmado TayGameStore. Render `dep-dc18cp3tqb8s73a8kum0` `live` a las
+  06:07 UTC; 0 avisos y 0 errores en los registros desde el despliegue. Arranque: `whatsappDueno:
+  false` (Green-API aún sin configurar) y `whatsappTopePorHora: 20`. CI, CodeQL, chequeo de
+  producción y Pages en verde. `/`, `/api/health` y `/api/ready` (base de datos ok) responden 200;
+  `/privacidad.html` ya nombra a Green-API.
+- **Observación**: el arranque también dice `correo: false` (SMTP sin configurar): hoy los pedidos
+  llegan al dueño por la hoja de Google y el panel, no por correo. Se le informó.
+- **Prueba pedida por el dueño** (pedido de 127.000 con datos ficticios para ver el aviso en su
+  WhatsApp): pendiente de que el dueño configure Green-API (SIM de la tienda, instancia vinculada
+  por QR y variables en Render). Sin esas variables la tienda no crea avisos por WhatsApp, así que
+  un pedido de prueba ahora no llegaría. Combinación exacta con los precios del 2026-11-22
+  (promoción de fin de semana): 2 × ff-572 + 3 × ff-1166.
+- **NO VERIFICADO**: el envío real (sin instancia de Green-API todavía); los límites del plan
+  Developer; la postura de WhatsApp frente a números conectados por API no oficial (por eso va en
+  una SIM aparte).
